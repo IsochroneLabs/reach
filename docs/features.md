@@ -1,68 +1,128 @@
 # Product Features & Functional Requirements
 
-This document outlines the user-facing capabilities, analytical models, and feature roadmap for the 15-Minute City Platform.
+This document lists the user-facing capabilities, analytical models and delivery phases of the 15-Minute City Platform. Scoring rules are defined once, in `architecture_proposal.md`, Section 5, and are not repeated here with different numbers. Decisions still open are in Section 3 of that file.
+
+**Priority labels:** **Core** = required for the graded deliverable. **Stretch** = built only if Core is finished and validated.
+
+**Primary user:** municipal and district planners (and the course graders acting as such). Citizens and residents are a secondary audience served by the same map.
 
 ---
 
-## 1. Interactive Isochrone Explorer (Micro View)
+## 1. Neighborhood Accessibility Map (Core)
 
-*Target User: Citizens, home seekers, local residents*
+*Users: planners, residents, researchers*
 
-* **Address Search & Free Pin-Drop:** Search any location in Germany or click directly on the map.
-* **True Pedestrian Isochrones:** Compute dynamic 5-, 10-, and 15-minute walking catchment boundaries along actual footpaths, stairs, crossings, and terrain (powered by Valhalla).
-* **Amenity Inventory:** List and filter POIs inside the reachable polygon across key 15-minute categories:
-  * **Daily Essentials:** Supermarkets, bakeries, convenience stores, pharmacies.
-  * **Healthcare:** General practitioners, clinics, pharmacies, hospitals.
-  * **Education & Family:** Daycares/kindergartens, primary/secondary schools, libraries.
-  * **Leisure & Well-being:** Parks, playgrounds, sports facilities, community centers.
-* **Localized Scorecard:** Display an instant 0–100 score showing which categories are covered and which require travel beyond 15 minutes.
+* **Region selector and map:** Pick the study region and view accessibility on the 100 m Zensus grid or aggregated to neighborhoods. Detail at cell level is shown with a note that small cells may be perturbed by disclosure control.
+* **Per-category layers (disaggregated):** One layer per facility category, never grouped into broad classes:
+  * *Food:* supermarkets, discounters, bakeries, greengrocers
+  * *Health:* general practitioners, pharmacies, dental clinics
+  * *Childcare and education:* kindergartens/daycare, primary schools, secondary schools
+  * *Leisure:* parks, playgrounds, public squares
+* **Class view:** Lack / Insufficient / Sufficient per category, exactly as defined by the scoring spec. A separate "lack only" view shows areas with zero access.
+* **Population statistics panel:** Number and share of residents in each class per category and per district (for example "12% of residents have no grocery store within a 15-minute walk").
+* **Walking speed preset:** Inclusive (3.39 km/h, 850 m in 15 min, following Mouratidis 2026) as default; 5.0 km/h as comparison.
+* **Data transparency:** Every view shows data sources, snapshot dates and known data-quality warnings from the pipeline's validation report.
 
----
-
-## 2. Citywide Accessibility & Heatmaps (Macro View)
-
-*Target User: Urban researchers, municipal planners, real estate analysts*
-
-* **Uber H3 Hexagonal Grid:** Tessellate target cities into discrete hexagonal cells (Resolution 8/9, ~100m–400m across) to aggregate spatial metrics without arbitrary administrative boundaries.
-* **Category Layer Toggles:** Switch between composite 15-minute scores and individual sub-domain heatmaps (e.g., only "Primary Care Access" or "Fresh Food Access").
-* **Time-Threshold Slider:** Adjust the walk-time tolerance (5, 10, or 15 minutes) to watch citywide reachability expand or contract.
+**Acceptance:** classes and statistics in the UI match the scoring spec for a hand-checked sample of cells.
 
 ---
 
-## 3. Census-Weighted "Amenity Desert" Analysis (The Deficit Metric)
+## 2. Public Transport Supply Layer (Core)
 
-*Target User: Policy makers, equity analysts, city administrators*
+* **Departure-based supply:** Total scheduled weekday departures at stops reachable within a 10-minute walk (565 m at the inclusive speed on flat ground), not just stop presence.
+* **Classes:** Lack (0), insufficient (1-150), medium (151-1,000) and high (above 1,000), as in the paper's Copenhagen example. The upper thresholds are provisional until calibrated to the study region (decision D4).
+* **Dual view:** Side-by-side or swipe comparison of walking accessibility to amenities and transit supply, plus a view of where both are lacking.
+* **Feed information:** Shows which GTFS feed and validity period the numbers come from.
 
-* **Destatis Zensus 100m Grid Integration:** Layer German census population counts (`Einwohnerzahl`) and demographic attributes directly onto the spatial grid.
-* **Unsatisfied Demand Index (Deficit Scoring):**
-  $$\text{Deficit}_{i, c} = P_i \cdot (1 - A_{i, c})$$
-  *(Where $P_i$ is cell population and $A_{i, c}$ is 15-minute accessibility to category $c$).*
-  * Accurately distinguishes uninhabited areas (e.g., parks, industrial parks) from densely populated residential neighborhoods lacking critical infrastructure.
-* **Vulnerability & Demographic Weighting:**
-  * Weight kindergarten/school deficits by child density ($<6$ and $<18$ years).
-  * Weight pharmacy/doctor deficits by senior population ($>65$ years).
+**Acceptance:** departure totals for a few sample stops match a manual count from the GTFS timetable.
 
 ---
 
-## 4. Optimal Amenity Placement & Recommendation Engine (The Core USP)
+## 3. Deficit & Equity Analysis (Core)
 
-*Target User: Urban planners, municipal councils, commercial developers*
+*Users: planners, civil society organizations, district councils*
 
-* **Algorithmic Opportunity Discovery:**
-  * Uses a greedy covering algorithm (Maximal Covering Location Problem / p-Median) to identify candidate locations where introducing a new facility maximizes the citywide population-weighted score.
-* **Amenity Type Suggestion:**
-  * Identifies which specific amenity category yields the highest marginal improvement for an underserved district.
-* **"What-If" Simulation Sandbox:**
-  * Allow users to manually drop a hypothetical amenity pin (e.g., a planned medical clinic) onto the map and immediately preview the before/after accessibility score delta.
-* **Impact Cards:**
-  * Generate human-readable scenario summaries (e.g., *"Placing a bakery/grocery in Hexagon #891f... serves 3,200 previously unserved residents within a 15-minute walk, improving district baseline coverage by +4.2%"*).
+* **Deficit index:** Unsatisfied demand per cell and category, using the single formula in the scoring spec:
+
+  $$U_{i,c} = P_i \cdot \max\left(0,\; 1 - \frac{A_{i,c}}{k_c}\right)$$
+
+  Unpopulated areas drop out automatically because $P_i = 0$.
+* **District ranking:** Districts ranked by total deficit and by share of residents without access, so planners can compare absolute need and relative need.
+* **Density strata:** Results are interpreted by settlement type (urban core, suburban, rural) so that sparse areas are not judged against urban expectations.
+* **Spatial pattern diagnostics (Stretch):** Hot-spot analysis, Local Moran's I clusters and comparison with population density, as in the paper.
+* **Demographic filters (Stretch, depends on data):** Child-weighted deficit for kindergartens and playgrounds, and senior-weighted deficit for pharmacies and general practitioners, only if the Zensus grid provides age data at a usable resolution.
 
 ---
 
-## 5. Feature Implementation Phasing
+## 4. Facility Placement Recommender (Core)
 
-| Phase       | Milestone                 | Included Scope                                                                                                                 |
-| ----------- | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| **Phase 1** | **MVP**                   | Interactive address search + pin-drop pedestrian isochrones + POI extraction within polygon + basic single-city H3 score grid. |
-| **Phase 2** | **Deficit Layer**         | Destatis 100m Zensus import + population-weighted scoring + citywide "amenity desert" heatmap.                                 |
-| **Phase 3** | **Recommendation Engine** | Algorithmic amenity placement solver + "What-If" interactive simulation tool + exportable summary reports.                     |
+*Users: urban planning departments, municipal councils*
+
+* **Recommendation per category:** For a selected district or the whole region and a chosen category, the tool proposes where adding one or more facilities gives the largest population-weighted gain in accessibility.
+* **Category diagnosis:** Shows which missing category causes the largest population-weighted deficit in the selected area.
+* **Output as ranked zones:** Each recommendation is a zone with the number of residents gaining sufficient access, the change in class counts, and an uncertainty note. It is not presented as a single exact coordinate.
+* **Efficiency and equity modes:** One mode maximizes total residents served; another prioritizes the worst-served areas. The UI shows how the two differ.
+* **Decision-support card:** A plain-language summary, always with its caveats, for example:
+
+  > *"Adding a pharmacy in zone Z would give about N residents who currently have no pharmacy within a 15-minute walk access to one. Based on OSM data from <date>; capacity, zoning and parcel availability are not considered."*
+
+* **Stated limits:** Every recommendation view states that it covers accessibility only, and does not account for zoning, land availability, viable catchment size, existing capacity or statutory planning rules (for physicians, *Bedarfsplanung*).
+* **What-if sandbox (Stretch):** Drop a hypothetical facility on the map and see the change in accessibility, with terrain-aware catchments where supported.
+
+**Acceptance:** the validation experiments in `architecture_proposal.md`, Section 8 (back-test, exact solver comparison, sensitivity analysis) are run and reported in the app or in the documentation.
+
+---
+
+## 5. Interactive Explorer (Core for routing display; terrain mode depends on gate G1)
+
+* **Address search or pin-drop:** Search an address (via the self-hosted or district-based option from decision D14) or drop a pin.
+* **Walking catchments:** Shows the 5-, 10- and 15-minute pedestrian catchments along sidewalks, paths, steps and crossings.
+* **Reachable amenities:** Lists reachable facilities per category with the sufficiency scorecard (lack / insufficient / sufficient) rather than raw counts alone.
+* **Terrain handling:** A switch between a planar network and a terrain-aware mode, **only if** gate G1 confirms that the chosen engine changes walking time with slope. The labels in the UI follow the tested behavior of the engine's parameters, not assumptions.
+* **Consistency requirement:** Catchments shown in the explorer and counts used in the batch baseline must agree within a documented tolerance.
+
+---
+
+## 6. Automation & Operations (Core, graded)
+
+* **One-command pipeline:** Download, validate, count, score, recommend, build tiles, load database.
+* **Scheduled refresh:** Detects new OSM snapshots and GTFS feeds and recomputes affected results without manual steps.
+* **Validation report:** Automatically generated, readable by non-programmers, and linked from the app.
+* **Error handling:** Clear failure messages, retries for downloads, previous results kept until a new run passes validation.
+* **Hosting:** Public instance on bwCloud and read access for supervisors to the database through a dedicated user.
+
+---
+
+## 7. Deliverables Mapped to the Course
+
+| Course requirement | Where it is met |
+| --- | --- |
+| Data acquisition | OSM, GTFS and Zensus downloads, scripted |
+| Data preparation and validation | Pipeline validation checks and report |
+| Data analysis | Scoring, deficit analysis, recommender |
+| Validation of results | Experiments in `architecture_proposal.md`, Section 8 |
+| Presentation (interactive) | Web app |
+| Automation | One-command pipeline and scheduled refresh |
+| Version control | GitHub repository from day one |
+| Documentation | README, architecture, scoring spec, data dictionary |
+| 3-minute video | Non-technical walkthrough of the map, a deficit district and one recommendation |
+| 3-sentence summary | Written once the Core scope is frozen |
+
+---
+
+## 8. Roadmap
+
+Dates follow the course schedule. Reassess at each milestone and cut stretch items first.
+
+| Period | Milestone | Deliverables |
+| --- | --- | --- |
+| Now to 14 Nov | **Decisions and gate G1** | Decisions D1-D17 recorded; terrain/routing test result; scoring spec frozen; repository, CI and region config set up |
+| 14 to 25 Nov | **Interim presentation (25 Nov)** | Automated ingestion for one region, validation report v1, baseline accessibility map for 2-3 categories, plan for the rest |
+| 25 Nov to 20 Dec | **Core measurement** | All Core categories, transit supply layer, batch baseline with the chosen counting method, deficit index, statistics panel |
+| 20 Dec to 10 Jan | **Recommender and app** | Greedy recommender, decision-support cards, validation experiments, web app features, scheduled refresh |
+| 10 to 15 Jan | **Feature freeze** | Stretch items only if everything above passes validation |
+| 15 to 22 Jan | **Submission (22 Jan, 23:59)** | Deployment on bwCloud, README and documentation, 3-minute video, validation report, summary |
+| 22 to 28 Jan | **Final preparation** | Slides due 28 Jan, 20:00; rehearsal with Q&A |
+| 29 Jan | **Final presentation** | Live demo, architecture, validation results |
+
+**Cut order if time runs short:** what-if sandbox, age-weighted demand, hot-spot/MGWR analysis, terrain-aware mode, second region, nationwide run.
