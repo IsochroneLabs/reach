@@ -12,7 +12,8 @@ This document lists the user-facing capabilities, analytical models and delivery
 
 *Users: planners, residents, researchers*
 
-* **Region selector and map:** Pick the study region and view accessibility on the 100 m Zensus grid or aggregated to neighborhoods. Detail at cell level is shown with a note that small cells may be perturbed by disclosure control.
+* **Region selector and map:** Pick the study region and view accessibility on the 100 m Zensus grid or aggregated to official city districts (reporting unit, decision D21). Detail at cell level is shown with a note that small cells may be perturbed by disclosure control.
+* **Travel mode:** Walking only in Core (decision D18). The mode is a configuration parameter; cycling is a stretch goal and is not shown in the UI until it is validated.
 * **Per-category layers (disaggregated):** One layer per facility category, never grouped into broad classes:
   * *Food:* supermarkets, discounters, bakeries, greengrocers
   * *Health:* general practitioners, pharmacies, dental clinics
@@ -49,7 +50,7 @@ This document lists the user-facing capabilities, analytical models and delivery
   Unpopulated areas drop out automatically because $P_i = 0$.
 * **District ranking:** Districts ranked by total deficit and by share of residents without access, so planners can compare absolute need and relative need.
 * **Density strata:** Results are interpreted by settlement type (urban core, suburban, rural) so that sparse areas are not judged against urban expectations.
-* **Spatial pattern diagnostics (Stretch):** Hot-spot analysis, Local Moran's I clusters and comparison with population density, as in the paper.
+* **Spatial pattern diagnostics (Core if decision D19 option b or c is chosen, otherwise Stretch):** Global and Local Moran's I, hot-spot analysis and comparison with population density, as in the paper. Spatially varying regression (MGWR) of accessibility on density and distance to center is Stretch.
 * **Demographic filters (Stretch, depends on data):** Child-weighted deficit for kindergartens and playgrounds, and senior-weighted deficit for pharmacies and general practitioners, only if the Zensus grid provides age data at a usable resolution.
 
 ---
@@ -90,6 +91,9 @@ This document lists the user-facing capabilities, analytical models and delivery
 * **Validation report:** Automatically generated, readable by non-programmers, and linked from the app.
 * **Error handling:** Clear failure messages, retries for downloads, previous results kept until a new run passes validation.
 * **Hosting:** Public instance on bwCloud and read access for supervisors to the database through a dedicated user.
+* **Usable by someone who did not write the code:** README-only setup and run, tested by a non-author in a clean environment for the study region and for a newer data snapshot or second region config (decision D20).
+
+**Acceptance:** the D20 reproducibility test passes without editing code, and every README gap found is fixed.
 
 ---
 
@@ -99,11 +103,12 @@ This document lists the user-facing capabilities, analytical models and delivery
 | --- | --- |
 | Data acquisition | OSM, GTFS and Zensus downloads, scripted |
 | Data preparation and validation | Pipeline validation checks and report |
-| Data analysis | Scoring, deficit analysis, recommender |
+| Data analysis | Scoring, deficit analysis, recommender, plus spatial statistics according to decision D19 |
 | Validation of results | Experiments in `architecture_proposal.md`, Section 8 |
 | Presentation (interactive) | Web app |
-| Automation | One-command pipeline and scheduled refresh |
-| Version control | GitHub repository from day one |
+| Automation, usable without touching the code | One-command pipeline, scheduled refresh, D20 reproducibility test |
+| Version control | GitHub repository from day one (decision D16) |
+| Individual evaluation, presentations, motivation and literature, supervisor questions | See `project_management_decisions.md` |
 | Documentation | README, architecture, scoring spec, data dictionary |
 | 3-minute video | Non-technical walkthrough of the map, a deficit district and one recommendation |
 | 3-sentence summary | Written once the Core scope is frozen |
@@ -116,7 +121,7 @@ Dates follow the course schedule. Reassess at each milestone and cut stretch ite
 
 | Period | Milestone | Deliverables |
 | --- | --- | --- |
-| Now to 14 Nov | **Decisions and gate G1** | Decisions D1-D17 recorded; terrain/routing test result; scoring spec frozen; repository, CI and region config set up |
+| Now to 14 Nov | **Decisions and gate G1** | Decisions D1-D21 and T1-T10 (`project_management_decisions.md`) recorded; terrain/routing test result; scoring spec frozen; repository, CI and region config set up |
 | 14 to 25 Nov | **Interim presentation (25 Nov)** | Automated ingestion for one region, validation report v1, baseline accessibility map for 2-3 categories, plan for the rest |
 | 25 Nov to 20 Dec | **Core measurement** | All Core categories, transit supply layer, batch baseline with the chosen counting method, deficit index, statistics panel |
 | 20 Dec to 10 Jan | **Recommender and app** | Greedy recommender, decision-support cards, validation experiments, web app features, scheduled refresh |
@@ -125,4 +130,4 @@ Dates follow the course schedule. Reassess at each milestone and cut stretch ite
 | 22 to 28 Jan | **Final preparation** | Slides due 28 Jan, 20:00; rehearsal with Q&A |
 | 29 Jan | **Final presentation** | Live demo, architecture, validation results |
 
-**Cut order if time runs short:** what-if sandbox, age-weighted demand, hot-spot/MGWR analysis, terrain-aware mode, second region, nationwide run.
+**Cut order if time runs short:** what-if sandbox, age-weighted demand, MGWR, cycling, terrain-aware mode, second region, nationwide run. Moran's I and hot spots stay if D19 made them Core.

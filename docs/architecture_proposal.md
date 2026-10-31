@@ -2,6 +2,7 @@
 
 > Course context: DS500 Data Science Project (Tübingen, WT 2026/27), Topic 9 "The 15-Minute City". Team of 2-4, interim presentation 25 Nov 2026, project submission 22 Jan 2027, final presentation 29 Jan 2027. The product must run automatically on new data, be validated, be documented, and be hosted (bwCloud).
 > Status: working draft. Items marked **[DECIDE]** must be settled in Section 3 before coding starts. Items marked **[VERIFY]** are assumptions that need a quick test.
+> Scope of this file: technical and architectural decisions only. Team organization, individual contributions, presentation planning and questions for the supervisors are in `project_management_decisions.md`.
 
 ---
 
@@ -24,7 +25,7 @@ What we take from the paper, and what we add:
 | Disaggregated lower-order facilities | Same, with an explicit facility catalog (Section 4.3) |
 | Inclusive walking speed 3.39 km/h (850 m in 15 min) | Selectable speed presets and optional terrain-aware mode |
 | Lack vs. insufficient accessibility classes | One formal scoring spec (Section 5) |
-| Cluster/hot-spot analysis and MGWR (stretch in our case) | Prescriptive recommender plus its validation |
+| Cluster/hot-spot analysis and MGWR (Core or stretch depending on D19) | Prescriptive recommender plus its validation |
 
 ---
 
@@ -58,8 +59,12 @@ These decisions shape the schema, the pipeline and the validation. Each needs an
 | D13 | **Hosting and sizing** | bwCloud VM flavors and quota | Check available flavors, disk and RAM now. Everything that runs at request time must fit that VM. | Week 1 |
 | D14 | **Geocoding and basemap** | Public Nominatim (not allowed for heavy use); self-hosted Nominatim/Photon for the region; hosted free-tier service | Self-hosted Photon or Nominatim for the study region, or restrict search to a neighborhood/district picker if geocoding proves too heavy. Basemap from an open vector tile source with correct attribution. | Week 2 |
 | D15 | **Validation plan** | Informal checks only; defined experiments | Defined experiments (Section 8), because validation is a graded criterion. | Week 2 |
-| D16 | **Team roles and workflow** | Ad hoc; named owners | Named owners for data pipeline, routing/scoring, optimization, frontend/deployment, documentation. GitHub repo from the start with branch protection, issues and a project board. | Week 1 |
+| D16 | **Repository and code workflow** | Ad hoc; defined workflow | GitHub repo from the start with branch protection, pull-request reviews, issues and a project board, so the history is readable by an external party. Team roles and contribution tracking are team decisions, see `project_management_decisions.md` (T1, T2). | Week 1 |
 | D17 | **Definition of done and cut list** | Everything; core only | Core = Sections 4-8 for one region. Everything in Section 10 is stretch and is cut first. | Week 1 |
+| D18 | **Travel modes** | Walking only; walking plus cycling; walking plus cycling as stretch | Walking only for Core: the paper argues it is the more inclusive basis, and every threshold, speed and validation experiment is built around it. The brief's topic text says "walk or bicycle ride", so state the choice and its reason explicitly in the README and the presentations, and keep the mode a config parameter so cycling can be added later (see Section 10). Confirm with the supervisors (`project_management_decisions.md`, T7). | Week 1 |
+| D19 | **Analytical method beyond counting** (the brief asks for "adequate methods, traditional statistics or machine learning") | (a) Optimization plus sensitivity analysis only; (b) add spatial statistics (Global/Local Moran's I, hot spots) as Core; (c) add spatially varying regression (GWR/MGWR) of accessibility on density and distance to center as Core | At least (b) as Core: it is cheap once the grid results exist (PySAL), it reproduces part of the paper's step 5, and it gives the recommender candidate clusters a statistical basis. Treat (c) as stretch. If the team chooses (a), the report must argue why optimization with the validation experiments counts as the analysis method. | Week 2 |
+| D20 | **Reproducibility acceptance test** (a person who did not write the code runs the analysis) | No explicit test; documented test | Defined test: a team member who did not write the pipeline starts from a clean machine or VM, follows only the README, and runs the pipeline for the study region and then for a newer data snapshot or a second region config, without editing code. Repeat before submission. | Week 1 (define), Jan (run) |
+| D21 | **Reporting unit for "neighborhoods"** | Raw 100 m grid only; official city districts (Stadtbezirke/Stadtteile); statistical blocks; custom clusters | Compute everything on the grid, report on official districts from the city's open data, because planners know them and the brief talks about neighborhoods. Check that boundaries are available as open data. | Week 2 |
 
 ### Gate G1: terrain and routing test (week 1, blocking D2/D3)
 
@@ -226,6 +231,8 @@ The brief gives automation "very high weight": someone who did not write the cod
 
 **Error handling:** retries with backoff for downloads, checksum verification, schema checks that stop the run with a readable message, and a validation report written to disk and shown in the app (data date, source, warnings).
 
+**Reproducibility test (D20):** a team member who did not write the pipeline runs it from a clean environment using only the README, once for the study region and once for a newer snapshot or second region config, without editing code. Problems found are fixed in the README or the pipeline, not explained verbally.
+
 ---
 
 ## 8. Validation of Results
@@ -239,6 +246,8 @@ Validation is a graded criterion, so these experiments are part of the deliverab
 5. **Sensitivity analysis:** vary $k_c$, walking speed and time budget; report how rankings and recommended locations change.
 6. **Terrain effect:** report how many residents change class when terrain handling is on versus off (if G1 confirms terrain affects time).
 7. **Plausibility check with local knowledge:** compare the highest-deficit areas against known neighborhoods; document agreements and disagreements.
+8. **Spatial statistics (if D19 option b or c is chosen):** report Global Moran's I per category, Local Moran's I clusters or hot spots, and (for option c) the model fit and coefficient maps; check that recommender candidates fall in statistically significant deficit clusters.
+9. **Reproducibility (D20):** result of the clean-environment run by a non-author, including every step where the README was insufficient.
 
 ---
 
@@ -269,10 +278,10 @@ This is the population-weighted gain in saturating coverage. It is monotone and 
 
 - Second region or Baden-Württemberg-wide run on the cluster.
 - Age-weighted demand (kindergarten by children, pharmacies/GPs by seniors), if the grid supports it.
-- Hot-spot analysis, Moran's I and MGWR comparing deficits with density and distance to center (as in the paper).
+- MGWR comparing deficits with density and distance to center (as in the paper). Hot-spot analysis and Moran's I are Core if D19 option b is chosen, otherwise also stretch.
 - "What-if" sandbox with live scenario recomputation.
 - Mode-weighted transit supply.
-- Cycling as a second mode.
+- Cycling as a second mode (D18); needs its own speed, distance thresholds and graph profile.
 
 ---
 
