@@ -202,8 +202,9 @@ For every populated cell *i*, category *c* and profile *m*:
    line, so only facilities within the prefilter reach of the profile are candidates:
    `reach = speed × max_speed_factor × budget + prefilter_margin_m` (both values per profile in
    `config/config.yaml`). Walking and wheelchair use factor 1.0 and margin 0 (table in 6.1),
-   which is exact as long as elevation is ignored for them; the margin is only raised if
-   measurements show Valhalla computing faster than the nominal speed (e.g. through snapping).
+   which is exact up to the snap distance (Valhalla does not count the way from a point to its
+   snapped edge as travel time); the margin stays 0 until the count stage shows facilities
+   reachable beyond the nominal reach, then a value is proposed and set after confirmation.
    Cycling uses a factor derived from measured maximum speeds in Valhalla's bicycle costing,
    because it can exceed 15 km/h downhill. With these values no reachable facility is dropped
    (decision O20).

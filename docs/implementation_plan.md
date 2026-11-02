@@ -1,7 +1,7 @@
 # Implementation plan — reach
 
-> **Status:** P0 v2 (2 Nov 2026): Q1–Q5 answered and applied (architecture v0.11, methodology
-> v0.2); C6–C12 waiting for confirmation. This file is the **handoff between
+> **Status:** P0 done (2 Nov 2026): Q1–Q5, C6–C12 and review points confirmed and applied
+> (architecture v0.11, methodology v0.2). Next: P1. This file is the **handoff between
 > agent sessions**: phase status, decisions, agreed deviations, measured numbers and next steps.
 > It is informative; `architecture.md` and `methodology.md` stay binding. Where this plan proposes
 > something that differs from them, it is listed in [Section 5](#5-conflicts-gaps-and-ambiguities)
@@ -13,7 +13,7 @@
 
 | Phase | Topic | Branch | Status | Target date |
 |---|---|---|---|---|
-| P0 | Implementation plan | `docs/rico-implementation-plan` | [~] draft PR #17; Q1–Q5 applied, review fixed, C6–C12 pending | 2 Nov |
+| P0 | Implementation plan | `docs/rico-implementation-plan` | [x] PR #17 | 2 Nov |
 | P1 | Scaffold & tooling | `feature/rico-scaffold` | [ ] | 6 Nov |
 | P2 | acquire + validate inputs | `feature/rico-acquire-validate` | [ ] | 11 Nov |
 | P3 | tiles + count | `feature/rico-tiles-count` | [ ] | 16 Nov |
@@ -264,13 +264,13 @@ peak_rss_mb, status, started_at, finished_at), validation reports (JSON + Markdo
 | C3 | Transit supply has no place in the table list: `access_counts` has `count`, `nearest_min`, but $S_i$ (sum of departures) and the 4 transit classes need their own columns | arch. §8, methodology §3 | **Resolved (Q1 → O18):** `transit_supply` table + `transit_scores` view |
 | C4 | Parks, playgrounds and schools are often large polygons; one representative point inside a large park undercounts access | methodology §2 | **Resolved (Q5 → methodology v0.2 §2):** access points, 50 m fallback, max N per park, counted once with min time |
 | C5 | "Walking profiles only" for transit vs. the reach table that also lists wheelchair stops (565 m) | methodology §3 vs. arch. §6.1 | **Resolved with Q1:** walking 3.39, walking 5.0 and wheelchair; methodology v0.2 §3 |
-| C6 | Tiles are "always built with elevation", but the CI/test clip cannot download elevation (network, size) | arch. §6.1 vs. AGENTS tests | Test clip tiles without elevation via `config/test_clip.yaml`; production always with elevation |
-| C7 | School holidays for the reference weekday need a data source; a public holiday API at runtime is not allowed and a `holidays` package does not cover school holidays | arch. §6.3 | List BW public and school holidays for the feed period in `config/config.yaml` (source: Kultusministerium BW), validated to cover the feed's validity window |
-| C8 | Districts at admin levels 9–11 overlap; `cells.district_id` needs one level | arch. §5.2 | Config key `districts.admin_level` (decided in P2 after inspecting the data); other levels can be added later |
-| C9 | API needs the urban boundary (live check), districts and the profile costing for live isochrones; none of these are DB tables in §8 | arch. §8, §9 | Add `urban_boundary`, `districts`, `profiles` and `facility_points` (access points from Q5, needed for live routes to the nearest point) tables to the run schema (gaps G1/G2 in Section 3), so live answers use exactly the published run's costing |
-| C10 | Changing thresholds "never requires re-routing", but only `publish` writes to PostGIS and thresholds are copied per run | arch. §6.3, §8 | `count` is cached by (PBF checksum, cells/facilities checksum, profile config hash); a threshold change re-runs the pipeline as a new run that reuses cached counts, so no re-routing happens |
-| C11 | Stage names differ: AGENTS lists 7 stages, arch. §7 lists 9 (incl. "validate results", "cleanup"); `make pipeline STAGE=validate` is ambiguous | AGENTS, arch. §7 | CLI names `acquire, validate, tiles, count, score, recommend, validate_results, publish, cleanup`; `validate` = inputs |
-| C12 | Cells outside the urban boundary: stored or not? | arch. §4, §8 | `cells` holds only scored cells; outside residents appear as totals in the validation report |
+| C6 | Tiles are "always built with elevation", but the CI/test clip cannot download elevation (network, size) | arch. §6.1 vs. AGENTS tests | **Confirmed:** Test clip tiles without elevation via `config/test_clip.yaml`; production always with elevation |
+| C7 | School holidays for the reference weekday need a data source; a public holiday API at runtime is not allowed and a `holidays` package does not cover school holidays | arch. §6.3 | **Confirmed:** List BW public and school holidays for the feed period in `config/config.yaml` (source: Kultusministerium BW), validated to cover the feed's validity window |
+| C8 | Districts at admin levels 9–11 overlap; `cells.district_id` needs one level | arch. §5.2 | **Confirmed:** Config key `districts.admin_level` (decided in P2 after inspecting the data); other levels can be added later |
+| C9 | API needs the urban boundary (live check), districts and the profile costing for live isochrones; none of these are DB tables in §8 | arch. §8, §9 | **Confirmed:** Add `urban_boundary`, `districts`, `profiles` and `facility_points` (access points from Q5, needed for live routes to the nearest point) tables to the run schema (gaps G1/G2 in Section 3), so live answers use exactly the published run's costing |
+| C10 | Changing thresholds "never requires re-routing", but only `publish` writes to PostGIS and thresholds are copied per run | arch. §6.3, §8 | **Confirmed:** `count` is cached by (PBF checksum, cells/facilities checksum, profile config hash); a threshold change re-runs the pipeline as a new run that reuses cached counts, so no re-routing happens |
+| C11 | Stage names differ: AGENTS lists 7 stages, arch. §7 lists 9 (incl. "validate results", "cleanup"); `make pipeline STAGE=validate` is ambiguous | AGENTS, arch. §7 | **Confirmed:** CLI names `acquire, validate, tiles, count, score, recommend, validate_results, publish, cleanup`; `validate` = inputs |
+| C12 | Cells outside the urban boundary: stored or not? | arch. §4, §8 | **Confirmed:** `cells` holds only scored cells; outside residents appear as totals in the validation report |
 | C13 | P0 forbids changing other docs, but AGENTS asks to keep `README.md` (documentation table) and `CHANGELOG.md` true | AGENTS vs. P0 task | **Resolved:** README documentation table and CHANGELOG updated in this PR (#17) |
 | C14 | No owners in `CODEOWNERS` yet (T2 due 4 Nov); P1 touches `pipeline`, `api`, `config`, `infra`, `.github` → "ask first" for multi-folder changes | AGENTS boundaries | **Resolved (Q4):** confirmed phase plan = approval for its folders; CODEOWNERS all three |
 
@@ -284,7 +284,7 @@ peak_rss_mb, status, started_at, finished_at), validation reports (JSON + Markdo
 | Q4 | Folder approval, CODEOWNERS | A confirmed phase plan approves the folders it names; deviations from the plan and changes to `architecture.md`/`methodology.md` stay "ask first". CODEOWNERS for P1: RicoS03, konstantinholl, nicholas-tuebi for all folders until T2 |
 | Q5 | Parks | Yes for parks and playgrounds: access points = intersections of ways with the park boundary, fallback points every 50 m along the boundary, at most N points per park (config); counted once if any access point is reachable, time = minimum. All other polygons: representative point. Methodology v0.2 §2 |
 
-Still pending: confirmation of C6–C12 (Section 5) as defaults; scope of Q4 for `compose*.yaml`, `infra/`, CI and the data contract; wording of the walking margin (snapping, review finding S1).
+Confirmed by Rico (2 Nov 2026): C6–C12 as recommended in Section 5; Q4 also covers `compose*.yaml`, `infra/`, CI workflows, the data contract and repository structure **as far as they are named in a confirmed phase plan** (recorded in `AGENTS.md`, PR #18); walking/wheelchair margin wording "exact up to the snap distance, margin 0 until P3 evidence" (arch. §6.3).
 
 ## 7. Decisions made, deviations agreed, measured numbers
 
@@ -293,12 +293,13 @@ Still pending: confirmation of C6–C12 (Section 5) as defaults; scope of Q4 for
 | 2026-11-02 | Defaults from the start prompt | O17 option (a); M1 table as config defaults; O14 webhook optional, no-op if unset; O16 local demo |
 | 2026-11-02 | Q1–Q5 | Applied: architecture v0.11 (O18–O20), methodology v0.2 (§2 facility locations, §3 profiles) |
 | 2026-11-02 | Branch names | `<type>/<name>-<topic>` (PR #18) |
+| 2026-11-02 | C6–C12, Q4 scope, margin wording | Confirmed as recommended; P0 closed |
 
 Measured numbers (runtime, peak memory, counts) are added here at the end of every phase.
 
 ## 8. Next steps
 
-1. Rico confirms or changes C6–C12 and the two open review points; the result is recorded here and P0 is closed.
+1. ~~Confirm C6–C12 and the review points~~ — done 2 Nov 2026; P0 closed.
 2. After explicit confirmation, start P1 in a new session from fresh `dev`
    (`feature/rico-scaffold`).
 3. P3 must deliver the prefilter evidence (O20) and, if needed, a buffer proposal.
