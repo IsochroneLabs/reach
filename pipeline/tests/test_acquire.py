@@ -158,3 +158,26 @@ def test_missing_zip_member_fails(cfg_path: Path, server) -> None:
     router.get(cfg.zensus.url).respond(content=_zip({"other.csv": b"x"}))
     with pytest.raises(StageValidationError, match="missing members"):
         acquire.run(_ctx(cfg_path, "20261102T120000Z"))
+
+
+def test_unpack_never_writes_into_a_linked_file(tmp_path: Path) -> None:
+    old_dir, new_dir = tmp_path / "a" / "gtfs", tmp_path / "b" / "gtfs"
+    old_dir.mkdir(parents=True)
+    new_dir.mkdir(parents=True)
+    (old_dir / "a.zip").write_bytes(_zip({"stops.txt": b"OLD"}))
+    acquire.unpack(old_dir / "a.zip", ["stops.txt"], None)
+    os.link(old_dir / "stops.txt", new_dir / "stops.txt")  # left over from a linked attempt
+    (new_dir / "a.zip").write_bytes(_zip({"stops.txt": b"NEW"}))  # changed archive
+
+    acquire.unpack(new_dir / "a.zip", ["stops.txt"], old_dir / "a.zip")
+    assert (new_dir / "stops.txt").read_bytes() == b"NEW"
+    assert (old_dir / "stops.txt").read_bytes() == b"OLD"
+
+
+def test_rerun_restores_deleted_raw_files(cfg_path: Path, server) -> None:
+    run_id = "20261102T120000Z"
+    acquire.run(_ctx(cfg_path, run_id))
+    raw = cfg_path.parent / "data" / "raw" / run_id
+    (raw / "gtfs" / "stops.txt").unlink()
+    acquire.run(_ctx(cfg_path, run_id))
+    assert (raw / "gtfs" / "stops.txt").exists()

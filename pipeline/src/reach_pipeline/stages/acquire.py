@@ -100,7 +100,10 @@ def _fetch_md5(client: httpx.Client, url: str, cfg: Download) -> str:
     def get() -> str:
         resp = client.get(url)
         _check_status(resp, url)
-        return resp.text.split()[0].lower()
+        parts = resp.text.split()
+        if not parts:
+            raise ExternalError(f"{url}: empty md5 file")
+        return parts[0].lower()
 
     return _with_retries(cfg, url, get)
 
@@ -181,7 +184,11 @@ def download(
     if md5 is not None and file_md5 != md5:
         raise ExternalError(f"{name}: md5 of the download {file_md5} != published {md5}")
     if prev_ok and sha == previous.checksum:
-        return reuse("same SHA-256")
+        # keep the new caching headers, so the next run can send a conditional request
+        record = reuse("same SHA-256")
+        record.etag = resp.headers.get("etag")
+        record.last_modified = resp.headers.get("last-modified")
+        return record
     return Record(
         run_id=run_id,
         source=name,
@@ -214,8 +221,11 @@ def unpack(archive: Path, members: list[str], previous_archive: Path | None) -> 
             if missing:
                 raise StageValidationError(f"{archive.name}: missing members {missing}")
             for member, dst in zip(members, out, strict=True):
-                with zf.open(member) as src, dst.open("wb") as fh:
+                # write a new file: dst may be a hard link to the previous run's member
+                part = dst.with_name(dst.name + ".part")
+                with zf.open(member) as src, part.open("wb") as fh:
                     shutil.copyfileobj(src, fh, _CHUNK)
+                part.replace(dst)
     except zipfile.BadZipFile as exc:
         raise StageValidationError(f"{archive.name}: not a valid zip archive") from exc
     return out
@@ -251,7 +261,8 @@ def run(ctx: RunContext) -> Manifest:
     stage_dir = ctx.stage_dir(STAGE)
     inputs = file_inputs(config_files(ctx.config_path))
     previous = read_manifest(stage_dir)
-    if is_up_to_date(previous, inputs):
+    outputs_exist = previous is not None and all(Path(o.path).exists() for o in previous.outputs)
+    if is_up_to_date(previous, inputs) and outputs_exist:
         log.info("inputs unchanged since %s, nothing to do", previous.finished_at.isoformat())
         return previous
 
