@@ -235,9 +235,12 @@ Never import notebook code into the pipeline.
 ## Branches, pull requests, versions
 
 - Base branch **`dev`**; `main` only receives milestone releases via PR from `dev`.
-- Branch per topic from fresh `dev` (`git fetch --all --prune` first): `feature/…`, `fix/…`,
-  `docs/…`, `refactor/…`, `data/…`, `exp/…`; issue number prefix if there is one. One branch = one
-  topic, short-lived.
+- Branch per topic from fresh `dev` (`git fetch --all --prune` first), named
+  `<type>/<name>-<topic>`: type `feature`, `fix`, `docs`, `refactor`, `data` or `exp`; `<name>` =
+  your human's lowercase team name (`rico`, `socke`, `juju`); issue number after the name if there
+  is one (`feature/rico-12-matrix-batching`). One branch = one topic, short-lived.
+- **Never commit to, push to or open a PR from a branch that carries another person's name**, even
+  if it already contains the work you need; create your own branch from `dev` instead.
 - Behind `dev`: `git rebase origin/dev` on your **own** branch, re-run checks,
   `git push --force-with-lease`.
 - **You may push your own topic branch and open a draft PR into `dev` without asking.** Title in
@@ -264,6 +267,10 @@ Never import notebook code into the pipeline.
   comment is fine.)
 - Changes in more than one **code** folder (`pipeline`, `api`, `web`, `infra`, `config`), or
   anything outside the task. Docs, `README.md` and `CHANGELOG.md` do not count.
+- A phase plan in `docs/implementation_plan.md` that your human has confirmed counts as this
+  confirmation for the folders, files, `compose*.yaml`, `infra/`, CI workflows, data-contract
+  tables and structure it **names explicitly**. Dependencies, existing config values, deviations
+  from the plan and any change to `architecture.md`/`methodology.md` still need their own "yes".
 - Marking a PR ready for review, commenting on issues/PRs of others, deleting branches or files,
   tagging, releasing.
 
