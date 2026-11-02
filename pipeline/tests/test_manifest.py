@@ -100,6 +100,22 @@ def test_hello_stage_writes_manifest_and_skips_rerun(config_path: Path) -> None:
     assert read_manifest(stage_dir) == first
 
 
+def test_hello_reruns_when_parent_config_changes(config_path: Path) -> None:
+    child = config_path.parent / "child.yaml"
+    child.write_text("extends: config.yaml\n", encoding="utf-8")
+    run_id = "20261102T120000Z"
+    assert cli.main(["hello", "--run-id", run_id, "--config", str(child)]) == 0
+    stage_dir = config_path.parent / "data" / "runs" / run_id / "hello"
+    first = read_manifest(stage_dir)
+    assert first is not None and len(first.inputs) == 2
+
+    # Only the parent changes; the merged config differs, so the stage must run again.
+    config_path.write_text(config_path.read_text(encoding="utf-8") + "\n# edit\n", "utf-8")
+    assert cli.main(["hello", "--run-id", run_id, "--config", str(child)]) == 0
+    second = read_manifest(stage_dir)
+    assert second is not None and second.inputs != first.inputs
+
+
 def test_failed_stage_writes_failed_manifest(
     config_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

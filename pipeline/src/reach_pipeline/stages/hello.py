@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 from datetime import UTC, datetime
 
+from reach_pipeline.config import config_files
 from reach_pipeline.context import RunContext
 from reach_pipeline.manifest import (
     Manifest,
@@ -22,7 +23,8 @@ log = logging.getLogger(__name__)
 def run(ctx: RunContext) -> Manifest:
     """Record the config checksum; a re-run with the same config is a no-op."""
     stage_dir = ctx.stage_dir(STAGE)
-    inputs = file_inputs([ctx.config_path])
+    # The whole extends chain: a change in config.yaml also changes test_clip.yaml's result.
+    inputs = file_inputs(config_files(ctx.config_path))
     previous = read_manifest(stage_dir)
     if is_up_to_date(previous, inputs):
         log.info("inputs unchanged since %s, nothing to do", previous.finished_at.isoformat())

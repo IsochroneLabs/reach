@@ -90,7 +90,10 @@ def _run_stage(name: str, ctx: RunContext) -> Manifest:
         write_manifest(failed, ctx.stage_dir(name))
         raise
     else:
-        log.info("done in %.2f s, peak RSS %.1f MB", manifest.runtime_s, manifest.peak_rss_mb)
+        if manifest.finished_at < started_at:
+            log.info("skipped, up to date (manifest of %s)", manifest.finished_at.isoformat())
+        else:
+            log.info("done in %.2f s, peak RSS %.1f MB", m.runtime_s, m.peak_rss_mb)
         return manifest
     finally:
         _current_stage.reset(token)

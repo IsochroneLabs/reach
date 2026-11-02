@@ -168,9 +168,14 @@ class Config(_Model):
 
     @model_validator(mode="after")
     def _buffer_covers_reach(self):
-        # Routing buffer >= largest prefilter reach of all profiles (O20).
-        budget = self.time_budgets_min.facilities
-        reach = {name: p.prefilter_reach_m(budget) for name, p in self.profiles.items()}
+        # Routing buffer >= largest prefilter reach of all profiles and their budgets (O20).
+        budgets = self.time_budgets_min
+        reach = {
+            name: p.prefilter_reach_m(
+                max(budgets.facilities, budgets.transit) if p.transit else budgets.facilities
+            )
+            for name, p in self.profiles.items()
+        }
         name, largest = max(reach.items(), key=lambda item: item[1])
         if self.study_area.routing_buffer_m < largest:
             raise ValueError(
@@ -190,28 +195,38 @@ def _deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any
     return merged
 
 
-def _read_yaml(path: Path, seen: tuple[Path, ...] = ()) -> dict[str, Any]:
-    path = path.resolve()
-    if path in seen:
+def _read_yaml(path: Path, seen: tuple[Path, ...] = ()) -> tuple[dict[str, Any], list[Path]]:
+    """Merged data of `path` and its `extends` chain, plus the files read (child first)."""
+    if path.resolve() in seen:
         raise ConfigError(f"circular 'extends' in {path}")
     try:
         data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
     except FileNotFoundError as exc:
         raise ConfigError(f"config file not found: {path}") from exc
+    except OSError as exc:
+        raise ConfigError(f"cannot read config file {path}: {exc}") from exc
     except yaml.YAMLError as exc:
         raise ConfigError(f"invalid YAML in {path}: {exc}") from exc
     if not isinstance(data, dict):
         raise ConfigError(f"{path}: top level must be a mapping")
     parent = data.pop("extends", None)
     if parent is None:
-        return data
-    return _deep_merge(_read_yaml(path.parent / parent, (*seen, path)), data)
+        return data, [path]
+    if not isinstance(parent, str):
+        raise ConfigError(f"{path}: 'extends' must be a file name, got {parent!r}")
+    base, files = _read_yaml(path.parent / parent, (*seen, path.resolve()))
+    return _deep_merge(base, data), [path, *files]
+
+
+def config_files(path: str | Path) -> list[Path]:
+    """All files a config is built from (the file and its `extends` chain), e.g. for checksums."""
+    return _read_yaml(Path(path))[1]
 
 
 def load_config(path: str | Path) -> Config:
     """Load and validate a config file; an `extends: <file>` key merges it over that file."""
     path = Path(path)
-    data = _read_yaml(path)
+    data, _ = _read_yaml(path)
     try:
         return Config.model_validate(data)
     except ValidationError as exc:

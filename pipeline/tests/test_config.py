@@ -9,7 +9,7 @@ from typing import Any
 import pytest
 import yaml
 
-from reach_pipeline.config import load_config
+from reach_pipeline.config import config_files, load_config
 from reach_pipeline.errors import ConfigError
 
 REPO = Path(__file__).resolve().parents[2]
@@ -105,3 +105,26 @@ def test_circular_extends(tmp_path: Path) -> None:
     _write(tmp_path, {"extends": "a.yaml"}, "b.yaml")
     with pytest.raises(ConfigError, match="circular"):
         load_config(tmp_path / "a.yaml")
+
+
+def test_config_dir_is_config_error(tmp_path: Path) -> None:
+    with pytest.raises(ConfigError, match="cannot read config file"):
+        load_config(tmp_path)
+
+
+def test_extends_must_be_file_name(tmp_path: Path) -> None:
+    path = _write(tmp_path, {"extends": ["config.yaml"]})
+    with pytest.raises(ConfigError, match="'extends' must be a file name"):
+        load_config(path)
+
+
+def test_config_files_lists_extends_chain() -> None:
+    clip = REPO / "config" / "test_clip.yaml"
+    assert [p.name for p in config_files(clip)] == ["test_clip.yaml", "config.yaml"]
+
+
+def test_buffer_check_includes_transit_budget(base: dict[str, Any], tmp_path: Path) -> None:
+    # 5 km/h for 60 min on foot to stops = 5000 m > 4000 m buffer
+    data = _set(base, "time_budgets_min.transit", 60)
+    with pytest.raises(ConfigError, match="walking_500 \\(5000 m\\)"):
+        load_config(_write(tmp_path, data))
