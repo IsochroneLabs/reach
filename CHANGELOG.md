@@ -48,8 +48,15 @@ adds a line under `Unreleased`.
   holidays 2026–2028, static), `download`, zip `members`, `access_points.walkable_highways`,
   `validation.official_population` 90,499 (Zensus 2022).
 - osmium-tool as a system requirement (README) and installed in CI.
+- `validate` coverage check `scored_share` (≥ `validation.min_scored_share` 0.98) and excluded
+  residents per district in the validation report.
 
 ### Changed
+- Scoring scope = every populated cell whose centre lies inside the city boundary (was: urban
+  boundary); the routing area is the city boundary + 4 km; the urban boundary only defines the
+  map area, the live-endpoint check and recommender candidates (architecture v0.12: O11, O13,
+  O17 settled; methodology v0.3; glossary). Urban boundary land use extended by `education`,
+  `institutional`, `religious`, `closing_m` 100.
 - `CONTRIBUTING.md` §1–2 and `AGENTS.md`: topic branches carry the driving person's name
   (`<type>/<name>-<topic>`); never work on a branch with another person's name.
 - `AGENTS.md`: a confirmed phase plan counts as "ask first" approval for what it names explicitly.

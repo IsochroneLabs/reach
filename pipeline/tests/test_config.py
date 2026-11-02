@@ -84,6 +84,7 @@ def _set(data: dict[str, Any], dotted: str, value: Any) -> dict[str, Any]:
         ("reference_day.school_holidays.0.to", "2026-07-01", "'to' before 'from'"),
         ("reference_day.public_holidays", ["2030-01-01"], "outside the covered range"),
         ("download.retries", -1, "download.retries"),
+        ("validation.min_scored_share", 1.5, "validation.min_scored_share"),
         ("access_points.walkable_highways", [], "access_points.walkable_highways"),
     ],
 )

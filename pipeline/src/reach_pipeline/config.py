@@ -187,6 +187,7 @@ class Tiles(_Model):
 class Validation(_Model):
     population_tolerance_pct: float = Field(ge=0)
     official_population: int | None = Field(default=None, gt=0)
+    min_scored_share: float = Field(ge=0, le=1)
     min_facilities_per_category: int = Field(ge=0)
 
 

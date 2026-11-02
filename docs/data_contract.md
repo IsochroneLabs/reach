@@ -1,6 +1,6 @@
 # Data contract — reach
 
-> **Status:** draft v0.2 (2 Nov 2026), from `implementation_plan.md` §3. Binding for the tables
+> **Status:** draft v0.3 (2 Nov 2026), from `implementation_plan.md` §3. Binding for the tables
 > and files exchanged between pipeline and API once a phase implements them; every change needs
 > confirmation (AGENTS.md) and a data-contract test. Tables marked *(planned, Pn)* do not exist yet.
 
@@ -67,7 +67,8 @@ PK (`run_id`, `source`).
 | `validation_report` | check | `check` text, `stage` text, `status` text (`ok`, `warn`, `fail`), `value` double null, `message` text | (`stage`, `check`) |
 
 `cells.cell_id` is the Zensus `GITTER_ID_100m` (EPSG:3035 grid id, e.g. `CRS3035RES100mN2822200E4250500`; verified 2 Nov 2026);
-the `cells` table holds only scored cells (C12). Facilities are counted once per facility id,
+the `cells` table holds only scored cells (C12): every populated cell whose centre lies inside the
+city boundary (architecture O11). Facilities are counted once per facility id,
 with the minimum time over their points.
 
 ## Files (`data/runs/<run_id>/<stage>/`)
@@ -108,7 +109,7 @@ GeoParquet, EPSG:25832, columns as in the run schema above:
 | `stops.parquet` | `stop_id`, `name`, `geometry` | `weekday_departures` is added in P3 (`count`) |
 | `districts.parquet` | `district_id` (`r<relation id>`), `name`, `admin_level`, `geometry` | levels from `districts.admin_levels` |
 | `urban_boundary.parquet` | `part_id`, `name` (null), `geometry` | |
-| `routing_area.parquet` | `geometry` | urban boundary + routing buffer; file only, no table |
+| `routing_area.parquet` | `geometry` | city boundary + routing buffer; file only, no table |
 
 Plus `routing.osm.pbf` (the OSM extract clipped to the routing area, input of `tiles`) and the
 osmium intermediates in `validate/osm/`.
@@ -118,7 +119,7 @@ osmium intermediates in `validate/osm/`.
 | Key | Content |
 |---|---|
 | `run_id`, `stage`, `status` (`ok`/`fail`), `generated_at` | |
-| `summary` | `osm_snapshot`, `urban_boundary_parts`, `urban_area_km2`, `city_area_km2`, `routing_area_km2`, `districts`, `cells_scored`, `residents_study_area`, `residents_scored`, `residents_outside_boundary`, `facilities` {category: count}, `facility_points`, `stops`, `gtfs_valid_from`, `gtfs_valid_to`, `reference_weekday`, `active_services` |
+| `summary` | `osm_snapshot`, `urban_boundary_parts`, `urban_area_km2`, `city_area_km2`, `routing_area_km2`, `districts`, `cells_scored`, `residents_touching_city` (coverage base), `residents_scored`, `residents_excluded`, `scored_share`, `residents_outside_urban_boundary` (scored, informative), `excluded_by_district` {district name: residents}, `facilities` {category: count}, `facility_points`, `stops`, `gtfs_valid_from`, `gtfs_valid_to`, `reference_weekday`, `active_services` |
 | `checks` | list of rows of `validation_report` (`check`, `stage`, `status`, `value`, `message`) |
 | `stages` | `stage`, `runtime_s`, `peak_rss_mb` for `acquire` and `validate` |
 | `steps` | `step`, `runtime_s`, `peak_rss_mb` (high-water mark so far) within `validate` |
@@ -131,3 +132,4 @@ The Markdown file renders the same content. Part 2 (`validate_results`) follows 
 |---|---|---|---|
 | v0.1 | 2026-11-02 | First draft: `meta`, run schema, files, `manifest.json` | P1 scaffold (implementation plan §3) |
 | v0.2 | 2026-11-02 | `data_sources.parquet`, `validate` layers and report part 1 | P2 acquire + validate |
+| v0.3 | 2026-11-02 | `cells` = all populated cells inside the city boundary; routing area around the city; report coverage keys (`scored_share`, `excluded_by_district`, …) | Architecture v0.12, O11 |

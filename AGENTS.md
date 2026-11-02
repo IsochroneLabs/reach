@@ -5,8 +5,8 @@ They apply to every agent session, on behalf of any team member. Humans: see `RE
 `CONTRIBUTING.md`. Folder-specific rules will live in `pipeline/AGENTS.md`, `api/AGENTS.md` and
 `web/AGENTS.md`; the nearest `AGENTS.md` to the file you edit takes precedence.
 
-**Project:** `reach` measures 15-minute accessibility (walking, cycling, wheelchair) for the urban
-area of Tübingen, finds underserved areas and recommends sites for new facilities. Course project
+**Project:** `reach` measures 15-minute accessibility (walking, cycling, wheelchair) for all residents
+of the city of Tübingen, finds underserved areas and recommends sites for new facilities. Course project
 DS500, University of Tübingen. Automation, validation, documentation and a hosted app are graded.
 
 **Status:** P2 — `docs/` (incl. a draft `docs/data_contract.md`), `config/config.yaml`,

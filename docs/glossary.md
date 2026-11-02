@@ -6,9 +6,12 @@ Project vocabulary used in code, docs, issues and prompts. People and roles ("yo
 | Term | Meaning |
 |---|---|
 | **Core / Stretch** | Core = required for the graded deliverable. Stretch = only after Core works and is validated (`architecture.md` §12). |
-| **urban boundary** | Settlement area of Tübingen; only cells inside it are scored. |
-| **routing buffer** | 4 km around the urban boundary, at least the largest prefilter reach (O20); network and facilities are loaded from boundary + buffer. |
-| **routing area** | Urban boundary plus the routing buffer; the OSM extract (`routing.osm.pbf`), facilities and stops are clipped to it. |
+| **city boundary** | Administrative boundary of Tübingen (OSM `admin_level` 8, AGS `08416041`); defines the scoring scope. |
+| **scoring scope** | All populated cells whose centroid lies inside the city boundary; they get scores and deficits (O11). |
+| **urban boundary** | Built-up (settlement) area of Tübingen from OSM land use (O17); defines the map area, the live-endpoint check and the recommender candidates, not who is scored. |
+| **routing buffer** | 4 km around the city boundary, at least the largest prefilter reach (O20); network and facilities are loaded from boundary + buffer. |
+| **routing area** | City boundary plus the routing buffer; the OSM extract (`routing.osm.pbf`), facilities and stops are clipped to it. |
+| **coverage (scored share)** | Residents of scored cells ÷ residents of all populated cells touching the city area; checked against `validation.min_scored_share` in `validate`. |
 | **district** | Reporting unit from OSM `boundary=administrative` at the levels in `districts.admin_levels` (Tübingen: 9 = Teilorte, 11 = core-town districts). |
 | **cell** | One populated Zensus 2022 100 m grid cell; the unit of analysis. `cell_id` = original EPSG:3035 ID. |
 | **origin** | Routing start point of a cell (currently the cell centroid). |

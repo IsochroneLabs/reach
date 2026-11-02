@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import geopandas as gpd
+import numpy as np
 import pytest
-from shapely.geometry import box
+from shapely.geometry import Point, box
 
 from reach_pipeline import boundary
 from reach_pipeline.config import UrbanBoundary
@@ -36,11 +37,10 @@ def test_small_parts_dropped_and_clipped_to_city() -> None:
     assert urban.union_all().within(CITY.buffer(1e-6))
 
 
-def test_routing_area_buffers_union() -> None:
-    urban = boundary.urban_boundary(_landuse(box(0, 0, 200, 200)), CITY, CFG)
-    area = boundary.routing_area(urban, 4000).geometry.iloc[0]
-    assert area.contains(box(-3900, -3900, 4100, 4100).centroid)
-    assert not area.contains(box(4300, 100, 4301, 101))
+def test_routing_area_buffers_city() -> None:
+    area = boundary.routing_area(CITY, 4000).geometry.iloc[0]
+    assert area.contains(Point(5900, 500))  # 3.9 km east of the city
+    assert not area.contains(Point(6100, 500))
 
 
 def _admin() -> gpd.GeoDataFrame:
@@ -81,3 +81,38 @@ def test_coverage_reports_overlap_and_gap() -> None:
     assert gap == pytest.approx(0) and overlap == pytest.approx(0.5)
     only_west = boundary.districts(_admin(), CITY, [9])
     assert boundary.coverage(only_west, CITY)[0] == pytest.approx(0.5)
+
+
+def _cells(*centres: tuple[float, float], population: int = 10) -> gpd.GeoDataFrame:
+    xy = np.array(centres, dtype=float)
+    return gpd.GeoDataFrame(
+        {
+            "cell_id": [f"c{i}" for i in range(len(xy))],
+            "population": population,
+            "origin_geom": gpd.GeoSeries(gpd.points_from_xy(xy[:, 0], xy[:, 1]), crs=CRS),
+        },
+        geometry=[box(x - 50, y - 50, x + 50, y + 50) for x, y in xy],
+        crs=CRS,
+    )
+
+
+def test_scoring_scope_counts_edge_cells() -> None:
+    districts = boundary.districts(_admin(), CITY, [9, 11])
+    cells = _cells(
+        (500, 500),  # inside West
+        (1500, 990),  # inside East, cell reaches over the edge: still scored
+        (1500, 1020),  # centre outside, cell touches East: excluded
+        (-30, 500),  # centre outside, touches West: excluded
+        (5000, 5000),  # far outside: not in the coverage base
+    )
+    scored, excluded, touching = boundary.scoring_scope(cells, CITY, districts)
+    assert list(scored["cell_id"]) == ["c0", "c1"]
+    assert touching == 40
+    assert excluded == {"East": 10, "West": 10}
+
+
+def test_largest_overlap_picks_the_bigger_share() -> None:
+    districts = boundary.districts(_admin(), CITY, [9, 11])
+    cell = gpd.GeoSeries([box(960, 0, 1060, 100), box(9000, 0, 9100, 100)], crs=CRS)
+    assert boundary.largest_overlap(cell, districts).tolist()[0] == "r3"  # 60 m in East
+    assert boundary.largest_overlap(cell, districts).isna().tolist()[1]

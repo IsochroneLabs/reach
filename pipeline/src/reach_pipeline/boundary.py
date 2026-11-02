@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import geopandas as gpd
+import pandas as pd
 import shapely
 from shapely.geometry.base import BaseGeometry
 
@@ -45,10 +46,9 @@ def urban_boundary(
     )
 
 
-def routing_area(urban: gpd.GeoDataFrame, buffer_m: float) -> gpd.GeoDataFrame:
-    """Urban boundary plus the routing buffer, as one (Multi)Polygon (arch. §4, O13)."""
-    area = shapely.union_all(urban.geometry.values).buffer(buffer_m)
-    return gpd.GeoDataFrame(geometry=[area], crs=METRIC_CRS)
+def routing_area(scope: BaseGeometry, buffer_m: float) -> gpd.GeoDataFrame:
+    """Scoring scope (the city) plus the routing buffer, as one (Multi)Polygon (arch. §4, O13)."""
+    return gpd.GeoDataFrame(geometry=[scope.buffer(buffer_m)], crs=METRIC_CRS)
 
 
 def districts(
@@ -74,3 +74,44 @@ def coverage(districts: gpd.GeoDataFrame, city: BaseGeometry) -> tuple[float, fl
     gap = city.difference(union).area
     overlap = max(0.0, districts.area.sum() - union.area)  # float noise can make it negative
     return gap / city.area, overlap / city.area
+
+
+def largest_overlap(cells: gpd.GeoSeries, districts: gpd.GeoDataFrame) -> pd.Series:
+    """`district_id` with the largest area overlap per cell polygon (index of `cells`), NaN if
+    a cell touches no district."""
+    left, right = shapely.STRtree(districts.geometry.values).query(
+        cells.values, predicate="intersects"
+    )
+    pairs = pd.DataFrame(
+        {
+            "cell": cells.index.to_numpy()[left],
+            "district_id": districts["district_id"].to_numpy()[right],
+            "area": shapely.area(
+                shapely.intersection(cells.values[left], districts.geometry.values[right])
+            ),
+        }
+    )
+    best = pairs.sort_values("area", ascending=False).drop_duplicates("cell")
+    return best.set_index("cell")["district_id"].reindex(cells.index)
+
+
+def scoring_scope(
+    cells: gpd.GeoDataFrame, scope: BaseGeometry, districts: gpd.GeoDataFrame
+) -> tuple[gpd.GeoDataFrame, dict[str, int], int]:
+    """Split cells by the scoring scope (O11): a cell is scored if its centre (`origin_geom`)
+    lies inside `scope`; the coverage base is every cell whose polygon touches `scope`.
+
+    Returns the scored cells, excluded residents per district name (largest overlap,
+    descending) and the residents of all touching cells.
+    """
+    touching = cells[cells.intersects(scope)]
+    inside = touching.set_geometry("origin_geom").within(scope).to_numpy()
+    excluded = touching[~inside]
+    names = districts.set_index("district_id")["name"]
+    owner = largest_overlap(excluded.geometry, districts).map(names).fillna("(no district)")
+    by_district = excluded.groupby(owner)["population"].sum().sort_values(ascending=False)
+    return (
+        touching[inside].reset_index(drop=True),
+        {str(k): int(v) for k, v in by_district.items()},
+        int(touching["population"].sum()),
+    )

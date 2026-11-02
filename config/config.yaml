@@ -9,22 +9,26 @@ study_area:
   # Display name of the city; used in reports and the app.
   city_name: Tübingen
   # Administrative city boundary (arch. §4): OSM boundary=administrative relation selected by
-  # admin_level and the official municipality key (AGS). Used only to clip the urban boundary and
-  # for district reporting. AGS is checked against the extract in P2.
+  # admin_level and the official municipality key (AGS). Defines the scoring scope (every
+  # populated cell with its centre inside is scored, O11) and the routing area; clips the urban
+  # boundary. AGS checked against the extract on 2 Nov 2026.
   admin_boundary:
     admin_level: 8
     ags: "08416041"
   # Urban (settlement) boundary, decision O17 option (a): built-up OSM land use inside the city,
   # dissolved, gaps closed by buffering out and in, small fragments dropped; Teilorte stay
-  # separate parts.
+  # separate parts. Only for the map area, the live-endpoint check and recommender candidates;
+  # it does not limit who is scored (O11).
   urban_boundary:
-    # OSM landuse values counted as built-up.
-    landuse: [residential, commercial, retail]
-    # Buffer distance for closing gaps: buffer(+closing_m).buffer(-closing_m).
-    closing_m: 50
-    # Parts smaller than this are dropped (assumption, checked against the data in P2).
+    # OSM landuse values counted as built-up. industrial is left out: it joins Teilorte
+    # (Bühl–Kilchberg, Kernstadt–Weilheim; P2 measurement, OSM 2026-11-01).
+    landuse: [residential, commercial, retail, education, institutional, religious]
+    # Buffer distance for closing gaps: buffer(+closing_m).buffer(-closing_m); 100 m joins no
+    # Teilorte (P2 measurement).
+    closing_m: 100
+    # Parts smaller than this are dropped.
     min_part_area_m2: 10000
-  # Routing network and facilities = urban boundary + this buffer (arch. §4, O13). Must be at
+  # Routing network and facilities = city boundary + this buffer (arch. §4, O13). Must be at
   # least the largest prefilter reach of all profiles (O20); the loader checks this.
   routing_buffer_m: 4000
   # Optional clip box [min_lon, min_lat, max_lon, max_lat] in EPSG:4326; null = whole study area.
@@ -216,5 +220,8 @@ validation:
   # https://www.citypopulation.de/de/germany/census/baden_w%C3%BCrttemberg/08416041__t%C3%BCbingen/
   # (checked 2 Nov 2026). null = check is reported as warning only.
   official_population: 90499
+  # Coverage (O11): residents of scored cells / residents of all populated cells touching the
+  # city area must be at least this share (0..1); fewer fails validation.
+  min_scored_share: 0.98
   # Minimum number of facilities per category; fewer fails validation.
   min_facilities_per_category: 1

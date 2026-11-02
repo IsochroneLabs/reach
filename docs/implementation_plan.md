@@ -305,7 +305,8 @@ Confirmed by Rico (2 Nov 2026): C6–C12 as recommended in Section 5; Q4 also co
 | 2026-11-02 | P2 answers (Rico) | `osmium-tool` as system requirement (Homebrew 1.19.1 locally, apt in CI, pipeline image by P8), no DuckDB `spatial`; OSM read as `tags-filter` → `export` GeoJSONSeq → GeoPandas. `districts.admin_levels` list with coverage check. Holidays as static config data (Kultusministerium BW, school years 2026/27 and 2027/28). `hello` removed; planned stages fail clearly (single) or are logged as skipped (`run`) |
 | 2026-11-02 | P2 values | `validation.official_population` 90,499 (Zensus 2022, Destatis via citypopulation.de); `districts.admin_levels` [9, 11]; `reference_day.covered` 2026-07-30..2028-06-17; Zensus columns `GITTER_ID_100m;x_mp_100m;y_mp_100m;Einwohner` (`;`, ASCII, 3,088,037 rows); naldo feed valid 2026-07-12..2026-12-12 with `calendar.txt`, `calendar_dates.txt`, `feed_info.txt`; Geofabrik `.md5` exists, `latest` redirects (307) to a dated file; NVBW sends only `Last-Modified`, Destatis `ETag` + `Last-Modified`, both answer 304 |
 | 2026-11-02 | P2 assumptions | The OSM processing (pass 1, urban boundary, `extract`, facilities) runs in `validate`, not `acquire`: `acquire` only downloads and unpacks raw files (arch. §7 table), `validate` writes `routing.osm.pbf` for `tiles`. Districts come from pass 1 (complete boundaries), not from the clipped PBF. `acquire` as first stage starts a new run without `--run-id`. Reference weekday = first Tuesday on or after the run date (past days may already be cut from the feed). `extract` strategy `smart`. Dedupe: node + area with the same tag → point categories keep the node, access-point categories the area. Facilities and stops are kept inside the routing area. Test clip: `official_population: null` (warning). New keys `download`, `sources.*.members`, `access_points.walkable_highways`, `districts.coverage_tolerance_pct` (0.5 %) |
-| 2026-11-02 | P2 finding | 8.0 % of residents outside the urban boundary, mostly in the core town (N3); not changed, decision open |
+| 2026-11-02 | P2 finding | 8.0 % of residents outside the urban boundary, mostly in the core town (N3) |
+| 2026-11-02 | N3 decision (Rico) | Scoring scope = populated cells with centre inside the city boundary; coverage check `validation.min_scored_share` 0.98 (base: all populated cells touching the city; excluded residents per district by largest overlap); routing area = city + 4 km; urban boundary (land use + `education`, `institutional`, `religious`, `closing_m` 100; `industrial` excluded because it joins Teilorte) only for map, live check, recommender candidates. Architecture v0.12, methodology v0.3, glossary, data contract v0.3. Test clip: `min_scored_share` 0 (the clip box cuts through cells) |
 
 Measured numbers (runtime, peak memory, counts) are added here at the end of every phase.
 
@@ -317,15 +318,16 @@ Measured numbers (runtime, peak memory, counts) are added here at the end of eve
 | P1 | `uv run pytest` | 31 passed in < 1 s |
 | P2 | `acquire`, first download (350 MB): runtime / peak RSS | 99 s / 137 MB |
 | P2 | `acquire`, unchanged sources (md5, 304, 304; hard links) | 0.5 s / 143 MB |
-| P2 | `validate` (Tübingen): runtime / peak RSS (osmium child) | 9 s / 2,505 MB |
+| P2 | `validate` (Tübingen, city scope): runtime / peak RSS (osmium child) | 10 s / 2,173–2,601 MB |
 | P2 | `validate` steps: pass 1 / boundaries / extract / facilities / Zensus / GTFS | 3.4 / 0.2 / 1.5 / 3.3 / 0.1 / 0.2 s |
 | P2 | osmium peak RSS on Linux (Debian, osmium 1.18): `extract -s smart` / `tags-filter` | 3,991 MB / 1,842 MB |
-| P2 | Results: scored cells / residents scored / outside boundary / city total (grid) | 1,325 / 83,123 / 7,232 / 90,355 (official 90,499, −0.16 %) |
-| P2 | Urban boundary parts / area; routing area; districts | 15 / 14.6 km²; 240.8 km²; 31 (gap 0 %, overlap 0 %) |
-| P2 | Facilities in routing area: grocery / pharmacy / doctors / childcare / school / parks; routing points | 48 / 24 / 141 / 140 / 60 / 384; 1,330 |
+| P2 | Results before N3 (urban-boundary scope): scored cells / residents scored / outside | 1,325 / 83,123 / 7,232 |
+| P2 | Results after N3 (city scope): scored cells / residents scored / coverage base / excluded | 1,699 / 90,355 (official 90,499, −0.16 %) / 90,443 / 88 (99.90 %; Unterjesingen 73, Lustnau-Zentrum 11, Weilheim 4) |
+| P2 | Urban boundary parts / area; routing area; districts | 12 / 16.6 km² (scored residents outside it: 4,974); 345.6 km² (was 240.8); 31 (gap 0 %, overlap 0 %) |
+| P2 | Facilities in routing area (city + 4 km): grocery / pharmacy / doctors / childcare / school / parks | 60 / 30 / 164 / 176 / 71 / 433 |
 | P2 | Stops in routing area; reference weekday; active services | 720; 2026-11-03; 470 |
 | P2 | Test clip (`config/test_clip.yaml`): scored cells / residents / validate runtime | 67 / 6,848 in the clip / 7.8 s |
-| P2 | `uv run pytest` | 79 passed in ~2 s |
+| P2 | `uv run pytest` | 82 passed in ~2 s |
 
 ## 8. Next steps
 
@@ -335,7 +337,9 @@ Measured numbers (runtime, peak memory, counts) are added here at the end of eve
 3. ~~P2~~ — implemented 2 Nov 2026 (draft PR #20). Open from P2: decide N3 (urban boundary land-use
    values / closing distance, ask first); `scripts/build_test_clip.py` and the clip bbox
    refinement (interim: may follow later); osmium memory for the CX23 (risk table, VF3); extend
-   `reference_day` before 2028-06-17 (the run fails with a clear message otherwise).
+   `reference_day` before 2028-06-17 (the run fails with a clear message otherwise). N3 settled
+   (architecture v0.12). P3 must measure the effect of the larger routing area (346 km², 1,699
+   cells) on tile build and count runtime.
 4. P3 must deliver the prefilter evidence (O20) and, if needed, a buffer proposal; it adds
    `config/valhalla.json`, the `valhalla-build` command and removes the `routing` profile.
 5. Open from P1: Starlette deprecates `httpx` for `TestClient` (warning); adding `httpx2` as a

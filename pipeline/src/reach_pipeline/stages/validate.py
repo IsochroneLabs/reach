@@ -124,7 +124,7 @@ def build_layers(ctx: RunContext, inp: Inputs, stage_dir: Path, step: _Steps) ->
         urban = boundary.urban_boundary(landuse.geometry, study, ub)
         if urban.empty:
             raise StageValidationError("urban boundary is empty (no built-up land use found)")
-        routing = boundary.routing_area(urban, cfg.study_area.routing_buffer_m)
+        routing = boundary.routing_area(study, cfg.study_area.routing_buffer_m)
         polygon = work / "routing_area.geojson"
         routing.to_crs("EPSG:4326").to_file(polygon, driver="GeoJSON")
         districts = boundary.districts(admin, city, cfg.districts.admin_levels)
@@ -156,10 +156,11 @@ def build_layers(ctx: RunContext, inp: Inputs, stage_dir: Path, step: _Steps) ->
             inp.zensus_csv, _bbox(study.buffer(zensus.CELL_SIZE_M), "EPSG:3035")
         )
         cells = zensus.cell_geometries(grid)
-        origins = cells.set_geometry("origin_geom")
-        in_study = origins.within(study).to_numpy()
-        in_urban = origins.within(shapely.union_all(urban.geometry.values)).to_numpy()
-        scored = cells[in_urban].reset_index(drop=True)
+        scored, excluded_by_district, residents_touching = boundary.scoring_scope(
+            cells, study, districts
+        )
+        urban_union = shapely.union_all(urban.geometry.values)
+        in_urban = scored.set_geometry("origin_geom").within(urban_union).to_numpy()
         joined = gpd.sjoin(
             scored.set_geometry("origin_geom")[["cell_id", "origin_geom"]],
             districts[["district_id", "geometry"]],
@@ -193,13 +194,16 @@ def build_layers(ctx: RunContext, inp: Inputs, stage_dir: Path, step: _Steps) ->
             "urban_boundary": urban,
             "routing_area": routing,
         },
+        "scope": study,
         "city_area_km2": city.area / 1e6,
         "district_gap": gap,
         "district_overlap": overlap,
         "osm_snapshot": snapshot,
-        "residents_study": int(cells.loc[in_study, "population"].sum()),
+        "residents_touching": residents_touching,
         "residents_scored": int(scored["population"].sum()),
-        "residents_outside": int(cells.loc[in_study & ~in_urban, "population"].sum()),
+        "residents_excluded": residents_touching - int(scored["population"].sum()),
+        "excluded_by_district": excluded_by_district,
+        "residents_outside_urban": int(scored.loc[~in_urban, "population"].sum()),
         "gtfs_valid_from": valid_from,
         "gtfs_valid_to": valid_to,
         "reference_weekday": ref_day,
@@ -245,14 +249,14 @@ def checks(ctx: RunContext, r: dict[str, Any]) -> list[Check]:
     )
 
     official = cfg.validation.official_population
-    total = r["residents_study"]
+    total = r["residents_scored"]
     if official is None:
         out.append(
             Check(
                 "population_total",
                 "warn",
                 total,
-                f"{total} residents in the study area; no official total configured",
+                f"{total} residents scored; no official total configured",
             )
         )
     else:
@@ -268,9 +272,22 @@ def checks(ctx: RunContext, r: dict[str, Any]) -> list[Check]:
             )
         )
 
+    share = r["residents_scored"] / r["residents_touching"] if r["residents_touching"] else 0.0
+    minimum_share = cfg.validation.min_scored_share
+    top = ", ".join(f"{k} {v}" for k, v in list(r["excluded_by_district"].items())[:3])
+    out.append(
+        Check(
+            "scored_share",
+            "ok" if share >= minimum_share else "fail",
+            round(share, 4),
+            f"{r['residents_scored']} of {r['residents_touching']} residents in cells touching "
+            f"the scope (city or clip) are scored ({share:.2%}, minimum {minimum_share:.0%}); "
+            f"{r['residents_excluded']} excluded" + (f", most in {top}" if top else ""),
+        )
+    )
+
     cells = layers["cells"]
-    urban = shapely.union_all(layers["urban_boundary"].geometry.values)
-    outside = int((~cells.set_geometry("origin_geom").within(urban)).sum())
+    outside = int((~cells.set_geometry("origin_geom").within(r["scope"])).sum())
     no_district = int(cells["district_id"].isna().sum())
     status = "fail" if outside else ("warn" if no_district else "ok")
     out.append(
@@ -278,7 +295,7 @@ def checks(ctx: RunContext, r: dict[str, Any]) -> list[Check]:
             "cells_inside_boundary",
             status,
             outside,
-            f"{len(cells)} scored cells, {outside} origins outside the urban boundary, "
+            f"{len(cells)} scored cells, {outside} origins outside the city, "
             f"{no_district} without district",
         )
     )
@@ -361,9 +378,12 @@ def _summary(ctx: RunContext, r: dict[str, Any]) -> dict[str, Any]:
         "routing_area_km2": round(layers["routing_area"].area.sum() / 1e6, 2),
         "districts": len(layers["districts"]),
         "cells_scored": len(layers["cells"]),
-        "residents_study_area": r["residents_study"],
+        "residents_touching_city": r["residents_touching"],
         "residents_scored": r["residents_scored"],
-        "residents_outside_boundary": r["residents_outside"],
+        "residents_excluded": r["residents_excluded"],
+        "scored_share": round(r["residents_scored"] / max(r["residents_touching"], 1), 4),
+        "residents_outside_urban_boundary": r["residents_outside_urban"],
+        "excluded_by_district": r["excluded_by_district"],
         "facilities": {c.id: int(counts.get(c.id, 0)) for c in ctx.config.categories},
         "facility_points": len(layers["facility_points"]),
         "stops": len(layers["stops"]),
@@ -387,10 +407,16 @@ def _markdown(report: dict[str, Any]) -> str:
         "|---|---|",
     ]
     for key, value in s.items():
-        if key != "facilities":
+        if key not in ("facilities", "excluded_by_district"):
             lines.append(f"| {key} | {value} |")
     lines += ["", "| Category | Facilities |", "|---|---|"]
     lines += [f"| {c} | {n} |" for c, n in s["facilities"].items()]
+    lines += [
+        "",
+        "| District (excluded residents: cell centre outside the city) | Residents |",
+        "|---|---|",
+    ]
+    lines += [f"| {d} | {n} |" for d, n in s["excluded_by_district"].items()] or ["| none | 0 |"]
     lines += ["", "## Checks", "", "| Check | Status | Value | Message |", "|---|---|---|---|"]
     lines += [
         f"| {c['check']} | {c['status']} | {'' if c['value'] is None else c['value']} "
@@ -476,7 +502,8 @@ def run(ctx: RunContext) -> Manifest:
         outputs=outputs,
         message=(
             f"{report['summary']['cells_scored']} cells, "
-            f"{report['summary']['residents_scored']} residents scored, "
+            f"{report['summary']['residents_scored']} residents scored "
+            f"({report['summary']['scored_share']:.2%}), "
             f"{report['summary']['stops']} stops, reference day "
             f"{report['summary']['reference_weekday']}"
         ),
