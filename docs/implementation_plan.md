@@ -27,7 +27,7 @@
 The dates leave about four working days per phase until 25 Nov. To make the interim demo, P1–P6
 are built at **minimal depth** (marked *interim* below); the rest of each phase (*full*) is
 finished between 25 Nov and 20 Dec, before P7. Branch names contain the name of the person
-driving the session (rule pending in PR #18) (`<type>/<name>-<topic>`, e.g. `feature/rico-scaffold`), so two sessions never
+driving the session (`<type>/<name>-<topic>`, AGENTS.md since PR #18, e.g. `feature/rico-scaffold`), so two sessions never
 work on the same branch; an issue number goes in front of the topic if an issue exists.
 
 ## 2. Phases in detail
