@@ -29,14 +29,17 @@ to every team member **and** to every AI assistant working on someone's behalf.
 |---|---|---|
 | `main` | Tagged milestone releases only | PR from `dev` at milestones |
 | `dev` | Integration branch, current shared state | Reviewed PRs only |
-| `<type>/<topic>` | One task | Its author |
+| `<type>/<name>-<topic>` | One task | Its author (the person named in it) |
 
-Types: `feature`, `fix`, `docs`, `refactor`, `data`, `exp`. Lowercase, hyphenated, issue number
-first if there is one: `feature/12-matrix-batching`, `fix/gtfs-reference-weekday`,
-`docs/data-contract`.
+Types: `feature`, `fix`, `docs`, `refactor`, `data`, `exp`. `<name>` is the lowercase team name
+of the person who drives the work (`rico`, `socke`, `juju`), also when an AI assistant does it on
+their behalf. Lowercase, hyphenated, issue number after the name if there is one:
+`feature/rico-12-matrix-batching`, `fix/socke-gtfs-reference-weekday`, `docs/juju-data-contract`.
+The name makes sure two people or sessions never work on the same branch.
 
 - One branch = one topic; a few days, not weeks. Split large tasks into several PRs.
-- No personal long-running branches (`rico`, `konsti`).
+- No personal long-running branches (`rico`, `konsti`); the name is part of a topic branch only.
+- Never commit to or open a PR from a branch that carries another person's name; create your own.
 - Never delete or rewrite someone else's branch without asking.
 
 ## 2. Day-to-day workflow
@@ -44,7 +47,7 @@ first if there is one: `feature/12-matrix-batching`, `fix/gtfs-reference-weekday
 ```bash
 git fetch --all --prune
 git switch dev && git pull --ff-only
-git switch -c feature/12-matrix-batching
+git switch -c feature/rico-12-matrix-batching
 
 # work in small steps
 git status
@@ -53,7 +56,7 @@ git diff --staged
 git commit
 
 uv run ruff check . && uv run ruff format --check . && uv run pytest
-git push -u origin feature/12-matrix-batching   # then open a PR into dev
+git push -u origin feature/rico-12-matrix-batching   # then open a PR into dev
 ```
 
 ## 3. Commits
