@@ -1,0 +1,149 @@
+# Local development stack (arch. §11). `make up` starts db, api and caddy.
+# Profiles: "routing" = valhalla (until tiles exist in P3), "build" = valhalla-build,
+# "pipeline" = pipeline. Host ports bind to 127.0.0.1 only; production uses compose.prod.yaml (P8)
+# without published db/valhalla ports.
+name: reach
+
+x-uv-service: &uv-service
+  # Official uv image with Python 3.12 (.python-version); the repo is bind-mounted, the Linux
+  # virtual environment lives in a volume so it never clashes with the host .venv.
+  image: ghcr.io/astral-sh/uv:0.13.6-python3.12-trixie-slim
+  working_dir: /app
+  environment:
+    UV_PROJECT_ENVIRONMENT: /venv
+    UV_PYTHON_DOWNLOADS: never
+    UV_LINK_MODE: copy
+  volumes:
+    - .:/app
+    - uv-venv:/venv
+    - uv-cache:/root/.cache/uv
+
+services:
+  db:
+    # Multi-arch (amd64 + arm64) build of the official PostGIS image; postgis/postgis is amd64 only.
+    image: imresamu/postgis:18-3.6
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-reach}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+    volumes:
+      # PostgreSQL 18 images keep PGDATA below /var/lib/postgresql.
+      - pgdata:/var/lib/postgresql
+    ports:
+      - "127.0.0.1:${DB_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    restart: unless-stopped
+
+  valhalla:
+    image: ghcr.io/valhalla/valhalla:3.9.1
+    # Behind a profile until P3 provides config/valhalla.json and data/valhalla/valhalla_tiles.tar.
+    profiles: [routing]
+    command: ["valhalla_service", "/valhalla/config/valhalla.json", "1"]
+    volumes:
+      - ./config/valhalla.json:/valhalla/config/valhalla.json:ro
+      - ./data/valhalla:/data/valhalla
+    ports:
+      - "127.0.0.1:${VALHALLA_PORT:-8002}:8002"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8002/status"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
+    restart: unless-stopped
+
+  valhalla-build:
+    image: ghcr.io/valhalla/valhalla:3.9.1
+    # One-shot tile build started by `make refresh` on the host (O19); command added in P3.
+    profiles: [build]
+    volumes:
+      - ./config/valhalla.json:/valhalla/config/valhalla.json:ro
+      - ./data/valhalla:/data/valhalla
+
+  api:
+    <<: *uv-service
+    # Hot reload on changes in api/src.
+    command:
+      - uv
+      - run
+      - --frozen
+      - --no-dev
+      - --package
+      - reach-api
+      - uvicorn
+      - reach_api.main:app
+      - --host=0.0.0.0
+      - --port=8000
+      - --reload
+      - --reload-dir=api/src
+    environment:
+      UV_PROJECT_ENVIRONMENT: /venv
+      UV_PYTHON_DOWNLOADS: never
+      UV_LINK_MODE: copy
+      DATABASE_URL: ${DATABASE_URL_API:-}
+      VALHALLA_URL: http://valhalla:8002
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - /venv/bin/python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')"
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      # First start syncs the environment into the volume.
+      start_period: 120s
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2.11.7-alpine
+    volumes:
+      - ./infra/Caddyfile:/etc/caddy/Caddyfile:ro
+      # Placeholder page until P6 serves web/dist.
+      - ./infra/web-placeholder:/srv:ro
+      - caddy-data:/data
+    ports:
+      - "127.0.0.1:${WEB_PORT:-8080}:80"
+    depends_on:
+      - api
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost/"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+    restart: unless-stopped
+
+  pipeline:
+    <<: *uv-service
+    profiles: [pipeline]
+    command: ["uv", "run", "--frozen", "--no-dev", "--package", "reach-pipeline",
+              "python", "-m", "reach_pipeline", "run"]
+    environment:
+      UV_PROJECT_ENVIRONMENT: /venv-pipeline
+      UV_PYTHON_DOWNLOADS: never
+      UV_LINK_MODE: copy
+      REACH_CONFIG: ${REACH_CONFIG:-config/config.yaml}
+      VALHALLA_URL: http://valhalla:8002
+      FAILURE_WEBHOOK_URL: ${FAILURE_WEBHOOK_URL:-}
+    volumes:
+      - .:/app
+      - uv-venv-pipeline:/venv-pipeline
+      - uv-cache:/root/.cache/uv
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  pgdata:
+  uv-venv:
+  uv-venv-pipeline:
+  uv-cache:
+  caddy-data:
