@@ -267,6 +267,10 @@ Never import notebook code into the pipeline.
   comment is fine.)
 - Changes in more than one **code** folder (`pipeline`, `api`, `web`, `infra`, `config`), or
   anything outside the task. Docs, `README.md` and `CHANGELOG.md` do not count.
+- A phase plan in `docs/implementation_plan.md` that your human has confirmed counts as this
+  confirmation for the folders, files, `compose*.yaml`, `infra/`, CI workflows, data-contract
+  tables and structure it **names explicitly**. Dependencies, existing config values, deviations
+  from the plan and any change to `architecture.md`/`methodology.md` still need their own "yes".
 - Marking a PR ready for review, commenting on issues/PRs of others, deleting branches or files,
   tagging, releasing.
 

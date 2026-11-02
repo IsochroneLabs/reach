@@ -28,6 +28,7 @@ adds a line under `Unreleased`.
 ### Changed
 - `CONTRIBUTING.md` §1–2 and `AGENTS.md`: topic branches carry the driving person's name
   (`<type>/<name>-<topic>`); never work on a branch with another person's name.
+- `AGENTS.md`: a confirmed phase plan counts as "ask first" approval for what it names explicitly.
 - `AGENTS.md`: project status line, sources of truth, test/fixture rules (mocked Valhalla),
   notebook policy, `.env.example` rule; agents may push their own branch and open draft PRs;
   new config keys and docs-only changes no longer need confirmation.
