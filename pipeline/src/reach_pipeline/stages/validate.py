@@ -148,8 +148,10 @@ def build_layers(ctx: RunContext, inp: Inputs, stage_dir: Path, step: _Steps) ->
         )
         fac, points = facilities.build(feats, ways.geometry, cfg.categories, cfg.access_points)
         area = routing.geometry.iloc[0]
-        fac = fac[fac.within(area)].reset_index(drop=True)
-        points = points[points["facility_id"].isin(fac["facility_id"])].reset_index(drop=True)
+        # Only routing points inside the routing area (the graph ends there); a facility stays
+        # if at least one of its points is inside.
+        points = points[points.within(area)].reset_index(drop=True)
+        fac = fac[fac["facility_id"].isin(points["facility_id"])].reset_index(drop=True)
 
     with step("zensus cells"):
         grid = zensus.read_grid(
@@ -217,7 +219,12 @@ def checks(ctx: RunContext, r: dict[str, Any]) -> list[Check]:
     layers: dict[str, gpd.GeoDataFrame] = r["layers"]
     out: list[Check] = []
 
-    bad_crs = [n for n, g in layers.items() if g.crs is None or g.crs.to_string() != METRIC_CRS]
+    bad_crs = [
+        f"{n}.{col}"
+        for n, g in layers.items()
+        for col in g.columns[g.dtypes == "geometry"]
+        if g[col].crs is None or g[col].crs.to_string() != METRIC_CRS
+    ]
     out.append(
         Check(
             "crs",

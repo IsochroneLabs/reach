@@ -32,17 +32,32 @@ def _date(value: str) -> date:
 
 
 def read_stops(path: Path) -> gpd.GeoDataFrame:
-    """Stops and platforms (`location_type` 0 or empty) as points in EPSG:25832."""
+    """Stops and platforms (`location_type` 0, empty or column absent) as points in EPSG:25832;
+    fails if a stop has no valid coordinates."""
     con = duckdb.connect()
+    reader = "read_csv(?, header=true, all_varchar=true)"
+    columns = {
+        r[0] for r in con.execute(f"DESCRIBE SELECT * FROM {reader}", [str(path)]).fetchall()
+    }
+    missing = {"stop_id", "stop_name", "stop_lat", "stop_lon"} - columns
+    if missing:
+        raise StageValidationError(f"{path.name}: missing columns {sorted(missing)}")
+    is_stop = "coalesce(location_type, '') IN ('', '0')" if "location_type" in columns else "true"
     df = con.execute(
-        """
+        f"""
         SELECT stop_id, stop_name AS name,
-               CAST(stop_lon AS DOUBLE) AS lon, CAST(stop_lat AS DOUBLE) AS lat
-        FROM read_csv(?, header=true, all_varchar=true)
-        WHERE coalesce(location_type, '') IN ('', '0')
+               TRY_CAST(stop_lon AS DOUBLE) AS lon, TRY_CAST(stop_lat AS DOUBLE) AS lat
+        FROM {reader}
+        WHERE {is_stop}
         """,
         [str(path)],
     ).df()
+    bad = df["lon"].isna() | df["lat"].isna()
+    if bad.any():
+        raise StageValidationError(
+            f"{path.name}: {int(bad.sum())} stops without valid coordinates, "
+            f"e.g. {df.loc[bad, 'stop_id'].head(3).tolist()}"
+        )
     geom = gpd.GeoSeries(shapely.points(df["lon"], df["lat"]), crs="EPSG:4326")
     return gpd.GeoDataFrame(
         df[["stop_id", "name"]], geometry=geom.to_crs(METRIC_CRS).values, crs=METRIC_CRS

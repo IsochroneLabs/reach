@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import geopandas as gpd
 import numpy as np
-import pytest
 from shapely.geometry import LineString, Point, box
 
 from reach_pipeline import facilities
@@ -90,14 +89,16 @@ def test_access_points_from_crossings_and_shared_stretches() -> None:
 
 def test_access_points_capped_evenly() -> None:
     park = gpd.GeoDataFrame({"facility_id": ["w1"]}, geometry=[box(0, 0, 1000, 1000)], crs=CRS)
-    cfg = AccessPoints(spacing_m=50, max_points=5, walkable_highways=["footway"])
-    pts = facilities.access_points(park, _ways(), cfg)  # 80 fallback points → 5
-    assert len(pts) == 5
-    ring = park.geometry.iloc[0].exterior
-    pos = np.sort([ring.project(p) for p in pts.geometry])
-    assert pos[0] == pytest.approx(0)
-    # ranks 0, 20, 40, 59, 79 of 80 points 50 m apart: gaps of 1000 or 950 m
-    assert set(np.round(np.diff(pos))) <= {950.0, 1000.0}
+    ring_length = 4000
+    for m in (4, 5, 7):
+        cfg = AccessPoints(spacing_m=50, max_points=m, walkable_highways=["footway"])
+        pts = facilities.access_points(park, _ways(), cfg)  # 80 fallback points → m
+        assert len(pts) == m
+        ring = park.geometry.iloc[0].exterior
+        pos = np.sort([ring.project(p) for p in pts.geometry])
+        gaps = np.append(np.diff(pos), ring_length - pos[-1] + pos[0])  # incl. wrap-around
+        # every gap, also across the start of the ring, is the ideal spacing ± one 50 m step
+        assert gaps.min() >= ring_length / m - 50 and gaps.max() <= ring_length / m + 50, gaps
 
 
 def test_tiny_playground_gets_one_point() -> None:

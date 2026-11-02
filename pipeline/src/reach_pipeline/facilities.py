@@ -4,7 +4,7 @@
 - Categories with `location: access_points` (parks, playgrounds) get access points on the
   outer boundary: crossings with walkable ways (a way running along the boundary gives the end
   points of the shared part), else one point every `spacing_m`; at most `max_points`, chosen
-  evenly spaced along the boundary (`access`).
+  evenly spaced around the boundary (`access`).
 - A node and an area with the same category tag that overlap are one facility: for point
   categories the node is kept (it marks the shop or entrance), for access-point categories the
   area is kept (it has the boundary).
@@ -120,17 +120,15 @@ def access_points(
     pts["key"] = np.round(pts["pos"] / _SAME_POINT_M)
     pts = pts.drop_duplicates(["area", "key"]).sort_values(["area", "pos"], ignore_index=True)
 
-    # At most max_points per area, evenly spaced along the boundary: keep rank r if it is the
-    # rounded position of some j in linspace(0, size-1, max_points).
+    # At most max_points per area, evenly spaced around the closed boundary: split the ranks
+    # 0..size-1 into max_points buckets of size/max_points and keep the first rank of each
+    # (positions ceil(j * size / max_points)), so the wrap-around gap is no smaller than others.
     rank = pts.groupby("area").cumcount().to_numpy()
     size = pts.groupby("area")["pos"].transform("size").to_numpy()
     m = cfg.max_points
-    if m == 1:
-        selected = rank == 0
-    else:
-        step = (size - 1) / (m - 1)
-        j = np.rint(rank / np.where(step > 0, step, 1))
-        selected = (size <= m) | (np.rint(j * step) == rank)
+    bucket = np.floor(rank * m / size)
+    prev_bucket = np.floor((rank - 1) * m / size)
+    selected = (size <= m) | (rank == 0) | (bucket != prev_bucket)
     pts = pts[selected]
     return gpd.GeoDataFrame(
         {"facility_id": ids[pts["area"].to_numpy()]},

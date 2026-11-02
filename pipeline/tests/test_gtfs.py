@@ -113,3 +113,14 @@ def test_missing_column_fails(feed: Path) -> None:
     _write(feed, "calendar_dates.txt", "service_id,date\n")
     with pytest.raises(StageValidationError, match="exception_type"):
         gtfs.read_calendar(feed)
+
+
+def test_read_stops_without_location_type(tmp_path: Path) -> None:
+    _write(tmp_path, "stops.txt", 'stop_id,stop_name,stop_lat,stop_lon\n"s1","A","48.52","9.05"')
+    assert list(gtfs.read_stops(tmp_path / "stops.txt")["stop_id"]) == ["s1"]
+
+
+def test_read_stops_rejects_missing_coordinates(tmp_path: Path) -> None:
+    _write(tmp_path, "stops.txt", 'stop_id,stop_name,stop_lat,stop_lon\n"s1","A","","9.05"')
+    with pytest.raises(StageValidationError, match="1 stops without valid coordinates"):
+        gtfs.read_stops(tmp_path / "stops.txt")
