@@ -2,7 +2,9 @@
 
 > **Status:** P0 done (2 Nov 2026): Q1–Q5, C6–C12 and review points confirmed and applied
 > (then architecture v0.11, methodology v0.2). P1 merged (PR #19). P2 implemented (2 Nov 2026,
-> PR #20; N3 decision → architecture v0.12, methodology v0.3). Next: P3. This file is the **handoff between
+> PR #20; N3 decision → architecture v0.12, methodology v0.3). P3 implemented (3 Nov 2026,
+> branch `feature/juju-tiles-count`, full depth: all profiles and categories; open decisions N4,
+> N5, cycling factor). Next: P4. This file is the **handoff between
 > agent sessions**: phase status, decisions, agreed deviations, measured numbers and next steps.
 > It is informative; `architecture.md` and `methodology.md` stay binding. Where this plan proposes
 > something that differs from them, it is listed in [Section 5](#5-conflicts-gaps-and-ambiguities)
@@ -17,7 +19,7 @@
 | P0 | Implementation plan | `docs/rico-implementation-plan` | [x] PR #17 | 2 Nov |
 | P1 | Scaffold & tooling | `feature/rico-scaffold` | [x] draft PR #19 (stacked on #17), CI green | 6 Nov |
 | P2 | acquire + validate inputs | `feature/rico-acquire-validate` | [x] draft PR #20 (interim depth; test-clip script open) | 11 Nov |
-| P3 | tiles + count | `feature/rico-tiles-count` | [ ] | 16 Nov |
+| P3 | tiles + count | `feature/juju-tiles-count` | [x] implemented 3 Nov (full depth; draft PR) | 16 Nov |
 | P4 | score + publish + cleanup | `feature/rico-score-publish` | [ ] | 19 Nov |
 | P5 | API | `feature/rico-api` | [ ] | 21 Nov |
 | P6 | Web | `feature/rico-web` | [ ] | 24 Nov |
@@ -248,7 +250,8 @@ peak_rss_mb, status, started_at, finished_at), validation reports (JSON + Markdo
 |---|---|
 | Interim deadline (23 days for P1–P6) | *interim* depth per phase; one profile + 3 categories for the demo; API/web minimal |
 | Review latency: six sequential PRs, each needs approval by another member before the next phase starts from `dev` | fixed same-day review slot in the team; if a review is late, the next phase branches from the open PR branch (stacked) and is rebased after the merge |
-| Routing buffer likely too small for cycling (4 km leaves 6.7 % headroom over 3.75 km; any factor > 1.067 breaks it) | measure in P3; a larger buffer means a larger clip and more matrix targets → re-measure runtime/memory |
+| Routing buffer likely too small for cycling (4 km leaves 6.7 % headroom over 3.75 km; any factor > 1.067 breaks it) | measured in P3: no facility reachable beyond 0.94 × nominal reach in 25 blocks; implied speed near the budget ≤ 1.01 × 15 km/h; factor 1.05 would still fit the 4 km buffer |
+| Valhalla keeps ~0.5–1.4 GB per worker thread after matrix requests (2.8–3.0 GB peak during a full count with 2 threads) | N4: restart after `count` and/or 1 thread on the CX23; decide with VF3 in P8 |
 | Matrix limits / runtime for cycling (3.75 km reach → many targets per block) | block size per profile from config; measure in P3; raise limits in `valhalla.json` |
 | Prefilter not exact because of snapping and downhill cycling (C1) | configurable margin, tested in P3 |
 | PostGIS or Valhalla image lacks arm64 → slow emulation on the Mac | check in P1, ask before switching image |
@@ -309,6 +312,12 @@ Confirmed by Rico (2 Nov 2026): C6–C12 as recommended in Section 5; Q4 also co
 | 2026-11-02 | P2 review (fresh agent) | Fixed: `unpack` wrote into hard-linked members of the previous run (now `.part` + replace, test); access-point cap now evenly spaced around the closed ring; `acquire` re-runs if its outputs are missing; `read_stops` checks columns, optional `location_type`, invalid coordinates; routing points outside the routing area dropped; CRS check covers `origin_geom`; new caching headers kept on SHA-256 reuse; empty `.md5` → clear error; unit tests for `validate.checks()`; plan/README/contract fixes. Left open (listed in PR): Geofabrik md5 race not retried; `feed_info.txt` required in config although optional in GTFS; `members[0]` not validated; `EXTRACT_STRATEGY`/`_SAME_POINT_M` constants not in config; dedupe only matches identical tags (childcare node in kindergarten area counts twice) |
 | 2026-11-02 | N3 decision (Rico) | Scoring scope = populated cells with centre inside the city boundary; coverage check `validation.min_scored_share` 0.98 (base: all populated cells touching the city; excluded residents per district by largest overlap); routing area = city + 4 km; urban boundary (land use + `education`, `institutional`, `religious`, `closing_m` 100; `industrial` excluded because it joins Teilorte) only for map, live check, recommender candidates. Architecture v0.12, methodology v0.3, glossary, data contract v0.3. Test clip: `min_scored_share` 0 (the clip box cuts through cells) |
 
+| 2026-11-03 | P3 branch | `feature/juju-tiles-count` (driven by Juju, AGENTS.md branch rule) instead of `feature/rico-tiles-count` |
+| 2026-11-03 | P3 assumptions | `config/valhalla.json` = `valhalla_build_config` 3.9.1 output with paths under `/data/valhalla`, then edited: `mjolnir.concurrency` 2, `max_cache_size` 256 MB, `use_admin_db` false (the clipped PBF has no complete country boundaries; country access overrides not applied, Germany ≈ OSM defaults), pedestrian/bicycle `max_matrix_location_pairs` 25,000; service with 2 worker threads (`compose.yaml`). `valhalla-build` mounts `<data_dir>/valhalla/build` as `/data/valhalla`, so the same config builds next to the live tiles; elevation tiles (`-b` routing-area bbox) cached in `<data_dir>/valhalla/elevation`; test clip blanks `additional_data.elevation` in a temp copy. Tile directory = `<data_dir>/valhalla` (`VALHALLA_DIR`, set by `make`). Rebuild fingerprint = SHA-256 over PBF + `valhalla.json` + elevation flag, recorded in `tiles_source.sha256` after a successful swap and restart. `tiles check` writes no manifest; `run`/`make pipeline` runs `tiles verify`, which fails if Valhalla serves another tile set (mtime vs. `/status` `tileset_last_modified`) and only warns if the tiles were built from another run's PBF. `make refresh` without a rebuild runs `docker compose up -d --wait valhalla` (no restart if unchanged). `nearest_min` only up to the budget (exactness of the prefilter); departures = stop events of active trips without `pickup_type` 1; reference weekday from `validate`'s report. Matrix times as NaN (plan: None). Integration tests deselected by default (`-m 'not integration'`). Count caching across runs (C10) not implemented yet: `count` is a no-op only within a run |
+| 2026-11-03 | P3 finding (VF1/VF2, G1) | With elevation in the tiles, default `pedestrian` times depend on slopes (Marktplatz → Schloss 681 s up / 619 s down at 3.39 km/h, flat 537 s; Hbf → Waldhäuser-Ost 3,950 / 3,335 s); `use_hills` 0/default/1 does not change them. Bicycle asymmetric as expected (677/591 s; 1,196/865 s); `use_hills` 0 = default. Conflicts with arch. §6.1/O7 ("ignored for now") → N5, decision open |
+| 2026-11-03 | P3 finding (O20) | Prefilter evidence: no reachable facility beyond the prefilter reach for any profile (4 sample blocks per run; 25-block experiment for walking 3.39 and cycling). Implied speed ÷ profile speed is high only for short pairs (snap distance not counted: up to 5–6 for < 60 s, 1.41 for cycling at 60–180 s) and ≤ 1.017 (walking) / 1.008 (cycling) for 600–900 s. Walking/wheelchair margin stays 0 (O20). Cycling factor: proposal open (keep 1.0 or 1.05, ask first) |
+| 2026-11-03 | P3 finding (VF3) | Valhalla memory grows per worker thread and is not released (N4) |
+
 Measured numbers (runtime, peak memory, counts) are added here at the end of every phase.
 
 | Phase | Measurement (MacBook arm64, Docker 29.9.2) | Value |
@@ -329,6 +338,17 @@ Measured numbers (runtime, peak memory, counts) are added here at the end of eve
 | P2 | Stops in routing area (city + 4 km); reference weekday; active services | 907 (720 around the urban boundary); 2026-11-03; 470 |
 | P2 | Test clip (`config/test_clip.yaml`): scored cells / residents / validate runtime | 67 / 6,848 in the clip / 7.8 s |
 | P2 | `uv run pytest` | 93 passed in ~3 s (after review fixes) |
+| P3 | Tile build Tübingen (routing area 346 km², PBF 10.6 MB) with elevation, `--memory 1.5g`: first build incl. elevation download (2 SRTM tiles, 20 MB) / rebuild (cached elevation) | 15.6 s / 6 s; peak 234–236 MB (cgroup); `valhalla_tiles.tar` 12 MB (VF4 local) |
+| P3 | Tile build test clip (no elevation) | 5 s, 124 MB |
+| P3 | `tiles verify` | 0.2 s, 135 MB; golden route 506 m (straight 474 m), max grade 11.7 % |
+| P3 | `count` Tübingen, 4 profiles × 6 categories, 1,699 cells, 161 blocks of 500 m: runtime / pipeline peak RSS | 195–204 s / 286–289 MB; 628 matrix requests |
+| P3 | `count` per profile: runtime / pairs / targets per block (max, median) | walking 3.39: 11.5 s / 246k / 476, 49 · walking 5.0: 22.6 s / 420k / 622, 110 · cycling: 123.6 s / 1.23 M / 970, 754 · wheelchair: 12.4 s / 246k / 476, 49 |
+| P3 | `count` test clip (67 cells, 6 blocks) | 39 s / 279 MB |
+| P3 | Departures (DuckDB over `stop_times.txt`, 67 MB) on 2026-11-03 | 0.1 s; 470 services; 6,272 stops with departures |
+| P3 | Valhalla memory (`docker stats`): idle / during full count (2 threads) / after | 54 MB / 2.8–3.0 GB peak / 2.2 GB (1 thread: 1.4 GB peak, cycling 216 s; N4) |
+| P3 | Other services idle (`docker stats`): db / api / caddy | 32 MB / 482 MB / 18 MB |
+| P3 | Results (walking 3.39): residents with ≥ 1 facility within 15 min — grocery / pharmacy / doctors / childcare / school / parks | 67 % / 57 % / 83 % / 94 % / 71 % / 98 %; transit: 1.3 % of residents without departures within 10 min (median 364 departures per cell) |
+| P3 | `uv run pytest` (macOS and Linux container) | 132 passed; `uv run pytest -m integration` on the clip tiles: 5 passed (1 of 5 fails on the Tübingen tiles with elevation, N5) |
 
 ## 8. Next steps
 
@@ -341,8 +361,11 @@ Measured numbers (runtime, peak memory, counts) are added here at the end of eve
    `reference_day` before 2028-06-17 (the run fails with a clear message otherwise). N3 settled
    (architecture v0.12). P3 must measure the effect of the larger routing area (346 km², 1,699
    cells) on tile build and count runtime.
-4. P3 must deliver the prefilter evidence (O20) and, if needed, a buffer proposal; it adds
-   `config/valhalla.json`, the `valhalla-build` command and removes the `routing` profile.
+4. ~~P3~~ — implemented 3 Nov 2026 (`feature/juju-tiles-count`). Open from P3: decide the
+   cycling `max_speed_factor` (1.0 or 1.05, O20), N4 (Valhalla memory per thread, before P8) and
+   N5 (walking times include slopes: architecture/methodology wording, G1); fresh-agent review
+   before the PR leaves draft; count caching across runs (C10) when P4 needs it; the golden pairs
+   need a manual map check (PR).
 5. Open from P1: Starlette deprecates `httpx` for `TestClient` (warning); adding `httpx2` as a
    dev dependency is deferred to P5 (Rico, 2 Nov 2026). The pytest-asyncio loop-scope warning is
    fixed (`asyncio_default_fixture_loop_scope = "function"`).

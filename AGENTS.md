@@ -9,10 +9,11 @@ They apply to every agent session, on behalf of any team member. Humans: see `RE
 of the city of Tübingen, finds underserved areas and recommends sites for new facilities. Course project
 DS500, University of Tübingen. Automation, validation, documentation and a hosted app are graded.
 
-**Status:** P2 — `docs/` (incl. a draft `docs/data_contract.md`), `config/config.yaml`,
-`Makefile`, `compose.yaml` (db, api placeholder, caddy placeholder; Valhalla from P3), `.github/`
-(CI) and the pipeline stages `acquire` and `validate` exist; the stages from `tiles` on, `web/`,
-`config/valhalla.json`, `compose.prod.yaml` and most of `infra/` are planned. If a
+**Status:** P3 — `docs/` (incl. a draft `docs/data_contract.md`), `config/config.yaml`,
+`config/valhalla.json`, `Makefile` (incl. `refresh`), `compose.yaml` (db, valhalla,
+valhalla-build, api placeholder, caddy placeholder), `.github/` (CI) and the pipeline stages
+`acquire`, `validate`, `tiles` and `count` exist; the stages from `score` on, `web/`,
+`compose.prod.yaml` and most of `infra/` are planned. If a
 file, folder or command referenced here does not exist yet, say so; do not invent a substitute.
 
 ## Terms and roles
@@ -53,8 +54,10 @@ Run from the repository root.
 | Lint + format check | `uv run ruff check . && uv run ruff format --check .` |
 | Tests (all Python) | `uv run pytest` |
 | Tests (one package) | `uv run pytest pipeline/tests` · `uv run pytest api/tests` |
-| Start local stack | `make up` (Docker Compose: Caddy, API, PostGIS; Valhalla from P3 on) |
+| Start local stack | `make up` (Docker Compose: Caddy, API, PostGIS, Valhalla once tiles exist) |
 | Run pipeline | `make pipeline` · single stage: `make pipeline STAGE=count` |
+| Full refresh incl. tile build | `make refresh` (test clip: `make refresh REACH_CONFIG=config/test_clip.yaml`) |
+| Integration tests (local Valhalla on the clip) | `uv run pytest -m integration` |
 | Frontend | `cd web && npm ci && npm run dev` · checks: `npm run lint && npm run build` |
 | Add Python dependency | `uv add --package pipeline <pkg>` / `--package api` / `--dev` |
 

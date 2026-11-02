@@ -50,8 +50,30 @@ adds a line under `Unreleased`.
 - osmium-tool as a system requirement (README) and installed in CI.
 - `validate` coverage check `scored_share` (≥ `validation.min_scored_share` 0.98) and excluded
   residents per district in the validation report.
+- P3 Valhalla: `config/valhalla.json` (generated with `valhalla_build_config` 3.9.1, matrix
+  limit 25,000 pairs for pedestrian/bicycle, 2 build threads, 256 MB tile cache, no admin
+  database); `compose.yaml` `valhalla-build` one-shot (elevation download, tiles, tar extract
+  into `<data_dir>/valhalla/build/`); `make refresh` (acquire → validate → `tiles check` →
+  build + `mv` swap + restart if needed → `tiles verify` → `count`, O19).
+- P3 pipeline stage `tiles`: `tiles check` writes the rebuild flag from a fingerprint of the
+  clipped PBF, `config/valhalla.json` and the elevation setting; `tiles verify` checks that
+  Valhalla serves this config's tiles, routes a golden pair and checks grades (VF1).
+- P3 pipeline stage `count`: async Valhalla client (bounded concurrency, retries, compact
+  matrix), 500 m blocks, exact straight-line prefilter, one matrix per block and profile for all
+  categories and stops; `access_counts.parquet`, `transit_supply.parquet`, `stops.parquet` with
+  weekday departures (DuckDB over `stop_times.txt`), `report_count.json` with prefilter evidence
+  (O20).
+- Config: `tiles.verify`, `valhalla` (url, concurrency, timeouts, retries, matrix pair limit),
+  `count` (block size, prefilter evidence sample).
+- Golden travel-time integration tests (`tests/integration/`, marker `integration`, deselected
+  by default); recorded Valhalla matrix fixture for unit tests.
+- `docs/notes.md` N4 (Valhalla memory per worker thread) and N5 (walking times depend on slopes
+  when tiles carry elevation); data contract v0.4 (`tiles/`, `count/` files); glossary: block,
+  prefilter evidence.
 
 ### Changed
+- Valhalla is part of `make up` once tiles exist (Compose profile `routing` removed); it runs
+  with 2 worker threads and serves `$VALHALLA_DIR` (`<data_dir>/valhalla`).
 - Scoring scope = every populated cell whose centre lies inside the city boundary (was: urban
   boundary); the routing area is the city boundary + 4 km; the urban boundary only defines the
   map area, the live-endpoint check and recommender candidates (architecture v0.12: O11, O13,

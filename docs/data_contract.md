@@ -1,6 +1,6 @@
 # Data contract — reach
 
-> **Status:** draft v0.3 (2 Nov 2026), from `implementation_plan.md` §3. Binding for the tables
+> **Status:** draft v0.4 (3 Nov 2026), from `implementation_plan.md` §3. Binding for the tables
 > and files exchanged between pipeline and API once a phase implements them; every change needs
 > confirmation (AGENTS.md) and a data-contract test. Tables marked *(planned, Pn)* do not exist yet.
 
@@ -106,7 +106,7 @@ GeoParquet, EPSG:25832, columns as in the run schema above:
 | `cells.parquet` | `cell_id`, `population`, `district_id`, `geometry` (cell polygon), `origin_geom` (cell centre) | scored cells only (C12) |
 | `facilities.parquet` | `facility_id`, `category`, `name`, `geometry` | node or representative point; inside the routing area |
 | `facility_points.parquet` | `facility_id`, `point_id`, `kind`, `geometry` | |
-| `stops.parquet` | `stop_id`, `name`, `geometry` | `weekday_departures` is added in P3 (`count`) |
+| `stops.parquet` | `stop_id`, `name`, `geometry` | `weekday_departures` is added by `count` (`count/stops.parquet`) |
 | `districts.parquet` | `district_id` (`r<relation id>`), `name`, `admin_level`, `geometry` | levels from `districts.admin_levels` |
 | `urban_boundary.parquet` | `part_id`, `name` (null), `geometry` | |
 | `routing_area.parquet` | `geometry` | city boundary + routing buffer; file only, no table |
@@ -126,6 +126,31 @@ osmium intermediates in `validate/osm/`.
 
 The Markdown file renders the same content. Part 2 (`validate_results`) follows in P4.
 
+### `tiles/` *(implemented, P3)*
+
+| File | Content |
+|---|---|
+| `rebuild_needed` | Written by `tiles check` only if the tiles must be (re)built; shell variables read by `make refresh`: `PBF` (clipped PBF of the run), `SHA256` (fingerprint of PBF + `config/valhalla.json` + elevation flag), `ELEVATION` (`true`/`false`), `BBOX` (routing area in EPSG:4326, `min_lon,min_lat,max_lon,max_lat`) |
+| `verify.json` | Written by `tiles verify`: `valhalla_version`, `tileset_last_modified`, golden route `route_length_m`, `route_time_s`, `straight_line_m`, `detour_factor`, `grade_edges`, `max_abs_weighted_grade`, `max_upward_grade`, `tiles_match_run` (tiles built from this run's inputs), `serves_tiles_of_this_config` |
+
+Outside the run directory, `<data_dir>/valhalla/` holds `valhalla_tiles.tar` (served),
+`valhalla_tiles.prev.tar` (rollback), `tiles_source.sha256` (fingerprint of the last build),
+`elevation/` (cached elevation tiles) and `build/` (scratch space of `valhalla-build`).
+
+### `count/` *(implemented, P3)*
+
+Plain Parquet (no geometry), columns and types as in the run schema above:
+
+| File | Grain | Columns |
+|---|---|---|
+| `access_counts.parquet` | cell × category × profile (complete grid) | `cell_id`, `category`, `profile_id`, `count` (int32), `nearest_min` (double, null if no facility of the category is reachable within the budget) |
+| `transit_supply.parquet` | cell × profile with `transit: true` | `cell_id`, `profile_id`, `departures` (int32, sum over stops reachable within the transit budget), `stops_count` (int32), `nearest_stop_min` (double, null if none within the budget) |
+| `stops.parquet` | GTFS stop (GeoParquet) | validate's `stops` + `weekday_departures` (int64: stop events of trips active on the reference weekday, without `pickup_type` 1) |
+| `report_count.json` | run | `reference_weekday`, `cells`, `profiles` {profile: `blocks`, `requests`, `runtime_s`, `max_sources`, `targets_max`, `targets_median`, `pairs`, `facility_reach_m`, `transit_reach_m`}, `evidence` (`sample_blocks`, per profile `facilities` / `stops`: `pairs`, `reachable_pairs`, `nominal_reach_m`, `prefilter_reach_m`, `max_reachable_distance_m`, `required_factor`, `max_speed_ratio_by_band`, `beyond_nominal`, `beyond_prefilter`; `beyond_prefilter_examples`), `runtime_s`, `peak_rss_mb` |
+
+`nearest_min` is only stored up to the budget: beyond it the straight-line prefilter does not
+guarantee that the nearest facility was among the matrix targets.
+
 ## Change log
 
 | Version | Date | Change | Why |
@@ -133,3 +158,4 @@ The Markdown file renders the same content. Part 2 (`validate_results`) follows 
 | v0.1 | 2026-11-02 | First draft: `meta`, run schema, files, `manifest.json` | P1 scaffold (implementation plan §3) |
 | v0.2 | 2026-11-02 | `data_sources.parquet`, `validate` layers and report part 1 | P2 acquire + validate |
 | v0.3 | 2026-11-02 | `cells` = all populated cells inside the city boundary; routing area around the city; report coverage keys (`scored_share`, `excluded_by_district`, …) | Architecture v0.12, O11 |
+| v0.4 | 2026-11-03 | `tiles/` and `count/` files (`access_counts`, `transit_supply`, `stops` with `weekday_departures`, reports); `nearest_min` only within the budget | P3 tiles + count |

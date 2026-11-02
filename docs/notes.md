@@ -101,3 +101,48 @@ defines the map area, the live-endpoint check and the recommender candidates; it
 
 **Result:** 1,699 scored cells, 90,355 of 90,443 residents scored (99.90 %); 88 excluded (edge
 cells, most in Unterjesingen); urban boundary 12 parts, 16.6 km²; routing area 345.6 km².
+
+## N4. Valhalla keeps ~0.5–1.4 GB per worker thread after matrix requests
+
+**Status:** open · **Added:** 3 Nov 2026 · **Related:** `architecture.md` §6.5 rule 15, §11
+(memory budget), VF3, `compose.yaml` (`valhalla_service … 2`), `config/valhalla.json`
+
+**Finding (P3, MacBook arm64, Docker 29.9.2, Valhalla 3.9.1, Tübingen tiles 12 MB):** idle
+Valhalla uses 54 MB. During `count` its memory grows with the number of worker threads and is
+not released afterwards: 2 threads → 1.0 GB after `walking_339`, 2.7–3.0 GB peak during the full
+count (cycling), ~2.2 GB idle afterwards; 1 thread → 0.6 GB after `walking_339`, 1.4 GB peak
+with cycling (cycling then takes 216 s instead of 120 s). Not changed by
+`thor.clear_reserved_memory: true`, `mjolnir.max_cache_size` 64 MB, `MALLOC_ARENA_MAX` 1/2 or
+`MALLOC_TRIM_THRESHOLD_`; lower `thor.max_reserved_labels_count_*` made it worse (2.9–3.8 GB).
+The architecture estimate (≈ 0.5 GB) holds only when idle.
+
+**Options for P8 (CX23, 4 GB):** (a) restart Valhalla after `count` in `make refresh` (frees the
+memory; seconds of downtime for live calls at night); (b) 1 worker thread on the server (≈ 1.4 GB
+peak, slower count, live calls queue behind the count); (c) both. Decide with VF3 on the server;
+changing the thread count or the refresh sequence is an architecture change (ask first).
+
+## N5. Walking times already depend on slopes when the tiles carry elevation
+
+**Status:** open, needs a decision · **Added:** 3 Nov 2026 · **Related:** `architecture.md`
+§6.1, O7, gate G1 (`methodology.md` §6), VF1, C6
+
+**Finding (P3, Valhalla 3.9.1):** with elevation in the tiles, the default `pedestrian` costing
+is slower uphill and on steep downhill, and `use_hills` (0, default, 1) does not change the
+times: Marktplatz → Schloss Hohentübingen (506 m) 681 s, back 619 s at 3.39 km/h (flat:
+537 s; on the test clip tiles without elevation the default 5.1 km/h route takes 387.5 s vs.
+463 s with elevation); Hauptbahnhof → Waldhäuser-Ost 3,950 s, back 3,335 s; golden pair cell
+`CRS3035RES100mN2823200E4250800` → doctor (old town, 335 m) 443 s with elevation vs. 357 s on the
+clip tiles. Cycling is
+asymmetric as expected (VF2): 1,196 s vs. 865 s; `use_hills` 0 and default give the same times.
+
+**Why it matters:** `architecture.md` §6.1 and O7 say slopes are "ignored for now" for walking
+and wheelchair; in fact every walking and wheelchair count already includes the slope effect,
+and the test clip (built without elevation, C6) gives different walking times than production.
+
+**Options:** (a) accept and document that walking times include Valhalla's slope model (G1
+answered: slopes do change walking times); (b) keep walking slope-free by building a second,
+elevation-free tile set for walking/wheelchair (second graph, more memory, against §6.1 "same
+tile set"); (c) look for a pedestrian costing option that disables the grade factor (`use_hills` does
+not; not checked further in P3). Recommendation: (a), with a methodology note and G1 marked as
+answered. Needs confirmation (architecture/methodology change).
+
