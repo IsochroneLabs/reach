@@ -14,3 +14,5 @@ adds a line under `Unreleased`.
   efficiency rules, commit and version-history rules, prompting guide, terms and roles.
 - `CONTRIBUTING.md`: branch, commit, PR, review and release workflow.
 - `.gitignore` for Python/uv, secrets, local data and frontend builds.
+- `README.md` rewritten: summary, status, features, architecture diagram, layout, setup, data
+  sources, documentation, team, milestones; agents keep it up to date automatically.

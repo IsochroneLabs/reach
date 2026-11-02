@@ -160,9 +160,24 @@ Output:      commit/PR wanted? summary format?
   line to its **Change log** section (date, what changed, why), and move settled questions from
   "Open" to "Settled" in §13 with the date.
 - Also update in the same branch, when affected: `docs/data_contract.md` (any table, column or
-  file schema), `README.md` (commands, setup, structure, data sources), `config/config.yaml`
-  comments, the folder's `AGENTS.md`, and `docs/notes.md` (add or close open points).
+  file schema), `config/config.yaml` comments, the folder's `AGENTS.md`, and `docs/notes.md`
+  (add or close open points).
 - New ideas or deferred work go to `docs/notes.md`, not into code comments or TODOs.
+
+### README (update automatically)
+
+`README.md` is the entry point for supervisors and new readers. **Update it yourself, without
+asking, in the same branch** whenever your change affects anything it describes: status,
+features, commands, setup requirements, repository layout (incl. the Status column), data sources,
+documentation links, team or milestones. Before every commit, check whether the README is still
+true.
+
+Keep it clean:
+- Fixed section order: title + summary · status · what it does · architecture in one picture ·
+  repository layout · getting started · data sources · documentation · team · milestones.
+- Short and factual; link to `docs/` instead of copying details. Mark commands that do not work
+  yet as *planned*; never document a command you have not run.
+- Every link and path in it must exist; remove sections that no longer apply.
 
 ## Writing efficient code
 
@@ -253,7 +268,8 @@ Every commit made by an agent ends with a co-author trailer for the assistant us
 
 **Always**
 - Work on a topic branch; keep the change to the task you were given.
-- Keep `architecture.md`, `data_contract.md`, `README.md` and `CHANGELOG.md` in sync with the code.
+- Keep `architecture.md`, `data_contract.md` and `CHANGELOG.md` in sync with the code.
+- Update `README.md` automatically when your change affects it (no confirmation needed).
 - Ask when a requirement is unclear or the task touches another person's folder (see `.github/CODEOWNERS`).
 
 **Ask first (wait for explicit confirmation)**
