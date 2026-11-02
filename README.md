@@ -43,7 +43,7 @@ with Docker Compose on one small server. Details: [`docs/architecture.md`](docs/
 
 | Path | Content | Status |
 |---|---|---|
-| `docs/` | Architecture, notes, methodology proposal, features, team decisions, meeting notes | ✅ |
+| `docs/` | Architecture, methodology, features, glossary, notes, team decisions | ✅ |
 | `AGENTS.md`, `CLAUDE.md` | Rules for coding agents | ✅ |
 | `CONTRIBUTING.md` | Branches, commits, pull requests, releases | ✅ |
 | `CHANGELOG.md` | Change history | ✅ |
@@ -85,9 +85,10 @@ uv run pytest           # planned: tests
 | Document | Content |
 |---|---|
 | [`docs/architecture.md`](docs/architecture.md) | **Binding** system description, decisions and change log |
+| [`docs/methodology.md`](docs/methodology.md) | **Binding** categories, thresholds, scoring, recommender, validation experiments |
+| [`docs/features.md`](docs/features.md) | Features, priorities and roadmap |
+| [`docs/glossary.md`](docs/glossary.md) | Project vocabulary |
 | [`docs/notes.md`](docs/notes.md) | Open points and future work |
-| [`docs/architecture_proposal.md`](docs/architecture_proposal.md) | Methodology background (scoring, validation, recommender) |
-| [`docs/features.md`](docs/features.md) | Feature list and priorities |
 | [`docs/project_management_decisions.md`](docs/project_management_decisions.md) | Team and course organisation |
 | [`CONTRIBUTING.md`](CONTRIBUTING.md) | How we work together |
 | [`AGENTS.md`](AGENTS.md) | Rules for coding agents |
