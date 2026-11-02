@@ -180,8 +180,46 @@ class Download(_Model):
     timeout_s: float = Field(gt=0)
 
 
+LonLat = tuple[float, float]
+
+
+class TilesVerify(_Model):
+    route: tuple[LonLat, LonLat]
+    costing: Literal["pedestrian", "bicycle"]
+    max_detour_factor: float = Field(ge=1.0)
+
+
 class Tiles(_Model):
     elevation: bool
+    verify: TilesVerify
+
+
+class Valhalla(_Model):
+    url: str = Field(pattern=r"^https?://")
+    concurrency: int = Field(ge=1)
+    timeout_s: float = Field(gt=0)
+    retries: int = Field(ge=0)
+    backoff_s: float = Field(ge=0)
+    max_matrix_pairs: int = Field(ge=1)
+
+
+class Evidence(_Model):
+    widen_factor: float = Field(ge=1.0)
+    widen_m: float = Field(ge=0)
+    band_edges: list[float] = Field(min_length=2)
+    sample_points: dict[str, LonLat] = Field(min_length=1)
+
+    @field_validator("band_edges")
+    @classmethod
+    def _increasing_fractions(cls, v: list[float]):
+        if any(b <= a for a, b in zip(v, v[1:], strict=False)) or v[0] < 0 or v[-1] > 1:
+            raise ValueError(f"band_edges must increase within 0..1, got {v}")
+        return v
+
+
+class Count(_Model):
+    block_size_m: float = Field(gt=0)
+    evidence: Evidence
 
 
 class Validation(_Model):
@@ -204,6 +242,8 @@ class Config(_Model):
     sources: Sources
     download: Download
     tiles: Tiles
+    valhalla: Valhalla
+    count: Count
     validation: Validation
 
     @field_validator("categories")

@@ -86,6 +86,14 @@ def _set(data: dict[str, Any], dotted: str, value: Any) -> dict[str, Any]:
         ("download.retries", -1, "download.retries"),
         ("validation.min_scored_share", 1.5, "validation.min_scored_share"),
         ("access_points.walkable_highways", [], "access_points.walkable_highways"),
+        ("valhalla.url", "localhost:8002", "valhalla.url"),
+        ("valhalla.concurrency", 0, "valhalla.concurrency"),
+        ("valhalla.max_matrix_pairs", 0, "valhalla.max_matrix_pairs"),
+        ("count.block_size_m", 0, "count.block_size_m"),
+        ("count.evidence.band_edges", [0.5, 0.2], "band_edges must increase"),
+        ("count.evidence.widen_factor", 0.5, "count.evidence.widen_factor"),
+        ("tiles.verify.max_detour_factor", 0.9, "tiles.verify.max_detour_factor"),
+        ("tiles.verify.costing", "auto", "tiles.verify.costing"),
     ],
 )
 def test_invalid_config_fails_clearly(
