@@ -6,6 +6,7 @@ to every team member **and** to every AI assistant working on someone's behalf.
 - **This file** = how we collaborate (Git workflow, reviews, releases).
 - **[AGENTS.md](AGENTS.md)** = binding rules for coding agents (commands, architecture rules, boundaries).
 - **[docs/architecture.md](docs/architecture.md)** = what the system is and how it works.
+- **[docs/methodology.md](docs/methodology.md)** = what is measured, scored, recommended and validated.
 - **[README.md](README.md)** = how to install and run the project.
 
 > Our GitHub plan may not enforce branch protection. Nothing technically stops a direct push to
@@ -18,9 +19,9 @@ to every team member **and** to every AI assistant working on someone's behalf.
 3. Conventional Commits in English; small, self-contained commits.
 4. Lint and tests pass before a PR (`uv run ruff check . && uv run pytest`).
 5. PRs go into `dev` and need an approving review by **another** team member.
-6. Code and `docs/architecture.md` never disagree; deviations are agreed first, then documented.
+6. Code, `docs/architecture.md` and `docs/methodology.md` never disagree; deviations are agreed first, then documented.
 7. No data, secrets or large files in Git — ever.
-8. AI assistants ask their human before pushing, opening PRs, merging, deleting or changing the architecture.
+8. AI assistants may push their own topic branch and open draft PRs; they ask before merging, deleting or changing the architecture or methodology.
 
 ## 1. Branches
 
@@ -147,14 +148,14 @@ git push --force-with-lease      # never plain --force
 - Conflicts: understand both sides and combine them deliberately; ask the owner before resolving
   conflicts in their code; re-run checks afterwards.
 
-## 6. Architecture changes
+## 6. Architecture and methodology changes
 
-`docs/architecture.md` is binding. If the code has to differ from it:
+`docs/architecture.md` and `docs/methodology.md` are binding. If the code has to differ from them:
 
 1. Raise it (issue or PR comment) with the reason and the proposed doc change.
 2. Get agreement from the team (at least the owners of the affected folders).
-3. Implement and update `architecture.md` in the same PR: bump the version line, add a change-log
-   line, move the decision to "Settled" in §13.
+3. Implement and update the document in the same PR: bump the version line, add a change-log
+   line, move the decision to "Settled".
 
 ## 7. Versions and history
 
@@ -181,10 +182,11 @@ pipeline logic, no notebooks in the pipeline.
 
 ## 9. Working with AI assistants
 
-AI assistants follow this file and `AGENTS.md`. They ask their human for explicit confirmation
-before pushing, opening or updating PRs/issues, merging, deleting, force-pushing, tagging,
-releasing, changing dependencies or structure, changing `docs/architecture.md` or deviating from
-it, and touching another member's code. They state a plan before larger changes, attribute their
+AI assistants follow this file and `AGENTS.md`. They may push their own topic branch and open
+draft PRs into `dev`. They ask their human for explicit confirmation before marking a PR ready,
+merging, deleting, force-pushing shared branches, tagging, releasing, changing dependencies or
+structure, changing `docs/architecture.md` or `docs/methodology.md` or deviating from them, and
+touching another member's code. They update `README.md` and `CHANGELOG.md` on their own. They state a plan before larger changes, attribute their
 commits with a co-author trailer, never commit secrets, ask instead of guessing, and end with a
 summary (branch, commits, PR link, open points).
 
@@ -193,5 +195,5 @@ summary (branch, commits, PR link, open points).
 - GitHub Issues for tasks, bugs and questions; reference them in branches and PRs (`Closes #12`).
 - Interface changes (data contract, config keys, shared code) need an issue and agreement of the
   affected owners first.
-- Decisions are recorded in `docs/architecture.md` §13 (technical) and
-  `docs/project_management_decisions.md` (team).
+- Decisions are recorded in `docs/architecture.md` §13 (technical), `docs/methodology.md` §7
+  (methodology) and `docs/project_management_decisions.md` (team).

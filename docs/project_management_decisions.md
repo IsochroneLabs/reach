@@ -1,6 +1,6 @@
 # Team & Course-Management Decisions
 
-Companion to `architecture_proposal.md` (technical decisions D1-D21) and `features.md` (features and roadmap). This file holds everything that is about the team, the course requirements and the supervisors rather than about the system itself.
+Companion to `architecture.md` (technical decisions O-numbers), `methodology.md` (methodology questions M-numbers) and `features.md` (features and roadmap). This file holds everything that is about the team, the course requirements and the supervisors rather than about the system itself.
 
 Course context: DS500 Data Science Project, WT 2026/27. Evaluation is **individual**: the brief says each member's contribution to the project and to the presentations is considered. Two presentations (interim and final), a 3-minute video, a 3-sentence summary, code access, database access for supervisors, and a hosted interface are required.
 
@@ -46,10 +46,10 @@ Course context: DS500 Data Science Project, WT 2026/27. Evaluation is **individu
 | Routing and accessibility counting | | | G1 test, counting method, batch baseline | | |
 | Scoring and spatial statistics | | | Scoring spec, deficit index, Moran's I / hot spots | | |
 | Recommender and validation experiments | | | Greedy solver, exact comparison, back-test, sensitivity | | |
-| API and database | | | Schema, endpoints, job queue | | |
+| API and database | | | Schema, data contract, read and live endpoints | | |
 | Frontend and visualization | | | Maps, scorecards, recommender views | | |
-| Deployment and automation | | | bwCloud, Compose, scheduled refresh, D20 test | | |
-| Documentation | | | README, scoring spec, data dictionary, architecture | | |
+| Deployment and automation | | | Hetzner server, Compose, CI, scheduled refresh, V9 test | | |
+| Documentation | | | README, architecture, methodology, data contract, glossary | | |
 | Presentation, video, summary | | | Slides, video, 3-sentence summary | | |
 
 ---
@@ -122,16 +122,16 @@ Structure for slides and README:
 
 ## 7. Questions for the Supervisors [ASK] (T7)
 
-Send as one message; the answers affect technical decisions in `architecture_proposal.md`.
+Send as one message; the answers affect decisions in `architecture.md` and `methodology.md`.
 
 1. Is Topic 9 confirmed for our team, and who is our supervisor?
-2. **Modes (D18):** is a walking-only Core acceptable, given that the topic text says "walk or bicycle ride"?
-3. **Analysis method (D19):** is optimization plus spatial statistics (Moran's I, hot spots) an adequate "traditional statistics or machine learning" component, or do you expect a statistical or ML model?
+2. **Profiles:** our Core covers walking (inclusive 3.39 km/h and 5.0 km/h), cycling and wheelchair. Is that adequate?
+3. **Analysis method (M5):** is optimization plus spatial statistics (Moran's I, hot spots) an adequate "traditional statistics or machine learning" component, or do you expect a statistical or ML model?
 4. **Scale:** is one well-validated region sufficient, or is a larger coverage expected?
-5. **Hosting (D13):** which bwCloud flavors and quota are available to us, and how do graders access the hosted app and the database?
+5. **Hosting:** we host on a small external server (Hetzner) instead of bwCloud. Is that acceptable, and is a read-only database user via SSH tunnel fine for database access?
 6. **Individual evaluation (T1):** what evidence of individual contribution do you want (contributions table, git history, presentation parts)?
 7. **Compute:** may we use bwUniCluster for optional large runs?
-8. **Validation data (D5):** are there authoritative facility data you suggest for checking OSM completeness?
+8. **Validation data (V2):** are there authoritative facility data you suggest for checking OSM completeness?
 9. **Interim presentation:** how long is it, and what level of results do you expect on 25 Nov?
 10. **Video and summary:** any format requirements beyond the brief?
 
@@ -146,7 +146,7 @@ Send as one message; the answers affect technical decisions in `architecture_pro
 | Wed 25 Nov 2026, 14:00-18:00 | Interim presentation, SR209 (mandatory) | Course schedule |
 | 22 Nov | Interim slides ready, rehearsal done | Internal |
 | Fri 22 Jan 2027, 23:59 | Submission: code access, hosted interface, video, summary (all except slides) | Course schedule |
-| 19 Jan | Internal freeze: everything deployed and tested, D20 reproducibility run done | Internal |
+| 19 Jan | Internal freeze: everything deployed and tested, V9 reproducibility run done | Internal |
 | Thu 28 Jan 2027, 20:00 | Submission of final slides | Course schedule |
 | Fri 29 Jan 2027, 9:00-14:00 | Final presentation, SR209 (mandatory) | Course schedule |
 
@@ -156,7 +156,7 @@ Times may change depending on the number of participants, according to the brief
 
 ## 9. Decision Log
 
-Record every decision from this file and from `architecture_proposal.md` here, so the reasons survive.
+Record every team decision from this file here, so the reasons survive. Technical decisions are logged in `architecture.md` §13, methodology decisions in `methodology.md` §7.
 
 | Date | ID | Decision | Reason | Decided by | Revisit if |
 | --- | --- | --- | --- | --- | --- |
@@ -170,9 +170,9 @@ Record every decision from this file and from `architecture_proposal.md` here, s
 | --- | --- | --- |
 | Terrain handling does not change walking time (G1) | G1 test shows identical catchments | Time-based slope function on our own graph, or drop terrain mode and keep it as a documented limitation |
 | OSM data too incomplete for a category (GPs especially) | Low recall against the authoritative list | Report the gap openly; drop or mark the category as low-confidence; use official data for that category |
-| Zensus grid lacks age data at 100 m | D7 check fails | Total-population demand only |
-| bwCloud VM too small for the routing engine and database | Out-of-memory during deployment test | Pre-compute results, serve static tiles, reduce live isochrones |
+| Zensus grid lacks age data at 100 m | M6 check fails | Total-population demand only |
+| 4 GB server too small for Valhalla, PostGIS and the pipeline | Out-of-memory during deployment test | Swap, build tiles off-server, reduce live calls, precompute more |
 | Counting at scale takes too long | Batch run exceeds a day on one region | Facility-side counting, smaller region, use the cluster |
 | Team member unavailable | Missed deadlines, silence | Reviewer takes over (T2); cut stretch items first |
-| Scope grows | Core not done by feature freeze | Cut list in `features.md`, Section 8 |
-| README is incomplete when a non-author runs it (D20) | Test fails | Fix README, rerun, repeat before submission |
+| Scope grows | Core not done by feature freeze | Cut order in `features.md`, Section 9 |
+| README is incomplete when a non-author runs it (V9) | Test fails | Fix README, rerun, repeat before submission |
