@@ -2,7 +2,7 @@
 
 > **Status:** P0 done (2 Nov 2026): Q1–Q5, C6–C12 and review points confirmed and applied
 > (architecture v0.11, methodology v0.2). P1 merged (PR #19). P2 implemented (2 Nov 2026,
-> draft PR, branch `feature/rico-acquire-validate`). Next: P3. This file is the **handoff between
+> draft PR #20). Next: P3. This file is the **handoff between
 > agent sessions**: phase status, decisions, agreed deviations, measured numbers and next steps.
 > It is informative; `architecture.md` and `methodology.md` stay binding. Where this plan proposes
 > something that differs from them, it is listed in [Section 5](#5-conflicts-gaps-and-ambiguities)
@@ -16,7 +16,7 @@
 |---|---|---|---|---|
 | P0 | Implementation plan | `docs/rico-implementation-plan` | [x] PR #17 | 2 Nov |
 | P1 | Scaffold & tooling | `feature/rico-scaffold` | [x] draft PR #19 (stacked on #17), CI green | 6 Nov |
-| P2 | acquire + validate inputs | `feature/rico-acquire-validate` | [x] draft PR (interim depth; test-clip script open) | 11 Nov |
+| P2 | acquire + validate inputs | `feature/rico-acquire-validate` | [x] draft PR #20 (interim depth; test-clip script open) | 11 Nov |
 | P3 | tiles + count | `feature/rico-tiles-count` | [ ] | 16 Nov |
 | P4 | score + publish + cleanup | `feature/rico-score-publish` | [ ] | 19 Nov |
 | P5 | API | `feature/rico-api` | [ ] | 21 Nov |
@@ -332,7 +332,7 @@ Measured numbers (runtime, peak memory, counts) are added here at the end of eve
 1. ~~Confirm C6–C12 and the review points~~ — done 2 Nov 2026; P0 closed.
 2. ~~P1 scaffold~~ — implemented 2 Nov 2026 (draft PR #19, CI green). After #17 is squash-merged: rebase
    `feature/rico-scaffold` onto `origin/dev`, re-run checks, change the PR base to `dev`.
-3. ~~P2~~ — implemented 2 Nov 2026 (draft PR). Open from P2: decide N3 (urban boundary land-use
+3. ~~P2~~ — implemented 2 Nov 2026 (draft PR #20). Open from P2: decide N3 (urban boundary land-use
    values / closing distance, ask first); `scripts/build_test_clip.py` and the clip bbox
    refinement (interim: may follow later); osmium memory for the CX23 (risk table, VF3); extend
    `reference_day` before 2028-06-17 (the run fails with a clear message otherwise).
