@@ -1,0 +1,40 @@
+[project]
+name = "reach"
+version = "0.0.0"
+description = "15-minute city accessibility for Tübingen (DS500 course project) — uv workspace root"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = []
+
+[tool.uv]
+package = false
+
+[tool.uv.workspace]
+members = ["pipeline", "api"]
+
+[tool.uv.sources]
+reach-pipeline = { workspace = true }
+reach-api = { workspace = true }
+
+[dependency-groups]
+dev = [
+    "reach-pipeline",
+    "reach-api",
+    "ruff>=0.17",
+    "pytest>=9.1",
+    "pytest-asyncio>=1.0",
+    "respx>=0.22",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+extend-exclude = ["data"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.pytest.ini_options]
+testpaths = ["pipeline/tests", "api/tests"]
+addopts = "-q"
+asyncio_mode = "auto"

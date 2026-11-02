@@ -9,8 +9,9 @@ They apply to every agent session, on behalf of any team member. Humans: see `RE
 area of Tübingen, finds underserved areas and recommends sites for new facilities. Course project
 DS500, University of Tübingen. Automation, validation, documentation and a hosted app are graded.
 
-**Status:** architecture phase — only `docs/` and repository files exist; `pipeline/`, `api/`,
-`web/`, `config/`, `infra/`, `.github/CODEOWNERS` and `docs/data_contract.md` are planned. If a
+**Status:** start of implementation — `docs/`, repository files and the uv workspace with empty
+`pipeline/` and `api/` packages exist; `web/`, `config/`, `infra/`, `Makefile`, `compose*.yaml`,
+`.github/` and `docs/data_contract.md` are planned. If a
 file, folder or command referenced here does not exist yet, say so; do not invent a substitute.
 
 ## Terms and roles

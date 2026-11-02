@@ -8,9 +8,9 @@ where new facilities would help the most people.
 Course project for **DS500 Data Science Project** (M.Sc. Data Science in Business and Economics,
 University of Tübingen, winter term 2026/27), Topic 9 "The 15-Minute City".
 
-> **Status: architecture phase.** The target architecture and team rules are defined; the code
-> scaffold (`pipeline/`, `api/`, `web/`, `infra/`) does not exist yet. Commands below marked
-> *planned* become available with the scaffold.
+> **Status: start of implementation.** Architecture and team rules are defined; the Python
+> workspace (`pipeline/`, `api/` skeletons with uv) exists, everything else is being built.
+> Commands below marked *planned* become available step by step.
 
 ## What it does
 
@@ -47,8 +47,8 @@ with Docker Compose on one small server. Details: [`docs/architecture.md`](docs/
 | `AGENTS.md`, `CLAUDE.md` | Rules for coding agents | ✅ |
 | `CONTRIBUTING.md` | Branches, commits, pull requests, releases | ✅ |
 | `CHANGELOG.md` | Change history | ✅ |
-| `pipeline/` | Data pipeline (Python, uv workspace member) | planned |
-| `api/` | FastAPI backend (Python, uv workspace member) | planned |
+| `pipeline/` | Data pipeline (Python, uv workspace member) | skeleton |
+| `api/` | FastAPI backend (Python, uv workspace member) | skeleton |
 | `web/` | React + MapLibre frontend | planned |
 | `config/` | Study area, profiles, categories, thresholds, Valhalla limits | planned |
 | `infra/` | Dockerfiles, Caddy, database roles, scheduler, server setup | planned |
@@ -56,17 +56,18 @@ with Docker Compose on one small server. Details: [`docs/architecture.md`](docs/
 ## Getting started
 
 Requirements: [uv](https://docs.astral.sh/uv/), Docker (Desktop) with Compose, Node.js for the
-frontend.
+frontend. Without uv: `pip install -r requirements.txt` (exported from `uv.lock`).
 
 ```bash
 git clone https://github.com/IsochroneLabs/reach.git
 cd reach
 git switch dev
 
-uv sync                 # planned: Python environment for pipeline and api
+uv sync                 # Python 3.12 environment (.venv) for pipeline and api
+uv run pytest           # tests
+uv run ruff check .     # lint
 make up                 # planned: start PostGIS, Valhalla, API, Caddy locally
 make pipeline           # planned: download data, compute and publish results
-uv run pytest           # planned: tests
 ```
 
 ## Data sources
