@@ -1,7 +1,8 @@
 # Implementation plan — reach
 
 > **Status:** P0 done (2 Nov 2026): Q1–Q5, C6–C12 and review points confirmed and applied
-> (architecture v0.11, methodology v0.2). Next: P1. This file is the **handoff between
+> (architecture v0.11, methodology v0.2). P1 implemented (2 Nov 2026, draft PR #19, stacked on
+> PR #17). Next: P2. This file is the **handoff between
 > agent sessions**: phase status, decisions, agreed deviations, measured numbers and next steps.
 > It is informative; `architecture.md` and `methodology.md` stay binding. Where this plan proposes
 > something that differs from them, it is listed in [Section 5](#5-conflicts-gaps-and-ambiguities)
@@ -14,7 +15,7 @@
 | Phase | Topic | Branch | Status | Target date |
 |---|---|---|---|---|
 | P0 | Implementation plan | `docs/rico-implementation-plan` | [x] PR #17 | 2 Nov |
-| P1 | Scaffold & tooling | `feature/rico-scaffold` | [ ] | 6 Nov |
+| P1 | Scaffold & tooling | `feature/rico-scaffold` | [x] draft PR #19 (stacked on #17), CI green | 6 Nov |
 | P2 | acquire + validate inputs | `feature/rico-acquire-validate` | [ ] | 11 Nov |
 | P3 | tiles + count | `feature/rico-tiles-count` | [ ] | 16 Nov |
 | P4 | score + publish + cleanup | `feature/rico-score-publish` | [ ] | 19 Nov |
@@ -294,15 +295,34 @@ Confirmed by Rico (2 Nov 2026): C6–C12 as recommended in Section 5; Q4 also co
 | 2026-11-02 | Q1–Q5 | Applied: architecture v0.11 (O18–O20), methodology v0.2 (§2 facility locations, §3 profiles) |
 | 2026-11-02 | Branch names | `<type>/<name>-<topic>` (PR #18) |
 | 2026-11-02 | C6–C12, Q4 scope, margin wording | Confirmed as recommended; P0 closed |
+| 2026-11-02 | P1 PostGIS image | `postgis/postgis` has no arm64 build → `imresamu/postgis:18-3.6` (multi-arch build of the official image) locally and in production (confirmed by Rico) |
+| 2026-11-02 | P1 Valhalla in `make up` | Deviation: `valhalla` sits behind Compose profile `routing` until P3 provides `config/valhalla.json` and tiles; P3 removes the profile (confirmed) |
+| 2026-11-02 | P1 placeholders | API: `reach_api/main.py` with `GET /api/health`, run in the official uv image with bind mount and `--reload` (no Dockerfile until P5); Caddy: `infra/Caddyfile` + `infra/web-placeholder/` proxying `/api` (confirmed) |
+| 2026-11-02 | P1 pins | `ghcr.io/valhalla/valhalla:3.9.1`, `imresamu/postgis:18-3.6`, `caddy:2.11.7-alpine`, `ghcr.io/astral-sh/uv:0.13.6-python3.12-trixie-slim` (all amd64 + arm64, checked with `docker manifest inspect`); CI `actions/checkout@v7.0.1`, `astral-sh/setup-uv@v10.3.3` with uv 0.13.6 |
+| 2026-11-02 | P1 assumptions | `make pipeline` runs on the host with uv; Compose `pipeline` uses the uv image until osmium needs an own image (P2/P8). Ports bind to 127.0.0.1 on the default network ("internal" = not public; Docker `internal: true` networks cannot publish ports). City boundary selected by `admin_level` 8 + AGS `08416041` instead of a relation id (the id found, 167128, returns HTTP 410). New values: `min_part_area_m2` 10,000, `access_points.max_points` 20, `population_tolerance_pct` 5, cycling `max_speed_factor` 1.0 (provisional, O20), test clip bbox approximate. Speed only in `speed_kmh` (Valhalla `walking_speed`/`cycling_speed` set by the client), so `profiles` in the data contract gets `speed_kmh`. `extends:` key for `test_clip.yaml`. Single stage without `--run-id` reuses the latest run. Exceptions in `errors.py` (module not named in the plan) |
 
 Measured numbers (runtime, peak memory, counts) are added here at the end of every phase.
+
+| Phase | Measurement (MacBook arm64, Docker 29.9.2) | Value |
+|---|---|---|
+| P1 | `make up` (images pulled, warm uv cache) until db, api, caddy healthy | 11 s |
+| P1 | Idle memory (`docker stats`): db / api (uvicorn `--reload` + uv) / caddy | 34 MB / 366 MB / 17 MB |
+| P1 | `make pipeline STAGE=hello`: runtime / peak RSS | < 0.01 s / 33.5 MB |
+| P1 | `uv run pytest` | 31 passed in < 1 s |
 
 ## 8. Next steps
 
 1. ~~Confirm C6–C12 and the review points~~ — done 2 Nov 2026; P0 closed.
-2. After explicit confirmation, start P1 in a new session from fresh `dev`
-   (`feature/rico-scaffold`).
-3. P3 must deliver the prefilter evidence (O20) and, if needed, a buffer proposal.
+2. ~~P1 scaffold~~ — implemented 2 Nov 2026 (draft PR #19, CI green). After #17 is squash-merged: rebase
+   `feature/rico-scaffold` onto `origin/dev`, re-run checks, change the PR base to `dev`.
+3. P2 (`feature/rico-acquire-validate`): ask for `osmium-tool`; verify Zensus column names,
+   Tübingen AGS and district admin levels in the extract; set `validation.official_population`,
+   `districts.admin_level`, the holiday list (C7) and refine the test clip bbox.
+4. P3 must deliver the prefilter evidence (O20) and, if needed, a buffer proposal; it adds
+   `config/valhalla.json`, the `valhalla-build` command and removes the `routing` profile.
+5. Open from P1: Starlette deprecates `httpx` for `TestClient` (warning); adding `httpx2` as a
+   dev dependency is deferred to P5 (Rico, 2 Nov 2026). The pytest-asyncio loop-scope warning is
+   fixed (`asyncio_default_fixture_loop_scope = "function"`).
 
 ## 9. Working rules (copy from the start prompt)
 

@@ -1,0 +1,10 @@
+# Owners review changes in their folders (AGENTS.md). Until folder owners are settled (T2),
+# every folder is owned by all three team members (implementation plan Q4).
+*           @RicoS03 @konstantinholl @nicholas-tuebi
+/pipeline/  @RicoS03 @konstantinholl @nicholas-tuebi
+/api/       @RicoS03 @konstantinholl @nicholas-tuebi
+/web/       @RicoS03 @konstantinholl @nicholas-tuebi
+/config/    @RicoS03 @konstantinholl @nicholas-tuebi
+/infra/     @RicoS03 @konstantinholl @nicholas-tuebi
+/docs/      @RicoS03 @konstantinholl @nicholas-tuebi
+/.github/   @RicoS03 @konstantinholl @nicholas-tuebi

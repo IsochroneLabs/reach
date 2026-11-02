@@ -55,7 +55,7 @@ residents do not use (forest track, road without sidewalk).
 
 ## N2. Pipeline stage template and `pipeline/AGENTS.md`
 
-**Status:** open · **Added:** 2 Nov 2026 · **Related:** `AGENTS.md` (folder-specific rules), `architecture.md` §7
+**Status:** closed 2 Nov 2026 (P1: pattern in `pipeline/AGENTS.md`, `api/AGENTS.md` created; `web/AGENTS.md` follows in P6) · **Added:** 2 Nov 2026 · **Related:** `AGENTS.md` (folder-specific rules), `architecture.md` §7
 
 When the code scaffold is created, define one pattern that every pipeline stage follows and
 document it in `pipeline/AGENTS.md`:

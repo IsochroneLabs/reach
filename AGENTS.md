@@ -9,9 +9,10 @@ They apply to every agent session, on behalf of any team member. Humans: see `RE
 area of Tübingen, finds underserved areas and recommends sites for new facilities. Course project
 DS500, University of Tübingen. Automation, validation, documentation and a hosted app are graded.
 
-**Status:** start of implementation — `docs/`, repository files and the uv workspace with empty
-`pipeline/` and `api/` packages exist; `web/`, `config/`, `infra/`, `Makefile`, `compose*.yaml`,
-`.github/` and `docs/data_contract.md` are planned. If a
+**Status:** scaffold (P1) — `docs/` (incl. a draft `docs/data_contract.md`), `config/config.yaml`,
+`Makefile`, `compose.yaml` (db, api placeholder, caddy placeholder; Valhalla from P3), `.github/`
+(CI) and the pipeline stage pattern with a `hello` stage exist; the real pipeline stages, `web/`,
+`config/valhalla.json`, `compose.prod.yaml` and most of `infra/` are planned. If a
 file, folder or command referenced here does not exist yet, say so; do not invent a substitute.
 
 ## Terms and roles
@@ -52,7 +53,7 @@ Run from the repository root.
 | Lint + format check | `uv run ruff check . && uv run ruff format --check .` |
 | Tests (all Python) | `uv run pytest` |
 | Tests (one package) | `uv run pytest pipeline/tests` · `uv run pytest api/tests` |
-| Start local stack | `make up` (Docker Compose: Caddy, API, PostGIS, Valhalla) |
+| Start local stack | `make up` (Docker Compose: Caddy, API, PostGIS; Valhalla from P3 on) |
 | Run pipeline | `make pipeline` · single stage: `make pipeline STAGE=count` |
 | Frontend | `cd web && npm ci && npm run dev` · checks: `npm run lint && npm run build` |
 | Add Python dependency | `uv add --package pipeline <pkg>` / `--package api` / `--dev` |

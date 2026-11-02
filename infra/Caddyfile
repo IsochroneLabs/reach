@@ -1,0 +1,12 @@
+# Local Caddy: serves the frontend placeholder (web/dist from P6 on) and proxies /api to FastAPI.
+# Production (HTTPS via sslip.io) gets its own site block in P8.
+:80 {
+	encode gzip
+	handle /api/* {
+		reverse_proxy api:8000
+	}
+	handle {
+		root * /srv
+		file_server
+	}
+}

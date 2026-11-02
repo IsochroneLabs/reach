@@ -8,9 +8,10 @@ where new facilities would help the most people.
 Course project for **DS500 Data Science Project** (M.Sc. Data Science in Business and Economics,
 University of Tübingen, winter term 2026/27), Topic 9 "The 15-Minute City".
 
-> **Status: start of implementation.** Architecture and team rules are defined; the Python
-> workspace (`pipeline/`, `api/` skeletons with uv) exists, everything else is being built.
-> Commands below marked *planned* become available step by step.
+> **Status: scaffold (phase P1).** Architecture and team rules are defined; the local stack
+> (PostGIS, API and web placeholders), the configuration, the pipeline stage pattern and CI exist.
+> Data stages, routing and the map are being built. Commands below marked *planned* become
+> available step by step; progress: [`docs/implementation_plan.md`](docs/implementation_plan.md).
 
 ## What it does
 
@@ -47,11 +48,13 @@ with Docker Compose on one small server. Details: [`docs/architecture.md`](docs/
 | `AGENTS.md`, `CLAUDE.md` | Rules for coding agents | ✅ |
 | `CONTRIBUTING.md` | Branches, commits, pull requests, releases | ✅ |
 | `CHANGELOG.md` | Change history | ✅ |
-| `pipeline/` | Data pipeline (Python, uv workspace member) | skeleton |
-| `api/` | FastAPI backend (Python, uv workspace member) | skeleton |
+| `pipeline/` | Data pipeline (Python, uv workspace member): stage pattern, config loader | scaffold |
+| `api/` | FastAPI backend (Python, uv workspace member): health endpoint | placeholder |
 | `web/` | React + MapLibre frontend | planned |
-| `config/` | Study area, profiles, categories, thresholds, Valhalla limits | planned |
-| `infra/` | Dockerfiles, Caddy, database roles, scheduler, server setup | planned |
+| `config/` | Study area, profiles, categories, thresholds (`config.yaml`); Valhalla limits planned | partial |
+| `infra/` | Caddyfile and placeholder page; Dockerfiles, DB roles, scheduler planned | partial |
+| `Makefile`, `compose.yaml`, `.env.example` | Local stack and command wrappers | ✅ |
+| `.github/` | CI (lint + tests), PR template, CODEOWNERS | ✅ |
 
 ## Getting started
 
@@ -64,11 +67,18 @@ cd reach
 git switch dev
 
 uv sync                 # Python 3.12 environment (.venv) for pipeline and api
-uv run pytest           # tests
-uv run ruff check .     # lint
-make up                 # planned: start PostGIS, Valhalla, API, Caddy locally
+make test               # tests (uv run pytest)
+make lint               # ruff check + format check
+
+cp .env.example .env    # then replace every "change-me"
+make up                 # start PostGIS, API and Caddy; http://127.0.0.1:8080
+make pipeline STAGE=hello   # no-op stage, writes data/runs/<run_id>/hello/manifest.json
+make down               # stop the stack
 make pipeline           # planned: download data, compute and publish results
 ```
+
+Valhalla joins `make up` once routing tiles exist (phase P3). If port 5432, 8002 or 8080 is taken
+on your machine, change `DB_PORT`, `VALHALLA_PORT` or `WEB_PORT` in `.env`.
 
 ## Data sources
 
@@ -87,6 +97,7 @@ make pipeline           # planned: download data, compute and publish results
 |---|---|
 | [`docs/architecture.md`](docs/architecture.md) | **Binding** system description, decisions and change log |
 | [`docs/methodology.md`](docs/methodology.md) | **Binding** categories, thresholds, scoring, recommender, validation experiments |
+| [`docs/data_contract.md`](docs/data_contract.md) | Table and file schemas between pipeline and API (draft) |
 | [`docs/features.md`](docs/features.md) | Features, priorities and roadmap |
 | [`docs/glossary.md`](docs/glossary.md) | Project vocabulary |
 | [`docs/notes.md`](docs/notes.md) | Open points and future work |
