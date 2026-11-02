@@ -24,6 +24,12 @@ jobs:
           version: "0.13.6"
           enable-cache: true
 
+      - name: Install osmium-tool (system binary used by the pipeline, see README)
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q --no-install-recommends osmium-tool
+          osmium --version | head -n 1
+
       - name: Install workspace (Python from .python-version, locked versions)
         run: uv sync --frozen
 
