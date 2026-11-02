@@ -84,7 +84,6 @@ No job queue, no tile server, no self-hosted geocoder in Core (see [Section 12](
 | Geofabrik `tuebingen-regbez-latest.osm.pbf`, clipped to the city of Tübingen + routing buffer with `osmium extract` | Street and footpath network (Valhalla), facilities, district boundaries, land use | PBF | weekly (source updates daily) | ODbL 1.0 |
 | NVBW GTFS (naldo, "mit Liniennetz") | Stops, weekday departures | GTFS zip | weekly | dl-de/by-2-0 and ODbL |
 | Destatis Zensus 2022 grid | Residents per 100 m cell (EPSG:3035 cell IDs) | CSV zip | static | dl-de/by-2-0 |
-| Elevation (not in Core; only if gate G1 passes) | Slope for Valhalla | SRTM tiles via Valhalla, or state DGM | static | per source |
 
 **Study area:** city of Tübingen (administrative boundary). Origins (census cells) and reported
 results lie inside the boundary. The routing network and the facilities are taken from the
