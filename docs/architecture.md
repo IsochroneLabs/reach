@@ -1,6 +1,7 @@
 # Architecture — reach (15-Minute City Tübingen)
 
-> **Status:** draft v0.7 (2 Nov 2026). Describes the target architecture the team builds towards.
+> **Status:** draft v0.8 (2 Nov 2026). Describes the target architecture the team builds towards.
+> Every change bumps the version and adds a line to the [Change log](#change-log).
 > Settled and open decisions are listed in [Section 13](#13-decisions); items marked **[OPEN]**
 > must be settled before the related code is written. Methodology (scoring formula, thresholds, validation
 > experiments) is defined in [`architecture_proposal.md`](architecture_proposal.md) §5 and §8 and
@@ -490,3 +491,20 @@ All Python code is managed with **[uv](https://docs.astral.sh/uv/)** as one **uv
 
 Rules: no `pip install`, no hand-made virtual environments, `.venv/` is git-ignored,
 `pyproject.toml` and `uv.lock` are committed together.
+
+## Change log
+
+Every change to this document bumps the version line at the top and adds one line here
+(newest first). Implementation that deviates from this document must be agreed first and
+documented here in the same branch (see `AGENTS.md`).
+
+| Version | Date | Change | Why |
+|---|---|---|---|
+| v0.8 | 2026-11-02 | Added this change log and the version rule in the header | Track the history of architecture decisions |
+| v0.7 | 2026-11-02 | §14.1 Python environment with uv (one workspace, one lockfile); repository layout with per-package `src/` and `tests/`, nested `AGENTS.md`, `CLAUDE.md` | Reproducible environments for three people and agents |
+| v0.6 | 2026-11-02 | Tiles always built with elevation; use of elevation is a per-profile setting (ignored for walking/wheelchair for now); elevation tiles re-added to data sources | Keep slope data available without rebuild; decide usage later (gate G1) |
+| v0.5 | 2026-11-02 | Study area and scoring limited to the urban boundary; 4 km routing buffer around it; open decision O17 (urban boundary definition); elevation row removed from data sources | 15-minute scores are not meaningful in forest and farmland |
+| v0.4 | 2026-11-02 | Origin per cell = cell centroid; building-based origin and `/locate` checks moved to `notes.md` (N1) | Start simple and reproducible, validate later |
+| v0.3 | 2026-11-02 | Settled O7, O13, O15; review fixes: reach table per profile, pin-drop routed from cell origin, `valhalla-build` with atomic tile swap, GTFS reference weekday, run retention, Valhalla internal only, budget start date, memory estimate, CI test plan | Close gaps found in review |
+| v0.2 | 2026-11-02 | Settled O1–O6, O8–O12 (CX23 within 20 € total, Valhalla always on, all three profiles, coarse categories, GeoJSON, chat webhook, English + `main`/`dev`); §6.5 efficient Valhalla usage; §11.1 where tiles are built | Team decisions of 2 Nov 2026 |
+| v0.1 | 2026-11-02 | Initial target architecture: Valhalla as single routing engine, Zensus 100 m grid, weekly validated pipeline, PostGIS, FastAPI, React + MapLibre, Hetzner hosting | Project restart with a server-ready architecture |
