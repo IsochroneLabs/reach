@@ -36,5 +36,5 @@ select = ["E", "F", "I", "UP", "B", "SIM"]
 
 [tool.pytest.ini_options]
 testpaths = ["pipeline/tests", "api/tests"]
-addopts = "-q"
+addopts = "-q --import-mode=importlib"
 asyncio_mode = "auto"
