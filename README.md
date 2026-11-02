@@ -90,6 +90,7 @@ make pipeline           # planned: download data, compute and publish results
 | [`docs/features.md`](docs/features.md) | Features, priorities and roadmap |
 | [`docs/glossary.md`](docs/glossary.md) | Project vocabulary |
 | [`docs/notes.md`](docs/notes.md) | Open points and future work |
+| [`docs/implementation_plan.md`](docs/implementation_plan.md) | Phase plan, status and decisions of the implementation (handoff between sessions) |
 | [`docs/prompts/implementation.md`](docs/prompts/implementation.md) | Prompts for building the system with a coding agent, phase by phase |
 | [`docs/project_management_decisions.md`](docs/project_management_decisions.md) | Team and course organisation |
 | [`CONTRIBUTING.md`](CONTRIBUTING.md) | How we work together |
