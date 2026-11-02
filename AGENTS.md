@@ -17,7 +17,7 @@ DS500, University of Tübingen. Automation, validation, documentation and a host
 |---|---|
 | **you** | The coding agent reading this file (any tool, any session). |
 | **your human** | The team member who started your session and gives you the task. Confirmations come from them. |
-| **we / the team** | The three project members: **Rico** (GitHub `RicoS03`), **Socke** (GitHub `konstantinholl`), **Nick** (GitHub: TBD). |
+| **we / the team** | The three project members: **Rico** (GitHub `RicoS03`), **Socke** (GitHub `konstantinholl`), **Juju** (GitHub `nicholas-tuebi`). |
 | **owner** | Team member responsible for a folder (`.github/CODEOWNERS`); reviews changes there. |
 | **supervisors** | Course supervisors; read-only users of the app and the database, not contributors. |
 
