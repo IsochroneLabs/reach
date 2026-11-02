@@ -1,6 +1,6 @@
 # Architecture — reach (15-Minute City Tübingen)
 
-> **Status:** draft v0.5 (2 Nov 2026). Describes the target architecture the team builds towards.
+> **Status:** draft v0.6 (2 Nov 2026). Describes the target architecture the team builds towards.
 > Settled and open decisions are listed in [Section 13](#13-decisions); items marked **[OPEN]**
 > must be settled before the related code is written. Methodology (scoring formula, thresholds, validation
 > experiments) is defined in [`architecture_proposal.md`](architecture_proposal.md) §5 and §8 and
@@ -84,6 +84,7 @@ No job queue, no tile server, no self-hosted geocoder in Core (see [Section 12](
 | Geofabrik `tuebingen-regbez-latest.osm.pbf`, clipped to the city of Tübingen + routing buffer with `osmium extract` | Street and footpath network (Valhalla), facilities, district boundaries, land use | PBF | weekly (source updates daily) | ODbL 1.0 |
 | NVBW GTFS (naldo, "mit Liniennetz") | Stops, weekday departures | GTFS zip | weekly | dl-de/by-2-0 and ODbL |
 | Destatis Zensus 2022 grid | Residents per 100 m cell (EPSG:3035 cell IDs) | CSV zip | static | dl-de/by-2-0 |
+| Elevation tiles (SRTM-based, downloaded by Valhalla with `build_elevation`) | Height per edge, stored in the routing tiles | Valhalla elevation tiles (1° × 1°, two tiles cover Tübingen + buffer) | static, downloaded once and kept in the volume | per source, attribution in README |
 
 **Study area: urban boundary of Tübingen.** The analysis covers the **urban (settlement) area**
 of Tübingen, not the whole administrative territory, which also contains forest (Schönbuch),
@@ -149,8 +150,18 @@ volume, so restarts never rebuild the graph.
 | Cycling | `bicycle` | bike type `Hybrid`, `cycling_speed` 15 km/h, `use_hills` (default) | yes |
 | Wheelchair / pram | `pedestrian` with `type: wheelchair` | `walking_speed` 3.39 km/h, avoids steps and steep sections | yes |
 
-Elevation is **off** in Core: travel times ignore slopes, stairs are still handled through OSM
-`highway=steps`. Gate G1 (`architecture_proposal.md` §3) may switch it on later.
+**Elevation is built in, its use is a per-profile setting.** The tiles are always built with
+elevation data (`build_elevation`), so slope information is available on every edge without a
+rebuild. Whether a profile uses it is controlled in `config/config.yaml`
+(`profiles.<name>.use_hills` and related costing options):
+
+| Profile | Elevation in Core | Note |
+|---|---|---|
+| Walking, wheelchair | **ignored for now** (default costing, slope effect not analysed or reported) | Gate G1 (`architecture_proposal.md` §3) tests whether slopes change walking times in Valhalla **[VERIFY]**; stairs are always handled through OSM `highway=steps` |
+| Cycling | as Valhalla's bicycle costing applies it with elevation present **[VERIFY]** | `use_hills` stays at the default until tested |
+
+Enabling slopes for walking later is a config change plus a pipeline run, not a code or
+architecture change.
 
 **Maximum reach per profile** (speed × time budget), used for the exact prefilter (6.3) and for
 the routing buffer (Section 4):
@@ -183,7 +194,8 @@ For every populated cell *i*, category *c* and profile *m*:
    line, so only facilities within the maximum reach of the profile (table in 6.1) are
    candidates. The prefilter is exact: no reachable facility is dropped.
 2. **Matrix request** with the cell origin as source and the candidates as targets
-   (direction cell → facility, which stays correct if slopes are added later).
+   (direction cell → facility, which stays correct when slopes are used, because uphill and
+   downhill times differ).
 3. **Count** targets with travel time ≤ budget → raw count `A[i,c,m]`, plus the time to the
    nearest facility.
 4. **Store raw counts and nearest times.** Classes and deficits are derived at read time from the
@@ -273,7 +285,7 @@ flowchart LR
 |---|---|---|---|
 | `acquire` | config | raw files in `data/raw/<run_id>/`, provenance (URL, date, checksum, licence) | Skips download if checksum unchanged; retries with backoff |
 | `validate inputs` | raw files | cleaned layers (GeoParquet, EPSG:25832), validation report part 1 | Fails loudly on schema or plausibility errors |
-| `build tiles` | clipped PBF | `valhalla_tiles.tar` in the shared volume | Only when the OSM snapshot changed; see 11.1 |
+| `build tiles` | clipped PBF, cached elevation tiles | `valhalla_tiles.tar` (with elevation) in the shared volume | Only when the OSM snapshot changed; see 11.1 |
 | `count` | cells, facilities, stops, Valhalla | raw counts and nearest times per cell × category × profile | Section 6.3 |
 | `score` | raw counts, config thresholds | classes, deficits per cell and district | Scoring spec |
 | `recommend` | deficits, catchments | ranked candidate zones with population gain | Greedy, land-use filtered |
@@ -383,7 +395,7 @@ Environments:
 
 Cut first if time is short; can be added later without changing the architecture:
 job queue / live scenario recomputation, self-hosted geocoder (map click and district picker
-instead), transit routing (Valhalla multimodal or r5py), elevation unless gate G1 passes,
+instead), transit routing (Valhalla multimodal or r5py), slope-aware walking times unless gate G1 passes,
 H3 aggregation, second region, Prefect/Dagster, monitoring stack.
 
 ## 13. Decisions
@@ -403,7 +415,7 @@ H3 aggregation, second region, Prefect/Dagster, monitoring stack.
 | O10 | Failed runs notify the team chat via webhook |
 | O11 | Study area = urban boundary of Tübingen (not the full administrative territory); only cells inside it are scored |
 | O12 | English documentation; branches `main` (releases) + `dev` (integration) |
-| O7 | Elevation off in Core; gate G1 test may enable it later (stairs are always handled) |
+| O7 | Elevation is built into the tiles; its use is a per-profile config setting, ignored for walking/wheelchair for now; gate G1 decides later (stairs are always handled) |
 | O13 | Routing buffer = 4 km around the urban boundary (covers maximum cycling reach of 3.75 km) |
 | O15 | Cycling speed fixed at 15 km/h |
 | — | Focus on efficient use of Valhalla endpoints (Section 6.5) |
