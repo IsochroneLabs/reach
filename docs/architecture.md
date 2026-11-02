@@ -1,6 +1,6 @@
 # Architecture — reach (15-Minute City Tübingen)
 
-> **Status:** draft v0.4 (2 Nov 2026). Describes the target architecture the team builds towards.
+> **Status:** draft v0.5 (2 Nov 2026). Describes the target architecture the team builds towards.
 > Settled and open decisions are listed in [Section 13](#13-decisions); items marked **[OPEN]**
 > must be settled before the related code is written. Methodology (scoring formula, thresholds, validation
 > experiments) is defined in [`architecture_proposal.md`](architecture_proposal.md) §5 and §8 and
@@ -85,10 +85,21 @@ No job queue, no tile server, no self-hosted geocoder in Core (see [Section 12](
 | NVBW GTFS (naldo, "mit Liniennetz") | Stops, weekday departures | GTFS zip | weekly | dl-de/by-2-0 and ODbL |
 | Destatis Zensus 2022 grid | Residents per 100 m cell (EPSG:3035 cell IDs) | CSV zip | static | dl-de/by-2-0 |
 
-**Study area:** city of Tübingen (administrative boundary). Origins (census cells) and reported
-results lie inside the boundary. The routing network and the facilities are taken from the
-boundary plus a **4 km routing buffer** (covers the maximum cycling reach of 3.75 km, see 6.1), so
-residents near the city limit can reach facilities in neighbouring municipalities.
+**Study area: urban boundary of Tübingen.** The analysis covers the **urban (settlement) area**
+of Tübingen, not the whole administrative territory, which also contains forest (Schönbuch),
+farmland and other open land where 15-minute scores are not meaningful.
+
+- **Urban boundary:** derived in the pipeline from the OSM extract and stored per run
+  (definition: see decision O17).
+- **Scoring scope:** only populated census cells whose centroid lies inside the urban boundary get
+  15-minute accessibility scores, deficits and recommendations. Residents in populated cells
+  outside it (e.g. isolated farms) are counted and reported in the validation report, but not
+  scored.
+- **Routing buffer:** the routing network and the facilities are taken from the urban boundary
+  plus a **4 km buffer** (covers the maximum cycling reach of 3.75 km, see 6.1), so residents at
+  the edge can reach facilities outside it, including neighbouring municipalities.
+- **Administrative boundary:** used only to clip the urban boundary to the city and for district
+  reporting (5.2).
 
 **One OSM file feeds everything.** Facilities, boundaries, land use and the Valhalla graph come
 from the same clipped extract, so there is no dependency on Overpass or Nominatim at runtime and
@@ -113,7 +124,7 @@ Rule for code and agents: **data is converted to 25832 on ingest and to 4326 onl
 
 ### 5.2 Analysis unit
 
-- **Origins:** populated Zensus 100 m cells inside the study area.
+- **Origins:** populated Zensus 100 m cells whose centroid lies inside the urban boundary (Section 4).
 - **Origin point per cell:** the **cell centroid**, transformed to EPSG:25832. Valhalla snaps it
   to the nearest edge of the network for each request. This is the Core choice because it is
   simple, reproducible and independent of OSM building completeness. Known limit: in partly built
@@ -236,7 +247,7 @@ The server has 4 GB RAM, so every Valhalla call must be cheap. Rules:
     clicks in the same cell never hit Valhalla twice.
 11. **Expensive calls on demand only.** `expansion` is only called when the user opens the
     "spread" view and is limited to the 15-minute budget.
-12. **Validate before routing.** Points outside the study area are rejected before any Valhalla call.
+12. **Validate before routing.** Points outside the urban boundary plus a small margin are rejected before any Valhalla call.
 
 **Valhalla service**
 
@@ -321,7 +332,7 @@ Live endpoints (call Valhalla, small and fast, no queue):
 - `POST /api/catchment` — facility or candidate: isochrone + residents reaching it.
 - `POST /api/expansion` — street-level spread for visualisation.
 
-Live endpoints validate that the point lies inside the study area and enforce simple rate limits.
+Live endpoints validate that the point lies inside the urban boundary (plus a small margin) and enforce simple rate limits.
 
 ## 10. Frontend
 
@@ -390,10 +401,10 @@ H3 aggregation, second region, Prefect/Dagster, monitoring stack.
 | O8 | Coarse facility categories (≈ 7) in Core |
 | O9 | Map data as GeoJSON from the API first |
 | O10 | Failed runs notify the team chat via webhook |
-| O11 | Study area = city of Tübingen; routing buffer around it |
+| O11 | Study area = urban boundary of Tübingen (not the full administrative territory); only cells inside it are scored |
 | O12 | English documentation; branches `main` (releases) + `dev` (integration) |
 | O7 | Elevation off in Core; gate G1 test may enable it later (stairs are always handled) |
-| O13 | Routing buffer = 4 km around the city boundary (covers maximum cycling reach of 3.75 km) |
+| O13 | Routing buffer = 4 km around the urban boundary (covers maximum cycling reach of 3.75 km) |
 | O15 | Cycling speed fixed at 15 km/h |
 | — | Focus on efficient use of Valhalla endpoints (Section 6.5) |
 
@@ -403,6 +414,7 @@ H3 aggregation, second region, Prefect/Dagster, monitoring stack.
 |---|---|---|---|
 | O14 | Team chat for the failure webhook | Discord, Slack, Telegram, Matrix, … (WhatsApp has no simple webhooks) | – |
 | O16 | Server for the interim presentation (25 Nov) | Local demo; short-lived test server for the day | Local demo, to save budget |
+| O17 | Definition of the urban boundary | (a) OSM built-up land use (`landuse=residential, commercial, retail`, …) inside the city, dissolved, gaps closed by buffering out and in (e.g. ±50 m), small fragments dropped; (b) census-based: contiguous populated cells above a density threshold; (c) external settlement layer (e.g. GHSL urban clusters) | (a), reproducible from the same OSM file; include outlying villages (Teilorte) as separate urban parts |
 
 ## 14. Repository layout
 
