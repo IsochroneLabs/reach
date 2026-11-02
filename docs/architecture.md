@@ -1,6 +1,6 @@
 # Architecture — reach (15-Minute City Tübingen)
 
-> **Status:** draft v0.2 (2 Nov 2026). Describes the target architecture the team builds towards.
+> **Status:** draft v0.3 (2 Nov 2026). Describes the target architecture the team builds towards.
 > Settled and open decisions are listed in [Section 13](#13-decisions); items marked **[OPEN]**
 > must be settled before the related code is written. Methodology (scoring formula, thresholds, validation
 > experiments) is defined in [`architecture_proposal.md`](architecture_proposal.md) §5 and §8 and
@@ -30,8 +30,8 @@ serve them.
 4. **Native census grid.** The analysis unit is the official Zensus 2022 100 m grid. No
    re-gridding to H3, so population numbers stay exactly as published.
 5. **A failed run never breaks the app.** New results become visible only after validation passes.
-6. **Few services, clear contracts.** Four long-running services plus one run-to-completion
-   pipeline container. Modules talk only through documented tables and files.
+6. **Few services, clear contracts.** Four long-running services plus two run-to-completion
+   containers (pipeline, tile build). Modules talk only through documented tables and files.
 7. **Everything as code.** Docker images, Compose files, Valhalla config, scheduler and server
    setup live in the repository. A fresh server is up in under 30 minutes.
 
@@ -73,6 +73,7 @@ flowchart LR
 | **PostGIS** | always | Results, reference data, run history, provenance |
 | **Valhalla** | always | Routing: matrix, isochrone, route, expansion, locate |
 | **Pipeline** | weekly + on demand | Acquire → validate → route → score → recommend → publish |
+| **valhalla-build** | only when the OSM snapshot changed | One-shot tile build (same official Valhalla image), see Section 7 |
 
 No job queue, no tile server, no self-hosted geocoder in Core (see [Section 12](#12-out-of-scope-for-core)).
 
@@ -83,12 +84,12 @@ No job queue, no tile server, no self-hosted geocoder in Core (see [Section 12](
 | Geofabrik `tuebingen-regbez-latest.osm.pbf`, clipped to the city of Tübingen + routing buffer with `osmium extract` | Street and footpath network (Valhalla), facilities, district boundaries, land use, buildings | PBF | weekly (source updates daily) | ODbL 1.0 |
 | NVBW GTFS (naldo, "mit Liniennetz") | Stops, weekday departures | GTFS zip | weekly | dl-de/by-2-0 and ODbL |
 | Destatis Zensus 2022 grid | Residents per 100 m cell (EPSG:3035 cell IDs) | CSV zip | static | dl-de/by-2-0 |
-| Elevation (only if gate G1 passes, **[OPEN: O7]**) | Slope for Valhalla | SRTM tiles via Valhalla, or state DGM | static | per source |
+| Elevation (not in Core; only if gate G1 passes) | Slope for Valhalla | SRTM tiles via Valhalla, or state DGM | static | per source |
 
 **Study area:** city of Tübingen (administrative boundary). Origins (census cells) and reported
 results lie inside the boundary. The routing network and the facilities are taken from the
-boundary plus a **routing buffer**, so residents near the city limit can reach facilities in
-neighbouring municipalities (buffer size: see O13).
+boundary plus a **4 km routing buffer** (covers the maximum cycling reach of 3.75 km, see 6.1), so
+residents near the city limit can reach facilities in neighbouring municipalities.
 
 **One OSM file feeds everything.** Facilities, boundaries, land use and the Valhalla graph come
 from the same clipped extract, so there is no dependency on Overpass or Nominatim at runtime and
@@ -132,8 +133,21 @@ volume, so restarts never rebuild the graph.
 |---|---|---|---|
 | Walking (inclusive) | `pedestrian` | `walking_speed` 3.39 km/h (850 m in 15 min), `step_penalty` for stairs | yes |
 | Walking (comparison) | `pedestrian` | `walking_speed` 5.0 km/h | yes |
-| Cycling | `bicycle` | bike type `Hybrid`, `use_hills` (default) | yes |
-| Wheelchair / pram | `pedestrian` with `type: wheelchair` | avoids steps and steep sections | yes |
+| Cycling | `bicycle` | bike type `Hybrid`, `cycling_speed` 15 km/h, `use_hills` (default) | yes |
+| Wheelchair / pram | `pedestrian` with `type: wheelchair` | `walking_speed` 3.39 km/h, avoids steps and steep sections | yes |
+
+Elevation is **off** in Core: travel times ignore slopes, stairs are still handled through OSM
+`highway=steps`. Gate G1 (`architecture_proposal.md` §3) may switch it on later.
+
+**Maximum reach per profile** (speed × time budget), used for the exact prefilter (6.3) and for
+the routing buffer (Section 4):
+
+| Profile | Facilities (15 min) | Transit stops (10 min) |
+|---|---|---|
+| Walking 3.39 km/h | 850 m | 565 m |
+| Walking 5.0 km/h | 1,250 m | 835 m |
+| Wheelchair 3.39 km/h | 850 m | 565 m |
+| Cycling 15 km/h | 3,750 m | – (transit supply is a walking measure) |
 
 Profile parameters live in `config/config.yaml`, not in code. All profiles use **the same tile
 set**: costing is chosen per request, so adding a profile never requires a second graph.
@@ -154,9 +168,8 @@ set**: costing is chosen per request, so adding a profile never requires a secon
 For every populated cell *i*, category *c* and profile *m*:
 
 1. **Prefilter by straight-line distance.** Network distance is never shorter than the straight
-   line, so only facilities within the maximum reachable distance are candidates
-   (walking 3.39 km/h: 850 m for facilities, 565 m for stops; cycling: speed × 15 min). The
-   prefilter is exact: no reachable facility is dropped.
+   line, so only facilities within the maximum reach of the profile (table in 6.1) are
+   candidates. The prefilter is exact: no reachable facility is dropped.
 2. **Matrix request** with the cell origin as source and the candidates as targets
    (direction cell → facility, which stays correct if slopes are added later).
 3. **Count** targets with travel time ≤ budget → raw count `A[i,c,m]`, plus the time to the
@@ -165,8 +178,11 @@ For every populated cell *i*, category *c* and profile *m*:
    thresholds in config (scoring spec, `architecture_proposal.md` §5), so changing a threshold
    never requires re-routing.
 
-Public transport supply: stops reachable within 10 minutes are found with the same matrix step;
-their scheduled weekday departures are summed from GTFS with pandas (no transit routing in Core).
+Public transport supply: stops reachable within 10 minutes on foot are found with the same matrix
+step; their scheduled departures on a **reference weekday** are summed from GTFS with pandas (no
+transit routing in Core). The reference weekday is chosen automatically as a regular Tuesday
+inside the feed's validity period that is not a public or school holiday; `calendar.txt` and
+`calendar_dates.txt` exceptions are applied. The chosen date is stored in the run metadata.
 
 Batching: requests are grouped by cell blocks and run in parallel against the local Valhalla.
 Matrix limits are raised in our Valhalla config to fit these batches.
@@ -192,8 +208,8 @@ The server has 4 GB RAM, so every Valhalla call must be cheap. Rules:
    in the block, targets = all facilities within block bbox + maximum reach. Fewer, larger
    requests instead of one request per cell; block size is tuned to the matrix limits in
    `config/valhalla.json`.
-3. **Exact prefilter by profile.** Maximum reach = speed × time budget (walking 3.39 km/h: 850 m;
-   cycling: speed × 15 min). Facilities outside are never sent.
+3. **Exact prefilter by profile.** Maximum reach = speed × time budget (table in 6.1). Facilities
+   outside are never sent.
 4. **Compact responses.** Request only time (and distance if needed); use the compact matrix
    output where the Valhalla version supports it.
 5. **Parallel, bounded.** Async client with a concurrency limit equal to Valhalla's worker
@@ -205,10 +221,14 @@ The server has 4 GB RAM, so every Valhalla call must be cheap. Rules:
 
 **Live endpoints (API)**
 
-8. **Answer from precomputed data first.** The pin-drop inspector looks up the census cell under
-   the pin and returns its precomputed counts and nearest times from PostGIS (identical to the
-   map). Valhalla is only called for what cannot be precomputed: the isochrone polygon and the
-   route lines to the nearest facility per category.
+8. **Answer from precomputed data first.** The pin-drop inspector snaps the pin to the census cell
+   under it and returns that cell's precomputed counts and nearest times from PostGIS (identical
+   to the map). Valhalla is only called for what cannot be precomputed: the isochrone polygon and
+   the route lines to the nearest facility per category. **Both start from the cell's origin
+   point**, not from the raw click position, so polygon, routes and counts always describe the
+   same start and can be cached per cell. Inside populated cells the pin is shown snapped to the
+   origin; outside populated cells (parks, fields) the inspector routes from the clicked point
+   and says that no precomputed values exist there.
 9. **One isochrone call for all rings.** 5, 10 and 15 minutes are requested as contours in a single
    call, with `generalize` and `denoise` set to keep polygons small.
 10. **Cache by cell.** Live isochrones and catchments are cached per (cell, profile); repeated
@@ -221,9 +241,11 @@ The server has 4 GB RAM, so every Valhalla call must be cheap. Rules:
 
 13. **Tiles as one extract.** Tiles are packed into a single `valhalla_tiles.tar` and memory-mapped
     by the service, which keeps RAM use low and startup fast.
-14. **Tuned limits.** `config/valhalla.json` sets matrix, isochrone and locate limits for our batch
+14. **Internal only.** Valhalla listens only on the internal Docker network; port 8002 is never
+    published on the server. All external access goes through the API.
+15. **Tuned limits.** `config/valhalla.json` sets matrix, isochrone and locate limits for our batch
     sizes and a moderate tile cache; worker threads match the server's vCPUs.
-15. **Batch validation calls.** `locate` is called with many points per request when checking
+16. **Batch validation calls.** `locate` is called with many points per request when checking
     census origins and facilities.
 
 ## 7. Pipeline
@@ -247,6 +269,15 @@ flowchart LR
 | `recommend` | deficits, catchments | ranked candidate zones with population gain | Greedy, land-use filtered |
 | `validate results` | all results | validation report part 2 | Monotonicity, totals, sample checks |
 | `publish` | validated results | new DB schema `run_<id>`, then `current` view switched | Atomic; previous run stays available |
+| `cleanup` | run history | – | Keeps the last 3 published runs (DB schemas and `data/raw/<run_id>/`), deletes older ones; 40 GB disk |
+
+**Tile rebuild without breaking the live service.** The `build tiles` stage runs as a separate
+one-shot Compose service (`valhalla-build`, same official Valhalla image) and writes
+`valhalla_tiles.new.tar`. Only after the build succeeds is the file swapped in (old file kept as
+`valhalla_tiles.prev.tar` for rollback) and the Valhalla service restarted, which takes seconds.
+Counting then runs against the new graph. Between restart and `publish`, live isochrones already
+use the new graph while the map still shows the previous run; the weekly run is scheduled at night
+to keep this window irrelevant. If the snapshot did not change, no rebuild and no restart happen.
 
 Commands:
 - `make pipeline` — full run (same command the scheduler calls).
@@ -306,7 +337,8 @@ always visible.
 | Topic | Choice |
 |---|---|
 | Host | External VPS, **Hetzner Cloud CX23** (2 vCPU, 4 GB RAM, 40 GB, x86), Ubuntu LTS, Docker Engine + Compose, 2–4 GB swap |
-| Budget | 20 € in total. CX23 ≈ 7.13 €/month incl. VAT and IPv4 → start the server when the first deployable version exists (target: around 20 Nov) and delete it after grading |
+| Budget | 20 € in total. CX23 ≈ 7.13 €/month incl. VAT and IPv4 (hourly billing, monthly cap). 20 € ≈ 2.8 months → **start the server around 1 Dec** (interim presentation on 25 Nov is shown locally or on a short-lived test server) and **delete it right after grading** (target mid-Feb). Test servers are created and deleted the same day |
+| Memory budget (estimate, measure on first deploy **[VERIFY]**) | PostGIS ≈ 0.5 GB, Valhalla (memory-mapped clip) ≈ 0.5 GB, API ≈ 0.2 GB, Caddy < 0.1 GB, pipeline run ≈ 1–2 GB peak; plus 2–4 GB swap as safety margin |
 | Images | Built by GitHub Actions for `linux/amd64`, pushed to GHCR, tagged with git SHA and release tag |
 | Deploy | `make deploy`: SSH → `docker compose -f compose.prod.yaml pull && up -d` (manual trigger) |
 | Valhalla tiles | See 11.1 |
@@ -334,7 +366,7 @@ Environments:
 | Environment | How | Data |
 |---|---|---|
 | Local | `make up` (`compose.yaml`, hot reload for API and web) | Tübingen or a small test clip |
-| CI | lint + unit tests; integration test on a ~1 km² clip | Fixtures in the repo |
+| CI | lint + unit tests; contract tests for the DB tables; integration test of the full pipeline on a ~1 km² clip; golden tests with a few hand-checked cell → facility travel times | Fixtures in the repo |
 | Production | `compose.prod.yaml` on the VPS | Tübingen, weekly refresh |
 
 ## 12. Out of scope for Core
@@ -361,16 +393,17 @@ H3 aggregation, second region, Prefect/Dagster, monitoring stack.
 | O10 | Failed runs notify the team chat via webhook |
 | O11 | Study area = city of Tübingen; routing buffer around it |
 | O12 | English documentation; branches `main` (releases) + `dev` (integration) |
+| O7 | Elevation off in Core; gate G1 test may enable it later (stairs are always handled) |
+| O13 | Routing buffer = 4 km around the city boundary (covers maximum cycling reach of 3.75 km) |
+| O15 | Cycling speed fixed at 15 km/h |
 | — | Focus on efficient use of Valhalla endpoints (Section 6.5) |
 
 ### Open
 
 | ID | Question | Options | Proposal |
 |---|---|---|---|
-| O7 | Elevation (slopes) in walking/cycling times | Off in Core; on after gate G1 test; own Tobler model | Off in Core, short G1 test decides |
-| O13 | Size of the routing buffer | 2 km for all profiles; buffer = maximum reach per profile (walking ≈ 1 km, cycling ≈ 4 km) | Buffer = maximum cycling reach (≈ 4 km), otherwise cycling reach at the city edge is cut off |
-| O14 | Team chat for the webhook | Discord, Slack, Telegram, Matrix, … | – |
-| O15 | Cycling speed | Valhalla default for `Hybrid`; fixed value (e.g. 15 km/h, as in the old config) | Fixed 15 km/h, documented |
+| O14 | Team chat for the failure webhook | Discord, Slack, Telegram, Matrix, … (WhatsApp has no simple webhooks) | – |
+| O16 | Server for the interim presentation (25 Nov) | Local demo; short-lived test server for the day | Local demo, to save budget |
 
 ## 14. Repository layout
 
