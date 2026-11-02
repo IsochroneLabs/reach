@@ -12,21 +12,22 @@
 
 | Phase | Topic | Branch | Status | Target date |
 |---|---|---|---|---|
-| P0 | Implementation plan | `docs/implementation-plan` | [x] draft PR open, waiting for answers | 2 Nov |
-| P1 | Scaffold & tooling | `feature/scaffold` | [ ] | 6 Nov |
-| P2 | acquire + validate inputs | `feature/acquire-validate` | [ ] | 11 Nov |
-| P3 | tiles + count | `feature/tiles-count` | [ ] | 16 Nov |
-| P4 | score + publish + cleanup | `feature/score-publish` | [ ] | 19 Nov |
-| P5 | API | `feature/api` | [ ] | 21 Nov |
-| P6 | Web | `feature/web` | [ ] | 24 Nov |
+| P0 | Implementation plan | `docs/rico-implementation-plan` | [x] draft PR open, waiting for answers | 2 Nov |
+| P1 | Scaffold & tooling | `feature/rico-scaffold` | [ ] | 6 Nov |
+| P2 | acquire + validate inputs | `feature/rico-acquire-validate` | [ ] | 11 Nov |
+| P3 | tiles + count | `feature/rico-tiles-count` | [ ] | 16 Nov |
+| P4 | score + publish + cleanup | `feature/rico-score-publish` | [ ] | 19 Nov |
+| P5 | API | `feature/rico-api` | [ ] | 21 Nov |
+| P6 | Web | `feature/rico-web` | [ ] | 24 Nov |
 | — | **Interim demo (local), `v0.1.0`** | release PR `dev` → `main` on request | [ ] | 25 Nov |
-| P7 | Recommender + validation V1–V9 | `feature/recommender`, `feature/validation` | [ ] | 10 Jan |
-| P8 | Production | `feature/production` | [ ] | server from ~1 Dec, hardening until 15 Jan |
+| P7 | Recommender + validation V1–V9 | `feature/rico-recommender`, `feature/rico-validation` | [ ] | 10 Jan |
+| P8 | Production | `feature/rico-production` | [ ] | server from ~1 Dec, hardening until 15 Jan |
 
 The dates leave about four working days per phase until 25 Nov. To make the interim demo, P1–P6
 are built at **minimal depth** (marked *interim* below); the rest of each phase (*full*) is
-finished between 25 Nov and 20 Dec, before P7. Branch names get an issue-number prefix if an
-issue exists.
+finished between 25 Nov and 20 Dec, before P7. Branch names contain the name of the person
+driving the session (`<type>/<name>-<topic>`, e.g. `feature/rico-scaffold`), so two sessions never
+work on the same branch; an issue number goes in front of the topic if an issue exists.
 
 ## 2. Phases in detail
 
