@@ -22,6 +22,8 @@ adds a line under `Unreleased`.
 - Python uv workspace: root `pyproject.toml` (dev tools, ruff and pytest config), `pipeline` and
   `api` packages with baseline dependencies and smoke tests, `.python-version` 3.12,
   `uv.lock` and `requirements.txt` export.
+- `docs/prompts/implementation.md`: start prompt (P0) and per-phase prompt for implementing the
+  architecture with a coding agent.
 
 ### Changed
 - `AGENTS.md`: project status line, sources of truth, test/fixture rules (mocked Valhalla),
@@ -30,6 +32,8 @@ adds a line under `Unreleased`.
 - `docs/features.md` and `docs/project_management_decisions.md` updated to the current
   architecture (profiles, Hetzner hosting, O/M/V numbers, new roadmap).
 - `docs/architecture.md` v0.9: methodology references point to `methodology.md`.
+- `docs/architecture.md` v0.10: `scores` and `district_scores` are views over raw counts and a
+  `thresholds` table (classes and deficits derived at read time).
 
 ### Removed
 - `docs/architecture_proposal.md` (superseded by `architecture.md` and `methodology.md`).

@@ -1,6 +1,6 @@
 # Architecture — reach (15-Minute City Tübingen)
 
-> **Status:** draft v0.9 (2 Nov 2026). Describes the target architecture the team builds towards.
+> **Status:** draft v0.10 (2 Nov 2026). Describes the target architecture the team builds towards.
 > Every change bumps the version and adds a line to the [Change log](#change-log).
 > Settled and open decisions are listed in [Section 13](#13-decisions); items marked **[OPEN]**
 > must be settled before the related code is written. Methodology (categories, thresholds,
@@ -288,7 +288,7 @@ flowchart LR
 | `validate inputs` | raw files | cleaned layers (GeoParquet, EPSG:25832), validation report part 1 | Fails loudly on schema or plausibility errors |
 | `build tiles` | clipped PBF, cached elevation tiles | `valhalla_tiles.tar` (with elevation) in the shared volume | Only when the OSM snapshot changed; see 11.1 |
 | `count` | cells, facilities, stops, Valhalla | raw counts and nearest times per cell × category × profile | Section 6.3 |
-| `score` | raw counts, config thresholds | classes, deficits per cell and district | Scoring spec |
+| `score` | raw counts, config thresholds | `thresholds` table; classes and deficits as views over the raw counts (§8) | `methodology.md` §4; the pipeline writes no derived score tables |
 | `recommend` | deficits, catchments | ranked candidate zones with population gain | Greedy, land-use filtered |
 | `validate results` | all results | validation report part 2 | Monotonicity, totals, sample checks |
 | `publish` | validated results | new DB schema `run_<id>`, then `current` view switched | Atomic; previous run stays available |
@@ -324,8 +324,9 @@ pipeline and API):
 | `facilities` | facility | `facility_id` (OSM type/id), `category`, `name`, `geom` |
 | `stops` | GTFS stop | `stop_id`, `weekday_departures`, `geom` |
 | `access_counts` | cell × category × profile | `count`, `nearest_min` |
-| `scores` | cell × category × profile | `class`, `deficit` |
-| `district_scores` | district × category × profile | `share_lack`, `share_sufficient`, `deficit_sum` |
+| `thresholds` | category (and transit class) | `k`, class bounds — copied from config at publish |
+| `scores` (**view**) | cell × category × profile | `class`, `deficit`, computed from `access_counts` + `thresholds` |
+| `district_scores` (**materialized view**) | district × category × profile | `share_lack`, `share_sufficient`, `deficit_sum`; refreshed on publish or when thresholds change |
 | `recommendations` | candidate × category × profile | `rank`, `population_gain`, `geom` |
 | `validation_report` | check | `check`, `status`, `value`, `message` |
 
@@ -500,6 +501,7 @@ documented here in the same branch (see `AGENTS.md`).
 
 | Version | Date | Change | Why |
 |---|---|---|---|
+| v0.10 | 2026-11-02 | `scores` and `district_scores` are (materialized) views over `access_counts` + a `thresholds` table; `score` stage adjusted | Resolve conflict with the rule that classes and deficits are derived at read time |
 | v0.9 | 2026-11-02 | References to the removed `architecture_proposal.md` now point to the new `methodology.md`; docs folder description in §14 updated | Proposal was outdated; methodology has one binding document |
 | v0.8 | 2026-11-02 | Added this change log and the version rule in the header | Track the history of architecture decisions |
 | v0.7 | 2026-11-02 | §14.1 Python environment with uv (one workspace, one lockfile); repository layout with per-package `src/` and `tests/`, nested `AGENTS.md`, `CLAUDE.md` | Reproducible environments for three people and agents |
