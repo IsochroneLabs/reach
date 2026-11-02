@@ -8,6 +8,8 @@ adds a line under `Unreleased`.
 ## [Unreleased]
 
 ### Added
+- `docs/implementation_plan.md`: phase plan P0–P8, proposed data contract, [VERIFY] items, risks,
+  conflicts and decisions; handoff file between agent sessions.
 - `docs/architecture.md`: target architecture with Valhalla as the single routing engine,
   Zensus 100 m grid, weekly validated pipeline, PostGIS, FastAPI, React + MapLibre, Hetzner CX23 hosting.
 - `AGENTS.md` and `CLAUDE.md`: shared rules for coding agents, incl. task workflow, docs-sync rule,
@@ -29,6 +31,12 @@ adds a line under `Unreleased`.
 - `CONTRIBUTING.md` §1–2 and `AGENTS.md`: topic branches carry the driving person's name
   (`<type>/<name>-<topic>`); never work on a branch with another person's name.
 - `AGENTS.md`: a confirmed phase plan counts as "ask first" approval for what it names explicitly.
+- `docs/architecture.md` v0.11: settled O18 (`transit_supply` table + `transit_scores` view),
+  O19 (`make refresh` orchestrates tile build and pipeline on the host), O20 (prefilter reach with
+  speed factor and margin, routing buffer check).
+- `docs/methodology.md` v0.2: facility locations (access points for parks and playgrounds),
+  transit supply for walking and wheelchair profiles.
+- `docs/glossary.md`: reach, access point, refresh, transit supply.
 - `AGENTS.md`: project status line, sources of truth, test/fixture rules (mocked Valhalla),
   notebook policy, `.env.example` rule; agents may push their own branch and open draft PRs;
   new config keys and docs-only changes no longer need confirmation.

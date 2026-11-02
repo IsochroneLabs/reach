@@ -1,6 +1,7 @@
 # Implementation plan — reach
 
-> **Status:** P0 draft (2 Nov 2026), waiting for review by Rico. This file is the **handoff between
+> **Status:** P0 v2 (2 Nov 2026): Q1–Q5 answered and applied (architecture v0.11, methodology
+> v0.2); C6–C13 waiting for confirmation. This file is the **handoff between
 > agent sessions**: phase status, decisions, agreed deviations, measured numbers and next steps.
 > It is informative; `architecture.md` and `methodology.md` stay binding. Where this plan proposes
 > something that differs from them, it is listed in [Section 5](#5-conflicts-gaps-and-ambiguities)
@@ -12,7 +13,7 @@
 
 | Phase | Topic | Branch | Status | Target date |
 |---|---|---|---|---|
-| P0 | Implementation plan | `docs/rico-implementation-plan` | [x] draft PR open, waiting for answers | 2 Nov |
+| P0 | Implementation plan | `docs/rico-implementation-plan` | [~] draft PR #17; Q1–Q5 applied, C6–C13 pending | 2 Nov |
 | P1 | Scaffold & tooling | `feature/rico-scaffold` | [ ] | 6 Nov |
 | P2 | acquire + validate inputs | `feature/rico-acquire-validate` | [ ] | 11 Nov |
 | P3 | tiles + count | `feature/rico-tiles-count` | [ ] | 16 Nov |
@@ -57,12 +58,12 @@ Conventions used by every phase:
 | `.env.example` | DB passwords per role, `REACH_CONFIG`, `VALHALLA_URL`, `DATABASE_URL`s, `FAILURE_WEBHOOK_URL` (optional, empty = no-op), each with a comment |
 | `config/config.yaml` | study area (city name, admin boundary relation, urban boundary rules O17a, buffer 4000 m), profiles (§6.1 incl. costing options), time budgets (15 / 10 min), categories + OSM tags + `k_c` (methodology §2), transit classes (methodology §3), data source URLs, validation thresholds; every key commented |
 | `config/test_clip.yaml` | override for the ~1 km² test clip (used from P2 on) |
-| `pipeline/src/reach_pipeline/config.py` | pydantic models + `load_config(path) -> Config`; validates: speeds > 0, `k_c ≥ 1`, unique category ids, tags non-empty, transit bounds increasing, buffer ≥ max reach of all profiles |
+| `pipeline/src/reach_pipeline/config.py` | pydantic models + `load_config(path) -> Config`; validates: speeds > 0, `k_c ≥ 1`, unique category ids, tags non-empty, transit bounds increasing, routing buffer ≥ largest prefilter reach (speed × `max_speed_factor` × budget + `prefilter_margin_m`) of all profiles (O20) |
 | `pipeline/src/reach_pipeline/{__main__.py, cli.py, context.py, manifest.py, metrics.py}` | stage pattern skeleton with a no-op `hello` stage proving the pattern end to end |
 | `pipeline/tests/test_config.py`, `test_manifest.py` | valid config loads; each invalid case fails with a clear message; manifest round-trip |
 | `.github/workflows/ci.yml` | `astral-sh/setup-uv` (cache), `uv sync --frozen`, ruff check + format check, `uv run pytest` |
 | `.github/pull_request_template.md` | template from `CONTRIBUTING.md` §4 |
-| `.github/CODEOWNERS` | per folder; content depends on Q4 |
+| `.github/CODEOWNERS` | `@RicoS03 @konstantinholl @nicholas-tuebi` for every folder until T2 is settled (Q4) |
 | `pipeline/AGENTS.md`, `api/AGENTS.md` | stage pattern (N2), test layout, mocked Valhalla; API read-only from `current` |
 | `docs/data_contract.md` | first draft with the tables in [Section 3](#3-proposed-data-contract-docsdata_contractmd) |
 | `README.md`, `CHANGELOG.md`, `AGENTS.md` status line, `docs/notes.md` (close N2) | kept true |
@@ -80,7 +81,7 @@ CI green on the draft PR.
 | `boundary.py` | `admin_boundary(...)`, `urban_boundary(landuse, admin, cfg)`: dissolve built-up land use inside the city, `buffer(+50).buffer(-50)`, drop parts < configured min area, keep Teilorte as separate parts (O17a); `routing_area = urban.buffer(4000)` |
 | `zensus.py` | DuckDB streaming read of the national 100 m CSV filtered by bbox while reading; `GITTER_ID` kept as `cell_id`; cell polygon + centroid in 25832 |
 | `gtfs.py` | DuckDB reads `stops.txt`, `calendar*.txt`; `reference_weekday(feed, holidays)`; stops of `location_type 0` inside the routing area |
-| `facilities.py` | tag → category mapping from config; points stay points, polygons → `representative_point`; parks/playgrounds → access points (see C4); de-duplication of node + area of the same facility |
+| `facilities.py` | tag → category mapping from config; points stay points, polygons → `representative_point`; parks/playgrounds → access points: intersections of walkable ways with the park boundary, fallback every 50 m along the boundary, at most `max_points` per park (config; methodology §2); de-duplication of node + area of the same facility |
 | `stages/validate.py` | schema + plausibility checks (CRS, non-empty, population total vs. official city total ± tolerance, cells inside boundary, facilities per category > 0, GTFS validity covers reference day); writes cleaned GeoParquet (`cells`, `facilities`, `stops`, `districts`, `urban_boundary`, `routing_area`) and validation report part 1 (`report_inputs.json` + Markdown) |
 | `scripts/build_test_clip.py` (or `python -m reach_pipeline make-test-clip`) | cuts ~1 km² (old town incl. Neckar bridge) from a real run into `tests/fixtures/clip/` (< 1 MB each; PBF, Zensus subset CSV, GTFS subset) |
 | tests | unit tests with tiny synthetic fixtures for boundary closing, facility mapping/dedupe, reference weekday (holiday + `calendar_dates` exceptions), Zensus parsing |
@@ -96,11 +97,12 @@ runtime and peak memory per stage; second `acquire` run skips downloads.
 | Create | Key functions |
 |---|---|
 | `config/valhalla.json` | generated once with `valhalla_build_config` from the pinned image, then edited: `tile_extract`, matrix/isochrone limits for our block sizes, `mjolnir.concurrency` and `thor`/`loki` threads = vCPUs, moderate cache |
-| `compose.yaml` `valhalla-build` | one-shot: `valhalla_build_elevation` (cached in volume) → `valhalla_build_tiles` → `valhalla_build_extract` → `valhalla_tiles.new.tar`; swap: `tiles.tar → tiles.prev.tar`, `new → tiles.tar`; restart `valhalla`; skipped if PBF checksum unchanged |
-| `stages/tiles.py` | checks PBF checksum vs. last build, invokes the build (see C2 for orchestration), waits for `/status`, writes manifest |
+| `Makefile` `refresh` + `compose.yaml` `valhalla-build` | one-shot: `valhalla_build_elevation` (cached in volume) → `valhalla_build_tiles` → `valhalla_build_extract` → `valhalla_tiles.new.tar`; swap: `tiles.tar → tiles.prev.tar`, `new → tiles.tar`; restart `valhalla`; skipped if PBF checksum unchanged; `make refresh` = acquire, validate → build/swap/restart → count … cleanup (O19) |
+| `stages/tiles.py` | checks PBF checksum vs. last build, reports "rebuild needed" for `make refresh`, verifies the tiles after the restart (`/status`, one golden route), writes manifest; never touches Docker (O19) |
 | `valhalla/client.py` | async `httpx` client, `asyncio.Semaphore(concurrency)`, retries with backoff on timeouts/5xx, `matrix(sources, targets, costing, options) -> np.ndarray` (seconds, `None` = unreachable) |
-| `count.py` | `make_blocks(cells, size_m)`, `prefilter(block, facilities, reach_m)` (exact; see C1 for margin), `count_block(...)`: one matrix for all categories + stops, split by category via `groupby`, min time per facility id (multi-point facilities) |
-| `stages/count.py` | all cells × categories × profiles → `access_counts.parquet` (`count`, `nearest_min`); stops within 10 min for walking profiles → `transit_supply.parquet` (C3) |
+| `count.py` | `make_blocks(cells, size_m)`, `prefilter(block, facilities, reach_m)` with reach per O20, `count_block(...)`: one matrix for all categories + stops, split by category via `groupby`, min time per facility id (multi-point facilities) |
+| `stages/count.py` | all cells × categories × profiles → `access_counts.parquet` (`count`, `nearest_min`); stops within 10 min for walking and wheelchair profiles → `transit_supply.parquet` (raw departure sum, O18) |
+| `scripts` / `count` diagnostics | **prefilter evidence (O20):** for every matrix result compute implied speed = straight-line distance ÷ time; report the maximum per profile. Walking/wheelchair max ≤ nominal → margin stays 0; otherwise propose a margin. Cycling: `max_speed_factor` = measured max ÷ 15 km/h (rounded up), then check reach ≤ routing buffer; if not, propose a larger buffer (ask first) |
 | `transit.py` | departures per stop on the reference weekday (DuckDB over `stop_times.txt` joined to active `service_id`s) |
 | tests | recorded Valhalla matrix responses (`pipeline/tests/fixtures/valhalla/*.json`, replayed with `respx`); block/prefilter tests (no facility within reach dropped); split-by-category; departure counting |
 | `tests/integration/test_golden.py` | 3–5 cell → facility pairs with hand-checked times (map measurement ÷ speed, ± tolerance), against local Valhalla on the test clip; marked `integration` |
@@ -162,7 +164,7 @@ report (`docs/validation_report.md` or the app page); V4 needs an MILP solver (d
 ### P8 — Production
 
 `compose.prod.yaml` (GHCR images, no published DB/Valhalla ports), Caddy HTTPS via `sslip.io`,
-CI job building `linux/amd64` images tagged with git SHA, `make deploy`, systemd service + timer
+CI job building `linux/amd64` images tagged with git SHA, `make deploy`, systemd service + timer calling `make refresh`
 (Monday 03:00 UTC, `flock`), nightly `pg_dump`, failure webhook, server setup script, firewall
 notes. Measure memory on the CX23 (Section 4).
 
@@ -199,10 +201,11 @@ Names and key columns only; details (types, nullability, units) in P1. Geometrie
 | `stops` | GTFS stop | `stop_id`, `name`, `weekday_departures`, `geom` |
 | `profiles` *(new, gap G2)* | profile | `profile_id`, `costing`, `costing_options` (jsonb), `time_budget_min` |
 | `access_counts` | cell × category × profile | `cell_id`, `category`, `profile_id`, `count`, `nearest_min` |
-| `transit_supply` *(proposed, C3)* | cell × profile | `cell_id`, `profile_id`, `stops_count`, `departures`, `nearest_stop_min` |
+| `facility_points` *(new)* | routing point of a facility | `facility_id`, `point_id`, `kind` (`node`, `representative`, `access`), `geom` |
+| `transit_supply` *(O18)* | cell × walking/wheelchair profile | `cell_id`, `profile_id`, `departures` (raw sum), `stops_count`, `nearest_stop_min` |
 | `thresholds` | category / transit class | `category`, `k`, `class`, `lower`, `upper` |
 | `scores` (view) | cell × category × profile | `class`, `deficit` |
-| `transit_scores` (view, C3) | cell × profile | `class` (lack/insufficient/medium/high) |
+| `transit_scores` (view, O18) | cell × profile | `class` (lack/insufficient/medium/high) |
 | `district_scores` (mat. view) | district × category × profile | `share_lack`, `share_insufficient`, `share_sufficient`, `deficit_sum`, `residents_lack` |
 | `recommendations` | candidate × category × profile | `rank`, `population_gain`, `geom` |
 | `validation_report` | check | `check`, `stage`, `status`, `value`, `message` |
@@ -251,54 +254,49 @@ peak_rss_mb, status, started_at, finished_at), validation reports (JSON + Markdo
 
 | # | Finding | Where | Recommended resolution |
 |---|---|---|---|
-| C1 | The straight-line prefilter is called **exact**, but (a) Valhalla snaps origin and target to the network and does not count the snap distance as travel time, so two snapped points can be closer than the raw points; (b) bicycle costing can be faster than 15 km/h downhill and on good surfaces | arch. §6.3, §6.5 rule 3; methodology §1 | Add config `count.prefilter_margin_m` (e.g. 150 m) and a per-profile `max_speed_factor` (1.0 walking, measured for cycling in P3); keep the word "exact" by defining reach = speed × factor × budget + margin. Needs a doc update (Q3) |
-| C2 | The pipeline container runs `tiles`, but starting `valhalla-build` and restarting `valhalla` from inside a container needs the Docker socket (security and complexity) | arch. §7, §11 | Orchestrate on the host: `make pipeline` / systemd unit runs `pipeline acquire validate` → `docker compose run valhalla-build` (only if PBF changed) → `docker compose restart valhalla` → `pipeline count … cleanup`. The `tiles` stage inside Python only decides "rebuild needed" and verifies the result. Needs a doc update (Q2) |
-| C3 | Transit supply has no place in the table list: `access_counts` has `count`, `nearest_min`, but $S_i$ (sum of departures) and the 4 transit classes need their own columns | arch. §8, methodology §3 | Add `transit_supply` table and `transit_scores` view (Q1) |
-| C4 | Parks, playgrounds and schools are often large polygons; one representative point inside a large park undercounts access | methodology §2 | Represent area facilities by their representative point, and parks/playgrounds additionally by access points (boundary points where paths cross the park edge, fallback: points every 100 m on the boundary); a facility counts once via `min` time over its points. Keep in config; note in methodology on confirmation |
-| C5 | "Walking profiles only" for transit vs. the reach table that also lists wheelchair stops (565 m) | methodology §3 vs. arch. §6.1 | Compute transit supply for walking 3.39, walking 5.0 **and** wheelchair; not for cycling. Small wording fix in methodology §3 |
+| C1 | The straight-line prefilter is called **exact**, but (a) Valhalla snaps origin and target to the network and does not count the snap distance as travel time, so two snapped points can be closer than the raw points; (b) bicycle costing can be faster than 15 km/h downhill and on good surfaces | arch. §6.3, §6.5 rule 3; methodology §1 | **Resolved (Q3 → O20):** factor 1.0 + margin 0 for walking/wheelchair, cycling factor measured in P3, buffer check |
+| C2 | The pipeline container runs `tiles`, but starting `valhalla-build` and restarting `valhalla` from inside a container needs the Docker socket (security and complexity) | arch. §7, §11 | **Resolved (Q2 → O19):** `make refresh` on the host; no Docker socket |
+| C3 | Transit supply has no place in the table list: `access_counts` has `count`, `nearest_min`, but $S_i$ (sum of departures) and the 4 transit classes need their own columns | arch. §8, methodology §3 | **Resolved (Q1 → O18):** `transit_supply` table + `transit_scores` view |
+| C4 | Parks, playgrounds and schools are often large polygons; one representative point inside a large park undercounts access | methodology §2 | **Resolved (Q5 → methodology v0.2 §2):** access points, 50 m fallback, max N per park, counted once with min time |
+| C5 | "Walking profiles only" for transit vs. the reach table that also lists wheelchair stops (565 m) | methodology §3 vs. arch. §6.1 | **Resolved with Q1:** walking 3.39, walking 5.0 and wheelchair; methodology v0.2 §3 |
 | C6 | Tiles are "always built with elevation", but the CI/test clip cannot download elevation (network, size) | arch. §6.1 vs. AGENTS tests | Test clip tiles without elevation via `config/test_clip.yaml`; production always with elevation |
 | C7 | School holidays for the reference weekday need a data source; a public holiday API at runtime is not allowed and a `holidays` package does not cover school holidays | arch. §6.3 | List BW public and school holidays for the feed period in `config/config.yaml` (source: Kultusministerium BW), validated to cover the feed's validity window |
 | C8 | Districts at admin levels 9–11 overlap; `cells.district_id` needs one level | arch. §5.2 | Config key `districts.admin_level` (decided in P2 after inspecting the data); other levels can be added later |
-| C9 | API needs the urban boundary (live check), districts and the profile costing for live isochrones; none of these are DB tables in §8 | arch. §8, §9 | Add `urban_boundary`, `districts`, `profiles` tables to the run schema (gaps G1/G2 in Section 3), so live answers use exactly the published run's costing |
+| C9 | API needs the urban boundary (live check), districts and the profile costing for live isochrones; none of these are DB tables in §8 | arch. §8, §9 | Add `urban_boundary`, `districts`, `profiles` and `facility_points` (access points from Q5, needed for live routes to the nearest point) tables to the run schema (gaps G1/G2 in Section 3), so live answers use exactly the published run's costing |
 | C10 | Changing thresholds "never requires re-routing", but only `publish` writes to PostGIS and thresholds are copied per run | arch. §6.3, §8 | `count` is cached by (PBF checksum, cells/facilities checksum, profile config hash); a threshold change re-runs the pipeline as a new run that reuses cached counts, so no re-routing happens |
 | C11 | Stage names differ: AGENTS lists 7 stages, arch. §7 lists 9 (incl. "validate results", "cleanup"); `make pipeline STAGE=validate` is ambiguous | AGENTS, arch. §7 | CLI names `acquire, validate, tiles, count, score, recommend, validate_results, publish, cleanup`; `validate` = inputs |
 | C12 | Cells outside the urban boundary: stored or not? | arch. §4, §8 | `cells` holds only scored cells; outside residents appear as totals in the validation report |
 | C13 | P0 forbids changing other docs, but AGENTS asks to keep `README.md` (documentation table) and `CHANGELOG.md` true | AGENTS vs. P0 task | Add the plan to the README documentation table and CHANGELOG in P1 |
-| C14 | No owners in `CODEOWNERS` yet (T2 due 4 Nov); P1 touches `pipeline`, `api`, `config`, `infra`, `.github` → "ask first" for multi-folder changes | AGENTS boundaries | Q4 |
+| C14 | No owners in `CODEOWNERS` yet (T2 due 4 Nov); P1 touches `pipeline`, `api`, `config`, `infra`, `.github` → "ask first" for multi-folder changes | AGENTS boundaries | **Resolved (Q4):** confirmed phase plan = approval for its folders; CODEOWNERS all three |
 
-## 6. Questions for Rico
+## 6. Questions and answers
 
-1. **Transit storage (C3):** add `transit_supply` (cell × profile) and `transit_scores` to
-   `architecture.md` §8 (v0.11)? *Recommended: yes.*
-2. **Tile build orchestration (C2):** orchestrate `valhalla-build` and the Valhalla restart on the
-   host (Makefile / systemd), not from inside the pipeline container? *Recommended: yes, host-side;
-   update arch. §7/§11 accordingly.*
-3. **Prefilter margin (C1):** add `prefilter_margin_m` and a cycling speed factor to config and
-   reword "exact" in arch. §6.3/§6.5 and methodology §1? *Recommended: yes, value measured in P3.*
-4. **Folder approval and CODEOWNERS (C14):** does confirming a phase plan count as the "ask
-   first" approval for the folders listed in that phase? And which CODEOWNERS for P1?
-   *Recommended: yes per phase; CODEOWNERS lists all three of you for every folder until T2 is
-   settled.*
-5. **Parks and large facilities (C4):** access points on the park boundary (min time per facility)
-   instead of a single point? *Recommended: yes for parks/playgrounds; representative point for
-   all other polygons; documented in methodology §2.*
+| # | Question | Answer (Rico, 2 Nov 2026) |
+|---|---|---|
+| Q1 | Transit storage | Yes: only `transit_supply` (raw departure sum, cell × profile, walking and wheelchair profiles) as table; `transit_scores` as view over `transit_supply` + `thresholds` (rule 5). Architecture v0.11, O18 |
+| Q2 | Tile build orchestration | Yes, on the host: one command (`make refresh`) builds tiles, swaps them atomically, restarts Valhalla and runs the pipeline; the systemd timer calls exactly this command; no Docker socket in the pipeline container. Architecture §7/§11, O19 |
+| Q3 | Prefilter margin | Yes: `prefilter_margin_m` = 0 for walking/wheelchair (exact while elevation is ignored; only raised if P3 shows Valhalla faster than nominal); cycling factor from measured maximum speeds in P3; check routing buffer ≥ largest reach incl. factor, propose a larger buffer if needed. O20 |
+| Q4 | Folder approval, CODEOWNERS | A confirmed phase plan approves the folders it names; deviations from the plan and changes to `architecture.md`/`methodology.md` stay "ask first". CODEOWNERS for P1: RicoS03, konstantinholl, nicholas-tuebi for all folders until T2 |
+| Q5 | Parks | Yes for parks and playgrounds: access points = intersections of ways with the park boundary, fallback points every 50 m along the boundary, at most N points per park (config); counted once if any access point is reachable, time = minimum. All other polygons: representative point. Methodology v0.2 §2 |
 
-Other recommendations in Section 5 (C5–C13) are taken as defaults unless you object.
+Still pending: confirmation of C6–C13 (Section 5) as defaults.
 
 ## 7. Decisions made, deviations agreed, measured numbers
 
 | Date | Item | Result |
 |---|---|---|
 | 2026-11-02 | Defaults from the start prompt | O17 option (a); M1 table as config defaults; O14 webhook optional, no-op if unset; O16 local demo |
+| 2026-11-02 | Q1–Q5 | Applied: architecture v0.11 (O18–O20), methodology v0.2 (§2 facility locations, §3 profiles) |
+| 2026-11-02 | Branch names | `<type>/<name>-<topic>` (PR #18) |
 
 Measured numbers (runtime, peak memory, counts) are added here at the end of every phase.
 
 ## 8. Next steps
 
-1. Rico answers Q1–Q5 and reviews this plan (comments on the PR).
-2. Apply the agreed answers to this file; doc changes to `architecture.md`/`methodology.md` happen
-   in the phase that needs them (P1 for C3/C9/C11, P3 for C1/C2), with version bump and change log.
-3. Start P1 in a new session from fresh `dev` after explicit confirmation.
+1. Rico confirms or changes C6–C13; the result is recorded here and P0 is closed.
+2. After explicit confirmation, start P1 in a new session from fresh `dev`
+   (`feature/rico-scaffold`).
+3. P3 must deliver the prefilter evidence (O20) and, if needed, a buffer proposal.
 
 ## 9. Working rules (copy from the start prompt)
 

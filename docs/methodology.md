@@ -1,6 +1,6 @@
 # Methodology — reach
 
-> **Status:** draft v0.1 (2 Nov 2026). Binding definition of **what** is measured, scored,
+> **Status:** draft v0.2 (2 Nov 2026). Binding definition of **what** is measured, scored,
 > recommended and validated. `architecture.md` describes **how** the system computes it. Every
 > change bumps the version and adds a line to the [Change log](#change-log). Items marked
 > **[M#]** are open methodology questions (Section 7).
@@ -38,6 +38,14 @@ Coarse categories in Core (proposed, to be confirmed with a completeness check p
 | Parks & playgrounds | `leisure=park`, `leisure=playground` | 1 | Presence within reach |
 | Public transport | GTFS stops (departures, see §3) | – | Own classes, see §3 |
 
+**Facility locations.** OSM nodes are used as they are. Polygons (e.g. a supermarket building or
+a school site) are represented by one representative point inside the polygon. **Parks and
+playgrounds** are represented by **access points**: the intersections of walkable ways with the
+park boundary; if there are none, points along the boundary every 50 m; at most *N* points per
+park (spacing and *N* in `config/config.yaml`). A park counts **once** if at least one of its
+access points is reachable within the budget; its travel time is the minimum over all access
+points.
+
 Tag mapping lives in `config/config.yaml`. Higher-order facilities (hospitals, universities,
 specialised shops) are excluded. Bars, gyms and similar amenities are not part of 15-minute
 compliance. Finer categories (discounters, GPs, school types) are Stretch, added only where OSM
@@ -45,9 +53,11 @@ completeness allows.
 
 ## 3. Public transport supply
 
-- Stops reachable within **10 minutes on foot** (walking profiles only) via the matrix.
+- Stops reachable within **10 minutes on foot** via the matrix, for the walking profiles
+  (3.39 and 5.0 km/h) and the wheelchair profile; not for cycling.
 - Supply $S_i$ = sum of scheduled departures at these stops on the **reference weekday** (regular
-  Tuesday in the feed validity period, no public or school holiday).
+  Tuesday in the feed validity period, no public or school holiday). Only $S_i$ is stored; the
+  classes below are derived at read time.
 - Classes (provisional, from the paper's Copenhagen example; calibrate to the Tübingen
   distribution before freezing **[M2]**): lack 0 · insufficient 1–150 · medium 151–1,000 ·
   high > 1,000. Raw departure counts, no mode weighting in Core.
@@ -132,4 +142,5 @@ slopes, on 2–3 steep routes (e.g. old town → castle, city → Waldhäuser-Os
 
 | Version | Date | Change | Why |
 |---|---|---|---|
+| v0.2 | 2026-11-02 | §2 facility locations (representative point for polygons, access points for parks and playgrounds, park counted once with minimum time); §3 transit supply for walking and wheelchair profiles, only $S_i$ stored | Answers to the P0 implementation plan questions (Q1, Q5) |
 | v0.1 | 2026-11-02 | Created from the still valid parts of `architecture_proposal.md` (§5 scoring, §8 validation, §9 recommender), updated to current decisions (profiles, coarse categories, urban boundary, cell centroid) | Replace the outdated proposal with one binding methodology document |
