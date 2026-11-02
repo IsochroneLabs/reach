@@ -1,6 +1,6 @@
 # Data contract — reach
 
-> **Status:** draft v0.1 (2 Nov 2026), from `implementation_plan.md` §3. Binding for the tables
+> **Status:** draft v0.2 (2 Nov 2026), from `implementation_plan.md` §3. Binding for the tables
 > and files exchanged between pipeline and API once a phase implements them; every change needs
 > confirmation (AGENTS.md) and a data-contract test. Tables marked *(planned, Pn)* do not exist yet.
 
@@ -66,7 +66,7 @@ PK (`run_id`, `source`).
 | `recommendations` *(P7)* | candidate × category × profile | `rank` integer, `population_gain` double, `geom` Polygon | (`category`, `profile_id`, `rank`) |
 | `validation_report` | check | `check` text, `stage` text, `status` text (`ok`, `warn`, `fail`), `value` double null, `message` text | (`stage`, `check`) |
 
-`cells.cell_id` is the Zensus `GITTER_ID_100m` (EPSG:3035 grid id, column name verified in P2);
+`cells.cell_id` is the Zensus `GITTER_ID_100m` (EPSG:3035 grid id, e.g. `CRS3035RES100mN2822200E4250500`; verified 2 Nov 2026);
 the `cells` table holds only scored cells (C12). Facilities are counted once per facility id,
 with the minimum time over their points.
 
@@ -88,11 +88,46 @@ GeoParquet/Parquet layers with the same columns as the tables above, plus:
 | `outputs` | list of {`path`, `rows` (null if not tabular)} | Files written |
 | `message` | string | Summary or error message |
 
-Validation reports (`report_inputs.json` + Markdown, part 2 in `validate_results`) are specified
-in P2/P4.
+### `acquire/data_sources.parquet` *(implemented, P2)*
+
+One row per source (`osm`, `gtfs`, `zensus`): the columns of `meta.data_sources` (`run_id`,
+`source`, `url`, `retrieved_at`, `checksum` = SHA-256, `licence`) plus `checked_at` (this run's
+check), `path` (file in `data/raw/<run_id>/<source>/`), `etag`, `last_modified` (HTTP headers,
+null if not sent), `md5` (of the file) and `reused` (true = unchanged, hard-linked from the
+previous run; `retrieved_at` is then the time of the original download).
+
+### `validate/` layers *(implemented, P2)*
+
+GeoParquet, EPSG:25832, columns as in the run schema above:
+
+| File | Columns | Note |
+|---|---|---|
+| `cells.parquet` | `cell_id`, `population`, `district_id`, `geometry` (cell polygon), `origin_geom` (cell centre) | scored cells only (C12) |
+| `facilities.parquet` | `facility_id`, `category`, `name`, `geometry` | node or representative point; inside the routing area |
+| `facility_points.parquet` | `facility_id`, `point_id`, `kind`, `geometry` | |
+| `stops.parquet` | `stop_id`, `name`, `geometry` | `weekday_departures` is added in P3 (`count`) |
+| `districts.parquet` | `district_id` (`r<relation id>`), `name`, `admin_level`, `geometry` | levels from `districts.admin_levels` |
+| `urban_boundary.parquet` | `part_id`, `name` (null), `geometry` | |
+| `routing_area.parquet` | `geometry` | urban boundary + routing buffer; file only, no table |
+
+Plus `routing.osm.pbf` (the OSM extract clipped to the routing area, input of `tiles`) and the
+osmium intermediates in `validate/osm/`.
+
+### Validation report part 1: `validate/report_inputs.json` + `report_inputs.md` *(implemented, P2)*
+
+| Key | Content |
+|---|---|
+| `run_id`, `stage`, `status` (`ok`/`fail`), `generated_at` | |
+| `summary` | `osm_snapshot`, `urban_boundary_parts`, `urban_area_km2`, `city_area_km2`, `routing_area_km2`, `districts`, `cells_scored`, `residents_study_area`, `residents_scored`, `residents_outside_boundary`, `facilities` {category: count}, `facility_points`, `stops`, `gtfs_valid_from`, `gtfs_valid_to`, `reference_weekday`, `active_services` |
+| `checks` | list of rows of `validation_report` (`check`, `stage`, `status`, `value`, `message`) |
+| `stages` | `stage`, `runtime_s`, `peak_rss_mb` for `acquire` and `validate` |
+| `steps` | `step`, `runtime_s`, `peak_rss_mb` (high-water mark so far) within `validate` |
+
+The Markdown file renders the same content. Part 2 (`validate_results`) follows in P4.
 
 ## Change log
 
 | Version | Date | Change | Why |
 |---|---|---|---|
 | v0.1 | 2026-11-02 | First draft: `meta`, run schema, files, `manifest.json` | P1 scaffold (implementation plan §3) |
+| v0.2 | 2026-11-02 | `data_sources.parquet`, `validate` layers and report part 1 | P2 acquire + validate |

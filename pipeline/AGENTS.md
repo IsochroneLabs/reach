@@ -8,7 +8,9 @@ this file adds the stage pattern (note N2) and wins where it is more specific.
 - **CLI:** `python -m reach_pipeline <stage> [--run-id ID] [--config PATH]`, wrapped by
   `make pipeline STAGE=<stage>`; `run` executes all stages in `cli.STAGES` order.
   `--config` defaults to `$REACH_CONFIG`, else `config/config.yaml`; `--config` and `data_dir`
-  are relative to the current directory, so run from the repository root. Run id: `--run-id`, else a new one for `run`, else the latest existing run.
+  are relative to the current directory, so run from the repository root. Run id: `--run-id`, else a new one for `run` and the first stage (`acquire`), else the latest
+  existing run. Stages that are not implemented yet are listed in `cli.PLANNED`: a single one
+  exits with code 2 and a clear message, `run` logs each as skipped.
 - **Run id:** UTC `YYYYMMDDTHHMMSSZ` (`context.new_run_id`); DB schema `run_<id lowercased>`.
 - **One module per stage** in `src/reach_pipeline/stages/`, with `STAGE = "<name>"` and one
   public `run(ctx: RunContext) -> Manifest`. Register it in `cli.STAGES` in execution order.
@@ -35,12 +37,19 @@ this file adds the stage pattern (note N2) and wins where it is more specific.
   a test in `tests/test_config.py`. `extends:` merges an override file (see `test_clip.yaml`).
 - **Outputs:** GeoParquet/Parquet in EPSG:25832 under the stage directory; schemas follow
   `docs/data_contract.md`. Only `publish` writes to PostGIS.
+- **OSM:** only through `osm.py` (osmium CLI: `tags-filter` → `extract` → `export` as GeoJSON
+  lines → GeoPandas); never read the full PBF in Python. osmium's memory grows with the highest
+  node ID (about 1.7 GB per ID bitmap), not with the file size; keep the number of
+  `extract`/`tags-filter` passes over the regional PBF small.
+- **Raw inputs:** `acquire.raw_path(raw_dir, source, file)`; later stages never download.
 
 ## Tests
 
 - `pipeline/tests/test_<module>.py`, small fixtures in `pipeline/tests/fixtures/` (< 1 MB each).
 - No network: Valhalla responses are recorded once into `tests/fixtures/valhalla/*.json` and
-  replayed with `respx`; downloads are mocked.
+  replayed with `respx`; downloads are mocked with `respx` (see `tests/test_acquire.py`).
+- osmium tests run the real binary on the hand-made `tests/fixtures/tiny.osm` (osmium-tool is a
+  requirement locally and in CI).
 - Tests that write files use `tmp_path` and a config copy with `data_dir` inside it
   (see `tests/test_manifest.py`).
 - Integration tests against a local Valhalla on the test clip go to `tests/integration/` and
