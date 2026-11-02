@@ -1,11 +1,11 @@
 # Architecture — reach (15-Minute City Tübingen)
 
-> **Status:** draft v0.8 (2 Nov 2026). Describes the target architecture the team builds towards.
+> **Status:** draft v0.9 (2 Nov 2026). Describes the target architecture the team builds towards.
 > Every change bumps the version and adds a line to the [Change log](#change-log).
 > Settled and open decisions are listed in [Section 13](#13-decisions); items marked **[OPEN]**
-> must be settled before the related code is written. Methodology (scoring formula, thresholds, validation
-> experiments) is defined in [`architecture_proposal.md`](architecture_proposal.md) §5 and §8 and
-> is not repeated here.
+> must be settled before the related code is written. Methodology (categories, thresholds,
+> scoring, recommender, validation experiments) is defined in [`methodology.md`](methodology.md)
+> and is not repeated here.
 
 ---
 
@@ -158,7 +158,7 @@ rebuild. Whether a profile uses it is controlled in `config/config.yaml`
 
 | Profile | Elevation in Core | Note |
 |---|---|---|
-| Walking, wheelchair | **ignored for now** (default costing, slope effect not analysed or reported) | Gate G1 (`architecture_proposal.md` §3) tests whether slopes change walking times in Valhalla **[VERIFY]**; stairs are always handled through OSM `highway=steps` |
+| Walking, wheelchair | **ignored for now** (default costing, slope effect not analysed or reported) | Gate G1 (`methodology.md` §6) tests whether slopes change walking times in Valhalla **[VERIFY]**; stairs are always handled through OSM `highway=steps` |
 | Cycling | as Valhalla's bicycle costing applies it with elevation present **[VERIFY]** | `use_hills` stays at the default until tested |
 
 Enabling slopes for walking later is a config change plus a pipeline run, not a code or
@@ -200,7 +200,7 @@ For every populated cell *i*, category *c* and profile *m*:
 3. **Count** targets with travel time ≤ budget → raw count `A[i,c,m]`, plus the time to the
    nearest facility.
 4. **Store raw counts and nearest times.** Classes and deficits are derived at read time from the
-   thresholds in config (scoring spec, `architecture_proposal.md` §5), so changing a threshold
+   thresholds in config (scoring, `methodology.md` §4), so changing a threshold
    never requires re-routing.
 
 Public transport supply: stops reachable within 10 minutes on foot are found with the same matrix
@@ -216,7 +216,7 @@ Matrix limits are raised in our Valhalla config to fit these batches.
 
 For a candidate location *x*, the catchment is the set of cells that reach *x* within the budget:
 matrix with nearby cells as sources and *x* as target. The greedy recommender
-(`architecture_proposal.md` §9) uses these catchments to compute marginal gains. Candidates come
+(`methodology.md` §5) uses these catchments to compute marginal gains. Candidates come
 from high-deficit areas and are filtered by OSM land use (no water, forest, farmland, industrial,
 protected areas).
 
@@ -461,7 +461,7 @@ reach/
 │   └── AGENTS.md
 ├── infra/                 # Dockerfiles, Caddyfile, DB roles/migrations, systemd timer, server setup script
 ├── tests/integration/     # end-to-end pipeline test on a small clip
-├── docs/                  # architecture, data contract, notes, decisions, meeting notes
+├── docs/                  # architecture, methodology, data contract, glossary, notes, features, team decisions
 └── .github/               # CI workflows, CODEOWNERS, PR template
 ```
 
@@ -500,6 +500,7 @@ documented here in the same branch (see `AGENTS.md`).
 
 | Version | Date | Change | Why |
 |---|---|---|---|
+| v0.9 | 2026-11-02 | References to the removed `architecture_proposal.md` now point to the new `methodology.md`; docs folder description in §14 updated | Proposal was outdated; methodology has one binding document |
 | v0.8 | 2026-11-02 | Added this change log and the version rule in the header | Track the history of architecture decisions |
 | v0.7 | 2026-11-02 | §14.1 Python environment with uv (one workspace, one lockfile); repository layout with per-package `src/` and `tests/`, nested `AGENTS.md`, `CLAUDE.md` | Reproducible environments for three people and agents |
 | v0.6 | 2026-11-02 | Tiles always built with elevation; use of elevation is a per-profile setting (ignored for walking/wheelchair for now); elevation tiles re-added to data sources | Keep slope data available without rebuild; decide usage later (gate G1) |
