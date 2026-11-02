@@ -9,6 +9,45 @@ They apply to every agent session, on behalf of any team member. Humans: see `RE
 area of Tübingen, finds underserved areas and recommends sites for new facilities. Course project
 DS500, University of Tübingen. Automation, validation, documentation and a hosted app are graded.
 
+## Terms and roles
+
+**People**
+
+| Term | Meaning |
+|---|---|
+| **you** | The coding agent reading this file (any tool, any session). |
+| **your human** | The team member who started your session and gives you the task. Confirmations come from them. |
+| **we / the team** | The three project members: **Rico** (GitHub `RicoS03`), **Socke** (GitHub `konstantinholl`), **Nick** (GitHub: TBD). |
+| **owner** | Team member responsible for a folder (`.github/CODEOWNERS`); reviews changes there. |
+| **supervisors** | Course supervisors; read-only users of the app and the database, not contributors. |
+
+**Project vocabulary**
+
+| Term | Meaning |
+|---|---|
+| **Core / Stretch** | Core = required for the graded deliverable. Stretch = only after Core works and is validated (`architecture.md` §12). |
+| **urban boundary** | Settlement area of Tübingen; only cells inside it are scored. |
+| **routing buffer** | 4 km around the urban boundary; network and facilities are loaded from boundary + buffer. |
+| **cell** | One populated Zensus 2022 100 m grid cell; the unit of analysis. `cell_id` = original EPSG:3035 ID. |
+| **origin** | Routing start point of a cell (currently the cell centroid). |
+| **facility** | A service location from OSM in one of the configured categories. |
+| **category** | Facility type defined in `config.yaml` (e.g. supermarket, pharmacy, school). |
+| **profile** | Travel mode with its settings: walking 3.39 km/h, walking 5.0 km/h, cycling, wheelchair. |
+| **reach** | Maximum straight-line distance of a profile (speed × time budget); used as exact prefilter. |
+| **count (A)** | Number of facilities of a category reachable from a cell within the time budget, via Valhalla matrix. |
+| **class / deficit** | Lack / insufficient / sufficient and population-weighted unmet need, derived from counts and thresholds (`architecture_proposal.md` §5). |
+| **catchment** | Cells that reach a facility or candidate site within the time budget. |
+| **matrix / isochrone / expansion** | Valhalla endpoints: matrix = travel times for counting; isochrone = polygon for display only; expansion = reached streets for visualisation. |
+| **run / `run_id`** | One complete pipeline execution on one data snapshot; results are published as DB schema `run_<id>`. |
+| **stage** | One pipeline step (acquire, validate, tiles, count, score, recommend, validate results, publish, cleanup). |
+| **manifest** | File written by each stage listing inputs, outputs, row counts and status. |
+| **`current`** | DB views pointing to the latest validated run; the only schema the API reads. |
+| **data contract** | Binding table and file schemas between pipeline and API (`docs/data_contract.md`). |
+| **O-numbers (O1, O17, …)** | Architecture decisions in `architecture.md` §13, either Settled or Open. |
+| **N-numbers (N1, …)** | Open points in `docs/notes.md`. |
+| **gate G1** | Planned test whether slopes change walking times in Valhalla. |
+| **ask first** | Stop, describe what you want to do and why, and wait for your human's explicit "yes". |
+
 ## Commands
 
 Run from the repository root. If a command does not exist yet, say so; do not invent a substitute.
@@ -61,6 +100,37 @@ MapLibre GL JS · Docker Compose · GitHub Actions. Exact versions live in `pypr
    clip. Report commands and results; never claim something works without running it.
 6. **Update docs and history** (see below) in the same branch.
 7. **Report.** End with: branch, commits, PR link (if opened), open points, any doc changes.
+
+## Prompting
+
+**How the team writes tasks for you** (template; short prompts are fine for small fixes):
+
+```text
+Goal:        what should work afterwards (one or two sentences)
+Context:     relevant files, docs sections, issue number
+Scope:       folders/files you may change; what is out of scope
+Constraints: decisions, performance limits, things not to touch
+Done when:   checks that must pass, expected output, docs to update
+Output:      commit/PR wanted? summary format?
+```
+
+**How you handle a prompt**
+
+- **Restate before acting** when the task is ambiguous or larger than a small fix: one or two
+  sentences on what you understood, the files you will touch and your plan; then wait.
+- **Ask few, precise questions.** Bundle them (at most 3–4), offer a recommended option for each,
+  and only ask what you cannot find in the repo or docs.
+- **Do exactly the task.** No unrequested features, refactors or renames. Note improvements you
+  see as suggestions at the end (or as an N-entry in `docs/notes.md` after asking).
+- **Check the prompt against the docs.** If the request conflicts with `architecture.md`, the
+  data contract or this file, say so and ask instead of choosing silently.
+- **Prefer the repo over memory.** Read config, code and docs instead of assuming APIs, column
+  names or versions; look up external facts (library APIs, data sources) when unsure.
+- **Language:** reply in the language of the prompt; code, comments, commit messages, PRs and docs
+  are always English.
+- **Report concisely:** what changed, how it was verified, what is open. No long recaps of steps.
+- A prompt that says "just do it" still does not override **Never** rules or the "ask first" items
+  that change shared state (push, PR, delete, architecture changes).
 
 ## Architecture rules (do not break)
 
