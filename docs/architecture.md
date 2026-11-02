@@ -1,6 +1,6 @@
 # Architecture — reach (15-Minute City Tübingen)
 
-> **Status:** draft v0.3 (2 Nov 2026). Describes the target architecture the team builds towards.
+> **Status:** draft v0.4 (2 Nov 2026). Describes the target architecture the team builds towards.
 > Settled and open decisions are listed in [Section 13](#13-decisions); items marked **[OPEN]**
 > must be settled before the related code is written. Methodology (scoring formula, thresholds, validation
 > experiments) is defined in [`architecture_proposal.md`](architecture_proposal.md) §5 and §8 and
@@ -71,7 +71,7 @@ flowchart LR
 | **Caddy** | always | HTTPS (Let's Encrypt), serves the built frontend, proxies `/api` |
 | **FastAPI** | always | Read endpoints for results, live endpoints that call Valhalla |
 | **PostGIS** | always | Results, reference data, run history, provenance |
-| **Valhalla** | always | Routing: matrix, isochrone, route, expansion, locate |
+| **Valhalla** | always | Routing: matrix, isochrone, route, expansion |
 | **Pipeline** | weekly + on demand | Acquire → validate → route → score → recommend → publish |
 | **valhalla-build** | only when the OSM snapshot changed | One-shot tile build (same official Valhalla image), see Section 7 |
 
@@ -81,7 +81,7 @@ No job queue, no tile server, no self-hosted geocoder in Core (see [Section 12](
 
 | Source | Provides | Format | Refresh | Licence |
 |---|---|---|---|---|
-| Geofabrik `tuebingen-regbez-latest.osm.pbf`, clipped to the city of Tübingen + routing buffer with `osmium extract` | Street and footpath network (Valhalla), facilities, district boundaries, land use, buildings | PBF | weekly (source updates daily) | ODbL 1.0 |
+| Geofabrik `tuebingen-regbez-latest.osm.pbf`, clipped to the city of Tübingen + routing buffer with `osmium extract` | Street and footpath network (Valhalla), facilities, district boundaries, land use | PBF | weekly (source updates daily) | ODbL 1.0 |
 | NVBW GTFS (naldo, "mit Liniennetz") | Stops, weekday departures | GTFS zip | weekly | dl-de/by-2-0 and ODbL |
 | Destatis Zensus 2022 grid | Residents per 100 m cell (EPSG:3035 cell IDs) | CSV zip | static | dl-de/by-2-0 |
 | Elevation (not in Core; only if gate G1 passes) | Slope for Valhalla | SRTM tiles via Valhalla, or state DGM | static | per source |
@@ -115,9 +115,12 @@ Rule for code and agents: **data is converted to 25832 on ingest and to 4326 onl
 ### 5.2 Analysis unit
 
 - **Origins:** populated Zensus 100 m cells inside the study area.
-- **Origin point per cell:** centroid of residential buildings in the cell (OSM `building=*`),
-  fallback cell centroid if the cell contains no mapped building. Cells whose origin snaps further than a set distance to a
-  walkable edge are flagged (checked with Valhalla `/locate`).
+- **Origin point per cell:** the **cell centroid**, transformed to EPSG:25832. Valhalla snaps it
+  to the nearest edge of the network for each request. This is the Core choice because it is
+  simple, reproducible and independent of OSM building completeness. Known limit: in partly built
+  cells (edge of town, slopes, rivers) the centroid can be up to ~70 m (≈ 1 min walking) away
+  from where people live. A building-based origin and snap checks are noted as future work in
+  [`notes.md`](notes.md).
 - **Reporting units:** official city districts (Stadtteile) from OSM `boundary=administrative`
   (admin levels 9–11 in Tübingen), plus the native 100 m grid on the map. Coarser display levels
   use the census 1 km grid, not H3.
@@ -160,7 +163,6 @@ set**: costing is chosen per request, so adding a profile never requires a secon
 | `isochrone` | API | Draw 5/10/15-minute areas on the map (display only, never used for counting) |
 | `route` | API | Route line and time for the pin-drop inspector |
 | `expansion` | API | Visualise how the 15-minute reach spreads along streets |
-| `locate` | pipeline | Validate where census origins and facilities snap to the network |
 | `status` | Compose healthcheck | Liveness |
 
 ### 6.3 Counting method (decision D2: network counting)
@@ -243,10 +245,8 @@ The server has 4 GB RAM, so every Valhalla call must be cheap. Rules:
     by the service, which keeps RAM use low and startup fast.
 14. **Internal only.** Valhalla listens only on the internal Docker network; port 8002 is never
     published on the server. All external access goes through the API.
-15. **Tuned limits.** `config/valhalla.json` sets matrix, isochrone and locate limits for our batch
+15. **Tuned limits.** `config/valhalla.json` sets matrix and isochrone limits for our batch
     sizes and a moderate tile cache; worker threads match the server's vCPUs.
-16. **Batch validation calls.** `locate` is called with many points per request when checking
-    census origins and facilities.
 
 ## 7. Pipeline
 
@@ -297,7 +297,7 @@ pipeline and API):
 
 | Table | Grain | Key columns |
 |---|---|---|
-| `cells` | census cell | `cell_id` (3035 id), `population`, `district_id`, `geom` (25832), `origin_geom`, `flags` |
+| `cells` | census cell | `cell_id` (3035 id), `population`, `district_id`, `geom` (25832), `origin_geom` (cell centroid) |
 | `facilities` | facility | `facility_id` (OSM type/id), `category`, `name`, `geom` |
 | `stops` | GTFS stop | `stop_id`, `weekday_departures`, `geom` |
 | `access_counts` | cell × category × profile | `count`, `nearest_min` |
@@ -386,7 +386,7 @@ H3 aggregation, second region, Prefect/Dagster, monitoring stack.
 | O2 | No own domain for now; free hostname (`sslip.io`) for HTTPS |
 | O3 | Valhalla runs permanently on the server (live pin-drop, isochrones) |
 | O4 | Tiles built in the pipeline for the clipped area; bwUniCluster for heavy or experimental builds (Section 11.1) |
-| O5 | Origin = residential building centroid per cell, fallback cell centroid |
+| O5 | Origin = cell centroid for now; building-based origin is future work (`notes.md`) |
 | O6 | Core profiles: walking (3.39 and 5.0 km/h), cycling, wheelchair |
 | O8 | Coarse facility categories (≈ 7) in Core |
 | O9 | Map data as GeoJSON from the API first |
