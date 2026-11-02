@@ -41,3 +41,4 @@ known-first-party = ["reach_pipeline", "reach_api"]
 testpaths = ["pipeline/tests", "api/tests"]
 addopts = "-q --import-mode=importlib"
 asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"

@@ -320,9 +320,9 @@ Measured numbers (runtime, peak memory, counts) are added here at the end of eve
    `districts.admin_level`, the holiday list (C7) and refine the test clip bbox.
 4. P3 must deliver the prefilter evidence (O20) and, if needed, a buffer proposal; it adds
    `config/valhalla.json`, the `valhalla-build` command and removes the `routing` profile.
-5. Open from P1: Starlette deprecates `httpx` for `TestClient` (warning; replacing it is a
-   dependency change → ask in P5); pytest-asyncio warns that `asyncio_default_fixture_loop_scope`
-   is unset.
+5. Open from P1: Starlette deprecates `httpx` for `TestClient` (warning); adding `httpx2` as a
+   dev dependency is deferred to P5 (Rico, 2 Nov 2026). The pytest-asyncio loop-scope warning is
+   fixed (`asyncio_default_fixture_loop_scope = "function"`).
 
 ## 9. Working rules (copy from the start prompt)
 
