@@ -1,5 +1,5 @@
-# Local development stack (arch. §11). `make up` starts db, api and caddy.
-# Profiles: "routing" = valhalla (until tiles exist in P3), "build" = valhalla-build,
+# Local development stack (arch. §11). `make up` starts db, api, caddy and valhalla (once tiles exist).
+# Profiles: "build" = valhalla-build (started by `make refresh`),
 # "pipeline" = pipeline. Host ports bind to 127.0.0.1 only; production uses compose.prod.yaml (P8)
 # without published db/valhalla ports.
 name: reach
@@ -41,12 +41,13 @@ services:
 
   valhalla:
     image: ghcr.io/valhalla/valhalla:3.9.1
-    # Behind a profile until P3 provides config/valhalla.json and data/valhalla/valhalla_tiles.tar.
-    profiles: [routing]
-    command: ["valhalla_service", "/valhalla/config/valhalla.json", "1"]
+    # Serves $VALHALLA_DIR/valhalla_tiles.tar (built by `make refresh`); the last argument is the
+    # number of worker threads (= vCPUs of the server, arch. §6.5 rule 15).
+    command: ["valhalla_service", "/valhalla/config/valhalla.json", "2"]
     volumes:
       - ./config/valhalla.json:/valhalla/config/valhalla.json:ro
-      - ./data/valhalla:/data/valhalla
+      # Host bind mount (not a named volume), so `make refresh` swaps tiles with two `mv`.
+      - ${VALHALLA_DIR:-./data/valhalla}:/data/valhalla
     ports:
       - "127.0.0.1:${VALHALLA_PORT:-8002}:8002"
     healthcheck:
@@ -59,11 +60,36 @@ services:
 
   valhalla-build:
     image: ghcr.io/valhalla/valhalla:3.9.1
-    # One-shot tile build started by `make refresh` on the host (O19); command added in P3.
+    # One-shot tile build started by `make refresh` on the host (O19). $VALHALLA_DIR/build is
+    # mounted where the config expects the live files, so the build writes
+    # build/valhalla_tiles.tar and never touches the tiles the service is using; the host then
+    # swaps it in. Elevation tiles are cached in $VALHALLA_DIR/elevation across builds.
+    # ELEVATION (true/false) and BBOX (min_lon,min_lat,max_lon,max_lat) come from the flag file
+    # written by `pipeline tiles check`.
     profiles: [build]
+    entrypoint: ["sh", "-euc"]
+    command:
+      - |
+        conf=/tmp/valhalla.json
+        if [ "$${ELEVATION}" = true ]; then
+          valhalla_build_elevation -b "$${BBOX}" -o /data/valhalla/elevation -p 2
+          cp /valhalla/config/valhalla.json "$$conf"
+        else
+          # Test clip (C6): no elevation download, tiles without grades.
+          python3 -c "import json, sys; c = json.load(open(sys.argv[1])); c['additional_data']['elevation'] = ''; json.dump(c, open(sys.argv[2], 'w'))" /valhalla/config/valhalla.json "$$conf"
+        fi
+        rm -rf /data/valhalla/tiles
+        valhalla_build_tiles -c "$$conf" /data/valhalla/routing.osm.pbf
+        valhalla_build_extract -c "$$conf" -O
+        rm -rf /data/valhalla/tiles
+        echo "build peak memory: $$(( $$(cat /sys/fs/cgroup/memory.peak 2>/dev/null || echo 0) / 1048576 )) MB"
+    environment:
+      ELEVATION: ${ELEVATION:-true}
+      BBOX: ${BBOX:-}
     volumes:
       - ./config/valhalla.json:/valhalla/config/valhalla.json:ro
-      - ./data/valhalla:/data/valhalla
+      - ${VALHALLA_DIR:-./data/valhalla}/build:/data/valhalla
+      - ${VALHALLA_DIR:-./data/valhalla}/elevation:/data/valhalla/elevation
 
   api:
     <<: *uv-service

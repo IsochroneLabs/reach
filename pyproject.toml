@@ -38,7 +38,9 @@ select = ["E", "F", "I", "UP", "B", "SIM"]
 known-first-party = ["reach_pipeline", "reach_api"]
 
 [tool.pytest.ini_options]
-testpaths = ["pipeline/tests", "api/tests"]
-addopts = "-q --import-mode=importlib"
+testpaths = ["pipeline/tests", "api/tests", "tests/integration"]
+# Integration tests need a local Valhalla on the test clip: `uv run pytest -m integration`.
+addopts = "-q --import-mode=importlib -m 'not integration'"
+markers = ["integration: needs a local Valhalla serving the test clip tiles (tests/integration)"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
