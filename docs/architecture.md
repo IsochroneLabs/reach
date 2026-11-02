@@ -1,6 +1,6 @@
 # Architecture — reach (15-Minute City Tübingen)
 
-> **Status:** draft v0.6 (2 Nov 2026). Describes the target architecture the team builds towards.
+> **Status:** draft v0.7 (2 Nov 2026). Describes the target architecture the team builds towards.
 > Settled and open decisions are listed in [Section 13](#13-decisions); items marked **[OPEN]**
 > must be settled before the related code is written. Methodology (scoring formula, thresholds, validation
 > experiments) is defined in [`architecture_proposal.md`](architecture_proposal.md) §5 and §8 and
@@ -419,6 +419,7 @@ H3 aggregation, second region, Prefect/Dagster, monitoring stack.
 | O13 | Routing buffer = 4 km around the urban boundary (covers maximum cycling reach of 3.75 km) |
 | O15 | Cycling speed fixed at 15 km/h |
 | — | Focus on efficient use of Valhalla endpoints (Section 6.5) |
+| — | Python environments with uv, one workspace and one lockfile (Section 14.1) |
 
 ### Open
 
@@ -432,20 +433,60 @@ H3 aggregation, second region, Prefect/Dagster, monitoring stack.
 
 ```
 reach/
-├── AGENTS.md              # short rules for coding agents (commands, always / ask / never)
+├── AGENTS.md              # rules for coding agents (commands, structure, always / ask / never)
+├── CLAUDE.md              # one line: imports AGENTS.md for Claude Code
 ├── README.md              # purpose, architecture diagram, quickstart, deployment
-├── Makefile               # up, down, pipeline, test, lint, deploy
+├── Makefile               # up, down, pipeline, test, lint, deploy (thin wrappers around uv / docker)
+├── pyproject.toml         # uv workspace root (members: pipeline, api) + shared dev tools (ruff, pytest)
+├── uv.lock                # single lockfile for all Python packages, committed
+├── .python-version        # Python version used by uv, local, CI and Docker
 ├── compose.yaml           # local development
 ├── compose.prod.yaml      # production (GHCR images, Caddy)
 ├── .env.example
 ├── config/
 │   ├── config.yaml        # study area, profiles, categories + OSM tags, thresholds, validation rules
 │   └── valhalla.json      # Valhalla service limits and options
-├── pipeline/              # Python package: acquire, validate, tiles, count, score, recommend, publish
-├── api/                   # FastAPI app (read + live endpoints)
-├── web/                   # React + MapLibre frontend
-├── infra/                 # Caddyfile, DB roles/migrations, systemd timer, server setup script
-├── tests/                 # unit, data-contract and integration tests
-├── docs/                  # architecture, data contract, scoring spec, decisions, meeting notes
+├── pipeline/              # Python package `reach_pipeline`: acquire, validate, tiles, count, score, recommend, publish
+│   ├── AGENTS.md          # pipeline-specific notes for agents
+│   ├── pyproject.toml
+│   ├── src/reach_pipeline/
+│   └── tests/
+├── api/                   # Python package `reach_api`: FastAPI app (read + live endpoints)
+│   ├── AGENTS.md
+│   ├── pyproject.toml
+│   ├── src/reach_api/
+│   └── tests/
+├── web/                   # React + MapLibre frontend (npm, own package-lock.json)
+│   └── AGENTS.md
+├── infra/                 # Dockerfiles, Caddyfile, DB roles/migrations, systemd timer, server setup script
+├── tests/integration/     # end-to-end pipeline test on a small clip
+├── docs/                  # architecture, data contract, notes, decisions, meeting notes
 └── .github/               # CI workflows, CODEOWNERS, PR template
 ```
+
+### 14.1 Python environment (uv)
+
+All Python code is managed with **[uv](https://docs.astral.sh/uv/)** as one **uv workspace**:
+
+- The root `pyproject.toml` declares the workspace (`[tool.uv.workspace] members = ["pipeline", "api"]`)
+  and shared dev tools (ruff, pytest). Each member has its own `pyproject.toml` with its own
+  runtime dependencies.
+- **One `uv.lock`** at the root pins every dependency for both packages; shared libraries use the
+  same version everywhere. The lockfile is committed and changes only through `uv add` / `uv lock`.
+- **`.python-version`** pins the Python version; uv installs it if missing, so nobody depends on a
+  system or Homebrew Python.
+- **Docker:** images copy the `uv` binary and run `uv sync --frozen --no-dev --package <member>`,
+  so containers get exactly the locked versions.
+- **CI:** `astral-sh/setup-uv` with cache, then `uv sync --frozen` and `uv run` for lint and tests.
+- The frontend is not part of the workspace; it uses npm with `web/package-lock.json`.
+
+| Task | Command |
+|---|---|
+| Create or update the environment | `uv sync` |
+| Run code or tests | `uv run pytest`, `uv run python -m reach_pipeline run` |
+| Add a runtime dependency | `uv add --package pipeline duckdb` |
+| Add a dev tool | `uv add --dev ruff` |
+| Requirements file for people without uv | `uv export --frozen > requirements.txt` |
+
+Rules: no `pip install`, no hand-made virtual environments, `.venv/` is git-ignored,
+`pyproject.toml` and `uv.lock` are committed together.
