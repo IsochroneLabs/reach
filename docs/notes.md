@@ -50,3 +50,20 @@ residents do not use (forest track, road without sidewalk).
   the city edge → switch to the building-based origin.
 
 **Effort:** small to medium (one pipeline step with GeoPandas, one validation run, `/locate` batching).
+
+---
+
+## N2. Pipeline stage template and `pipeline/AGENTS.md`
+
+**Status:** open · **Added:** 2 Nov 2026 · **Related:** `AGENTS.md` (folder-specific rules), `architecture.md` §7
+
+When the code scaffold is created, define one pattern that every pipeline stage follows and
+document it in `pipeline/AGENTS.md`:
+
+- CLI entry (`python -m reach_pipeline <stage>` behind `make pipeline STAGE=…`), loading
+  `config/config.yaml` through one typed config object.
+- Inputs and outputs per `run_id`, manifest written at the end, previous manifest checked at the start.
+- Logging format, runtime and peak-memory logging, exit codes (0 ok, non-zero with a clear message).
+- Test layout: unit test with fixture per stage, mocked Valhalla responses.
+
+Also create `api/AGENTS.md` and `web/AGENTS.md` with the scaffold.
