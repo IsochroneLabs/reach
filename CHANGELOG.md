@@ -19,6 +19,9 @@ adds a line under `Unreleased`.
 - `docs/methodology.md`: binding categories, thresholds, scoring, recommender, validation
   experiments (V1–V9) and open methodology questions (M1–M6).
 - `docs/glossary.md`: project vocabulary, moved out of `AGENTS.md`.
+- Python uv workspace: root `pyproject.toml` (dev tools, ruff and pytest config), `pipeline` and
+  `api` packages with baseline dependencies and smoke tests, `.python-version` 3.12,
+  `uv.lock` and `requirements.txt` export.
 
 ### Changed
 - `AGENTS.md`: project status line, sources of truth, test/fixture rules (mocked Valhalla),
