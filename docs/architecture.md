@@ -1,6 +1,7 @@
 # Architecture — reach (15-Minute City Tübingen)
 
-> **Status:** draft v0.3 (2 Nov 2026). Describes the target architecture the team builds towards.
+> **Status:** draft v0.8 (2 Nov 2026). Describes the target architecture the team builds towards.
+> Every change bumps the version and adds a line to the [Change log](#change-log).
 > Settled and open decisions are listed in [Section 13](#13-decisions); items marked **[OPEN]**
 > must be settled before the related code is written. Methodology (scoring formula, thresholds, validation
 > experiments) is defined in [`architecture_proposal.md`](architecture_proposal.md) §5 and §8 and
@@ -71,7 +72,7 @@ flowchart LR
 | **Caddy** | always | HTTPS (Let's Encrypt), serves the built frontend, proxies `/api` |
 | **FastAPI** | always | Read endpoints for results, live endpoints that call Valhalla |
 | **PostGIS** | always | Results, reference data, run history, provenance |
-| **Valhalla** | always | Routing: matrix, isochrone, route, expansion, locate |
+| **Valhalla** | always | Routing: matrix, isochrone, route, expansion |
 | **Pipeline** | weekly + on demand | Acquire → validate → route → score → recommend → publish |
 | **valhalla-build** | only when the OSM snapshot changed | One-shot tile build (same official Valhalla image), see Section 7 |
 
@@ -81,15 +82,26 @@ No job queue, no tile server, no self-hosted geocoder in Core (see [Section 12](
 
 | Source | Provides | Format | Refresh | Licence |
 |---|---|---|---|---|
-| Geofabrik `tuebingen-regbez-latest.osm.pbf`, clipped to the city of Tübingen + routing buffer with `osmium extract` | Street and footpath network (Valhalla), facilities, district boundaries, land use, buildings | PBF | weekly (source updates daily) | ODbL 1.0 |
+| Geofabrik `tuebingen-regbez-latest.osm.pbf`, clipped to the city of Tübingen + routing buffer with `osmium extract` | Street and footpath network (Valhalla), facilities, district boundaries, land use | PBF | weekly (source updates daily) | ODbL 1.0 |
 | NVBW GTFS (naldo, "mit Liniennetz") | Stops, weekday departures | GTFS zip | weekly | dl-de/by-2-0 and ODbL |
 | Destatis Zensus 2022 grid | Residents per 100 m cell (EPSG:3035 cell IDs) | CSV zip | static | dl-de/by-2-0 |
-| Elevation (not in Core; only if gate G1 passes) | Slope for Valhalla | SRTM tiles via Valhalla, or state DGM | static | per source |
+| Elevation tiles (SRTM-based, downloaded by Valhalla with `build_elevation`) | Height per edge, stored in the routing tiles | Valhalla elevation tiles (1° × 1°, two tiles cover Tübingen + buffer) | static, downloaded once and kept in the volume | per source, attribution in README |
 
-**Study area:** city of Tübingen (administrative boundary). Origins (census cells) and reported
-results lie inside the boundary. The routing network and the facilities are taken from the
-boundary plus a **4 km routing buffer** (covers the maximum cycling reach of 3.75 km, see 6.1), so
-residents near the city limit can reach facilities in neighbouring municipalities.
+**Study area: urban boundary of Tübingen.** The analysis covers the **urban (settlement) area**
+of Tübingen, not the whole administrative territory, which also contains forest (Schönbuch),
+farmland and other open land where 15-minute scores are not meaningful.
+
+- **Urban boundary:** derived in the pipeline from the OSM extract and stored per run
+  (definition: see decision O17).
+- **Scoring scope:** only populated census cells whose centroid lies inside the urban boundary get
+  15-minute accessibility scores, deficits and recommendations. Residents in populated cells
+  outside it (e.g. isolated farms) are counted and reported in the validation report, but not
+  scored.
+- **Routing buffer:** the routing network and the facilities are taken from the urban boundary
+  plus a **4 km buffer** (covers the maximum cycling reach of 3.75 km, see 6.1), so residents at
+  the edge can reach facilities outside it, including neighbouring municipalities.
+- **Administrative boundary:** used only to clip the urban boundary to the city and for district
+  reporting (5.2).
 
 **One OSM file feeds everything.** Facilities, boundaries, land use and the Valhalla graph come
 from the same clipped extract, so there is no dependency on Overpass or Nominatim at runtime and
@@ -114,10 +126,13 @@ Rule for code and agents: **data is converted to 25832 on ingest and to 4326 onl
 
 ### 5.2 Analysis unit
 
-- **Origins:** populated Zensus 100 m cells inside the study area.
-- **Origin point per cell:** centroid of residential buildings in the cell (OSM `building=*`),
-  fallback cell centroid if the cell contains no mapped building. Cells whose origin snaps further than a set distance to a
-  walkable edge are flagged (checked with Valhalla `/locate`).
+- **Origins:** populated Zensus 100 m cells whose centroid lies inside the urban boundary (Section 4).
+- **Origin point per cell:** the **cell centroid**, transformed to EPSG:25832. Valhalla snaps it
+  to the nearest edge of the network for each request. This is the Core choice because it is
+  simple, reproducible and independent of OSM building completeness. Known limit: in partly built
+  cells (edge of town, slopes, rivers) the centroid can be up to ~70 m (≈ 1 min walking) away
+  from where people live. A building-based origin and snap checks are noted as future work in
+  [`notes.md`](notes.md).
 - **Reporting units:** official city districts (Stadtteile) from OSM `boundary=administrative`
   (admin levels 9–11 in Tübingen), plus the native 100 m grid on the map. Coarser display levels
   use the census 1 km grid, not H3.
@@ -136,8 +151,18 @@ volume, so restarts never rebuild the graph.
 | Cycling | `bicycle` | bike type `Hybrid`, `cycling_speed` 15 km/h, `use_hills` (default) | yes |
 | Wheelchair / pram | `pedestrian` with `type: wheelchair` | `walking_speed` 3.39 km/h, avoids steps and steep sections | yes |
 
-Elevation is **off** in Core: travel times ignore slopes, stairs are still handled through OSM
-`highway=steps`. Gate G1 (`architecture_proposal.md` §3) may switch it on later.
+**Elevation is built in, its use is a per-profile setting.** The tiles are always built with
+elevation data (`build_elevation`), so slope information is available on every edge without a
+rebuild. Whether a profile uses it is controlled in `config/config.yaml`
+(`profiles.<name>.use_hills` and related costing options):
+
+| Profile | Elevation in Core | Note |
+|---|---|---|
+| Walking, wheelchair | **ignored for now** (default costing, slope effect not analysed or reported) | Gate G1 (`architecture_proposal.md` §3) tests whether slopes change walking times in Valhalla **[VERIFY]**; stairs are always handled through OSM `highway=steps` |
+| Cycling | as Valhalla's bicycle costing applies it with elevation present **[VERIFY]** | `use_hills` stays at the default until tested |
+
+Enabling slopes for walking later is a config change plus a pipeline run, not a code or
+architecture change.
 
 **Maximum reach per profile** (speed × time budget), used for the exact prefilter (6.3) and for
 the routing buffer (Section 4):
@@ -160,7 +185,6 @@ set**: costing is chosen per request, so adding a profile never requires a secon
 | `isochrone` | API | Draw 5/10/15-minute areas on the map (display only, never used for counting) |
 | `route` | API | Route line and time for the pin-drop inspector |
 | `expansion` | API | Visualise how the 15-minute reach spreads along streets |
-| `locate` | pipeline | Validate where census origins and facilities snap to the network |
 | `status` | Compose healthcheck | Liveness |
 
 ### 6.3 Counting method (decision D2: network counting)
@@ -171,7 +195,8 @@ For every populated cell *i*, category *c* and profile *m*:
    line, so only facilities within the maximum reach of the profile (table in 6.1) are
    candidates. The prefilter is exact: no reachable facility is dropped.
 2. **Matrix request** with the cell origin as source and the candidates as targets
-   (direction cell → facility, which stays correct if slopes are added later).
+   (direction cell → facility, which stays correct when slopes are used, because uphill and
+   downhill times differ).
 3. **Count** targets with travel time ≤ budget → raw count `A[i,c,m]`, plus the time to the
    nearest facility.
 4. **Store raw counts and nearest times.** Classes and deficits are derived at read time from the
@@ -235,7 +260,7 @@ The server has 4 GB RAM, so every Valhalla call must be cheap. Rules:
     clicks in the same cell never hit Valhalla twice.
 11. **Expensive calls on demand only.** `expansion` is only called when the user opens the
     "spread" view and is limited to the 15-minute budget.
-12. **Validate before routing.** Points outside the study area are rejected before any Valhalla call.
+12. **Validate before routing.** Points outside the urban boundary plus a small margin are rejected before any Valhalla call.
 
 **Valhalla service**
 
@@ -243,10 +268,8 @@ The server has 4 GB RAM, so every Valhalla call must be cheap. Rules:
     by the service, which keeps RAM use low and startup fast.
 14. **Internal only.** Valhalla listens only on the internal Docker network; port 8002 is never
     published on the server. All external access goes through the API.
-15. **Tuned limits.** `config/valhalla.json` sets matrix, isochrone and locate limits for our batch
+15. **Tuned limits.** `config/valhalla.json` sets matrix and isochrone limits for our batch
     sizes and a moderate tile cache; worker threads match the server's vCPUs.
-16. **Batch validation calls.** `locate` is called with many points per request when checking
-    census origins and facilities.
 
 ## 7. Pipeline
 
@@ -263,7 +286,7 @@ flowchart LR
 |---|---|---|---|
 | `acquire` | config | raw files in `data/raw/<run_id>/`, provenance (URL, date, checksum, licence) | Skips download if checksum unchanged; retries with backoff |
 | `validate inputs` | raw files | cleaned layers (GeoParquet, EPSG:25832), validation report part 1 | Fails loudly on schema or plausibility errors |
-| `build tiles` | clipped PBF | `valhalla_tiles.tar` in the shared volume | Only when the OSM snapshot changed; see 11.1 |
+| `build tiles` | clipped PBF, cached elevation tiles | `valhalla_tiles.tar` (with elevation) in the shared volume | Only when the OSM snapshot changed; see 11.1 |
 | `count` | cells, facilities, stops, Valhalla | raw counts and nearest times per cell × category × profile | Section 6.3 |
 | `score` | raw counts, config thresholds | classes, deficits per cell and district | Scoring spec |
 | `recommend` | deficits, catchments | ranked candidate zones with population gain | Greedy, land-use filtered |
@@ -297,7 +320,7 @@ pipeline and API):
 
 | Table | Grain | Key columns |
 |---|---|---|
-| `cells` | census cell | `cell_id` (3035 id), `population`, `district_id`, `geom` (25832), `origin_geom`, `flags` |
+| `cells` | census cell | `cell_id` (3035 id), `population`, `district_id`, `geom` (25832), `origin_geom` (cell centroid) |
 | `facilities` | facility | `facility_id` (OSM type/id), `category`, `name`, `geom` |
 | `stops` | GTFS stop | `stop_id`, `weekday_departures`, `geom` |
 | `access_counts` | cell × category × profile | `count`, `nearest_min` |
@@ -322,7 +345,7 @@ Live endpoints (call Valhalla, small and fast, no queue):
 - `POST /api/catchment` — facility or candidate: isochrone + residents reaching it.
 - `POST /api/expansion` — street-level spread for visualisation.
 
-Live endpoints validate that the point lies inside the study area and enforce simple rate limits.
+Live endpoints validate that the point lies inside the urban boundary (plus a small margin) and enforce simple rate limits.
 
 ## 10. Frontend
 
@@ -373,7 +396,7 @@ Environments:
 
 Cut first if time is short; can be added later without changing the architecture:
 job queue / live scenario recomputation, self-hosted geocoder (map click and district picker
-instead), transit routing (Valhalla multimodal or r5py), elevation unless gate G1 passes,
+instead), transit routing (Valhalla multimodal or r5py), slope-aware walking times unless gate G1 passes,
 H3 aggregation, second region, Prefect/Dagster, monitoring stack.
 
 ## 13. Decisions
@@ -386,17 +409,18 @@ H3 aggregation, second region, Prefect/Dagster, monitoring stack.
 | O2 | No own domain for now; free hostname (`sslip.io`) for HTTPS |
 | O3 | Valhalla runs permanently on the server (live pin-drop, isochrones) |
 | O4 | Tiles built in the pipeline for the clipped area; bwUniCluster for heavy or experimental builds (Section 11.1) |
-| O5 | Origin = residential building centroid per cell, fallback cell centroid |
+| O5 | Origin = cell centroid for now; building-based origin is future work (`notes.md`) |
 | O6 | Core profiles: walking (3.39 and 5.0 km/h), cycling, wheelchair |
 | O8 | Coarse facility categories (≈ 7) in Core |
 | O9 | Map data as GeoJSON from the API first |
 | O10 | Failed runs notify the team chat via webhook |
-| O11 | Study area = city of Tübingen; routing buffer around it |
+| O11 | Study area = urban boundary of Tübingen (not the full administrative territory); only cells inside it are scored |
 | O12 | English documentation; branches `main` (releases) + `dev` (integration) |
-| O7 | Elevation off in Core; gate G1 test may enable it later (stairs are always handled) |
-| O13 | Routing buffer = 4 km around the city boundary (covers maximum cycling reach of 3.75 km) |
+| O7 | Elevation is built into the tiles; its use is a per-profile config setting, ignored for walking/wheelchair for now; gate G1 decides later (stairs are always handled) |
+| O13 | Routing buffer = 4 km around the urban boundary (covers maximum cycling reach of 3.75 km) |
 | O15 | Cycling speed fixed at 15 km/h |
 | — | Focus on efficient use of Valhalla endpoints (Section 6.5) |
+| — | Python environments with uv, one workspace and one lockfile (Section 14.1) |
 
 ### Open
 
@@ -404,25 +428,83 @@ H3 aggregation, second region, Prefect/Dagster, monitoring stack.
 |---|---|---|---|
 | O14 | Team chat for the failure webhook | Discord, Slack, Telegram, Matrix, … (WhatsApp has no simple webhooks) | – |
 | O16 | Server for the interim presentation (25 Nov) | Local demo; short-lived test server for the day | Local demo, to save budget |
+| O17 | Definition of the urban boundary | (a) OSM built-up land use (`landuse=residential, commercial, retail`, …) inside the city, dissolved, gaps closed by buffering out and in (e.g. ±50 m), small fragments dropped; (b) census-based: contiguous populated cells above a density threshold; (c) external settlement layer (e.g. GHSL urban clusters) | (a), reproducible from the same OSM file; include outlying villages (Teilorte) as separate urban parts |
 
 ## 14. Repository layout
 
 ```
 reach/
-├── AGENTS.md              # short rules for coding agents (commands, always / ask / never)
+├── AGENTS.md              # rules for coding agents (commands, structure, always / ask / never)
+├── CLAUDE.md              # one line: imports AGENTS.md for Claude Code
 ├── README.md              # purpose, architecture diagram, quickstart, deployment
-├── Makefile               # up, down, pipeline, test, lint, deploy
+├── Makefile               # up, down, pipeline, test, lint, deploy (thin wrappers around uv / docker)
+├── pyproject.toml         # uv workspace root (members: pipeline, api) + shared dev tools (ruff, pytest)
+├── uv.lock                # single lockfile for all Python packages, committed
+├── .python-version        # Python version used by uv, local, CI and Docker
 ├── compose.yaml           # local development
 ├── compose.prod.yaml      # production (GHCR images, Caddy)
 ├── .env.example
 ├── config/
 │   ├── config.yaml        # study area, profiles, categories + OSM tags, thresholds, validation rules
 │   └── valhalla.json      # Valhalla service limits and options
-├── pipeline/              # Python package: acquire, validate, tiles, count, score, recommend, publish
-├── api/                   # FastAPI app (read + live endpoints)
-├── web/                   # React + MapLibre frontend
-├── infra/                 # Caddyfile, DB roles/migrations, systemd timer, server setup script
-├── tests/                 # unit, data-contract and integration tests
-├── docs/                  # architecture, data contract, scoring spec, decisions, meeting notes
+├── pipeline/              # Python package `reach_pipeline`: acquire, validate, tiles, count, score, recommend, publish
+│   ├── AGENTS.md          # pipeline-specific notes for agents
+│   ├── pyproject.toml
+│   ├── src/reach_pipeline/
+│   └── tests/
+├── api/                   # Python package `reach_api`: FastAPI app (read + live endpoints)
+│   ├── AGENTS.md
+│   ├── pyproject.toml
+│   ├── src/reach_api/
+│   └── tests/
+├── web/                   # React + MapLibre frontend (npm, own package-lock.json)
+│   └── AGENTS.md
+├── infra/                 # Dockerfiles, Caddyfile, DB roles/migrations, systemd timer, server setup script
+├── tests/integration/     # end-to-end pipeline test on a small clip
+├── docs/                  # architecture, data contract, notes, decisions, meeting notes
 └── .github/               # CI workflows, CODEOWNERS, PR template
 ```
+
+### 14.1 Python environment (uv)
+
+All Python code is managed with **[uv](https://docs.astral.sh/uv/)** as one **uv workspace**:
+
+- The root `pyproject.toml` declares the workspace (`[tool.uv.workspace] members = ["pipeline", "api"]`)
+  and shared dev tools (ruff, pytest). Each member has its own `pyproject.toml` with its own
+  runtime dependencies.
+- **One `uv.lock`** at the root pins every dependency for both packages; shared libraries use the
+  same version everywhere. The lockfile is committed and changes only through `uv add` / `uv lock`.
+- **`.python-version`** pins the Python version; uv installs it if missing, so nobody depends on a
+  system or Homebrew Python.
+- **Docker:** images copy the `uv` binary and run `uv sync --frozen --no-dev --package <member>`,
+  so containers get exactly the locked versions.
+- **CI:** `astral-sh/setup-uv` with cache, then `uv sync --frozen` and `uv run` for lint and tests.
+- The frontend is not part of the workspace; it uses npm with `web/package-lock.json`.
+
+| Task | Command |
+|---|---|
+| Create or update the environment | `uv sync` |
+| Run code or tests | `uv run pytest`, `uv run python -m reach_pipeline run` |
+| Add a runtime dependency | `uv add --package pipeline duckdb` |
+| Add a dev tool | `uv add --dev ruff` |
+| Requirements file for people without uv | `uv export --frozen > requirements.txt` |
+
+Rules: no `pip install`, no hand-made virtual environments, `.venv/` is git-ignored,
+`pyproject.toml` and `uv.lock` are committed together.
+
+## Change log
+
+Every change to this document bumps the version line at the top and adds one line here
+(newest first). Implementation that deviates from this document must be agreed first and
+documented here in the same branch (see `AGENTS.md`).
+
+| Version | Date | Change | Why |
+|---|---|---|---|
+| v0.8 | 2026-11-02 | Added this change log and the version rule in the header | Track the history of architecture decisions |
+| v0.7 | 2026-11-02 | §14.1 Python environment with uv (one workspace, one lockfile); repository layout with per-package `src/` and `tests/`, nested `AGENTS.md`, `CLAUDE.md` | Reproducible environments for three people and agents |
+| v0.6 | 2026-11-02 | Tiles always built with elevation; use of elevation is a per-profile setting (ignored for walking/wheelchair for now); elevation tiles re-added to data sources | Keep slope data available without rebuild; decide usage later (gate G1) |
+| v0.5 | 2026-11-02 | Study area and scoring limited to the urban boundary; 4 km routing buffer around it; open decision O17 (urban boundary definition); elevation row removed from data sources | 15-minute scores are not meaningful in forest and farmland |
+| v0.4 | 2026-11-02 | Origin per cell = cell centroid; building-based origin and `/locate` checks moved to `notes.md` (N1) | Start simple and reproducible, validate later |
+| v0.3 | 2026-11-02 | Settled O7, O13, O15; review fixes: reach table per profile, pin-drop routed from cell origin, `valhalla-build` with atomic tile swap, GTFS reference weekday, run retention, Valhalla internal only, budget start date, memory estimate, CI test plan | Close gaps found in review |
+| v0.2 | 2026-11-02 | Settled O1–O6, O8–O12 (CX23 within 20 € total, Valhalla always on, all three profiles, coarse categories, GeoJSON, chat webhook, English + `main`/`dev`); §6.5 efficient Valhalla usage; §11.1 where tiles are built | Team decisions of 2 Nov 2026 |
+| v0.1 | 2026-11-02 | Initial target architecture: Valhalla as single routing engine, Zensus 100 m grid, weekly validated pipeline, PostGIS, FastAPI, React + MapLibre, Hetzner hosting | Project restart with a server-ready architecture |
