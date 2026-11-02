@@ -1,7 +1,7 @@
 # Implementation plan — reach
 
 > **Status:** P0 done (2 Nov 2026): Q1–Q5, C6–C12 and review points confirmed and applied
-> (architecture v0.11, methodology v0.2). P1 implemented (2 Nov 2026, draft PR, stacked on
+> (architecture v0.11, methodology v0.2). P1 implemented (2 Nov 2026, draft PR #19, stacked on
 > PR #17). Next: P2. This file is the **handoff between
 > agent sessions**: phase status, decisions, agreed deviations, measured numbers and next steps.
 > It is informative; `architecture.md` and `methodology.md` stay binding. Where this plan proposes
@@ -15,7 +15,7 @@
 | Phase | Topic | Branch | Status | Target date |
 |---|---|---|---|---|
 | P0 | Implementation plan | `docs/rico-implementation-plan` | [x] PR #17 | 2 Nov |
-| P1 | Scaffold & tooling | `feature/rico-scaffold` | [x] draft PR (stacked on #17) | 6 Nov |
+| P1 | Scaffold & tooling | `feature/rico-scaffold` | [x] draft PR #19 (stacked on #17), CI green | 6 Nov |
 | P2 | acquire + validate inputs | `feature/rico-acquire-validate` | [ ] | 11 Nov |
 | P3 | tiles + count | `feature/rico-tiles-count` | [ ] | 16 Nov |
 | P4 | score + publish + cleanup | `feature/rico-score-publish` | [ ] | 19 Nov |
@@ -313,7 +313,7 @@ Measured numbers (runtime, peak memory, counts) are added here at the end of eve
 ## 8. Next steps
 
 1. ~~Confirm C6–C12 and the review points~~ — done 2 Nov 2026; P0 closed.
-2. ~~P1 scaffold~~ — implemented 2 Nov 2026 (draft PR). After #17 is squash-merged: rebase
+2. ~~P1 scaffold~~ — implemented 2 Nov 2026 (draft PR #19, CI green). After #17 is squash-merged: rebase
    `feature/rico-scaffold` onto `origin/dev`, re-run checks, change the PR base to `dev`.
 3. P2 (`feature/rico-acquire-validate`): ask for `osmium-tool`; verify Zensus column names,
    Tübingen AGS and district admin levels in the extract; set `validation.official_population`,
