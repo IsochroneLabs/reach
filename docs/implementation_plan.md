@@ -1,7 +1,7 @@
 # Implementation plan — reach
 
 > **Status:** P0 v2 (2 Nov 2026): Q1–Q5 answered and applied (architecture v0.11, methodology
-> v0.2); C6–C13 waiting for confirmation. This file is the **handoff between
+> v0.2); C6–C12 waiting for confirmation. This file is the **handoff between
 > agent sessions**: phase status, decisions, agreed deviations, measured numbers and next steps.
 > It is informative; `architecture.md` and `methodology.md` stay binding. Where this plan proposes
 > something that differs from them, it is listed in [Section 5](#5-conflicts-gaps-and-ambiguities)
@@ -13,7 +13,7 @@
 
 | Phase | Topic | Branch | Status | Target date |
 |---|---|---|---|---|
-| P0 | Implementation plan | `docs/rico-implementation-plan` | [~] draft PR #17; Q1–Q5 applied, C6–C13 pending | 2 Nov |
+| P0 | Implementation plan | `docs/rico-implementation-plan` | [~] draft PR #17; Q1–Q5 applied, review fixed, C6–C12 pending | 2 Nov |
 | P1 | Scaffold & tooling | `feature/rico-scaffold` | [ ] | 6 Nov |
 | P2 | acquire + validate inputs | `feature/rico-acquire-validate` | [ ] | 11 Nov |
 | P3 | tiles + count | `feature/rico-tiles-count` | [ ] | 16 Nov |
@@ -27,7 +27,7 @@
 The dates leave about four working days per phase until 25 Nov. To make the interim demo, P1–P6
 are built at **minimal depth** (marked *interim* below); the rest of each phase (*full*) is
 finished between 25 Nov and 20 Dec, before P7. Branch names contain the name of the person
-driving the session (`<type>/<name>-<topic>`, e.g. `feature/rico-scaffold`), so two sessions never
+driving the session (rule pending in PR #18) (`<type>/<name>-<topic>`, e.g. `feature/rico-scaffold`), so two sessions never
 work on the same branch; an issue number goes in front of the topic if an issue exists.
 
 ## 2. Phases in detail
@@ -40,11 +40,14 @@ Conventions used by every phase:
   At start it checks the previous stage's manifest (`status == "ok"`, input checksums match), at
   the end it writes `data/runs/<run_id>/<stage>/manifest.json` (inputs with checksums, outputs,
   row counts, runtime, peak RSS, status). Re-running a stage with unchanged inputs is a no-op.
-- **Run id:** UTC timestamp `YYYYMMDDTHHMMZ` (e.g. `20261116T0300Z`); DB schema `run_20261116t0300z`.
-- **Measurement:** one helper logs wall time and peak memory (`resource.getrusage`, children
-  included) per stage; values go into the manifest and the PR.
+- **Run id:** UTC timestamp with seconds `YYYYMMDDTHHMMSSZ` (e.g. `20261116T030000Z`, no collisions on manual
+  reruns); DB schema `run_20261116t030000z`.
+- **Measurement:** one helper logs wall time and peak memory (`resource.getrusage` for self and
+  children, normalised to MB: `ru_maxrss` is KB on Linux and bytes on macOS; children = maximum of
+  any child, not the sum) per stage; values go into the manifest and the PR.
 - **Exit codes:** 0 ok; 1 validation failed; 2 configuration error; 3 external failure (network,
-  Valhalla, DB) after retries.
+  Valhalla, DB) after retries. `tiles check` signals "rebuild needed" with a flag file
+  `data/runs/<run_id>/tiles/rebuild_needed`, not with an exit code (see P3).
 - **Logging:** `logging` with one format (`time level stage message`), no `print`.
 
 ### P1 — Scaffold & tooling
@@ -76,12 +79,12 @@ CI green on the draft PR.
 
 | Create | Key functions |
 |---|---|
-| `stages/acquire.py` | `download(source) -> Path` with retries/backoff, skip if unchanged (Geofabrik `.md5`, HTTP `ETag`/`Last-Modified`, local checksum); unchanged files are hard-linked from the previous run; provenance rows (URL, retrieved at, checksum, licence) |
-| `osm.py` | `osmium tags-filter` / `osmium extract -p` / `osmium export` wrappers (subprocess, streaming, no full PBF in Python) |
+| `stages/acquire.py` | `download(source) -> Path` with retries/backoff, skip if unchanged (Geofabrik `.md5`, HTTP `ETag`/`Last-Modified`, local checksum); unchanged files are hard-linked from the previous run; provenance rows (URL, retrieved at, checksum, licence); zip archives (GTFS, Zensus) are unpacked to the needed members (`stops.txt`, `stop_times.txt`, `trips.txt`, `calendar*.txt`, Zensus CSV) in `data/raw/<run_id>/`, because DuckDB does not read inside zips |
+| `osm.py` | `osmium tags-filter` / `osmium extract -p` / `osmium export` wrappers (subprocess, streaming, no full PBF in Python). Order (two passes): 1. `tags-filter` admin boundaries + land use from the full regbez PBF; 2. compute urban boundary and routing area (`boundary.py`); 3. `extract -p` with the routing area as EPSG:4326 polygon → clipped PBF; 4. `tags-filter`/`export` facilities, ways and districts from the clipped PBF |
 | `boundary.py` | `admin_boundary(...)`, `urban_boundary(landuse, admin, cfg)`: dissolve built-up land use inside the city, `buffer(+50).buffer(-50)`, drop parts < configured min area, keep Teilorte as separate parts (O17a); `routing_area = urban.buffer(4000)` |
-| `zensus.py` | DuckDB streaming read of the national 100 m CSV filtered by bbox while reading; `GITTER_ID` kept as `cell_id`; cell polygon + centroid in 25832 |
-| `gtfs.py` | DuckDB reads `stops.txt`, `calendar*.txt`; `reference_weekday(feed, holidays)`; stops of `location_type 0` inside the routing area |
-| `facilities.py` | tag → category mapping from config; points stay points, polygons → `representative_point`; parks/playgrounds → access points: intersections of walkable ways with the park boundary, fallback every 50 m along the boundary, at most `max_points` per park (config; methodology §2); de-duplication of node + area of the same facility |
+| `zensus.py` | DuckDB streaming read of the national 100 m CSV filtered by bbox in EPSG:3035 (cell-centre columns, expected `x_mp_100m`/`y_mp_100m`) while reading; the grid id column (expected `GITTER_ID_100m`, verified in P2) kept as `cell_id`; cell polygon + centroid in 25832 |
+| `gtfs.py` | DuckDB reads `stops.txt`, `calendar*.txt`; `reference_weekday(feed, holidays)`; stops of `location_type` 0 or empty inside the routing area |
+| `facilities.py` | tag → category mapping from config; points stay points, polygons → `representative_point`; parks/playgrounds → access points: intersections of walkable ways with the park boundary, fallback every 50 m along the boundary, at most `max_points` per park, chosen evenly spaced along the boundary (config; methodology §2); edge cases: a footway running along the boundary (intersection is a line → use its end points), playgrounds mapped as nodes (the node itself); de-duplication of node + area of the same facility |
 | `stages/validate.py` | schema + plausibility checks (CRS, non-empty, population total vs. official city total ± tolerance, cells inside boundary, facilities per category > 0, GTFS validity covers reference day); writes cleaned GeoParquet (`cells`, `facilities`, `stops`, `districts`, `urban_boundary`, `routing_area`) and validation report part 1 (`report_inputs.json` + Markdown) |
 | `scripts/build_test_clip.py` (or `python -m reach_pipeline make-test-clip`) | cuts ~1 km² (old town incl. Neckar bridge) from a real run into `tests/fixtures/clip/` (< 1 MB each; PBF, Zensus subset CSV, GTFS subset) |
 | tests | unit tests with tiny synthetic fixtures for boundary closing, facility mapping/dedupe, reference weekday (holiday + `calendar_dates` exceptions), Zensus parsing |
@@ -97,18 +100,18 @@ runtime and peak memory per stage; second `acquire` run skips downloads.
 | Create | Key functions |
 |---|---|
 | `config/valhalla.json` | generated once with `valhalla_build_config` from the pinned image, then edited: `tile_extract`, matrix/isochrone limits for our block sizes, `mjolnir.concurrency` and `thor`/`loki` threads = vCPUs, moderate cache |
-| `Makefile` `refresh` + `compose.yaml` `valhalla-build` | one-shot: `valhalla_build_elevation` (cached in volume) → `valhalla_build_tiles` → `valhalla_build_extract` → `valhalla_tiles.new.tar`; swap: `tiles.tar → tiles.prev.tar`, `new → tiles.tar`; restart `valhalla`; skipped if PBF checksum unchanged; `make refresh` = acquire, validate → build/swap/restart → count … cleanup (O19) |
-| `stages/tiles.py` | checks PBF checksum vs. last build, reports "rebuild needed" for `make refresh`, verifies the tiles after the restart (`/status`, one golden route), writes manifest; never touches Docker (O19) |
+| `Makefile` `refresh` + `compose.yaml` `valhalla-build` | tiles live in a host bind mount `data/valhalla/` (not a named volume), so the swap is two `mv` on the host; one-shot: `valhalla_build_elevation` (cached in volume) → `valhalla_build_tiles` → `valhalla_build_extract` → `valhalla_tiles.new.tar`; swap: `tiles.tar → tiles.prev.tar`, `new → tiles.tar`; restart `valhalla`; skipped if PBF checksum unchanged; `make refresh` = `pipeline acquire validate` → `pipeline tiles check` → if flag file: `valhalla-build`, swap, `docker compose restart valhalla` → `pipeline tiles verify` → `pipeline count … cleanup` (O19) |
+| `stages/tiles.py` | two subcommands: `tiles check` compares the clipped PBF checksum with the last build and writes the flag file; `tiles verify` checks `/status`, one golden route and that the graph carries grades (VF1); writes manifest; never touches Docker (O19) |
 | `valhalla/client.py` | async `httpx` client, `asyncio.Semaphore(concurrency)`, retries with backoff on timeouts/5xx, `matrix(sources, targets, costing, options) -> np.ndarray` (seconds, `None` = unreachable) |
 | `count.py` | `make_blocks(cells, size_m)`, `prefilter(block, facilities, reach_m)` with reach per O20, `count_block(...)`: one matrix for all categories + stops, split by category via `groupby`, min time per facility id (multi-point facilities) |
 | `stages/count.py` | all cells × categories × profiles → `access_counts.parquet` (`count`, `nearest_min`); stops within 10 min for walking and wheelchair profiles → `transit_supply.parquet` (raw departure sum, O18) |
-| `scripts` / `count` diagnostics | **prefilter evidence (O20):** for every matrix result compute implied speed = straight-line distance ÷ time; report the maximum per profile. Walking/wheelchair max ≤ nominal → margin stays 0; otherwise propose a margin. Cycling: `max_speed_factor` = measured max ÷ 15 km/h (rounded up), then check reach ≤ routing buffer; if not, propose a larger buffer (ask first) |
+| `scripts` / `count` diagnostics | **prefilter evidence (O20):** on a sample of blocks (city centre, edge, steep areas) send a **widened** candidate set (reach × 1.5 + 500 m), so facilities the normal prefilter would drop are measured too; report per profile the maximum implied speed (straight-line distance ÷ time) and every facility reachable beyond the nominal reach. Snapping can make walking/wheelchair faster than nominal (snap distance is not counted as time); if any such facility exists, propose a margin (ask first). Cycling: `max_speed_factor` = measured max ÷ 15 km/h (rounded up), then check reach ≤ routing buffer; if not, propose a larger buffer (ask first) |
 | `transit.py` | departures per stop on the reference weekday (DuckDB over `stop_times.txt` joined to active `service_id`s) |
 | tests | recorded Valhalla matrix responses (`pipeline/tests/fixtures/valhalla/*.json`, replayed with `respx`); block/prefilter tests (no facility within reach dropped); split-by-category; departure counting |
 | `tests/integration/test_golden.py` | 3–5 cell → facility pairs with hand-checked times (map measurement ÷ speed, ± tolerance), against local Valhalla on the test clip; marked `integration` |
 
 **Done when:** counts for all cells × categories × profiles exist; departures for walking
-profiles; runtime and peak memory of `tiles` and `count` (and Valhalla RSS via `docker stats`)
+and wheelchair profiles; runtime and peak memory of `tiles` and `count` (and Valhalla RSS via `docker stats`)
 reported; touched [VERIFY] items resolved (Section 4).
 
 *Interim:* profile `walking_339` and ≥ 3 categories (grocery, pharmacy, school) are enough; the
@@ -122,9 +125,9 @@ code is profile/category generic, so the full run is a config change.
 | `infra/db/migrations/0001_meta.sql` … | `meta.runs`, `meta.data_sources`; plain numbered SQL files applied by a small `migrate` command (no new framework) |
 | `infra/db/run_schema.sql` | template for `run_<id>`: tables, indexes (GiST on geometries), `scores` / `transit_scores` views, `district_scores` materialized view |
 | `stages/score.py` | thresholds from config → `thresholds.parquet`; no derived score tables (§7) |
-| `stages/validate_results.py` | report part 2: monotonicity (5.0 km/h ≥ 3.39 km/h counts; cycling ≥ walking where expected; wheelchair ≤ walking 3.39), totals (residents in classes = scored residents), sample checks, fail → no publish |
+| `stages/validate_results.py` | report part 2: monotonicity: hard fail only on 5.0 km/h ≥ 3.39 km/h counts (same costing, only speed differs); cycling ≥ walking and wheelchair ≤ walking 3.39 are reported as share of violating cells with a tolerance (costings differ, so no guarantee); totals (residents in classes = scored residents), sample checks, fail → no publish |
 | `stages/publish.py` | `COPY` into new schema `run_<id>` in one transaction, then `CREATE OR REPLACE VIEW current.*` in one transaction; `meta.runs` status; failure webhook if `FAILURE_WEBHOOK_URL` is set |
-| `stages/cleanup.py` | keep last 3 published runs (schemas + `data/raw|runs/<run_id>/`) |
+| `stages/cleanup.py` | keep last 3 published runs (schemas, `data/raw/<run_id>/` and `data/runs/<run_id>/`) |
 | tests | SQL contract test against a disposable PostGIS (`integration` marker, also run in CI as a service container if Q4/infra allows), scores view against hand-computed classes/deficits |
 
 **Done when:** `make pipeline` publishes a run; `current.scores` returns classes/deficits that
@@ -136,7 +139,7 @@ match hand computation for sample cells; re-publishing switches `current` atomic
 
 | Create | Content |
 |---|---|
-| `api/src/reach_api/{main.py, settings.py, db.py, valhalla.py, cache.py, ratelimit.py}` | psycopg pool on `app_read`; pydantic-settings; small in-process LRU per (cell, profile); token-bucket rate limit per client IP (no new dependency) |
+| `api/src/reach_api/{main.py, settings.py, db.py, valhalla.py, cache.py, ratelimit.py}` | connection pool on `app_read` (`psycopg[pool]`, dependency asked first; fallback one connection per request); pydantic-settings; small in-process LRU per (cell, profile); token-bucket rate limit per client IP (no new dependency) |
 | `routes/read.py` | `GET /api/meta`, `/api/districts`, `/api/districts/{id}/scores`, `/api/cells?category=&profile=` (GeoJSON, `ST_Transform(…, 4326)`), `/api/recommendations` (empty until P7) |
 | `routes/live.py` | `POST /api/inspect` (cell lookup → precomputed values + one isochrone call with 5/10/15 contours + routes to nearest facility per category, from the cell origin), `POST /api/catchment`, `POST /api/expansion`; boundary check before any Valhalla call |
 | `infra/api.Dockerfile` | `uv sync --frozen --no-dev --package api` |
@@ -175,7 +178,7 @@ notes. Measure memory on the CX23 (Section 4).
 | P1 | none (pydantic, pyyaml already present) | — |
 | P2 | `osmium-tool` CLI (system binary: Homebrew locally, apt in the pipeline image) | clip/filter/export PBF by streaming |
 | P2 | DuckDB `spatial` extension? | only if needed; must be installed in the image at build time, not downloaded at runtime |
-| P5 | none planned | cache and rate limit hand-written |
+| P5 | `psycopg[pool]` (extra of the existing psycopg) | connection pool; cache and rate limit hand-written |
 | P6 | `maplibre-gl`, `react`, `vite`, `typescript` (npm) | stack from AGENTS.md |
 | P7 | `pulp` (CBC) | V4 exact comparison |
 
@@ -220,10 +223,10 @@ peak_rss_mb, status, started_at, finished_at), validation reports (JSON + Markdo
 
 | # | Item (arch. line) | How it will be tested | Phase |
 |---|---|---|---|
-| VF1 | Slopes change walking times (gate G1, §6.1) | Out of Core. In P3 only prove the tiles contain elevation (`/height` or `route` with `elevation_interval` returns heights). G1 itself: route old town → castle and city → Waldhäuser-Ost both directions with default vs. hill-related pedestrian options; compare times | P3 (elevation present), P7 (G1) |
+| VF1 | Slopes change walking times (gate G1, §6.1) | Out of Core. In P3 only prove the routing graph carries grades: `trace_attributes` on a steep route returns `edge.weighted_grade` / `max_upward_grade` ≠ 0 (`/height` would only read the raw elevation tiles), plus the asymmetric bicycle times of VF2. G1 itself: route old town → castle and city → Waldhäuser-Ost both directions with default vs. hill-related pedestrian options; compare times | P3 (elevation present), P7 (G1) |
 | VF2 | Cycling costing applies elevation (§6.1) | Same steep pair uphill vs. downhill with `bicycle`; asymmetric times = elevation used; repeat with `use_hills` 0 vs. default; record numbers in the PR | P3 |
 | VF3 | Memory budget (§11) | Locally: `docker stats` for PostGIS, Valhalla, API during a full count + live calls; pipeline peak RSS from manifests. On the CX23: same plus `free -m` during a weekly run | P3/P4 (local), P8 (server) |
-| VF4 | Tile build fits on CX23 with swap (§11.1) | Locally run `valhalla-build` with `--memory 1.5g` (approximating the share left on the server) and measure; then a same-day test server build | P3 (local), P8 (server) |
+| VF4 | Tile build fits on CX23 with swap (§11.1) | Locally run `valhalla-build` with `--memory 1.5g` (approximating the share left on the server) and measure; then a same-day test server build. Geofabrik updates daily, so the weekly rebuild is effectively unconditional → VF4 is on the critical path for P8 | P3 (local), P8 (server) |
 | VF5 | Valhalla via Apptainer on bwUniCluster (§11.1) | Only if a heavy build is needed: `apptainer pull docker://<image>` and build the same tar; compare checksum of outputs/golden times | deferred (not on the critical path) |
 | VF6 | Tiles independent of build CPU architecture (§11.1) | Build tiles on arm64 (laptop) and amd64 (CI runner or test server) from the same PBF; golden pairs and 100 random matrix cells must give identical times | P8 (before first release on the server) |
 
@@ -243,6 +246,8 @@ peak_rss_mb, status, started_at, finished_at), validation reports (JSON + Markdo
 | Risk | Mitigation |
 |---|---|
 | Interim deadline (23 days for P1–P6) | *interim* depth per phase; one profile + 3 categories for the demo; API/web minimal |
+| Review latency: six sequential PRs, each needs approval by another member before the next phase starts from `dev` | fixed same-day review slot in the team; if a review is late, the next phase branches from the open PR branch (stacked) and is rebased after the merge |
+| Routing buffer likely too small for cycling (4 km leaves 6.7 % headroom over 3.75 km; any factor > 1.067 breaks it) | measure in P3; a larger buffer means a larger clip and more matrix targets → re-measure runtime/memory |
 | Matrix limits / runtime for cycling (3.75 km reach → many targets per block) | block size per profile from config; measure in P3; raise limits in `valhalla.json` |
 | Prefilter not exact because of snapping and downhill cycling (C1) | configurable margin, tested in P3 |
 | PostGIS or Valhalla image lacks arm64 → slow emulation on the Mac | check in P1, ask before switching image |
@@ -266,7 +271,7 @@ peak_rss_mb, status, started_at, finished_at), validation reports (JSON + Markdo
 | C10 | Changing thresholds "never requires re-routing", but only `publish` writes to PostGIS and thresholds are copied per run | arch. §6.3, §8 | `count` is cached by (PBF checksum, cells/facilities checksum, profile config hash); a threshold change re-runs the pipeline as a new run that reuses cached counts, so no re-routing happens |
 | C11 | Stage names differ: AGENTS lists 7 stages, arch. §7 lists 9 (incl. "validate results", "cleanup"); `make pipeline STAGE=validate` is ambiguous | AGENTS, arch. §7 | CLI names `acquire, validate, tiles, count, score, recommend, validate_results, publish, cleanup`; `validate` = inputs |
 | C12 | Cells outside the urban boundary: stored or not? | arch. §4, §8 | `cells` holds only scored cells; outside residents appear as totals in the validation report |
-| C13 | P0 forbids changing other docs, but AGENTS asks to keep `README.md` (documentation table) and `CHANGELOG.md` true | AGENTS vs. P0 task | Add the plan to the README documentation table and CHANGELOG in P1 |
+| C13 | P0 forbids changing other docs, but AGENTS asks to keep `README.md` (documentation table) and `CHANGELOG.md` true | AGENTS vs. P0 task | **Resolved:** README documentation table and CHANGELOG updated in this PR (#17) |
 | C14 | No owners in `CODEOWNERS` yet (T2 due 4 Nov); P1 touches `pipeline`, `api`, `config`, `infra`, `.github` → "ask first" for multi-folder changes | AGENTS boundaries | **Resolved (Q4):** confirmed phase plan = approval for its folders; CODEOWNERS all three |
 
 ## 6. Questions and answers
@@ -279,7 +284,7 @@ peak_rss_mb, status, started_at, finished_at), validation reports (JSON + Markdo
 | Q4 | Folder approval, CODEOWNERS | A confirmed phase plan approves the folders it names; deviations from the plan and changes to `architecture.md`/`methodology.md` stay "ask first". CODEOWNERS for P1: RicoS03, konstantinholl, nicholas-tuebi for all folders until T2 |
 | Q5 | Parks | Yes for parks and playgrounds: access points = intersections of ways with the park boundary, fallback points every 50 m along the boundary, at most N points per park (config); counted once if any access point is reachable, time = minimum. All other polygons: representative point. Methodology v0.2 §2 |
 
-Still pending: confirmation of C6–C13 (Section 5) as defaults.
+Still pending: confirmation of C6–C12 (Section 5) as defaults; scope of Q4 for `compose*.yaml`, `infra/`, CI and the data contract; wording of the walking margin (snapping, review finding S1).
 
 ## 7. Decisions made, deviations agreed, measured numbers
 
@@ -293,7 +298,7 @@ Measured numbers (runtime, peak memory, counts) are added here at the end of eve
 
 ## 8. Next steps
 
-1. Rico confirms or changes C6–C13; the result is recorded here and P0 is closed.
+1. Rico confirms or changes C6–C12 and the two open review points; the result is recorded here and P0 is closed.
 2. After explicit confirmation, start P1 in a new session from fresh `dev`
    (`feature/rico-scaffold`).
 3. P3 must deliver the prefilter evidence (O20) and, if needed, a buffer proposal.

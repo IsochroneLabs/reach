@@ -18,7 +18,7 @@ travel profiles, and a recommender for new facility locations.
   origin = cell centroid (`architecture.md` §5.2).
 - **Profiles *m*:** walking 3.39 km/h (inclusive default, 850 m in 15 min), walking 5.0 km/h
   (comparison), cycling 15 km/h, wheelchair 3.39 km/h.
-- **Time budgets:** 15 minutes to facilities; 10 minutes on foot to public transport stops.
+- **Time budgets:** 15 minutes to facilities; 10 minutes on foot or by wheelchair to public transport stops.
 - **Count** $A_{i,c,m}$: number of facilities of category *c* reachable from cell *i* within the
   budget, using network travel times from the Valhalla matrix (never isochrone polygons).
 - **Nearest time** $T_{i,c,m}$: travel time to the nearest facility of category *c* (also stored).
@@ -56,8 +56,8 @@ completeness allows.
 - Stops reachable within **10 minutes on foot** via the matrix, for the walking profiles
   (3.39 and 5.0 km/h) and the wheelchair profile; not for cycling.
 - Supply $S_i$ = sum of scheduled departures at these stops on the **reference weekday** (regular
-  Tuesday in the feed validity period, no public or school holiday). Only $S_i$ is stored; the
-  classes below are derived at read time.
+  Tuesday in the feed validity period, no public or school holiday). Raw values ($S_i$, number of
+  stops, time to the nearest stop) are stored; the classes below are derived at read time.
 - Classes (provisional, from the paper's Copenhagen example; calibrate to the Tübingen
   distribution before freezing **[M2]**): lack 0 · insufficient 1–150 · medium 151–1,000 ·
   high > 1,000. Raw departure counts, no mode weighting in Core.
@@ -142,5 +142,5 @@ slopes, on 2–3 steep routes (e.g. old town → castle, city → Waldhäuser-Os
 
 | Version | Date | Change | Why |
 |---|---|---|---|
-| v0.2 | 2026-11-02 | §2 facility locations (representative point for polygons, access points for parks and playgrounds, park counted once with minimum time); §3 transit supply for walking and wheelchair profiles, only $S_i$ stored | Answers to the P0 implementation plan questions (Q1, Q5) |
+| v0.2 | 2026-11-02 | §2 facility locations (representative point for polygons, access points for parks and playgrounds, park counted once with minimum time); §3 transit supply for walking and wheelchair profiles, raw values stored, classes derived at read time | Answers to the P0 implementation plan questions (Q1, Q5) |
 | v0.1 | 2026-11-02 | Created from the still valid parts of `architecture_proposal.md` (§5 scoring, §8 validation, §9 recommender), updated to current decisions (profiles, coarse categories, urban boundary, cell centroid) | Replace the outdated proposal with one binding methodology document |

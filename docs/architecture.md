@@ -52,15 +52,17 @@ flowchart LR
         DB[("PostGIS")]
         VAL["Valhalla"]
         PIPE["Pipeline container<br/>(runs weekly, then exits)"]
-        TIMER["systemd timer"]
+        BUILD["valhalla-build<br/>(one-shot, only if OSM changed)"]
+        TIMER["systemd timer<br/>make refresh"]
     end
 
     USER["Browser<br/>React + MapLibre"] -->|HTTPS| CADDY
     CADDY -->|/api| API
     API -->|read results| DB
     API -->|live isochrone, route, small matrix| VAL
-    TIMER -->|make refresh| PIPE
-    TIMER -->|make refresh, only if OSM changed| BUILD["valhalla-build<br/>(one-shot)"]
+    TIMER -->|1. acquire, validate| PIPE
+    TIMER -->|2. build, swap tiles| BUILD
+    TIMER -->|3. restart| VAL
     Sources --> PIPE
     BUILD -->|routing tiles| VAL
     PIPE -->|batch matrix| VAL
@@ -103,7 +105,8 @@ farmland and other open land where 15-minute scores are not meaningful.
   the edge can reach facilities outside it, including neighbouring municipalities. The config
   loader checks that the buffer is at least the largest prefilter reach of all profiles,
   including speed factor and margin (6.3); if the cycling factor measured in the count stage
-  makes the reach larger than 4 km, the buffer is raised (decision O20).
+  makes the reach larger than 4 km, a larger buffer is proposed and changed in `config/` after
+  confirmation (decisions O13, O20).
 - **Administrative boundary:** used only to clip the urban boundary to the city and for district
   reporting (5.2).
 
@@ -176,7 +179,7 @@ cycling adds a measured speed factor) and of the routing buffer (Section 4):
 | Walking 3.39 km/h | 850 m | 565 m |
 | Walking 5.0 km/h | 1,250 m | 835 m |
 | Wheelchair 3.39 km/h | 850 m | 565 m |
-| Cycling 15 km/h | 3,750 m | – (transit supply is a walking measure) |
+| Cycling 15 km/h | 3,750 m | – (transit supply is measured on foot or by wheelchair only) |
 
 Profile parameters live in `config/config.yaml`, not in code. All profiles use **the same tile
 set**: costing is chosen per request, so adding a profile never requires a second graph.
@@ -242,10 +245,10 @@ The server has 4 GB RAM, so every Valhalla call must be cheap. Rules:
    the prefilter radius as targets and split the counts by category afterwards. Never one request
    per category.
 2. **Block requests spatially.** Group cells into blocks (e.g. 500 m × 500 m). Sources = cells
-   in the block, targets = all facilities within block bbox + maximum reach. Fewer, larger
+   in the block, targets = all facilities within block bbox + prefilter reach. Fewer, larger
    requests instead of one request per cell; block size is tuned to the matrix limits in
    `config/valhalla.json`.
-3. **Exact prefilter by profile.** Prefilter reach = speed × speed factor × time budget + margin
+3. **Prefilter by profile (O20).** Prefilter reach = speed × speed factor × time budget + margin
    (6.3). Facilities outside are never sent.
 4. **Compact responses.** Request only time (and distance if needed); use the compact matrix
    output where the Valhalla version supports it.
@@ -290,7 +293,7 @@ manifest; the next stage checks the manifest before it starts.
 
 ```mermaid
 flowchart LR
-    A[acquire] --> B[validate inputs] --> C[build Valhalla tiles] --> D[count accessibility]
+    A[acquire] --> B[validate inputs] --> C[tiles: check, build on host, verify] --> D[count accessibility]
     D --> E[score] --> F[recommend] --> G[validate results] --> H[publish]
 ```
 
@@ -298,7 +301,7 @@ flowchart LR
 |---|---|---|---|
 | `acquire` | config | raw files in `data/raw/<run_id>/`, provenance (URL, date, checksum, licence) | Skips download if checksum unchanged; retries with backoff |
 | `validate inputs` | raw files | cleaned layers (GeoParquet, EPSG:25832), validation report part 1 | Fails loudly on schema or plausibility errors |
-| `build tiles` | clipped PBF, cached elevation tiles | `valhalla_tiles.tar` (with elevation) in the shared volume | Only when the OSM snapshot changed; run by `make refresh` on the host, see below and 11.1 |
+| `tiles` | clipped PBF, cached elevation tiles | `valhalla_tiles.tar` (with elevation) in the shared volume | The pipeline stage only checks whether a rebuild is needed and verifies the tiles after the restart; the build itself is the one-shot `valhalla-build` started by `make refresh` on the host (O19), only when the OSM snapshot changed; see below and 11.1 |
 | `count` | cells, facilities, stops, Valhalla | raw counts and nearest times per cell × category × profile | Section 6.3 |
 | `score` | raw counts, config thresholds | `thresholds` table; classes and deficits as views over the raw counts (§8) | `methodology.md` §4; the pipeline writes no derived score tables |
 | `recommend` | deficits, catchments | ranked candidate zones with population gain | Greedy, land-use filtered |
@@ -400,7 +403,7 @@ always visible.
 
 | Option | When | Notes |
 |---|---|---|
-| **On the server inside the pipeline** (default for the weekly refresh) | Tübingen + buffer clip | The clipped extract is a few MB, so the build is small; must be confirmed on the CX23 with swap **[VERIFY]**. Keeps the weekly refresh fully automatic. |
+| **On the server by `valhalla-build`, started by `make refresh`** (default for the weekly refresh, O19) | Tübingen + buffer clip | The clipped extract is a few MB, so the build is small; must be confirmed on the CX23 with swap **[VERIFY]**. Keeps the weekly refresh fully automatic. |
 | **bwUniCluster** (temporary access) | larger areas, experiments, elevation tests, one-off heavy builds | No Docker on the cluster; run the Valhalla image with Apptainer **[VERIFY]**. Copy the resulting `valhalla_tiles.tar` to the server. Not used for the scheduled refresh, because access is temporary. |
 | **Laptop / GitHub Actions** | fallback if the server build does not fit | Same output file, uploaded to the server volume. |
 
@@ -431,7 +434,7 @@ H3 aggregation, second region, Prefect/Dagster, monitoring stack.
 | O1 | Budget 20 € in total → Hetzner CX23 (4 GB), started when needed, deleted after grading |
 | O2 | No own domain for now; free hostname (`sslip.io`) for HTTPS |
 | O3 | Valhalla runs permanently on the server (live pin-drop, isochrones) |
-| O4 | Tiles built in the pipeline for the clipped area; bwUniCluster for heavy or experimental builds (Section 11.1) |
+| O4 | Tiles built on the server for the clipped area by the one-shot `valhalla-build` (started by `make refresh`, O19); bwUniCluster for heavy or experimental builds (Section 11.1) |
 | O5 | Origin = cell centroid for now; building-based origin is future work (`notes.md`) |
 | O6 | Core profiles: walking (3.39 and 5.0 km/h), cycling, wheelchair |
 | O8 | Coarse facility categories (≈ 7) in Core |
@@ -440,7 +443,7 @@ H3 aggregation, second region, Prefect/Dagster, monitoring stack.
 | O11 | Study area = urban boundary of Tübingen (not the full administrative territory); only cells inside it are scored |
 | O12 | English documentation; branches `main` (releases) + `dev` (integration) |
 | O7 | Elevation is built into the tiles; its use is a per-profile config setting, ignored for walking/wheelchair for now; gate G1 decides later (stairs are always handled) |
-| O13 | Routing buffer = 4 km around the urban boundary (covers maximum cycling reach of 3.75 km) |
+| O13 | Routing buffer = 4 km around the urban boundary (covers maximum cycling reach of 3.75 km); raised after confirmation if the prefilter reach of O20 exceeds it |
 | O15 | Cycling speed fixed at 15 km/h |
 | O18 | Transit supply stored as raw departure sums in `transit_supply` (cell × profile, walking and wheelchair); classes via the `transit_scores` view (§6.3, §8) |
 | O19 | Tile build, atomic swap, Valhalla restart and pipeline run are orchestrated on the host by one command, `make refresh`; no Docker socket in the pipeline container (§7, §11) |
@@ -526,7 +529,7 @@ documented here in the same branch (see `AGENTS.md`).
 
 | Version | Date | Change | Why |
 |---|---|---|---|
-| v0.11 | 2026-11-02 | Settled O18 (`transit_supply` table + `transit_scores` view), O19 (`make refresh` orchestrates tile build and pipeline on the host), O20 (prefilter reach with speed factor and margin, buffer check); §3, §4, §6.3, §6.5, §7, §8, §11 updated | Answers to the P0 implementation plan questions |
+| v0.11 | 2026-11-02 | Settled O18 (`transit_supply` table + `transit_scores` view), O19 (`make refresh` orchestrates tile build and pipeline on the host), O20 (prefilter reach with speed factor and margin, buffer check); §3, §4, §6.1, §6.3, §6.5, §7, §8, §11, §13 (O4, O13 wording), §14 updated; review fixes | Answers to the P0 implementation plan questions |
 | v0.10 | 2026-11-02 | `scores` and `district_scores` are (materialized) views over `access_counts` + a `thresholds` table; `score` stage adjusted | Resolve conflict with the rule that classes and deficits are derived at read time |
 | v0.9 | 2026-11-02 | References to the removed `architecture_proposal.md` now point to the new `methodology.md`; docs folder description in §14 updated | Proposal was outdated; methodology has one binding document |
 | v0.8 | 2026-11-02 | Added this change log and the version rule in the header | Track the history of architecture decisions |

@@ -7,7 +7,7 @@ Project vocabulary used in code, docs, issues and prompts. People and roles ("yo
 |---|---|
 | **Core / Stretch** | Core = required for the graded deliverable. Stretch = only after Core works and is validated (`architecture.md` §12). |
 | **urban boundary** | Settlement area of Tübingen; only cells inside it are scored. |
-| **routing buffer** | 4 km around the urban boundary; network and facilities are loaded from boundary + buffer. |
+| **routing buffer** | 4 km around the urban boundary, at least the largest prefilter reach (O20); network and facilities are loaded from boundary + buffer. |
 | **cell** | One populated Zensus 2022 100 m grid cell; the unit of analysis. `cell_id` = original EPSG:3035 ID. |
 | **origin** | Routing start point of a cell (currently the cell centroid). |
 | **facility** | A service location from OSM in one of the configured categories. |
