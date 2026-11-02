@@ -27,6 +27,18 @@ adds a line under `Unreleased`.
 - `docs/prompts/implementation.md`: start prompt (P0) and per-phase prompt for implementing the
   architecture with a coding agent.
 
+- P1 scaffold: `Makefile` (`up`, `down`, `logs`, `pipeline`, `test`, `lint`, `format`),
+  `compose.yaml` (PostGIS `imresamu/postgis:18-3.6`, API placeholder with hot reload, Caddy
+  placeholder; Valhalla 3.9.1, `valhalla-build` and `pipeline` behind Compose profiles),
+  `.env.example`, `infra/Caddyfile`.
+- `config/config.yaml` (study area, profiles, categories, transit classes, sources, validation)
+  and `config/test_clip.yaml`; typed loader with validation (`reach_pipeline.config`).
+- Pipeline stage pattern: `python -m reach_pipeline <stage>`, run ids, manifests with checksums,
+  runtime and peak memory, exit codes; no-op `hello` stage.
+- API placeholder `GET /api/health`.
+- CI workflow (ruff + pytest with uv), PR template, CODEOWNERS.
+- `docs/data_contract.md` draft v0.1; `pipeline/AGENTS.md`, `api/AGENTS.md`.
+
 ### Changed
 - `CONTRIBUTING.md` §1–2 and `AGENTS.md`: topic branches carry the driving person's name
   (`<type>/<name>-<topic>`); never work on a branch with another person's name.
