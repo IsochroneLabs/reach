@@ -9,9 +9,9 @@ They apply to every agent session, on behalf of any team member. Humans: see `RE
 area of Tübingen, finds underserved areas and recommends sites for new facilities. Course project
 DS500, University of Tübingen. Automation, validation, documentation and a hosted app are graded.
 
-**Status:** scaffold (P1) — `docs/` (incl. a draft `docs/data_contract.md`), `config/config.yaml`,
+**Status:** P2 — `docs/` (incl. a draft `docs/data_contract.md`), `config/config.yaml`,
 `Makefile`, `compose.yaml` (db, api placeholder, caddy placeholder; Valhalla from P3), `.github/`
-(CI) and the pipeline stage pattern with a `hello` stage exist; the real pipeline stages, `web/`,
+(CI) and the pipeline stages `acquire` and `validate` exist; the stages from `tiles` on, `web/`,
 `config/valhalla.json`, `compose.prod.yaml` and most of `infra/` are planned. If a
 file, folder or command referenced here does not exist yet, say so; do not invent a substitute.
 

@@ -67,3 +67,31 @@ document it in `pipeline/AGENTS.md`:
 - Test layout: unit test with fixture per stage, mocked Valhalla responses.
 
 Also create `api/AGENTS.md` and `web/AGENTS.md` with the scaffold.
+
+---
+
+## N3. Urban boundary leaves 8 % of residents unscored
+
+**Status:** open · **Added:** 2 Nov 2026 · **Related:** `architecture.md` §4, decision O17 (a),
+`config/config.yaml` `study_area.urban_boundary`
+
+**Finding (P2, OSM snapshot 2026-11-01):** with `landuse: [residential, commercial, retail]` and
+`closing_m: 50`, 7,232 of 90,355 grid residents in the city (8.0 %) live in cells whose centre
+lies outside the urban boundary. Most are in the core town, not on farms: 3,956 in cells without
+any land-use polygon at the centre (gaps between residential areas), 472 on the hospital area,
+281 on the university campus; by district Universität 1,432, Au/Unterer Wert 740,
+Feuerhägle 651, Weststadt 634, Zentrum 599.
+
+**Variants measured on the same data** (residents outside / urban area):
+
+| `landuse` | `closing_m` | Outside | Area |
+|---|---|---|---|
+| residential, commercial, retail (current) | 50 | 7,232 (8.0 %) | 14.6 km² |
+| same | 100 | 5,386 (6.0 %) | 16.1 km² |
+| + industrial, education, institutional, religious | 50 | 5,797 (6.4 %) | 16.6 km² |
+| + industrial, education, institutional, religious | 100 | 4,015 (4.4 %) | 18.4 km² |
+
+**How to decide:** O17 (a) allows more built-up land-use values ("…"). Changing the values is a
+config change (ask first) and possibly a methodology note; alternatively add the populated cells
+of option (b) (census-based) to the land-use area. Check the remaining outside cells on the map
+before choosing.
