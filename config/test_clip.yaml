@@ -1,0 +1,15 @@
+# Override for the ~1 km² test clip (old town incl. Neckar bridge), used from P2 on by unit and
+# integration tests. Values here replace the ones in the file named by "extends"; nested
+# mappings are merged key by key, lists are replaced.
+extends: config.yaml
+
+# Separate data directory so test runs never mix with full runs.
+data_dir: data/test_clip
+
+study_area:
+  # Approximate box around the old town and the Eberhardsbrücke; refined when the clip is cut in P2.
+  clip_bbox: [9.050, 48.515, 9.065, 48.524]
+
+tiles:
+  # CI cannot download elevation tiles (C6).
+  elevation: false

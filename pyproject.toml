@@ -34,6 +34,9 @@ extend-exclude = ["data"]
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM"]
 
+[tool.ruff.lint.isort]
+known-first-party = ["reach_pipeline", "reach_api"]
+
 [tool.pytest.ini_options]
 testpaths = ["pipeline/tests", "api/tests"]
 addopts = "-q --import-mode=importlib"

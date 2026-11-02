@@ -1,0 +1,168 @@
+# reach configuration — every tunable value of the pipeline lives here (AGENTS.md rule 4).
+# Loaded and validated by reach_pipeline.config.load_config. Distances in metres (EPSG:25832),
+# speeds in km/h, times in minutes. Sources: docs/architecture.md (arch.), docs/methodology.md (meth.).
+
+# Local directory for raw downloads and per-run outputs (git-ignored).
+data_dir: data
+
+study_area:
+  # Display name of the city; used in reports and the app.
+  city_name: Tübingen
+  # Administrative city boundary (arch. §4): OSM boundary=administrative relation selected by
+  # admin_level and the official municipality key (AGS). Used only to clip the urban boundary and
+  # for district reporting. AGS is checked against the extract in P2.
+  admin_boundary:
+    admin_level: 8
+    ags: "08416041"
+  # Urban (settlement) boundary, decision O17 option (a): built-up OSM land use inside the city,
+  # dissolved, gaps closed by buffering out and in, small fragments dropped; Teilorte stay
+  # separate parts.
+  urban_boundary:
+    # OSM landuse values counted as built-up.
+    landuse: [residential, commercial, retail]
+    # Buffer distance for closing gaps: buffer(+closing_m).buffer(-closing_m).
+    closing_m: 50
+    # Parts smaller than this are dropped (assumption, checked against the data in P2).
+    min_part_area_m2: 10000
+  # Routing network and facilities = urban boundary + this buffer (arch. §4, O13). Must be at
+  # least the largest prefilter reach of all profiles (O20); the loader checks this.
+  routing_buffer_m: 4000
+  # Optional clip box [min_lon, min_lat, max_lon, max_lat] in EPSG:4326; null = whole study area.
+  # Set by config/test_clip.yaml.
+  clip_bbox: null
+
+districts:
+  # OSM admin_level used for cells.district_id (C8). null until decided in P2 after inspecting
+  # the boundaries in the extract (levels 9–11 exist in Tübingen).
+  admin_level: null
+
+# Time budgets in minutes (meth. §1).
+time_budgets_min:
+  # Facilities of every category.
+  facilities: 15
+  # Public transport stops (walking and wheelchair profiles only).
+  transit: 10
+
+# Travel profiles (arch. §6.1, meth. §1). The pipeline passes speed_kmh to Valhalla as
+# walking_speed (pedestrian) or cycling_speed (bicycle); costing_options holds every other
+# option. Options without a value in the docs (e.g. step_penalty) stay at Valhalla's defaults
+# until P3 checks them.
+# Prefilter reach (O20) = speed_kmh * max_speed_factor * budget + prefilter_margin_m.
+profiles:
+  walking_339:
+    # Inclusive default: 850 m in 15 min.
+    costing: pedestrian
+    speed_kmh: 3.39
+    costing_options: {}
+    max_speed_factor: 1.0
+    prefilter_margin_m: 0
+    # Whether transit supply (meth. §3) is computed for this profile.
+    transit: true
+  walking_500:
+    # Comparison profile: 1,250 m in 15 min.
+    costing: pedestrian
+    speed_kmh: 5.0
+    costing_options: {}
+    max_speed_factor: 1.0
+    prefilter_margin_m: 0
+    transit: true
+  cycling_15:
+    # 3,750 m in 15 min; use_hills stays at Valhalla's default (O7, O15).
+    costing: bicycle
+    speed_kmh: 15.0
+    costing_options:
+      bicycle_type: Hybrid
+    # Provisional 1.0; replaced by the measured maximum speed ratio in P3 (O20).
+    max_speed_factor: 1.0
+    prefilter_margin_m: 0
+    transit: false
+  wheelchair_339:
+    # Pedestrian costing with type wheelchair: avoids steps and steep sections.
+    costing: pedestrian
+    speed_kmh: 3.39
+    costing_options:
+      type: wheelchair
+    max_speed_factor: 1.0
+    prefilter_margin_m: 0
+    transit: true
+
+# Facility categories (meth. §2, M1 defaults). k = number of facilities needed for "sufficient".
+# tags: OSM key/value pairs; a feature matching any pair belongs to the category.
+# location: "point" = node as is, polygon -> representative point;
+#           "access_points" = access points on the boundary (parks and playgrounds, see below).
+categories:
+  - id: grocery
+    name: Grocery
+    k: 2
+    tags: [{shop: supermarket}]
+    location: point
+  - id: pharmacy
+    name: Pharmacy
+    k: 1
+    tags: [{amenity: pharmacy}]
+    location: point
+  - id: doctors
+    name: Doctors
+    k: 2
+    tags: [{amenity: doctors}]
+    location: point
+  - id: childcare
+    name: Childcare
+    k: 2
+    tags: [{amenity: kindergarten}, {amenity: childcare}]
+    location: point
+  - id: school
+    name: School
+    k: 1
+    tags: [{amenity: school}]
+    location: point
+  - id: parks
+    name: Parks & playgrounds
+    k: 1
+    tags: [{leisure: park}, {leisure: playground}]
+    location: access_points
+
+# Access points for categories with location "access_points" (meth. §2): intersections of
+# walkable ways with the boundary; fallback points every spacing_m along the boundary; at most
+# max_points per park, chosen evenly spaced (max_points is an assumption, checked in P2).
+access_points:
+  spacing_m: 50
+  max_points: 20
+
+# Public transport supply classes (meth. §3, provisional until M2): bounds on the sum of
+# weekday departures, inclusive; upper null = open-ended. Bounds must increase without gaps.
+transit_classes:
+  - {class: lack, lower: 0, upper: 0}
+  - {class: insufficient, lower: 1, upper: 150}
+  - {class: medium, lower: 151, upper: 1000}
+  - {class: high, lower: 1001, upper: null}
+
+# Data sources (arch. §4). URLs checked on 2 Nov 2026 with curl -I.
+sources:
+  osm:
+    # Geofabrik regional extract, updated daily; .md5 sidecar used to skip unchanged downloads.
+    url: https://download.geofabrik.de/europe/germany/baden-wuerttemberg/tuebingen-regbez-latest.osm.pbf
+    md5_url: https://download.geofabrik.de/europe/germany/baden-wuerttemberg/tuebingen-regbez-latest.osm.pbf.md5
+    licence: ODbL 1.0
+  gtfs:
+    # NVBW GTFS for the naldo network ("mit Liniennetz").
+    url: https://www.nvbw.de/fileadmin/user_upload/service/open_data/fahrplandaten_mit_liniennetz/naldo.zip
+    licence: dl-de/by-2-0, ODbL
+  zensus:
+    # Destatis Zensus 2022 population grid (10 km, 1 km and 100 m CSV in one zip).
+    url: https://www.destatis.de/static/DE/zensus/gitterdaten/Zensus2022_Bevoelkerungszahl.zip
+    licence: dl-de/by-2-0
+
+# Valhalla tile build (arch. §6.1, C6).
+tiles:
+  # Production tiles are always built with elevation; the test clip builds without it.
+  elevation: true
+
+# Validation thresholds (arch. §7 "validate inputs").
+validation:
+  # Allowed relative deviation of the summed Zensus population from the official city total.
+  population_tolerance_pct: 5
+  # Official Zensus 2022 population of the city; null until verified in P2.
+  official_population: null
+  # Minimum number of facilities per category; fewer fails validation.
+  min_facilities_per_category: 1

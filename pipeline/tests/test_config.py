@@ -1,0 +1,107 @@
+"""Config loading: the repo config is valid; every invalid case fails with a clear message."""
+
+from __future__ import annotations
+
+import copy
+from pathlib import Path
+from typing import Any
+
+import pytest
+import yaml
+
+from reach_pipeline.config import load_config
+from reach_pipeline.errors import ConfigError
+
+REPO = Path(__file__).resolve().parents[2]
+CONFIG = REPO / "config" / "config.yaml"
+
+
+@pytest.fixture
+def base() -> dict[str, Any]:
+    return yaml.safe_load(CONFIG.read_text(encoding="utf-8"))
+
+
+def _write(tmp_path: Path, data: dict[str, Any], name: str = "config.yaml") -> Path:
+    path = tmp_path / name
+    path.write_text(yaml.safe_dump(data, allow_unicode=True), encoding="utf-8")
+    return path
+
+
+def test_repo_config_loads() -> None:
+    cfg = load_config(CONFIG)
+    assert {c.id for c in cfg.categories} >= {"grocery", "pharmacy", "school"}
+    assert cfg.profiles["walking_339"].prefilter_reach_m(15) == pytest.approx(847.5)
+    assert cfg.profiles["cycling_15"].prefilter_reach_m(15) == pytest.approx(3750)
+
+
+def test_test_clip_extends_repo_config() -> None:
+    cfg = load_config(REPO / "config" / "test_clip.yaml")
+    assert cfg.tiles.elevation is False
+    assert cfg.study_area.clip_bbox is not None
+    # untouched keys come from config.yaml
+    assert cfg.study_area.routing_buffer_m == load_config(CONFIG).study_area.routing_buffer_m
+
+
+def _set(data: dict[str, Any], dotted: str, value: Any) -> dict[str, Any]:
+    data = copy.deepcopy(data)
+    *parents, last = dotted.split(".")
+    node: Any = data
+    for key in parents:
+        node = node[int(key)] if isinstance(node, list) else node[key]
+    if isinstance(node, list):
+        node[int(last)] = value
+    else:
+        node[last] = value
+    return data
+
+
+@pytest.mark.parametrize(
+    ("dotted", "value", "expected"),
+    [
+        ("profiles.walking_339.speed_kmh", 0, "profiles.walking_339.speed_kmh"),
+        ("profiles.cycling_15.speed_kmh", -15, "profiles.cycling_15.speed_kmh"),
+        ("categories.0.k", 0, "categories.0.k"),
+        ("categories.1.id", "grocery", "duplicate category ids: ['grocery']"),
+        ("categories.0.tags", [], "categories.0.tags"),
+        ("categories.0.tags", [{"shop": ""}], "non-empty key: value pair"),
+        ("transit_classes.2.lower", 100, "increase without gaps"),
+        ("transit_classes.3.upper", 5000, "open-ended"),
+        (
+            "study_area.routing_buffer_m",
+            3000,
+            "smaller than the prefilter reach of profile cycling_15",
+        ),
+        ("profiles.cycling_15.max_speed_factor", 1.2, "cycling_15 (4500 m)"),
+        ("profiles.walking_339.costing_options", {"walking_speed": 5}, "via speed_kmh"),
+        ("profiles.walking_339.costing", "auto", "profiles.walking_339.costing"),
+        ("study_area.clip_bbox", [9.1, 48.5, 9.0, 48.6], "min_lon, min_lat"),
+        ("sources.osm.url", "http://example.org/x.pbf", "sources.osm.url"),
+        ("study_area.unknown_key", 1, "study_area.unknown_key"),
+    ],
+)
+def test_invalid_config_fails_clearly(
+    tmp_path: Path, base: dict[str, Any], dotted: str, value: Any, expected: str
+) -> None:
+    path = _write(tmp_path, _set(base, dotted, value))
+    with pytest.raises(ConfigError, match="invalid config") as exc:
+        load_config(path)
+    assert expected in str(exc.value)
+
+
+def test_missing_file(tmp_path: Path) -> None:
+    with pytest.raises(ConfigError, match="not found"):
+        load_config(tmp_path / "nope.yaml")
+
+
+def test_invalid_yaml(tmp_path: Path) -> None:
+    path = tmp_path / "bad.yaml"
+    path.write_text("profiles: [unclosed\n", encoding="utf-8")
+    with pytest.raises(ConfigError, match="invalid YAML"):
+        load_config(path)
+
+
+def test_circular_extends(tmp_path: Path) -> None:
+    _write(tmp_path, {"extends": "b.yaml"}, "a.yaml")
+    _write(tmp_path, {"extends": "a.yaml"}, "b.yaml")
+    with pytest.raises(ConfigError, match="circular"):
+        load_config(tmp_path / "a.yaml")
