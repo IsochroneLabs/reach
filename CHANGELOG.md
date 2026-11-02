@@ -26,7 +26,6 @@ adds a line under `Unreleased`.
   `uv.lock` and `requirements.txt` export.
 - `docs/prompts/implementation.md`: start prompt (P0) and per-phase prompt for implementing the
   architecture with a coding agent.
-
 - P1 scaffold: `Makefile` (`up`, `down`, `logs`, `pipeline`, `test`, `lint`, `format`),
   `compose.yaml` (PostGIS `imresamu/postgis:18-3.6`, API placeholder with hot reload, Caddy
   placeholder; Valhalla 3.9.1, `valhalla-build` and `pipeline` behind Compose profiles),

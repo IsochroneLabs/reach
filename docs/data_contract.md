@@ -59,7 +59,7 @@ PK (`run_id`, `source`).
 | `profiles` | profile | `profile_id` text, `costing` text, `costing_options` jsonb, `speed_kmh` double, `time_budget_min` double | `profile_id` |
 | `access_counts` | cell × category × profile | `cell_id` text, `category` text, `profile_id` text, `count` integer, `nearest_min` double null | (`cell_id`, `category`, `profile_id`) |
 | `transit_supply` | cell × walking/wheelchair profile | `cell_id` text, `profile_id` text, `departures` integer, `stops_count` integer, `nearest_stop_min` double null | (`cell_id`, `profile_id`) |
-| `thresholds` | category or transit class | `category` text (`transit` for transit classes), `k` integer null, `class` text null, `lower` integer null, `upper` integer null | (`category`, `class`) |
+| `thresholds` | category or transit class | `category` text (`transit` for transit classes), `k` integer null, `class` text null, `lower` integer null, `upper` integer null | unique (`category`, `class`) `NULLS NOT DISTINCT` (`class` is null on category rows, so no PK) |
 | `scores` (view) | cell × category × profile | `access_counts` columns + `class` text (`lack`, `insufficient`, `sufficient`), `deficit` double | as `access_counts` |
 | `transit_scores` (view) | cell × profile | `cell_id`, `profile_id`, `class` text (`lack`, `insufficient`, `medium`, `high`) | (`cell_id`, `profile_id`) |
 | `district_scores` (mat. view) | district × category × profile | `share_lack`, `share_insufficient`, `share_sufficient` double, `deficit_sum` double, `residents_lack` integer | (`district_id`, `category`, `profile_id`) |
@@ -83,7 +83,7 @@ GeoParquet/Parquet layers with the same columns as the tables above, plus:
 | `status` | `"ok"` \| `"failed"` | |
 | `started_at`, `finished_at` | ISO 8601 UTC | |
 | `runtime_s` | number | Wall time of the stage |
-| `peak_rss_mb` | number | Max RSS of the process or its largest child, MB |
+| `peak_rss_mb` | number | Peak RSS in MB of the process (or its largest child) up to the end of the stage; under `run` it includes earlier stages |
 | `inputs` | list of {`path`, `sha256`} | Files read, with checksums |
 | `outputs` | list of {`path`, `rows` (null if not tabular)} | Files written |
 | `message` | string | Summary or error message |
