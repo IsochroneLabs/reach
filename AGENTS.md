@@ -5,13 +5,13 @@ They apply to every agent session, on behalf of any team member. Humans: see `RE
 `CONTRIBUTING.md`. Folder-specific rules will live in `pipeline/AGENTS.md`, `api/AGENTS.md` and
 `web/AGENTS.md`; the nearest `AGENTS.md` to the file you edit takes precedence.
 
-**Project:** `reach` measures 15-minute accessibility (walking, cycling, wheelchair) for the urban
-area of Tübingen, finds underserved areas and recommends sites for new facilities. Course project
+**Project:** `reach` measures 15-minute accessibility (walking, cycling, wheelchair) for all residents
+of the city of Tübingen, finds underserved areas and recommends sites for new facilities. Course project
 DS500, University of Tübingen. Automation, validation, documentation and a hosted app are graded.
 
-**Status:** scaffold (P1) — `docs/` (incl. a draft `docs/data_contract.md`), `config/config.yaml`,
+**Status:** P2 — `docs/` (incl. a draft `docs/data_contract.md`), `config/config.yaml`,
 `Makefile`, `compose.yaml` (db, api placeholder, caddy placeholder; Valhalla from P3), `.github/`
-(CI) and the pipeline stage pattern with a `hello` stage exist; the real pipeline stages, `web/`,
+(CI) and the pipeline stages `acquire` and `validate` exist; the stages from `tiles` on, `web/`,
 `config/valhalla.json`, `compose.prod.yaml` and most of `infra/` are planned. If a
 file, folder or command referenced here does not exist yet, say so; do not invent a substitute.
 

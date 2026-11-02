@@ -9,22 +9,26 @@ study_area:
   # Display name of the city; used in reports and the app.
   city_name: Tübingen
   # Administrative city boundary (arch. §4): OSM boundary=administrative relation selected by
-  # admin_level and the official municipality key (AGS). Used only to clip the urban boundary and
-  # for district reporting. AGS is checked against the extract in P2.
+  # admin_level and the official municipality key (AGS). Defines the scoring scope (every
+  # populated cell with its centre inside is scored, O11) and the routing area; clips the urban
+  # boundary. AGS checked against the extract on 2 Nov 2026.
   admin_boundary:
     admin_level: 8
     ags: "08416041"
   # Urban (settlement) boundary, decision O17 option (a): built-up OSM land use inside the city,
   # dissolved, gaps closed by buffering out and in, small fragments dropped; Teilorte stay
-  # separate parts.
+  # separate parts. Only for the map area, the live-endpoint check and recommender candidates;
+  # it does not limit who is scored (O11).
   urban_boundary:
-    # OSM landuse values counted as built-up.
-    landuse: [residential, commercial, retail]
-    # Buffer distance for closing gaps: buffer(+closing_m).buffer(-closing_m).
-    closing_m: 50
-    # Parts smaller than this are dropped (assumption, checked against the data in P2).
+    # OSM landuse values counted as built-up. industrial is left out: it joins Teilorte
+    # (Bühl–Kilchberg, Kernstadt–Weilheim; P2 measurement, OSM 2026-11-01).
+    landuse: [residential, commercial, retail, education, institutional, religious]
+    # Buffer distance for closing gaps: buffer(+closing_m).buffer(-closing_m); 100 m joins no
+    # Teilorte (P2 measurement).
+    closing_m: 100
+    # Parts smaller than this are dropped.
     min_part_area_m2: 10000
-  # Routing network and facilities = urban boundary + this buffer (arch. §4, O13). Must be at
+  # Routing network and facilities = city boundary + this buffer (arch. §4, O13). Must be at
   # least the largest prefilter reach of all profiles (O20); the loader checks this.
   routing_buffer_m: 4000
   # Optional clip box [min_lon, min_lat, max_lon, max_lat] in EPSG:4326; null = whole study area.
@@ -32,9 +36,12 @@ study_area:
   clip_bbox: null
 
 districts:
-  # OSM admin_level used for cells.district_id (C8). null until decided in P2 after inspecting
-  # the boundaries in the extract (levels 9–11 exist in Tübingen).
-  admin_level: null
+  # OSM admin_levels whose boundaries are the districts for cells.district_id (C8). Tübingen
+  # mixes levels: 9 = the eight Teilorte, 11 = the 23 districts of the core town; level 10
+  # (Derendingen, Lustnau) overlaps level 11 and is not used (Geofabrik extract, 2 Nov 2026).
+  admin_levels: [9, 11]
+  # validate fails if gaps or overlaps of these districts exceed this share of the city area.
+  coverage_tolerance_pct: 0.5
 
 # Time budgets in minutes (meth. §1).
 time_budgets_min:
@@ -128,6 +135,10 @@ categories:
 access_points:
   spacing_m: 50
   max_points: 20
+  # OSM highway values of the walkable ways whose crossings with a park boundary are access points.
+  walkable_highways:
+    [footway, path, pedestrian, steps, living_street, residential, service, track, cycleway,
+     bridleway, unclassified, tertiary, secondary, primary]
 
 # Public transport supply classes (meth. §3, provisional until M2): bounds on the sum of
 # weekday departures, inclusive; upper null = open-ended. Bounds must increase without gaps.
@@ -136,6 +147,38 @@ transit_classes:
   - {class: insufficient, lower: 1, upper: 150}
   - {class: medium, lower: 151, upper: 1000}
   - {class: high, lower: 1001, upper: null}
+
+# Reference weekday for transit departures (arch. §6.3, C7): the first `weekday` on or after the
+# run date inside the GTFS validity that is no public or school holiday and has active services.
+# Static data, never loaded at runtime. The run fails if the chosen day is outside `covered`.
+reference_day:
+  weekday: tuesday
+  # Range for which the lists below are complete: school year 2026/27 and 2027/28 up to the end
+  # of the Pfingstferien 2028 (summer 2028 not listed yet).
+  covered: {from: 2026-07-30, to: 2028-06-17}
+  # Public holidays in Baden-Württemberg (Feiertagsgesetz BW) inside `covered`.
+  public_holidays:
+    [2026-10-03, 2026-11-01, 2026-12-25, 2026-12-26,
+     2027-01-01, 2027-01-06, 2027-03-26, 2027-03-29, 2027-05-01, 2027-05-06, 2027-05-17,
+     2027-05-27, 2027-10-03, 2027-11-01, 2027-12-25, 2027-12-26,
+     2028-01-01, 2028-01-06, 2028-04-14, 2028-04-17, 2028-05-01, 2028-05-25, 2028-06-05,
+     2028-06-15]
+  # School holidays and statewide school-free days in Baden-Württemberg, inclusive, school years
+  # 2026/27 and 2027/28. Source: Kultusministerium BW, https://km.baden-wuerttemberg.de/de/service/ferien
+  # (checked 2 Nov 2026). The four movable days per school are set by each school and not listed.
+  school_holidays:
+    - {from: 2026-07-30, to: 2026-09-12}  # Sommerferien 2026
+    - {from: 2026-10-26, to: 2026-10-31}  # Herbstferien 2026 + Reformationsfest
+    - {from: 2026-12-23, to: 2027-01-09}  # Weihnachtsferien
+    - {from: 2027-03-25, to: 2027-03-25}  # school-free day before the Osterferien
+    - {from: 2027-03-30, to: 2027-04-03}  # Osterferien 2027
+    - {from: 2027-05-18, to: 2027-05-29}  # Pfingstferien 2027
+    - {from: 2027-07-29, to: 2027-09-11}  # Sommerferien 2027
+    - {from: 2027-11-02, to: 2027-11-06}  # Herbstferien 2027
+    - {from: 2027-12-23, to: 2028-01-08}  # Weihnachtsferien
+    - {from: 2028-04-13, to: 2028-04-13}  # school-free day (Gründonnerstag)
+    - {from: 2028-04-18, to: 2028-04-22}  # Osterferien 2028
+    - {from: 2028-06-06, to: 2028-06-17}  # Pfingstferien 2028
 
 # Data sources (arch. §4). URLs checked on 2 Nov 2026 with curl -I.
 sources:
@@ -148,10 +191,21 @@ sources:
     # NVBW GTFS for the naldo network ("mit Liniennetz").
     url: https://www.nvbw.de/fileadmin/user_upload/service/open_data/fahrplandaten_mit_liniennetz/naldo.zip
     licence: dl-de/by-2-0, ODbL
+    # Files unpacked from the zip; shapes.txt (580 MB) is not needed.
+    members: [stops.txt, stop_times.txt, trips.txt, calendar.txt, calendar_dates.txt, feed_info.txt]
   zensus:
     # Destatis Zensus 2022 population grid (10 km, 1 km and 100 m CSV in one zip).
     url: https://www.destatis.de/static/DE/zensus/gitterdaten/Zensus2022_Bevoelkerungszahl.zip
     licence: dl-de/by-2-0
+    # 100 m grid; columns GITTER_ID_100m;x_mp_100m;y_mp_100m;Einwohner (checked 2 Nov 2026).
+    members: [Zensus2022_Bevoelkerungszahl_100m-Gitter.csv]
+
+# HTTP downloads in acquire: retries on network errors, timeouts and 5xx/429, waiting
+# backoff_s * 2**attempt seconds between attempts; timeout_s per read.
+download:
+  retries: 4
+  backoff_s: 5
+  timeout_s: 60
 
 # Valhalla tile build (arch. §6.1, C6).
 tiles:
@@ -162,7 +216,12 @@ tiles:
 validation:
   # Allowed relative deviation of the summed Zensus population from the official city total.
   population_tolerance_pct: 5
-  # Official Zensus 2022 population of the city; null until verified in P2.
-  official_population: null
+  # Official Zensus 2022 population of the city (15 May 2022), Statistisches Bundesamt, via
+  # https://www.citypopulation.de/de/germany/census/baden_w%C3%BCrttemberg/08416041__t%C3%BCbingen/
+  # (checked 2 Nov 2026). null = check is reported as warning only.
+  official_population: 90499
+  # Coverage (O11): residents of scored cells / residents of all populated cells touching the
+  # city area must be at least this share (0..1); fewer fails validation.
+  min_scored_share: 0.98
   # Minimum number of facilities per category; fewer fails validation.
   min_facilities_per_category: 1

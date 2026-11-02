@@ -67,3 +67,37 @@ document it in `pipeline/AGENTS.md`:
 - Test layout: unit test with fixture per stage, mocked Valhalla responses.
 
 Also create `api/AGENTS.md` and `web/AGENTS.md` with the scaffold.
+
+---
+
+## N3. Urban boundary leaves 8 % of residents unscored
+
+**Status:** settled 2 Nov 2026 (architecture v0.12: O11 changed, O17 settled; methodology v0.3) ·
+**Added:** 2 Nov 2026 · **Related:** `architecture.md` §4, O11, O17,
+`config/config.yaml` `study_area.urban_boundary`, `validation.min_scored_share`
+
+**Finding (P2, OSM snapshot 2026-11-01):** with `landuse: [residential, commercial, retail]` and
+`closing_m: 50`, 7,232 of 90,355 grid residents in the city (8.0 %) live in cells whose centre
+lies outside the urban boundary. Most are in the core town, not on farms: 3,956 in cells without
+any land-use polygon at the centre (gaps between residential areas), 472 on the hospital area,
+281 on the university campus; by district Universität 1,432, Au/Unterer Wert 740,
+Feuerhägle 651, Weststadt 634, Zentrum 599.
+
+**Variants measured on the same data** (residents outside / urban area):
+
+| `landuse` | `closing_m` | Outside | Area |
+|---|---|---|---|
+| residential, commercial, retail (current) | 50 | 7,232 (8.0 %) | 14.6 km² |
+| same | 100 | 5,386 (6.0 %) | 16.1 km² |
+| + industrial, education, institutional, religious | 50 | 5,797 (6.4 %) | 16.6 km² |
+| + industrial, education, institutional, religious | 100 | 4,015 (4.4 %) | 18.4 km² |
+
+**Decision (Rico, 2 Nov 2026):** the scoring scope is every populated cell whose centre lies
+inside the city boundary; `validate` checks that scored residents ÷ residents of all cells
+touching the city ≥ 0.98 and lists excluded residents per district. The land-use boundary only
+defines the map area, the live-endpoint check and the recommender candidates; it uses
+`residential, commercial, retail, education, institutional, religious` and `closing_m` 100
+(`industrial` joins Teilorte Bühl–Kilchberg and Kernstadt–Weilheim, ±100 m joins none).
+
+**Result:** 1,699 scored cells, 90,355 of 90,443 residents scored (99.90 %); 88 excluded (edge
+cells, most in Unterjesingen); urban boundary 12 parts, 16.6 km²; routing area 345.6 km².

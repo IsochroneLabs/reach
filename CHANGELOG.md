@@ -37,8 +37,26 @@ adds a line under `Unreleased`.
 - API placeholder `GET /api/health`.
 - CI workflow (ruff + pytest with uv), PR template, CODEOWNERS.
 - `docs/data_contract.md` draft v0.1; `pipeline/AGENTS.md`, `api/AGENTS.md`.
+- P2 pipeline stage `acquire`: downloads OSM (Geofabrik), GTFS (NVBW naldo) and Zensus 2022 with
+  retries; skips unchanged sources (`.md5`, `ETag`/`Last-Modified`, SHA-256) and hard-links them
+  from the previous run; provenance in `data_sources.parquet`; unpacks the needed zip members.
+- P2 pipeline stage `validate`: osmium-based OSM processing (admin boundary, urban boundary O17a,
+  routing area, clipped `routing.osm.pbf`, facilities with park access points, districts), Zensus
+  cells, GTFS stops and reference weekday; cleaned GeoParquet layers and validation report part 1
+  (`report_inputs.json` + `.md`).
+- Config: `districts.admin_levels` (list, coverage check), `reference_day` (BW public and school
+  holidays 2026–2028, static), `download`, zip `members`, `access_points.walkable_highways`,
+  `validation.official_population` 90,499 (Zensus 2022).
+- osmium-tool as a system requirement (README) and installed in CI.
+- `validate` coverage check `scored_share` (≥ `validation.min_scored_share` 0.98) and excluded
+  residents per district in the validation report.
 
 ### Changed
+- Scoring scope = every populated cell whose centre lies inside the city boundary (was: urban
+  boundary); the routing area is the city boundary + 4 km; the urban boundary only defines the
+  map area, the live-endpoint check and recommender candidates (architecture v0.12: O11, O13,
+  O17 settled; methodology v0.3; glossary). Urban boundary land use extended by `education`,
+  `institutional`, `religious`, `closing_m` 100.
 - `CONTRIBUTING.md` §1–2 and `AGENTS.md`: topic branches carry the driving person's name
   (`<type>/<name>-<topic>`); never work on a branch with another person's name.
 - `AGENTS.md`: a confirmed phase plan counts as "ask first" approval for what it names explicitly.
@@ -58,5 +76,7 @@ adds a line under `Unreleased`.
   `thresholds` table (classes and deficits derived at read time).
 
 ### Removed
+- No-op `hello` stage (replaced by `acquire` as first stage); `make pipeline STAGE=<planned stage>`
+  now fails with a clear message, `make pipeline` logs planned stages as skipped.
 - `docs/architecture_proposal.md` (superseded by `architecture.md` and `methodology.md`).
 - `docs/2026_10_19_kickoff.md` (superseded early concept).

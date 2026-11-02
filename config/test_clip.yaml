@@ -13,3 +13,10 @@ study_area:
 tiles:
   # CI cannot download elevation tiles (C6).
   elevation: false
+
+validation:
+  # The clip holds only part of the city, so the city total does not apply (reported as warning).
+  official_population: null
+  # The clip box cuts through populated cells, so many edge cells fall outside it; the coverage
+  # minimum only applies to the city boundary (the share is still reported).
+  min_scored_share: 0

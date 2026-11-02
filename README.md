@@ -8,9 +8,10 @@ where new facilities would help the most people.
 Course project for **DS500 Data Science Project** (M.Sc. Data Science in Business and Economics,
 University of Tübingen, winter term 2026/27), Topic 9 "The 15-Minute City".
 
-> **Status: scaffold (phase P1).** Architecture and team rules are defined; the local stack
-> (PostGIS, API and web placeholders), the configuration, the pipeline stage pattern and CI exist.
-> Data stages, routing and the map are being built. Commands below marked *planned* become
+> **Status: phase P2.** The local stack (PostGIS, API and web placeholders), configuration, CI
+> and the first pipeline stages exist: `acquire` downloads OSM, GTFS and Zensus data and
+> `validate` turns them into checked layers with a validation report. Routing, scoring and the
+> map are being built. Commands below marked *planned* become
 > available step by step; progress: [`docs/implementation_plan.md`](docs/implementation_plan.md).
 
 ## What it does
@@ -48,7 +49,7 @@ with Docker Compose on one small server. Details: [`docs/architecture.md`](docs/
 | `AGENTS.md`, `CLAUDE.md` | Rules for coding agents | ✅ |
 | `CONTRIBUTING.md` | Branches, commits, pull requests, releases | ✅ |
 | `CHANGELOG.md` | Change history | ✅ |
-| `pipeline/` | Data pipeline (Python, uv workspace member): stage pattern, config loader | scaffold |
+| `pipeline/` | Data pipeline (Python, uv workspace member): stages `acquire`, `validate`; later stages planned | partial |
 | `api/` | FastAPI backend (Python, uv workspace member): health endpoint | placeholder |
 | `web/` | React + MapLibre frontend | planned |
 | `config/` | Study area, profiles, categories, thresholds (`config.yaml`); Valhalla limits planned | partial |
@@ -58,8 +59,11 @@ with Docker Compose on one small server. Details: [`docs/architecture.md`](docs/
 
 ## Getting started
 
-Requirements: [uv](https://docs.astral.sh/uv/), Docker (Desktop) with Compose, Node.js for the
-frontend. Without uv: `pip install -r requirements.txt` (exported from `uv.lock`).
+Requirements: [uv](https://docs.astral.sh/uv/), Docker (Desktop) with Compose,
+[osmium-tool](https://osmcode.org/osmium-tool/) ≥ 1.16 for the pipeline and its tests (tested with
+1.19.1 from Homebrew and 1.16 from Ubuntu 24.04 apt: `brew install osmium-tool` /
+`sudo apt-get install osmium-tool`), Node.js for the frontend. Without uv:
+`pip install -r requirements.txt` (exported from `uv.lock`).
 
 ```bash
 git clone https://github.com/IsochroneLabs/reach.git
@@ -72,10 +76,16 @@ make lint               # ruff check + format check
 
 cp .env.example .env    # then replace every "change-me"
 make up                 # start PostGIS, API and Caddy; http://127.0.0.1:8080
-make pipeline STAGE=hello   # no-op stage, writes data/runs/<run_id>/hello/manifest.json
+make pipeline STAGE=acquire   # new run: download OSM, GTFS, Zensus (~350 MB) into data/raw/<run_id>/
+make pipeline STAGE=validate  # cleaned layers + report data/runs/<run_id>/validate/report_inputs.md
+make pipeline           # all implemented stages; later stages are logged as skipped (planned)
 make down               # stop the stack
-make pipeline           # planned: download data, compute and publish results
 ```
+
+A second `acquire` skips unchanged downloads and hard-links the files of the previous run. The
+test clip uses its own data directory: `REACH_CONFIG=config/test_clip.yaml make pipeline`.
+`validate` needs about 2.5 GB of RAM at peak on macOS and about 4 GB on Linux (`osmium extract`,
+grows with the highest OSM node ID); see the risks in the implementation plan.
 
 Valhalla joins `make up` once routing tiles exist (phase P3). If port 5432, 8002 or 8080 is taken
 on your machine, change `DB_PORT`, `VALHALLA_PORT` or `WEB_PORT` in `.env`.

@@ -1,0 +1,16 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!-- Hand-made fixture for test_osm.py: a park way, a school multipolygon, a supermarket node,
+     a footway and a supermarket node outside the extract polygon. -->
+<osm version="0.6" generator="reach tests">
+ <node id="1" version="1" lat="48.5200" lon="9.0500"/>
+ <node id="2" version="1" lat="48.5200" lon="9.0510"/>
+ <node id="3" version="1" lat="48.5210" lon="9.0510"/>
+ <node id="4" version="1" lat="48.5210" lon="9.0500"/>
+ <node id="5" version="1" lat="48.5205" lon="9.0505"><tag k="shop" v="supermarket"/><tag k="name" v="N"/></node>
+ <node id="6" version="1" lat="48.5205" lon="9.0490"/>
+ <node id="7" version="1" lat="48.5205" lon="9.0520"/>
+ <node id="9" version="1" lat="48.6000" lon="9.1000"><tag k="amenity" v="school"/></node>
+ <way id="10" version="1"><nd ref="1"/><nd ref="2"/><nd ref="3"/><nd ref="4"/><nd ref="1"/><tag k="leisure" v="park"/></way>
+ <way id="11" version="1"><nd ref="6"/><nd ref="7"/><tag k="highway" v="footway"/></way>
+ <relation id="20" version="1"><member type="way" ref="10" role="outer"/><tag k="type" v="multipolygon"/><tag k="leisure" v="park"/></relation>
+</osm>

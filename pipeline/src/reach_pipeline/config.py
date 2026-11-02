@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import date
 from pathlib import Path
 from typing import Any, Literal
 
@@ -43,7 +44,15 @@ class StudyArea(_Model):
 
 
 class Districts(_Model):
-    admin_level: int | None = None
+    admin_levels: list[int] = Field(min_length=1)
+    coverage_tolerance_pct: float = Field(ge=0)
+
+    @field_validator("admin_levels")
+    @classmethod
+    def _unique_levels(cls, v: list[int]):
+        if len(set(v)) != len(v):
+            raise ValueError(f"admin_levels must be unique, got {v}")
+        return v
 
 
 class TimeBudgets(_Model):
@@ -93,6 +102,48 @@ class Category(_Model):
 class AccessPoints(_Model):
     spacing_m: float = Field(gt=0)
     max_points: int = Field(ge=1)
+    walkable_highways: list[str] = Field(min_length=1)
+
+
+class DateRange(_Model):
+    model_config = ConfigDict(extra="forbid", frozen=True, populate_by_name=True)
+
+    start: date = Field(alias="from")
+    end: date = Field(alias="to")
+
+    @model_validator(mode="after")
+    def _ordered(self):
+        if self.end < self.start:
+            raise ValueError(f"date range {self.start} to {self.end}: 'to' before 'from'")
+        return self
+
+    def __contains__(self, day: date) -> bool:
+        return self.start <= day <= self.end
+
+
+Weekday = Literal["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
+
+
+class ReferenceDay(_Model):
+    weekday: Weekday
+    covered: DateRange
+    public_holidays: list[date]
+    school_holidays: list[DateRange]
+
+    @model_validator(mode="after")
+    def _inside_covered(self):
+        outside = [str(d) for d in self.public_holidays if d not in self.covered]
+        outside += [
+            f"{r.start}..{r.end}"
+            for r in self.school_holidays
+            if r.start not in self.covered or r.end not in self.covered
+        ]
+        if outside:
+            raise ValueError(f"holidays outside the covered range: {outside}")
+        return self
+
+    def is_holiday(self, day: date) -> bool:
+        return day in self.public_holidays or any(day in r for r in self.school_holidays)
 
 
 class TransitClass(_Model):
@@ -113,12 +164,20 @@ class Source(_Model):
     url: str = Field(pattern=r"^https://")
     md5_url: str | None = Field(default=None, pattern=r"^https://")
     licence: str = Field(min_length=1)
+    # Zip archives: members unpacked next to the archive (DuckDB does not read inside zips).
+    members: list[str] = Field(default_factory=list)
 
 
 class Sources(_Model):
     osm: Source
     gtfs: Source
     zensus: Source
+
+
+class Download(_Model):
+    retries: int = Field(ge=0)
+    backoff_s: float = Field(ge=0)
+    timeout_s: float = Field(gt=0)
 
 
 class Tiles(_Model):
@@ -128,6 +187,7 @@ class Tiles(_Model):
 class Validation(_Model):
     population_tolerance_pct: float = Field(ge=0)
     official_population: int | None = Field(default=None, gt=0)
+    min_scored_share: float = Field(ge=0, le=1)
     min_facilities_per_category: int = Field(ge=0)
 
 
@@ -140,7 +200,9 @@ class Config(_Model):
     categories: list[Category] = Field(min_length=1)
     access_points: AccessPoints
     transit_classes: list[TransitClass] = Field(min_length=1)
+    reference_day: ReferenceDay
     sources: Sources
+    download: Download
     tiles: Tiles
     validation: Validation
 

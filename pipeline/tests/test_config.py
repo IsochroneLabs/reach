@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import copy
+from datetime import date
 from pathlib import Path
 from typing import Any
 
@@ -77,6 +78,14 @@ def _set(data: dict[str, Any], dotted: str, value: Any) -> dict[str, Any]:
         ("study_area.clip_bbox", [9.1, 48.5, 9.0, 48.6], "min_lon, min_lat"),
         ("sources.osm.url", "http://example.org/x.pbf", "sources.osm.url"),
         ("study_area.unknown_key", 1, "study_area.unknown_key"),
+        ("districts.admin_levels", [9, 9], "admin_levels must be unique"),
+        ("districts.admin_levels", [], "districts.admin_levels"),
+        ("reference_day.weekday", "tue", "reference_day.weekday"),
+        ("reference_day.school_holidays.0.to", "2026-07-01", "'to' before 'from'"),
+        ("reference_day.public_holidays", ["2030-01-01"], "outside the covered range"),
+        ("download.retries", -1, "download.retries"),
+        ("validation.min_scored_share", 1.5, "validation.min_scored_share"),
+        ("access_points.walkable_highways", [], "access_points.walkable_highways"),
     ],
 )
 def test_invalid_config_fails_clearly(
@@ -128,3 +137,10 @@ def test_buffer_check_includes_transit_budget(base: dict[str, Any], tmp_path: Pa
     data = _set(base, "time_budgets_min.transit", 60)
     with pytest.raises(ConfigError, match="walking_500 \\(5000 m\\)"):
         load_config(_write(tmp_path, data))
+
+
+def test_holiday_lookup() -> None:
+    ref = load_config(CONFIG).reference_day
+    assert ref.is_holiday(date(2026, 12, 25))  # public holiday
+    assert ref.is_holiday(date(2026, 10, 27))  # Herbstferien
+    assert not ref.is_holiday(date(2026, 11, 3))

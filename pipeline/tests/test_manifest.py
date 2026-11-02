@@ -10,7 +10,7 @@ import pytest
 import yaml
 
 from reach_pipeline import cli
-from reach_pipeline.config import load_config
+from reach_pipeline.config import config_files, load_config
 from reach_pipeline.context import RunContext, new_run_id
 from reach_pipeline.errors import StageValidationError
 from reach_pipeline.manifest import (
@@ -22,6 +22,7 @@ from reach_pipeline.manifest import (
     require_ok,
     write_manifest,
 )
+from reach_pipeline.metrics import measure
 
 REPO = Path(__file__).resolve().parents[2]
 
@@ -87,31 +88,61 @@ def test_is_up_to_date(tmp_path: Path) -> None:
     assert not is_up_to_date(None, [])
 
 
-def test_hello_stage_writes_manifest_and_skips_rerun(config_path: Path) -> None:
+def _demo_stage(ctx: RunContext) -> Manifest:
+    """Minimal stage following the pattern: config checksum as input, no-op on re-run."""
+    stage_dir = ctx.stage_dir("demo")
+    inputs = file_inputs(config_files(ctx.config_path))
+    previous = read_manifest(stage_dir)
+    if is_up_to_date(previous, inputs):
+        return previous
+    now = datetime.now(UTC)
+    with measure() as m:
+        pass
+    manifest = Manifest(
+        stage="demo",
+        run_id=ctx.run_id,
+        status="ok",
+        started_at=now,
+        finished_at=datetime.now(UTC),
+        runtime_s=m.runtime_s,
+        peak_rss_mb=m.peak_rss_mb,
+        inputs=inputs,
+    )
+    write_manifest(manifest, stage_dir)
+    return manifest
+
+
+@pytest.fixture
+def demo(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Register the demo stage (not the first stage, so it reuses the latest run)."""
+    monkeypatch.setitem(cli.STAGES, "demo", _demo_stage)
+
+
+def test_stage_writes_manifest_and_skips_rerun(config_path: Path, demo: None) -> None:
     run_id = "20261102T120000Z"
-    assert cli.main(["hello", "--run-id", run_id, "--config", str(config_path)]) == 0
-    stage_dir = config_path.parent / "data" / "runs" / run_id / "hello"
+    assert cli.main(["demo", "--run-id", run_id, "--config", str(config_path)]) == 0
+    stage_dir = config_path.parent / "data" / "runs" / run_id / "demo"
     first = read_manifest(stage_dir)
     assert first is not None and first.status == "ok" and first.peak_rss_mb > 0
     assert first.inputs[0].path == str(config_path)
 
     # Unchanged inputs: the second run is a no-op and keeps the manifest.
-    assert cli.main(["hello", "--config", str(config_path)]) == 0  # latest run id reused
+    assert cli.main(["demo", "--config", str(config_path)]) == 0  # latest run id reused
     assert read_manifest(stage_dir) == first
 
 
-def test_hello_reruns_when_parent_config_changes(config_path: Path) -> None:
+def test_stage_reruns_when_parent_config_changes(config_path: Path, demo: None) -> None:
     child = config_path.parent / "child.yaml"
     child.write_text("extends: config.yaml\n", encoding="utf-8")
     run_id = "20261102T120000Z"
-    assert cli.main(["hello", "--run-id", run_id, "--config", str(child)]) == 0
-    stage_dir = config_path.parent / "data" / "runs" / run_id / "hello"
+    assert cli.main(["demo", "--run-id", run_id, "--config", str(child)]) == 0
+    stage_dir = config_path.parent / "data" / "runs" / run_id / "demo"
     first = read_manifest(stage_dir)
     assert first is not None and len(first.inputs) == 2
 
     # Only the parent changes; the merged config differs, so the stage must run again.
     config_path.write_text(config_path.read_text(encoding="utf-8") + "\n# edit\n", "utf-8")
-    assert cli.main(["hello", "--run-id", run_id, "--config", str(child)]) == 0
+    assert cli.main(["demo", "--run-id", run_id, "--config", str(child)]) == 0
     second = read_manifest(stage_dir)
     assert second is not None and second.inputs != first.inputs
 
@@ -122,20 +153,53 @@ def test_failed_stage_writes_failed_manifest(
     def boom(ctx: RunContext) -> Manifest:
         raise StageValidationError("broken input")
 
-    monkeypatch.setitem(cli.STAGES, "hello", boom)
+    monkeypatch.setitem(cli.STAGES, "demo", boom)
     run_id = "20261102T120000Z"
-    assert cli.main(["hello", "--run-id", run_id, "--config", str(config_path)]) == 1
-    manifest = read_manifest(config_path.parent / "data" / "runs" / run_id / "hello")
+    assert cli.main(["demo", "--run-id", run_id, "--config", str(config_path)]) == 1
+    manifest = read_manifest(config_path.parent / "data" / "runs" / run_id / "demo")
     assert manifest is not None and manifest.status == "failed"
     assert "broken input" in manifest.message
 
 
 def test_config_error_exit_code(tmp_path: Path) -> None:
-    assert cli.main(["hello", "--config", str(tmp_path / "missing.yaml")]) == 2
+    assert cli.main(["validate", "--config", str(tmp_path / "missing.yaml")]) == 2
 
 
 def test_invalid_run_id_exit_code(config_path: Path) -> None:
-    assert cli.main(["hello", "--run-id", "latest", "--config", str(config_path)]) == 2
+    assert cli.main(["validate", "--run-id", "latest", "--config", str(config_path)]) == 2
+
+
+def test_stage_order() -> None:
+    assert list(cli.STAGES)[:2] == ["acquire", "validate"]
+    assert not set(cli.STAGES) & set(cli.PLANNED)
+
+
+def test_planned_stage_fails_clearly(config_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    assert cli.main(["count", "--config", str(config_path)]) == 2
+    assert "stage 'count' is not implemented yet (planned in P3)" in capsys.readouterr().err
+
+
+def test_run_logs_planned_stages_as_skipped(
+    config_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    seen: list[str] = []
+    stages = {
+        name: (lambda ctx, name=name: seen.append(name) or _demo_stage(ctx)) for name in cli.STAGES
+    }
+    monkeypatch.setattr(cli, "STAGES", stages)
+    assert cli.main(["run", "--config", str(config_path)]) == 0
+    assert seen == ["acquire", "validate"]
+    err = capsys.readouterr().err  # the CLI logs to stderr
+    for name, phase in cli.PLANNED.items():
+        assert f"stage {name} skipped: not implemented yet (planned in {phase})" in err
+
+
+def test_first_stage_starts_a_new_run(config_path: Path) -> None:
+    runs = config_path.parent / "data" / "runs"
+    (runs / "20261102T120000Z").mkdir(parents=True)
+    assert cli._resolve_run_id(None, "validate", runs) == "20261102T120000Z"
+    assert cli._resolve_run_id(None, "acquire", runs) != "20261102T120000Z"
+    assert cli._resolve_run_id(None, "run", runs) != "20261102T120000Z"
 
 
 def test_run_id_and_schema(config_path: Path) -> None:

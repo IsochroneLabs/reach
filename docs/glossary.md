@@ -6,8 +6,13 @@ Project vocabulary used in code, docs, issues and prompts. People and roles ("yo
 | Term | Meaning |
 |---|---|
 | **Core / Stretch** | Core = required for the graded deliverable. Stretch = only after Core works and is validated (`architecture.md` §12). |
-| **urban boundary** | Settlement area of Tübingen; only cells inside it are scored. |
-| **routing buffer** | 4 km around the urban boundary, at least the largest prefilter reach (O20); network and facilities are loaded from boundary + buffer. |
+| **city boundary** | Administrative boundary of Tübingen (OSM `admin_level` 8, AGS `08416041`); defines the scoring scope. |
+| **scoring scope** | All populated cells whose centroid lies inside the city boundary; they get scores and deficits (O11). |
+| **urban boundary** | Built-up (settlement) area of Tübingen from OSM land use (O17); defines the map area, the live-endpoint check and the recommender candidates, not who is scored. |
+| **routing buffer** | 4 km around the city boundary, at least the largest prefilter reach (O20); network and facilities are loaded from boundary + buffer. |
+| **routing area** | City boundary plus the routing buffer; the OSM extract (`routing.osm.pbf`), facilities and stops are clipped to it. |
+| **coverage (scored share)** | Residents of scored cells ÷ residents of all populated cells touching the city area; checked against `validation.min_scored_share` in `validate`. |
+| **district** | Reporting unit from OSM `boundary=administrative` at the levels in `districts.admin_levels` (Tübingen: 9 = Teilorte, 11 = core-town districts). |
 | **cell** | One populated Zensus 2022 100 m grid cell; the unit of analysis. `cell_id` = original EPSG:3035 ID. |
 | **origin** | Routing start point of a cell (currently the cell centroid). |
 | **facility** | A service location from OSM in one of the configured categories. |
@@ -22,7 +27,8 @@ Project vocabulary used in code, docs, issues and prompts. People and roles ("yo
 | **deficit (U)** | Population-weighted unmet need per cell (`methodology.md` §4). |
 | **k_c** | Sufficiency threshold of category *c* (`methodology.md` §2). |
 | **catchment** | Cells that reach a facility or candidate site within the time budget. |
-| **reference weekday** | Regular Tuesday in the GTFS validity period used to count departures. |
+| **reference weekday** | Regular Tuesday in the GTFS validity period used to count departures: first one on or after the run date that is no public or school holiday (`reference_day` in config) and has active services. |
+| **provenance** | Per source and run: URL, retrieval time, SHA-256, licence (`acquire/data_sources.parquet`, later `meta.data_sources`). |
 | **matrix** | Valhalla `sources_to_targets`: travel times between many points; used for all counting. |
 | **isochrone** | Valhalla polygon of the area reachable within a time; display only. |
 | **expansion** | Valhalla list of reached street segments with times; visualisation only. |

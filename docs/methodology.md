@@ -1,6 +1,6 @@
 # Methodology — reach
 
-> **Status:** draft v0.2 (2 Nov 2026). Binding definition of **what** is measured, scored,
+> **Status:** draft v0.3 (2 Nov 2026). Binding definition of **what** is measured, scored,
 > recommended and validated. `architecture.md` describes **how** the system computes it. Every
 > change bumps the version and adds a line to the [Change log](#change-log). Items marked
 > **[M#]** are open methodology questions (Section 7).
@@ -14,8 +14,8 @@ travel profiles, and a recommender for new facility locations.
 
 ## 1. Measurement
 
-- **Unit:** populated Zensus 2022 100 m cell *i* inside the urban boundary, population $P_i$,
-  origin = cell centroid (`architecture.md` §5.2).
+- **Unit:** populated Zensus 2022 100 m cell *i* whose centroid lies inside the city boundary of
+  Tübingen, population $P_i$, origin = cell centroid (`architecture.md` §4, §5.2).
 - **Profiles *m*:** walking 3.39 km/h (inclusive default, 850 m in 15 min), walking 5.0 km/h
   (comparison), cycling 15 km/h, wheelchair 3.39 km/h.
 - **Time budgets:** 15 minutes to facilities; 10 minutes on foot or by wheelchair to public transport stops.
@@ -96,8 +96,8 @@ set of added sites, so greedy selection has a $(1 - 1/e)$ approximation guarante
 
 **Procedure**
 
-1. Candidates: cells in high-deficit areas, filtered by OSM land use (no water, forest, farmland,
-   industrial, protected areas).
+1. Candidates: cells in high-deficit areas inside the urban boundary (`architecture.md` O17),
+   filtered by OSM land use (no water, forest, farmland, industrial, protected areas).
 2. Catchment of each candidate via Valhalla matrix (cells as sources, candidate as target).
 3. Greedy: pick the candidate with the largest $\Delta W$, update $A_{i,c}$, recompute, repeat.
 4. Output: **ranked zones** with residents gaining sufficient access, class changes and an
@@ -142,5 +142,6 @@ slopes, on 2–3 steep routes (e.g. old town → castle, city → Waldhäuser-Os
 
 | Version | Date | Change | Why |
 |---|---|---|---|
+| v0.3 | 2026-11-02 | §1 unit = populated cells inside the city boundary (was: urban boundary); §5 candidates restricted to the urban boundary | Architecture v0.12, O11 (notes N3) |
 | v0.2 | 2026-11-02 | §2 facility locations (representative point for polygons, access points for parks and playgrounds, park counted once with minimum time); §3 transit supply for walking and wheelchair profiles, raw values stored, classes derived at read time | Answers to the P0 implementation plan questions (Q1, Q5) |
 | v0.1 | 2026-11-02 | Created from the still valid parts of `architecture_proposal.md` (§5 scoring, §8 validation, §9 recommender), updated to current decisions (profiles, coarse categories, urban boundary, cell centroid) | Replace the outdated proposal with one binding methodology document |

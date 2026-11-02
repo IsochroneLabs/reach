@@ -1,8 +1,8 @@
 # Implementation plan — reach
 
 > **Status:** P0 done (2 Nov 2026): Q1–Q5, C6–C12 and review points confirmed and applied
-> (architecture v0.11, methodology v0.2). P1 implemented (2 Nov 2026, draft PR #19, stacked on
-> PR #17). Next: P2. This file is the **handoff between
+> (then architecture v0.11, methodology v0.2). P1 merged (PR #19). P2 implemented (2 Nov 2026,
+> PR #20; N3 decision → architecture v0.12, methodology v0.3). Next: P3. This file is the **handoff between
 > agent sessions**: phase status, decisions, agreed deviations, measured numbers and next steps.
 > It is informative; `architecture.md` and `methodology.md` stay binding. Where this plan proposes
 > something that differs from them, it is listed in [Section 5](#5-conflicts-gaps-and-ambiguities)
@@ -16,7 +16,7 @@
 |---|---|---|---|---|
 | P0 | Implementation plan | `docs/rico-implementation-plan` | [x] PR #17 | 2 Nov |
 | P1 | Scaffold & tooling | `feature/rico-scaffold` | [x] draft PR #19 (stacked on #17), CI green | 6 Nov |
-| P2 | acquire + validate inputs | `feature/rico-acquire-validate` | [ ] | 11 Nov |
+| P2 | acquire + validate inputs | `feature/rico-acquire-validate` | [x] draft PR #20 (interim depth; test-clip script open) | 11 Nov |
 | P3 | tiles + count | `feature/rico-tiles-count` | [ ] | 16 Nov |
 | P4 | score + publish + cleanup | `feature/rico-score-publish` | [ ] | 19 Nov |
 | P5 | API | `feature/rico-api` | [ ] | 21 Nov |
@@ -82,7 +82,7 @@ CI green on the draft PR.
 |---|---|
 | `stages/acquire.py` | `download(source) -> Path` with retries/backoff, skip if unchanged (Geofabrik `.md5`, HTTP `ETag`/`Last-Modified`, local checksum); unchanged files are hard-linked from the previous run; provenance rows (URL, retrieved at, checksum, licence); zip archives (GTFS, Zensus) are unpacked to the needed members (`stops.txt`, `stop_times.txt`, `trips.txt`, `calendar*.txt`, Zensus CSV) in `data/raw/<run_id>/`, because DuckDB does not read inside zips |
 | `osm.py` | `osmium tags-filter` / `osmium extract -p` / `osmium export` wrappers (subprocess, streaming, no full PBF in Python). Order (two passes): 1. `tags-filter` admin boundaries + land use from the full regbez PBF; 2. compute urban boundary and routing area (`boundary.py`); 3. `extract -p` with the routing area as EPSG:4326 polygon → clipped PBF; 4. `tags-filter`/`export` facilities, ways and districts from the clipped PBF |
-| `boundary.py` | `admin_boundary(...)`, `urban_boundary(landuse, admin, cfg)`: dissolve built-up land use inside the city, `buffer(+50).buffer(-50)`, drop parts < configured min area, keep Teilorte as separate parts (O17a); `routing_area = urban.buffer(4000)` |
+| `boundary.py` | `admin_boundary(...)`, `urban_boundary(landuse, admin, cfg)`: dissolve built-up land use inside the city, `buffer(+closing_m).buffer(-closing_m)` (100 m since v0.12), drop parts < configured min area, keep Teilorte as separate parts (O17); `routing_area = city.buffer(4000)` (O13, v0.12); `scoring_scope` (O11) |
 | `zensus.py` | DuckDB streaming read of the national 100 m CSV filtered by bbox in EPSG:3035 (cell-centre columns, expected `x_mp_100m`/`y_mp_100m`) while reading; the grid id column (expected `GITTER_ID_100m`, verified in P2) kept as `cell_id`; cell polygon + centroid in 25832 |
 | `gtfs.py` | DuckDB reads `stops.txt`, `calendar*.txt`; `reference_weekday(feed, holidays)`; stops of `location_type` 0 or empty inside the routing area |
 | `facilities.py` | tag → category mapping from config; points stay points, polygons → `representative_point`; parks/playgrounds → access points: intersections of walkable ways with the park boundary, fallback every 50 m along the boundary, at most `max_points` per park, chosen evenly spaced along the boundary (config; methodology §2); edge cases: a footway running along the boundary (intersection is a line → use its end points), playgrounds mapped as nodes (the node itself); de-duplication of node + area of the same facility |
@@ -255,6 +255,7 @@ peak_rss_mb, status, started_at, finished_at), validation reports (JSON + Markdo
 | OSM incompleteness per category (M1) | counts per category in report part 1; V2 in P7 |
 | Elevation download needs network during tile build; CI cannot build elevation for the test clip | test clip tiles built without elevation (C6) |
 | 4 GB RAM in production | streaming reads, bounded concurrency, swap, measurement (VF3) |
+| osmium memory grows with the highest OSM node ID (~13.9 billion → ~1.7 GB per ID bitmap), not with the file: `extract -s smart` peaks at 3.9 GB RSS on Linux (2.5 GB on macOS), `tags-filter` at 1.8 GB | measured in P2; options for P8: run `validate` while Valhalla is stopped or before it starts, `-s simple` for the clip (~1.9 GB), more swap; decide with VF3 on the CX23 |
 
 ## 5. Conflicts, gaps and ambiguities
 
@@ -267,7 +268,7 @@ peak_rss_mb, status, started_at, finished_at), validation reports (JSON + Markdo
 | C5 | "Walking profiles only" for transit vs. the reach table that also lists wheelchair stops (565 m) | methodology §3 vs. arch. §6.1 | **Resolved with Q1:** walking 3.39, walking 5.0 and wheelchair; methodology v0.2 §3 |
 | C6 | Tiles are "always built with elevation", but the CI/test clip cannot download elevation (network, size) | arch. §6.1 vs. AGENTS tests | **Confirmed:** Test clip tiles without elevation via `config/test_clip.yaml`; production always with elevation |
 | C7 | School holidays for the reference weekday need a data source; a public holiday API at runtime is not allowed and a `holidays` package does not cover school holidays | arch. §6.3 | **Confirmed:** List BW public and school holidays for the feed period in `config/config.yaml` (source: Kultusministerium BW), validated to cover the feed's validity window |
-| C8 | Districts at admin levels 9–11 overlap; `cells.district_id` needs one level | arch. §5.2 | **Confirmed:** Config key `districts.admin_level` (decided in P2 after inspecting the data); other levels can be added later |
+| C8 | Districts at admin levels 9–11 overlap; `cells.district_id` needs one level | arch. §5.2 | **Resolved (P2):** list `districts.admin_levels: [9, 11]` (9 = Teilorte, 11 = core-town districts; 10 overlaps 11), `validate` checks gaps and overlaps against the city area (Rico, 2 Nov 2026) |
 | C9 | API needs the urban boundary (live check), districts and the profile costing for live isochrones; none of these are DB tables in §8 | arch. §8, §9 | **Confirmed:** Add `urban_boundary`, `districts`, `profiles` and `facility_points` (access points from Q5, needed for live routes to the nearest point) tables to the run schema (gaps G1/G2 in Section 3), so live answers use exactly the published run's costing |
 | C10 | Changing thresholds "never requires re-routing", but only `publish` writes to PostGIS and thresholds are copied per run | arch. §6.3, §8 | **Confirmed:** `count` is cached by (PBF checksum, cells/facilities checksum, profile config hash); a threshold change re-runs the pipeline as a new run that reuses cached counts, so no re-routing happens |
 | C11 | Stage names differ: AGENTS lists 7 stages, arch. §7 lists 9 (incl. "validate results", "cleanup"); `make pipeline STAGE=validate` is ambiguous | AGENTS, arch. §7 | **Confirmed:** CLI names `acquire, validate, tiles, count, score, recommend, validate_results, publish, cleanup`; `validate` = inputs |
@@ -301,6 +302,13 @@ Confirmed by Rico (2 Nov 2026): C6–C12 as recommended in Section 5; Q4 also co
 | 2026-11-02 | P1 pins | `ghcr.io/valhalla/valhalla:3.9.1`, `imresamu/postgis:18-3.6`, `caddy:2.11.7-alpine`, `ghcr.io/astral-sh/uv:0.13.6-python3.12-trixie-slim` (all amd64 + arm64, checked with `docker manifest inspect`); CI `actions/checkout@v7.0.1`, `astral-sh/setup-uv@v10.3.3` with uv 0.13.6 |
 | 2026-11-02 | P1 assumptions | `make pipeline` runs on the host with uv; Compose `pipeline` uses the uv image until osmium needs an own image (P2/P8). Ports bind to 127.0.0.1 on the default network ("internal" = not public; Docker `internal: true` networks cannot publish ports). City boundary selected by `admin_level` 8 + AGS `08416041` instead of a relation id (the id found, 167128, returns HTTP 410). New values: `min_part_area_m2` 10,000, `access_points.max_points` 20, `population_tolerance_pct` 5, cycling `max_speed_factor` 1.0 (provisional, O20), test clip bbox approximate. Speed only in `speed_kmh` (Valhalla `walking_speed`/`cycling_speed` set by the client), so `profiles` in the data contract gets `speed_kmh`. `extends:` key for `test_clip.yaml`. Single stage without `--run-id` reuses the latest run. Exceptions in `errors.py` (module not named in the plan) |
 
+| 2026-11-02 | P2 answers (Rico) | `osmium-tool` as system requirement (Homebrew 1.19.1 locally, apt in CI, pipeline image by P8), no DuckDB `spatial`; OSM read as `tags-filter` → `export` GeoJSONSeq → GeoPandas. `districts.admin_levels` list with coverage check. Holidays as static config data (Kultusministerium BW, school years 2026/27 and 2027/28). `hello` removed; planned stages fail clearly (single) or are logged as skipped (`run`) |
+| 2026-11-02 | P2 values | `validation.official_population` 90,499 (Zensus 2022, Destatis via citypopulation.de); `districts.admin_levels` [9, 11]; `reference_day.covered` 2026-07-30..2028-06-17; Zensus columns `GITTER_ID_100m;x_mp_100m;y_mp_100m;Einwohner` (`;`, ASCII, 3,088,037 rows); naldo feed valid 2026-07-12..2026-12-12 with `calendar.txt`, `calendar_dates.txt`, `feed_info.txt`; Geofabrik `.md5` exists, `latest` redirects (307) to a dated file; NVBW sends only `Last-Modified`, Destatis `ETag` + `Last-Modified`, both answer 304 |
+| 2026-11-02 | P2 assumptions | The OSM processing (pass 1, urban boundary, `extract`, facilities) runs in `validate`, not `acquire`: `acquire` only downloads and unpacks raw files (arch. §7 table), `validate` writes `routing.osm.pbf` for `tiles`. Districts come from pass 1 (complete boundaries), not from the clipped PBF. `acquire` as first stage starts a new run without `--run-id`. Reference weekday = first Tuesday on or after the run date (past days may already be cut from the feed). `extract` strategy `smart`. Dedupe: node + area with the same tag → point categories keep the node, access-point categories the area. Facilities and stops are kept inside the routing area. Test clip: `official_population: null` (warning). New keys `download`, `sources.*.members`, `access_points.walkable_highways`, `districts.coverage_tolerance_pct` (0.5 %) |
+| 2026-11-02 | P2 finding | 8.0 % of residents outside the urban boundary, mostly in the core town (N3) |
+| 2026-11-02 | P2 review (fresh agent) | Fixed: `unpack` wrote into hard-linked members of the previous run (now `.part` + replace, test); access-point cap now evenly spaced around the closed ring; `acquire` re-runs if its outputs are missing; `read_stops` checks columns, optional `location_type`, invalid coordinates; routing points outside the routing area dropped; CRS check covers `origin_geom`; new caching headers kept on SHA-256 reuse; empty `.md5` → clear error; unit tests for `validate.checks()`; plan/README/contract fixes. Left open (listed in PR): Geofabrik md5 race not retried; `feed_info.txt` required in config although optional in GTFS; `members[0]` not validated; `EXTRACT_STRATEGY`/`_SAME_POINT_M` constants not in config; dedupe only matches identical tags (childcare node in kindergarten area counts twice) |
+| 2026-11-02 | N3 decision (Rico) | Scoring scope = populated cells with centre inside the city boundary; coverage check `validation.min_scored_share` 0.98 (base: all populated cells touching the city; excluded residents per district by largest overlap); routing area = city + 4 km; urban boundary (land use + `education`, `institutional`, `religious`, `closing_m` 100; `industrial` excluded because it joins Teilorte) only for map, live check, recommender candidates. Architecture v0.12, methodology v0.3, glossary, data contract v0.3. Test clip: `min_scored_share` 0 (the clip box cuts through cells) |
+
 Measured numbers (runtime, peak memory, counts) are added here at the end of every phase.
 
 | Phase | Measurement (MacBook arm64, Docker 29.9.2) | Value |
@@ -309,15 +317,30 @@ Measured numbers (runtime, peak memory, counts) are added here at the end of eve
 | P1 | Idle memory (`docker stats`): db / api (uvicorn `--reload` + uv) / caddy | 34 MB / 366 MB / 17 MB |
 | P1 | `make pipeline STAGE=hello`: runtime / peak RSS | < 0.01 s / 33.5 MB |
 | P1 | `uv run pytest` | 31 passed in < 1 s |
+| P2 | `acquire`, first download (350 MB): runtime / peak RSS | 99 s / 137 MB |
+| P2 | `acquire`, unchanged sources (md5, 304, 304; hard links) | 0.5 s / 143 MB |
+| P2 | `validate` (Tübingen, city scope): runtime / peak RSS (osmium child) | 10 s / 2,173–2,601 MB |
+| P2 | `validate` steps: pass 1 / boundaries / extract / facilities / Zensus / GTFS | 3.4 / 0.2 / 1.5 / 3.3 / 0.1 / 0.2 s |
+| P2 | osmium peak RSS on Linux (Debian, osmium 1.18): `extract -s smart` / `tags-filter` | 3,991 MB / 1,842 MB |
+| P2 | Results before N3 (urban-boundary scope): scored cells / residents scored / outside | 1,325 / 83,123 / 7,232 |
+| P2 | Results after N3 (city scope): scored cells / residents scored / coverage base / excluded | 1,699 / 90,355 (official 90,499, −0.16 %) / 90,443 / 88 (99.90 %; Unterjesingen 73, Lustnau-Zentrum 11, Weilheim 4) |
+| P2 | Urban boundary parts / area; routing area; districts | 12 / 16.6 km² (scored residents outside it: 4,974); 345.6 km² (was 240.8); 31 (gap 0 %, overlap 0 %) |
+| P2 | Facilities in routing area (city + 4 km): grocery / pharmacy / doctors / childcare / school / parks; routing points | 60 / 30 / 164 / 176 / 71 / 434; 1,529 (points inside the routing area only) |
+| P2 | Stops in routing area (city + 4 km); reference weekday; active services | 907 (720 around the urban boundary); 2026-11-03; 470 |
+| P2 | Test clip (`config/test_clip.yaml`): scored cells / residents / validate runtime | 67 / 6,848 in the clip / 7.8 s |
+| P2 | `uv run pytest` | 93 passed in ~3 s (after review fixes) |
 
 ## 8. Next steps
 
 1. ~~Confirm C6–C12 and the review points~~ — done 2 Nov 2026; P0 closed.
 2. ~~P1 scaffold~~ — implemented 2 Nov 2026 (draft PR #19, CI green). After #17 is squash-merged: rebase
    `feature/rico-scaffold` onto `origin/dev`, re-run checks, change the PR base to `dev`.
-3. P2 (`feature/rico-acquire-validate`): ask for `osmium-tool`; verify Zensus column names,
-   Tübingen AGS and district admin levels in the extract; set `validation.official_population`,
-   `districts.admin_level`, the holiday list (C7) and refine the test clip bbox.
+3. ~~P2~~ — implemented 2 Nov 2026 (draft PR #20). Open from P2: decide N3 (urban boundary land-use
+   values / closing distance, ask first); `scripts/build_test_clip.py` and the clip bbox
+   refinement (interim: may follow later); osmium memory for the CX23 (risk table, VF3); extend
+   `reference_day` before 2028-06-17 (the run fails with a clear message otherwise). N3 settled
+   (architecture v0.12). P3 must measure the effect of the larger routing area (346 km², 1,699
+   cells) on tile build and count runtime.
 4. P3 must deliver the prefilter evidence (O20) and, if needed, a buffer proposal; it adds
    `config/valhalla.json`, the `valhalla-build` command and removes the `routing` profile.
 5. Open from P1: Starlette deprecates `httpx` for `TestClient` (warning); adding `httpx2` as a
