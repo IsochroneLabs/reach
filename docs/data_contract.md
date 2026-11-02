@@ -119,7 +119,7 @@ osmium intermediates in `validate/osm/`.
 | Key | Content |
 |---|---|
 | `run_id`, `stage`, `status` (`ok`/`fail`), `generated_at` | |
-| `summary` | `osm_snapshot`, `urban_boundary_parts`, `urban_area_km2`, `city_area_km2`, `routing_area_km2`, `districts`, `cells_scored`, `residents_touching_city` (coverage base), `residents_scored`, `residents_excluded`, `scored_share`, `residents_outside_urban_boundary` (scored, informative), `excluded_by_district` {district name: residents}, `facilities` {category: count}, `facility_points`, `stops`, `gtfs_valid_from`, `gtfs_valid_to`, `reference_weekday`, `active_services` |
+| `summary` | `city`, `osm_snapshot`, `urban_boundary_parts`, `urban_area_km2`, `city_area_km2`, `routing_area_km2`, `districts`, `cells_scored`, `residents_touching_city` (coverage base), `residents_scored`, `residents_excluded`, `scored_share`, `residents_outside_urban_boundary` (scored, informative), `excluded_by_district` {district name: residents}, `facilities` {category: count}, `facility_points`, `stops`, `gtfs_valid_from`, `gtfs_valid_to`, `reference_weekday`, `active_services` |
 | `checks` | list of rows of `validation_report` (`check`, `stage`, `status`, `value`, `message`) |
 | `stages` | `stage`, `runtime_s`, `peak_rss_mb` for `acquire` and `validate` |
 | `steps` | `step`, `runtime_s`, `peak_rss_mb` (high-water mark so far) within `validate` |

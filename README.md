@@ -84,7 +84,8 @@ make down               # stop the stack
 
 A second `acquire` skips unchanged downloads and hard-links the files of the previous run. The
 test clip uses its own data directory: `REACH_CONFIG=config/test_clip.yaml make pipeline`.
-`validate` needs about 2.5 GB of RAM at peak (`osmium extract`); see the implementation plan.
+`validate` needs about 2.5 GB of RAM at peak on macOS and about 4 GB on Linux (`osmium extract`,
+grows with the highest OSM node ID); see the risks in the implementation plan.
 
 Valhalla joins `make up` once routing tiles exist (phase P3). If port 5432, 8002 or 8080 is taken
 on your machine, change `DB_PORT`, `VALHALLA_PORT` or `WEB_PORT` in `.env`.
