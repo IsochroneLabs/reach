@@ -175,8 +175,23 @@ def test_stage_order() -> None:
 
 
 def test_planned_stage_fails_clearly(config_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
-    assert cli.main(["score", "--config", str(config_path)]) == 2
-    assert "stage 'score' is not implemented yet (planned in P4)" in capsys.readouterr().err
+    assert cli.main(["recommend", "--config", str(config_path)]) == 2
+    assert "stage 'recommend' is not implemented yet (planned in P7)" in capsys.readouterr().err
+
+
+def test_failure_posts_to_webhook(config_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    sent: list[str] = []
+    monkeypatch.setattr(cli.notify, "failure", lambda text: sent.append(text) or True)
+    assert cli.main(["recommend", "--config", str(config_path)]) == 2
+    assert len(sent) == 1 and "stage recommend" in sent[0] and "planned in P7" in sent[0]
+
+
+def test_migrate_needs_admin_url(
+    config_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.delenv("DATABASE_URL_ADMIN", raising=False)
+    assert cli.main(["migrate", "--config", str(config_path)]) == 2
+    assert "DATABASE_URL_ADMIN is not set" in capsys.readouterr().err
 
 
 def test_action_only_for_tiles(config_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
@@ -205,7 +220,16 @@ def test_run_logs_planned_stages_as_skipped(
     }
     monkeypatch.setattr(cli, "STAGES", stages)
     assert cli.main(["run", "--config", str(config_path)]) == 0
-    assert seen == ["acquire", "validate", "tiles", "count"]
+    assert seen == [
+        "acquire",
+        "validate",
+        "tiles",
+        "count",
+        "score",
+        "validate_results",
+        "publish",
+        "cleanup",
+    ]
     err = capsys.readouterr().err  # the CLI logs to stderr
     for name, phase in cli.PLANNED.items():
         assert f"stage {name} skipped: not implemented yet (planned in {phase})" in err

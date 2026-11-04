@@ -83,12 +83,23 @@ class Profile(_Model):
         return metres_per_min * self.max_speed_factor * budget_min + self.prefilter_margin_m
 
 
+# `thresholds.category` uses this id for the transit classes (data contract).
+TRANSIT_CATEGORY = "transit"
+
+
 class Category(_Model):
     id: str = Field(pattern=r"^[a-z][a-z0-9_]*$")
     name: str = Field(min_length=1)
     k: int = Field(ge=1)
     tags: list[dict[str, str]] = Field(min_length=1)
     location: Literal["point", "access_points"]
+
+    @field_validator("id")
+    @classmethod
+    def _not_transit(cls, v: str):
+        if v == TRANSIT_CATEGORY:
+            raise ValueError(f"category id {v!r} is reserved for the transit classes")
+        return v
 
     @field_validator("tags")
     @classmethod
@@ -222,11 +233,44 @@ class Count(_Model):
     evidence: Evidence
 
 
+class Monotonic(_Model):
+    """Expected order of two profiles: counts (and departures) of `higher` >= those of `lower`."""
+
+    higher: str
+    lower: str
+    # Share of cells (0..1) with at least one violation above which the check warns / fails;
+    # fail_above null = the check never fails (different costings, no guarantee).
+    warn_above: float = Field(ge=0, le=1)
+    fail_above: float | None = Field(ge=0, le=1)
+
+    @model_validator(mode="after")
+    def _fail_not_below_warn(self):
+        if self.fail_above is not None and self.fail_above < self.warn_above:
+            raise ValueError(f"{self.higher} >= {self.lower}: fail_above < warn_above")
+        return self
+
+
+class ResultsValidation(_Model):
+    monotonic: list[Monotonic] = Field(default_factory=list)
+
+
 class Validation(_Model):
     population_tolerance_pct: float = Field(ge=0)
     official_population: int | None = Field(default=None, gt=0)
     min_scored_share: float = Field(ge=0, le=1)
     min_facilities_per_category: int = Field(ge=0)
+    results: ResultsValidation
+
+
+class Database(_Model):
+    # Folder with roles.sql, migrations/ and run_schema.sql (relative to the working directory).
+    sql_dir: Path
+    connect_retries: int = Field(ge=0)
+    backoff_s: float = Field(ge=0)
+
+
+class Cleanup(_Model):
+    keep_published_runs: int = Field(ge=1)
 
 
 class Config(_Model):
@@ -245,6 +289,8 @@ class Config(_Model):
     valhalla: Valhalla
     count: Count
     validation: Validation
+    database: Database
+    cleanup: Cleanup
 
     @field_validator("categories")
     @classmethod
@@ -267,6 +313,14 @@ class Config(_Model):
         if v[-1].upper is not None:
             raise ValueError("the last transit class must be open-ended (upper: null)")
         return v
+
+    @model_validator(mode="after")
+    def _monotonic_profiles_exist(self):
+        for pair in self.validation.results.monotonic:
+            unknown = sorted({pair.higher, pair.lower} - self.profiles.keys())
+            if unknown:
+                raise ValueError(f"validation.results.monotonic: unknown profiles {unknown}")
+        return self
 
     @model_validator(mode="after")
     def _buffer_covers_reach(self):

@@ -146,3 +146,29 @@ tile set"); (c) look for a pedestrian costing option that disables the grade fac
 not; not checked further in P3). Recommendation: (a), with a methodology note and G1 marked as
 answered. Needs confirmation (architecture/methodology change).
 
+
+## N6. Faster walking can reach fewer facilities: Valhalla routes by cost, not time
+
+**Status:** open (check tolerated, cause not removed) · **Added:** 4 Nov 2026 · **Related:**
+`architecture.md` §7 (validate results), `config/config.yaml` `validation.results.monotonic`,
+N5, V5
+
+**Finding (P4, Valhalla 3.9.1, Tübingen tiles with elevation):** walking 5.0 km/h reaches fewer
+facilities than walking 3.39 km/h in 6 of 1,699 cells (6 cell × category pairs, 1 transit row;
+run `20261104T202436Z`). Example: cell `CRS3035RES100mN2824600E4251600` → supermarket
+`n262528606` (238 m straight line): at 3.39 km/h Valhalla takes the steps Hackersteigle (309 m,
+363 s); from 4 km/h on it avoids them and walks around (1,272 m, 919 s at 5.0 km/h, beyond the
+budget). `/route` and `/sources_to_targets` agree, so this is the costing, not the matrix.
+Valhalla picks the path with the lowest cost; step and grade penalties are not proportional to
+walking time, so the cheapest path changes with the speed. Wheelchair ≤ walking 3.39 is violated
+in 107 cells (6.3 %), cycling ≥ walking 3.39 in none.
+
+**Decision (Juju, 4 Nov 2026):** no hard failure on any violation (as planned for P4); per pair
+a share of violating cells above `warn_above` warns and above `fail_above` fails (walking
+5.0 ≥ 3.39: warn > 0, fail > 1 %; pairs with different costings never fail). Report part 2
+lists the share and examples.
+
+**Options to remove the cause (not done):** check `step_penalty` / `use_hills` /
+`max_hiking_difficulty` effects on the chosen path per speed; or accept, because "a faster
+walker avoids steps" is Valhalla's model of preference, and document it in methodology (V5
+sensitivity). Changing costing options changes counts → ask first.

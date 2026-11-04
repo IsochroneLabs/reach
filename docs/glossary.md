@@ -30,13 +30,17 @@ Project vocabulary used in code, docs, issues and prompts. People and roles ("yo
 | **k_c** | Sufficiency threshold of category *c* (`methodology.md` §2). |
 | **catchment** | Cells that reach a facility or candidate site within the time budget. |
 | **reference weekday** | Regular Tuesday in the GTFS validity period used to count departures: first one on or after the run date that is no public or school holiday (`reference_day` in config) and has active services. |
-| **provenance** | Per source and run: URL, retrieval time, SHA-256, licence (`acquire/data_sources.parquet`, later `meta.data_sources`). |
+| **provenance** | Per source and run: URL, retrieval time, SHA-256, licence (`acquire/data_sources.parquet`, published to `meta.data_sources`). |
 | **matrix** | Valhalla `sources_to_targets`: travel times between many points; used for all counting. |
 | **isochrone** | Valhalla polygon of the area reachable within a time; display only. |
 | **expansion** | Valhalla list of reached street segments with times; visualisation only. |
 | **run / `run_id`** | One complete pipeline execution on one data snapshot; results are published as DB schema `run_<id>`. |
 | **stage** | One pipeline step: acquire, validate inputs, build tiles, count, score, recommend, validate results, publish, cleanup. |
 | **manifest** | File written by each stage listing inputs, outputs, row counts and status. |
+| **validation report (part 1 / part 2)** | Part 1 (`validate`): checks of the inputs; part 2 (`validate_results`): checks of the results (completeness, totals, monotonicity, sample cells). Any failed check stops the run before `publish`; both parts are published as `validation_report`. |
+| **monotonicity check** | Part-2 check that a "faster" profile reaches at least as many facilities as a "slower" one (`validation.results.monotonic`); reported as share of violating cells with warn/fail limits, because Valhalla routes by cost, not time (`notes.md` N6). |
+| **published run** | A run whose schema `run_<id>` was loaded and switched to `current` by `publish` (`meta.runs.status = 'published'`); `cleanup` keeps the last 3. |
+| **migration** | Numbered SQL file in `infra/db/migrations/`, applied once by `make migrate` (recorded in `meta.schema_migrations`); `infra/db/roles.sql` is re-applied every time. |
 | **`current`** | DB views pointing to the latest validated run; the only schema the API reads. |
 | **data contract** | Binding table and file schemas between pipeline and API (`docs/data_contract.md`). |
 | **test clip** | Small OSM/GTFS/Zensus extract (~1 km²) used for integration tests. |

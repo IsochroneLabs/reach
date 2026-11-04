@@ -11,12 +11,22 @@ from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
 
-from reach_pipeline.config import load_config
+from reach_pipeline import db, notify
+from reach_pipeline.config import Config, load_config
 from reach_pipeline.context import RunContext, is_run_id, latest_run_id, new_run_id
 from reach_pipeline.errors import ConfigError, PipelineError
 from reach_pipeline.manifest import Manifest, write_manifest
 from reach_pipeline.metrics import Measurement, measure
-from reach_pipeline.stages import acquire, count, tiles, validate
+from reach_pipeline.stages import (
+    acquire,
+    cleanup,
+    count,
+    publish,
+    score,
+    tiles,
+    validate,
+    validate_results,
+)
 
 DEFAULT_CONFIG = "config/config.yaml"
 TILES_ACTIONS = ("check", "verify")
@@ -27,16 +37,19 @@ STAGES: dict[str, Callable[[RunContext], Manifest]] = {
     validate.STAGE: validate.run,
     tiles.STAGE: tiles.run,  # `tiles verify`; `tiles check` is called on its own (make refresh)
     count.STAGE: count.run,
+    score.STAGE: score.run,
+    validate_results.STAGE: validate_results.run,
+    publish.STAGE: publish.run,
+    cleanup.STAGE: cleanup.run,
 }
 # Stages that follow (C11), with the phase that implements them: a single one fails with a
 # clear message, `run` logs each as skipped. Move a stage to STAGES when it is implemented.
+# recommend belongs between score and validate_results (arch. §7).
 PLANNED: dict[str, str] = {
-    "score": "P4",
     "recommend": "P7",
-    "validate_results": "P4",
-    "publish": "P4",
-    "cleanup": "P4",
 }
+# Commands that are not stages: no run id, no manifest.
+MIGRATE = "migrate"
 
 log = logging.getLogger("reach_pipeline")
 _current_stage: contextvars.ContextVar[str] = contextvars.ContextVar("stage", default="-")
@@ -61,7 +74,9 @@ def setup_logging(level: int = logging.INFO) -> None:
 def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(prog="python -m reach_pipeline", description=__doc__)
     parser.add_argument(
-        "stage", choices=[*STAGES, *PLANNED, "run"], help="stage to run, or 'run' for all"
+        "stage",
+        choices=[*STAGES, *PLANNED, "run", MIGRATE],
+        help="stage to run, 'run' for all, or 'migrate' (DB roles and migrations, superuser)",
     )
     parser.add_argument(
         "action",
@@ -135,10 +150,31 @@ def _tiles_check(ctx: RunContext) -> None:
         _current_stage.reset(token)
 
 
+def _migrate(config: Config) -> None:
+    """`migrate`: roles, passwords and pending migrations as the superuser (DATABASE_URL_ADMIN)."""
+    token = _current_stage.set(MIGRATE)
+    try:
+        url = db.env_url(publish.ADMIN_URL_ENV)
+        with db.connect(url, config.database) as conn:
+            applied = db.migrate(conn, config.database.sql_dir, db.role_passwords())
+        if applied:
+            log.info("applied migrations %s", applied)
+        else:
+            log.info("roles checked, no pending migrations")
+    finally:
+        _current_stage.reset(token)
+
+
+def _notify(run_id: str | None, stage: str, exc: BaseException) -> None:
+    notify.failure(f"reach pipeline failed: run {run_id or '-'}, stage {stage}: {exc}")
+
+
 def main(argv: list[str] | None = None) -> int:
     """Entry point; returns the process exit code (0 ok, 1 validation, 2 config, 3 external)."""
     setup_logging()
     args = _parse_args(argv)
+    run_id: str | None = None
+    stage = args.stage
     try:
         if args.stage in PLANNED:
             raise ConfigError(
@@ -148,6 +184,9 @@ def main(argv: list[str] | None = None) -> int:
             raise ConfigError(f"{args.action!r} is only valid for the tiles stage")
         config_path = Path(args.config)
         config = load_config(config_path)
+        if args.stage == MIGRATE:
+            _migrate(config)
+            return 0
         run_id = _resolve_run_id(args.run_id, args.stage, config.data_dir / "runs")
         ctx = RunContext(config=config, config_path=config_path, run_id=run_id)
         log.info("run %s, config %s", run_id, config_path)
@@ -156,14 +195,17 @@ def main(argv: list[str] | None = None) -> int:
             return 0
         names = list(STAGES) if args.stage == "run" else [args.stage]
         for name in names:
+            stage = name
             _run_stage(name, ctx)
         if args.stage == "run":
             for name, phase in PLANNED.items():
                 log.warning("stage %s skipped: not implemented yet (planned in %s)", name, phase)
     except PipelineError as exc:
         log.error("%s", exc)
+        _notify(run_id, stage, exc)
         return exc.exit_code
-    except Exception:
+    except Exception as exc:
         log.exception("unexpected error")
+        _notify(run_id, stage, exc)
         return 1
     return 0

@@ -1,6 +1,6 @@
 # Data contract — reach
 
-> **Status:** draft v0.4 (3 Nov 2026), from `implementation_plan.md` §3. Binding for the tables
+> **Status:** draft v0.5 (4 Nov 2026), from `implementation_plan.md` §3. Binding for the tables
 > and files exchanged between pipeline and API once a phase implements them; every change needs
 > confirmation (AGENTS.md) and a data-contract test. Tables marked *(planned, Pn)* do not exist yet.
 
@@ -15,7 +15,18 @@ Conventions:
 - Derived values (classes, deficits, district shares) are views; the pipeline stores raw counts
   and times only (AGENTS.md rule 5).
 
-## Schema `meta` *(planned, P4)*
+## Roles *(implemented, P4: `infra/db/roles.sql`)*
+
+| Role | Rights |
+|---|---|
+| `pipeline_write` | `publish`/`cleanup`: creates and drops `run_<id>` schemas, owns the `current` views, reads and writes `meta.runs` and `meta.data_sources` |
+| `app_read` | API: `SELECT` on `current.*`, `meta.runs`, `meta.data_sources`; no access to `run_<id>` schemas |
+| `supervisor_read` | `SELECT` on `current.*`, `meta.*` tables and every `run_<id>` schema (default privileges) |
+
+Roles, passwords (from `.env`) and migrations are applied by `python -m reach_pipeline migrate`
+(`make migrate`) as the superuser (`DATABASE_URL_ADMIN`).
+
+## Schema `meta` *(implemented, P4: `infra/db/migrations/0001_meta.sql`)*
 
 ### `meta.runs`
 
@@ -42,11 +53,22 @@ Conventions:
 | `checksum` | `text` | no | SHA-256 of the downloaded file |
 | `licence` | `text` | no | From config |
 
-PK (`run_id`, `source`).
+PK (`run_id`, `source`); rows are deleted with their run (`ON DELETE CASCADE`).
 
-## Schema `run_<id>` and views `current.*` *(planned, P4)*
+### `meta.schema_migrations`
 
-`current.<name>` is a view on `run_<id>.<name>` of the latest published run.
+| Column | Type | Null | Description |
+|---|---|---|---|
+| `version` | `text` PK | no | File name of an applied migration without `.sql`, e.g. `0001_meta` |
+| `applied_at` | `timestamptz` | no | |
+
+Created by `migrate` itself; `cleanup` deletes the `meta.runs` rows (and with them the
+`meta.data_sources` rows) of the runs whose schema it drops.
+
+## Schema `run_<id>` and views `current.*` *(implemented, P4: `infra/db/run_schema.sql`)*
+
+`current.<name>` is a view (`SELECT *`) on `run_<id>.<name>` of the latest published run; `publish`
+replaces all of them in one transaction.
 
 | Table / view | Grain | Columns (type, null) | Key |
 |---|---|---|---|
@@ -56,15 +78,15 @@ PK (`run_id`, `source`).
 | `facilities` | facility | `facility_id` text (`n123`/`w456`/`r789`), `category` text, `name` text null, `geom` Point | (`facility_id`, `category`) |
 | `facility_points` | routing point of a facility | `facility_id` text, `point_id` integer, `kind` text (`node`, `representative`, `access`), `geom` Point | (`facility_id`, `point_id`) |
 | `stops` | GTFS stop | `stop_id` text, `name` text, `weekday_departures` integer, `geom` Point | `stop_id` |
-| `profiles` | profile | `profile_id` text, `costing` text, `costing_options` jsonb, `speed_kmh` double, `time_budget_min` double | `profile_id` |
-| `access_counts` | cell × category × profile | `cell_id` text, `category` text, `profile_id` text, `count` integer, `nearest_min` double null | (`cell_id`, `category`, `profile_id`) |
+| `profiles` | profile | `profile_id` text, `costing` text, `costing_options` jsonb (options exactly as sent to Valhalla, incl. `walking_speed`/`cycling_speed`), `speed_kmh` double, `time_budget_min` double (facility budget) | `profile_id` |
+| `access_counts` | cell × category × profile | `cell_id` text (FK `cells`), `category` text, `profile_id` text (FK `profiles`), `count` integer, `nearest_min` double null | (`cell_id`, `category`, `profile_id`) |
 | `transit_supply` | cell × walking/wheelchair profile | `cell_id` text, `profile_id` text, `departures` integer, `stops_count` integer, `nearest_stop_min` double null | (`cell_id`, `profile_id`) |
 | `thresholds` | category or transit class | `category` text (`transit` for transit classes), `k` integer null, `class` text null, `lower` integer null, `upper` integer null | unique (`category`, `class`) `NULLS NOT DISTINCT` (`class` is null on category rows, so no PK) |
 | `scores` (view) | cell × category × profile | `access_counts` columns + `class` text (`lack`, `insufficient`, `sufficient`), `deficit` double | as `access_counts` |
-| `transit_scores` (view) | cell × profile | `cell_id`, `profile_id`, `class` text (`lack`, `insufficient`, `medium`, `high`) | (`cell_id`, `profile_id`) |
-| `district_scores` (mat. view) | district × category × profile | `share_lack`, `share_insufficient`, `share_sufficient` double, `deficit_sum` double, `residents_lack` integer | (`district_id`, `category`, `profile_id`) |
-| `recommendations` *(P7)* | candidate × category × profile | `rank` integer, `population_gain` double, `geom` Polygon | (`category`, `profile_id`, `rank`) |
-| `validation_report` | check | `check` text, `stage` text, `status` text (`ok`, `warn`, `fail`), `value` double null, `message` text | (`stage`, `check`) |
+| `transit_scores` (view) | cell × profile | `cell_id`, `profile_id`, `class` text (`lack`, `insufficient`, `medium`, `high`; bounds inclusive) | (`cell_id`, `profile_id`) |
+| `district_scores` (mat. view) | district × category × profile | `district_id`, `category`, `profile_id` text, `share_lack`, `share_insufficient`, `share_sufficient` double (of the district's residents), `deficit_sum` double, `residents_lack` integer; cells without district left out; refreshed by `publish` | (`district_id`, `category`, `profile_id`), unique index |
+| `recommendations` *(planned, P7)* | candidate × category × profile | `rank` integer, `population_gain` double, `geom` Polygon | (`category`, `profile_id`, `rank`) |
+| `validation_report` | check | `check` text, `stage` text, `status` text (`ok`, `warn`, `fail`), `value` double null, `message` text; rows of report parts 1 (`validate`) and 2 (`validate_results`) | (`stage`, `check`) |
 
 `cells.cell_id` is the Zensus `GITTER_ID_100m` (EPSG:3035 grid id, e.g. `CRS3035RES100mN2822200E4250500`; verified 2 Nov 2026);
 the `cells` table holds only scored cells (C12): every populated cell whose centre lies inside the
@@ -124,7 +146,7 @@ osmium intermediates in `validate/osm/`.
 | `stages` | `stage`, `runtime_s`, `peak_rss_mb` for `acquire` and `validate` |
 | `steps` | `step`, `runtime_s`, `peak_rss_mb` (high-water mark so far) within `validate` |
 
-The Markdown file renders the same content. Part 2 (`validate_results`) follows in P4.
+The Markdown file renders the same content. Part 2: see `validate_results/` below.
 
 ### `tiles/` *(implemented, P3)*
 
@@ -151,6 +173,27 @@ Plain Parquet (no geometry), columns and types as in the run schema above:
 `nearest_min` is only stored up to the budget: beyond it the straight-line prefilter does not
 guarantee that the nearest facility was among the matrix targets.
 
+### `score/` *(implemented, P4)*
+
+`thresholds.parquet`: the `thresholds` table of the run (category rows with `k`; transit rows with
+`category = 'transit'`, `class`, `lower`, `upper`), nullable integers.
+
+### Validation report part 2: `validate_results/report_results.json` + `.md` *(implemented, P4)*
+
+| Key | Content |
+|---|---|
+| `run_id`, `stage`, `status` (`ok`/`fail`), `generated_at`, `runtime_s`, `peak_rss_mb` | |
+| `checks` | rows of `validation_report`: `access_counts_complete`, `transit_supply_complete`, `value_ranges`, `thresholds_cover_categories`, `class_totals`, `monotonic_<higher>_ge_<lower>` (value = share of violating cells), `sample_cells` |
+| `summary` | `residents_scored`; `access` {profile: {category: `share_lack`, `share_insufficient`, `share_sufficient`, `residents_lack`, `deficit_sum`}}; `transit` {profile: {class: share of residents}} |
+| `samples` | per `count.evidence.sample_points` point: nearest `cell_id`, `district_id`, `population`, `values` {`profile/category`: `count`, `class`, `deficit`} |
+
+Any `fail` stops the pipeline before `publish`.
+
+### `publish/manifest.json` *(implemented, P4)*
+
+`outputs` name the loaded tables as `postgis:run_<id>.<table>` (plus `meta.data_sources`) with
+their row counts.
+
 ## Change log
 
 | Version | Date | Change | Why |
@@ -159,3 +202,4 @@ guarantee that the nearest facility was among the matrix targets.
 | v0.2 | 2026-11-02 | `data_sources.parquet`, `validate` layers and report part 1 | P2 acquire + validate |
 | v0.3 | 2026-11-02 | `cells` = all populated cells inside the city boundary; routing area around the city; report coverage keys (`scored_share`, `excluded_by_district`, …) | Architecture v0.12, O11 |
 | v0.4 | 2026-11-03 | `tiles/` and `count/` files (`access_counts`, `transit_supply`, `stops` with `weekday_departures`, reports); `nearest_min` only within the budget | P3 tiles + count |
+| v0.5 | 2026-11-04 | Roles, `meta` and run schema implemented (`infra/db/`); `meta.schema_migrations`; `profiles.costing_options` = options as sent to Valhalla; FKs of `access_counts`/`transit_supply`; `district_scores` details; `score/`, report part 2 and `publish` manifest files | P4 score + publish + cleanup |
