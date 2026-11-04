@@ -8,11 +8,13 @@ where new facilities would help the most people.
 Course project for **DS500 Data Science Project** (M.Sc. Data Science in Business and Economics,
 University of Tübingen, winter term 2026/27), Topic 9 "The 15-Minute City".
 
-> **Status: phase P3.** The local stack (PostGIS, Valhalla, API and web placeholders),
-> configuration, CI and the pipeline up to counting exist: `acquire` downloads OSM, GTFS and
-> Zensus data, `validate` turns them into checked layers, `make refresh` builds the Valhalla
-> routing graph, and `count` computes reachable facilities per cell, category and profile plus
-> public transport departures. Scoring, the database and the map are being built; progress:
+> **Status: phase P4.** The local stack (PostGIS, Valhalla, API and web placeholders),
+> configuration, CI and the whole pipeline except the recommender exist: `acquire` downloads OSM,
+> GTFS and Zensus data, `validate` turns them into checked layers, `make refresh` builds the
+> Valhalla routing graph, `count` computes reachable facilities per cell, category and profile
+> plus public transport departures, `validate_results` checks the results, and `publish` loads
+> each validated run into PostGIS and switches the `current` views to it. The API, the map and
+> the recommender are being built; progress:
 > [`docs/implementation_plan.md`](docs/implementation_plan.md).
 
 ## What it does
@@ -50,14 +52,14 @@ with Docker Compose on one small server. Details: [`docs/architecture.md`](docs/
 | `AGENTS.md`, `CLAUDE.md` | Rules for coding agents | ✅ |
 | `CONTRIBUTING.md` | Branches, commits, pull requests, releases | ✅ |
 | `CHANGELOG.md` | Change history | ✅ |
-| `pipeline/` | Data pipeline (Python, uv workspace member): stages `acquire`, `validate`, `tiles`, `count`; later stages planned | partial |
+| `pipeline/` | Data pipeline (Python, uv workspace member): stages `acquire`, `validate`, `tiles`, `count`, `score`, `validate_results`, `publish`, `cleanup`; `recommend` planned | partial |
 | `api/` | FastAPI backend (Python, uv workspace member): health endpoint | placeholder |
 | `web/` | React + MapLibre frontend | planned |
 | `config/` | Study area, profiles, categories, thresholds (`config.yaml`), test clip, Valhalla service config (`valhalla.json`) | ✅ |
-| `infra/` | Caddyfile and placeholder page; Dockerfiles, DB roles, scheduler planned | partial |
+| `infra/` | Caddyfile and placeholder page; `db/`: roles, migrations, run schema template; Dockerfiles, scheduler planned | partial |
 | `Makefile`, `compose.yaml`, `.env.example` | Local stack (incl. Valhalla and its one-shot tile build) and command wrappers | ✅ |
 | `tests/integration/` | Golden travel times against a local Valhalla on the test clip | ✅ |
-| `.github/` | CI (lint + tests), PR template, CODEOWNERS | ✅ |
+| `.github/` | CI (lint + tests; PostGIS data-contract test), PR template, CODEOWNERS | ✅ |
 
 ## Getting started
 
@@ -78,10 +80,12 @@ make lint               # ruff check + format check
 
 cp .env.example .env    # then replace every "change-me"
 make up                 # start PostGIS, API, Caddy (+ Valhalla once tiles exist); http://127.0.0.1:8080
+make migrate            # once: DB roles (passwords from .env), meta schema, migrations
 make refresh            # new run: acquire (~350 MB) → validate → build Valhalla tiles if the
                         # clipped OSM changed → swap + restart Valhalla → tiles verify → count
+                        # → score → validate_results → publish → cleanup
 make pipeline STAGE=count     # one stage against the running Valhalla (latest run)
-make pipeline           # all implemented stages without a tile rebuild; later ones are skipped
+make pipeline           # all implemented stages without a tile rebuild; recommend is skipped
 make down               # stop the stack
 ```
 
@@ -92,14 +96,20 @@ grows with the highest OSM node ID); see the risks in the implementation plan.
 
 Outputs of a run: `data/runs/<run_id>/validate/report_inputs.md` (input checks),
 `count/access_counts.parquet`, `count/transit_supply.parquet` and `count/report_count.json`
-(runtime, matrix sizes, prefilter evidence). The tile build (`valhalla-build`, official Valhalla
+(runtime, matrix sizes, prefilter evidence), `validate_results/report_results.md` (result
+checks, residents per class, sample cells). `publish` loads the run into the PostGIS schema
+`run_<id>` and points the `current` views (`scores`, `transit_scores`, `district_scores`, …) at
+it in one transaction; `cleanup` keeps the last 3 published runs (schemas and `data/` folders).
+`make` passes `.env` to the pipeline; set `DATABASE_URL_ADMIN` there for `make migrate`. The tile build (`valhalla-build`, official Valhalla
 image) downloads elevation tiles once into `data/valhalla/elevation/`; tiles are swapped with
 `mv`, the previous ones kept as `valhalla_tiles.prev.tar`. A full count of Tübingen takes about
 3.5 minutes on a laptop; Valhalla then holds up to ~3 GB of RAM (`docs/notes.md` N4).
 
 Test clip: `make refresh REACH_CONFIG=config/test_clip.yaml` (own data and tile directory under
 `data/test_clip/`, tiles without elevation), then `uv run pytest -m integration` runs the golden
-travel-time tests against it. Switching back: `make up` (or `make refresh`) with the default
+travel-time tests against it. The test clip publishes into the same local database and replaces
+`current`. Database contract tests: `REACH_TEST_DATABASE_URL=postgresql://postgres:<password>@localhost:5432/postgres
+uv run pytest -m db` (creates and drops its own database; CI runs it in the `db-contract` job). Switching back: `make up` (or `make refresh`) with the default
 config. If port 5432, 8002 or 8080 is taken on your machine, change `DB_PORT`, `VALHALLA_PORT` or
 `WEB_PORT` in `.env`.
 

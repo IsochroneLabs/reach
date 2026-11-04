@@ -4,7 +4,8 @@
 > (then architecture v0.11, methodology v0.2). P1 merged (PR #19). P2 implemented (2 Nov 2026,
 > PR #20; N3 decision → architecture v0.12, methodology v0.3). P3 implemented (3 Nov 2026,
 > branch `feature/juju-tiles-count`, full depth: all profiles and categories; open decisions N4,
-> N5, cycling factor). Next: P4. This file is the **handoff between
+> N5, cycling factor). P4 implemented (4 Nov 2026, branch `feature/juju-score-publish`, stacked
+> on P3 draft PR #21, full depth; monotonicity with tolerance, N6). Next: P5. This file is the **handoff between
 > agent sessions**: phase status, decisions, agreed deviations, measured numbers and next steps.
 > It is informative; `architecture.md` and `methodology.md` stay binding. Where this plan proposes
 > something that differs from them, it is listed in [Section 5](#5-conflicts-gaps-and-ambiguities)
@@ -20,7 +21,7 @@
 | P1 | Scaffold & tooling | `feature/rico-scaffold` | [x] draft PR #19 (stacked on #17), CI green | 6 Nov |
 | P2 | acquire + validate inputs | `feature/rico-acquire-validate` | [x] draft PR #20 (interim depth; test-clip script open) | 11 Nov |
 | P3 | tiles + count | `feature/juju-tiles-count` | [x] implemented 3 Nov (full depth; draft PR) | 16 Nov |
-| P4 | score + publish + cleanup | `feature/rico-score-publish` | [ ] | 19 Nov |
+| P4 | score + publish + cleanup | `feature/juju-score-publish` | [x] implemented 4 Nov (full depth; draft PR stacked on #21) | 19 Nov |
 | P5 | API | `feature/rico-api` | [ ] | 21 Nov |
 | P6 | Web | `feature/rico-web` | [ ] | 24 Nov |
 | — | **Interim demo (local), `v0.1.0`** | release PR `dev` → `main` on request | [ ] | 25 Nov |
@@ -128,7 +129,7 @@ code is profile/category generic, so the full run is a config change.
 | `infra/db/migrations/0001_meta.sql` … | `meta.runs`, `meta.data_sources`; plain numbered SQL files applied by a small `migrate` command (no new framework) |
 | `infra/db/run_schema.sql` | template for `run_<id>`: tables, indexes (GiST on geometries), `scores` / `transit_scores` views, `district_scores` materialized view |
 | `stages/score.py` | thresholds from config → `thresholds.parquet`; no derived score tables (§7) |
-| `stages/validate_results.py` | report part 2: monotonicity: hard fail only on 5.0 km/h ≥ 3.39 km/h counts (same costing, only speed differs); cycling ≥ walking and wheelchair ≤ walking 3.39 are reported as share of violating cells with a tolerance (costings differ, so no guarantee); totals (residents in classes = scored residents), sample checks, fail → no publish |
+| `stages/validate_results.py` | report part 2: monotonicity: hard fail only on 5.0 km/h ≥ 3.39 km/h counts (same costing, only speed differs); cycling ≥ walking and wheelchair ≤ walking 3.39 are reported as share of violating cells with a tolerance (costings differ, so no guarantee); totals (residents in classes = scored residents), sample checks, fail → no publish. *Changed in P4 (Juju, 4 Nov 2026):* 5.0 ≥ 3.39 is not guaranteed either (Valhalla routes by cost, N6), so it fails only above a share of violating cells (`validation.results.monotonic`) |
 | `stages/publish.py` | `COPY` into new schema `run_<id>` in one transaction, then `CREATE OR REPLACE VIEW current.*` in one transaction; `meta.runs` status; failure webhook if `FAILURE_WEBHOOK_URL` is set |
 | `stages/cleanup.py` | keep last 3 published runs (schemas, `data/raw/<run_id>/` and `data/runs/<run_id>/`) |
 | tests | SQL contract test against a disposable PostGIS (`integration` marker, also run in CI as a service container if Q4/infra allows), scores view against hand-computed classes/deficits |
@@ -318,6 +319,12 @@ Confirmed by Rico (2 Nov 2026): C6–C12 as recommended in Section 5; Q4 also co
 | 2026-11-03 | P3 finding (O20) | Prefilter evidence: no reachable facility beyond the prefilter reach for any profile (4 sample blocks per run; 25-block experiment for walking 3.39 and cycling). Implied speed ÷ profile speed is high only for short pairs (snap distance not counted: up to 5–6 for < 60 s, 1.41 for cycling at 60–180 s) and ≤ 1.017 (walking) / 1.008 (cycling) for 600–900 s. Walking/wheelchair margin stays 0 (O20). Cycling factor: proposal open (keep 1.0 or 1.05, ask first) |
 | 2026-11-03 | P3 finding (VF3) | Valhalla memory grows per worker thread and is not released (N4) |
 
+| 2026-11-04 | P4 branch and base | `feature/juju-score-publish` (Juju drives), stacked on `feature/juju-tiles-count` because P3 (#21) is not merged yet; rebase onto `dev` after the merge (Juju) |
+| 2026-11-04 | P4 answers (Juju) | Full depth (real `cleanup`, full report part 2); `DATABASE_URL_ADMIN` in `.env` for `migrate` (`make migrate`, and first step of `publish` when set); PostGIS data-contract test as CI job `db-contract` with a service container, documented |
+| 2026-11-04 | P4 deviation (Juju) | Monotonicity 5.0 ≥ 3.39 km/h fails 6 of 1,699 cells on real data (steps avoided at higher speed, N6) → tolerance check instead of hard fail: warn > 0, fail > 1 % of cells; cycling ≥ walking 3.39 and walking 3.39 ≥ wheelchair warn > 5 %, never fail |
+| 2026-11-04 | P4 assumptions | `migrate` = CLI command (`python -m reach_pipeline migrate`), not a stage; `roles.sql` re-applied every time, migrations once (`meta.schema_migrations`, new table in the contract); role passwords only set when their `*_PASSWORD` variable is present. Privileges: `app_read` reads `current.*` and `meta` only (view-owner rights cover the run tables), `supervisor_read` every run schema via default privileges, `pipeline_write` owns `current` and the run schemas. `current` views `SELECT *`; current run found via `pg_depend` of `current.cells`. Re-publishing the current run: load + switch in one transaction (the `DROP SCHEMA … CASCADE` would otherwise drop the views first). `meta.runs` row upserted as `running` before the load; `failed` on a DB error unless already published. `profiles.costing_options` = the options as sent to Valhalla (incl. speed). Districts/urban boundary forced to MultiPolygon. Failure webhook in the CLI for every stage (not only `publish`, arch. §11 "a failed run posts"), body `{"text": …}`. `cleanup`: deletes runs older than the oldest kept published run (schemas, `meta.runs` rows, `data/raw/<id>/`, `data/runs/<id>/`), never the current run or newer unpublished runs; nothing with ≤ 3 published runs. Report part 2 sample cells = nearest cells to `count.evidence.sample_points`. `make` passes `.env` via `uv run --env-file` |
+| 2026-11-04 | P4 conflict (reported) | AGENTS.md rule 6 "only `publish` writes to PostGIS" vs. arch. §7: `cleanup` drops old run schemas → implemented as in the architecture; AGENTS.md wording to be aligned (ask) |
+
 Measured numbers (runtime, peak memory, counts) are added here at the end of every phase.
 
 | Phase | Measurement (MacBook arm64, Docker 29.9.2) | Value |
@@ -349,6 +356,13 @@ Measured numbers (runtime, peak memory, counts) are added here at the end of eve
 | P3 | Other services idle (`docker stats`): db / api / caddy | 32 MB / 482 MB / 18 MB |
 | P3 | Results (walking 3.39): residents with ≥ 1 facility within 15 min — grocery / pharmacy / doctors / childcare / school / parks | 67 % / 57 % / 83 % / 94 % / 71 % / 98 %; transit: 1.3 % of residents without departures within 10 min (median 364 departures per cell) |
 | P3 | `uv run pytest` (macOS and Linux container) | 132 passed; `uv run pytest -m integration` on the clip tiles: 5 passed (1 of 5 fails on the Tübingen tiles with elevation, N5) |
+| P4 | `make pipeline` (new run `20261104T202436Z`, all stages, count recomputed): total | 3 min 46 s; acquire 4.3 s, validate 8.0 s, tiles verify 0.04 s, count 211 s, score < 0.01 s, validate_results 0.14 s, publish 0.89 s, cleanup 0.01 s |
+| P4 | `publish` alone (re-publish of the current run): runtime / peak RSS | 0.89 s / 185 MB; 40,776 access rows, 5,097 transit rows, 1,699 cells, 935 facilities, 907 stops |
+| P4 | PostGIS: database size with one run / container peak during 4 publishes (`docker stats`) | 31 MB / 200 MB (Valhalla 3.1 GB during count, N4) |
+| P4 | Report part 2 (walking 3.39): residents lacking grocery / pharmacy / school | 32.8 % / 42.9 % / 29.1 % (grocery insufficient 26.2 %); monotonicity: 5.0 < 3.39 in 6 cells (0.35 %, warn), wheelchair > walking 3.39 in 107 cells (6.3 %, warn), cycling < walking 3.39 in 0 |
+| P4 | Hand check of `current.scores` as `app_read` (7 cells incl. 3 "insufficient", all profiles × categories) | 168 rows, 0 mismatches |
+| P4 | Cleanup demo (separate DB `reach_demo`, 4 cloned runs published) | 3 schemas, 3 `meta.runs` rows, 3 run and raw folders left |
+| P4 | `uv run pytest` / `uv run pytest -m db` (local PostGIS 18-3.6) | 161 passed / 10 passed (a broken `scores` view fails 4 of them) |
 
 ## 8. Next steps
 
@@ -366,7 +380,15 @@ Measured numbers (runtime, peak memory, counts) are added here at the end of eve
    N5 (walking times include slopes: architecture/methodology wording, G1); fresh-agent review
    before the PR leaves draft; count caching across runs (C10) when P4 needs it; the golden pairs
    need a manual map check (PR).
-5. Open from P1: Starlette deprecates `httpx` for `TestClient` (warning); adding `httpx2` as a
+5. ~~P4~~ — implemented 4 Nov 2026 (`feature/juju-score-publish`, stacked on #21). Open from P4:
+   rebase onto `dev` after #21 is merged and re-run checks; fresh-agent review before the PR
+   leaves draft; N6 (cause of the monotonicity violations, methodology wording); count caching
+   across runs (C10): every config change, also a threshold or a validation key, invalidates the
+   `count` manifest and re-routes (3.5 min) — needed before thresholds are tuned (M2);
+   `publish` is a no-op when its manifest is up to date even if the database lost the schema
+   (delete `publish/manifest.json` to force); align AGENTS.md rule 6 with `cleanup` (ask);
+   add `DATABASE_URL_ADMIN` to existing local `.env` files.
+6. Open from P1: Starlette deprecates `httpx` for `TestClient` (warning); adding `httpx2` as a
    dev dependency is deferred to P5 (Rico, 2 Nov 2026). The pytest-asyncio loop-scope warning is
    fixed (`asyncio_default_fixture_loop_scope = "function"`).
 

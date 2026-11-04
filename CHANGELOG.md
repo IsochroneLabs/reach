@@ -70,8 +70,31 @@ adds a line under `Unreleased`.
 - `docs/notes.md` N4 (Valhalla memory per worker thread) and N5 (walking times depend on slopes
   when tiles carry elevation); data contract v0.4 (`tiles/`, `count/` files); glossary: block,
   prefilter evidence.
+- P4 database: `infra/db/roles.sql` (`pipeline_write`, `app_read`, `supervisor_read`, default
+  privileges), `infra/db/migrations/0001_meta.sql` (`meta.runs`, `meta.data_sources`, schema
+  `current`), `infra/db/run_schema.sql` (run tables with GiST indexes, `scores` and
+  `transit_scores` views, `district_scores` materialized view); `python -m reach_pipeline
+  migrate` / `make migrate` (roles, passwords from `.env`, numbered migrations recorded in
+  `meta.schema_migrations`).
+- P4 pipeline stages `score` (`thresholds.parquet`), `validate_results` (validation report
+  part 2: completeness, value ranges, thresholds, class totals, monotonicity between profiles,
+  sample cells), `publish` (COPY into `run_<id>` in one transaction, then all `current` views in
+  one transaction; `meta.runs` status) and `cleanup` (keeps the last 3 published runs: schemas,
+  `data/raw/<run_id>/`, `data/runs/<run_id>/`).
+- Failure webhook: a failed stage posts to `FAILURE_WEBHOOK_URL` if set.
+- Config: `validation.results.monotonic` (warn/fail share per profile pair), `database`
+  (`sql_dir`, connection retries), `cleanup.keep_published_runs`; category id `transit` reserved.
+- PostGIS data-contract tests (marker `db`, `REACH_TEST_DATABASE_URL`) and CI job `db-contract`
+  with a PostGIS service container.
+- `.env.example`: `DATABASE_URL_ADMIN`, `REACH_TEST_DATABASE_URL`; data contract v0.5;
+  `docs/notes.md` N6 (faster walking can reach fewer facilities: Valhalla routes by cost);
+  glossary: validation report, monotonicity check, published run, migration.
 
 ### Changed
+- `make pipeline`/`make refresh` pass `.env` to the pipeline (`uv run --env-file`) and run all
+  stages up to `cleanup`; `recommend` (P7) is the only stage still logged as skipped.
+- Monotonicity 5.0 ≥ 3.39 km/h is checked with a tolerance instead of failing on any violation
+  (implementation plan P4, decision by Juju; `docs/notes.md` N6).
 - Valhalla is part of `make up` once tiles exist (Compose profile `routing` removed); it runs
   with 2 worker threads and serves `$VALHALLA_DIR` (`<data_dir>/valhalla`).
 - Scoring scope = every populated cell whose centre lies inside the city boundary (was: urban
