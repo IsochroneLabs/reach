@@ -21,7 +21,7 @@
 | P1 | Scaffold & tooling | `feature/rico-scaffold` | [x] draft PR #19 (stacked on #17), CI green | 6 Nov |
 | P2 | acquire + validate inputs | `feature/rico-acquire-validate` | [x] draft PR #20 (interim depth; test-clip script open) | 11 Nov |
 | P3 | tiles + count | `feature/juju-tiles-count` | [x] implemented 3 Nov (full depth; draft PR) | 16 Nov |
-| P4 | score + publish + cleanup | `feature/juju-score-publish` | [x] implemented 4 Nov (full depth; draft PR stacked on #21) | 19 Nov |
+| P4 | score + publish + cleanup | `feature/juju-score-publish` | [x] implemented 4 Nov (full depth; draft PR #22 stacked on #21, CI green) | 19 Nov |
 | P5 | API | `feature/rico-api` | [ ] | 21 Nov |
 | P6 | Web | `feature/rico-web` | [ ] | 24 Nov |
 | — | **Interim demo (local), `v0.1.0`** | release PR `dev` → `main` on request | [ ] | 25 Nov |
