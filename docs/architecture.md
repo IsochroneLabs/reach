@@ -1,6 +1,6 @@
 # Architecture — reach (15-Minute City Tübingen)
 
-> **Status:** draft v0.14 (5 Nov 2026). Describes the target architecture the team builds towards.
+> **Status:** draft v0.15 (5 Nov 2026). Describes the target architecture the team builds towards.
 > Every change bumps the version and adds a line to the [Change log](#change-log).
 > Settled and open decisions are listed in [Section 13](#13-decisions); items marked **[OPEN]**
 > must be settled before the related code is written. Methodology (categories, thresholds,
@@ -253,6 +253,10 @@ The server has 4 GB RAM, so every Valhalla call must be cheap. Rules:
    in the block, targets = all facilities within block bbox + prefilter reach. Fewer, larger
    requests instead of one request per cell; block size is tuned to the matrix limits in
    `config/valhalla.json`.
+   Every matrix request uses `costmatrix` (`thor.source_to_target_algorithm`; Valhalla 3.9.1
+   selects the algorithm only in the service config, not per request). `select_optimal` would
+   answer single-cell blocks and one-source requests with `timedistancematrix`, which misses
+   wheelchair routes that `/route` finds (notes N8).
 3. **Prefilter by profile (O20).** Prefilter reach = speed × speed factor × time budget + margin
    (6.3). Facilities outside are never sent.
 4. **Compact responses.** Request only time (and distance if needed); use the compact matrix
@@ -260,7 +264,8 @@ The server has 4 GB RAM, so every Valhalla call must be cheap. Rules:
 5. **Parallel, bounded.** Async client with a concurrency limit equal to Valhalla's worker
    threads; retries on timeouts.
 6. **Same requests serve several outputs.** The counting matrix also yields nearest-facility
-   times and the stop list for transit supply, so no separate pass is needed.
+   times, the reachable facilities per cell with their times (`reachable`) and the stop list
+   for transit supply, so no separate pass is needed.
 7. **Recommender catchments in blocks.** Candidates are processed in groups: sources = cells near
    the group, targets = all candidates of the group, one request per group.
 
@@ -269,16 +274,15 @@ The server has 4 GB RAM, so every Valhalla call must be cheap. Rules:
 8. **Answer from precomputed data first.** The pin-drop inspector snaps the pin to the 100 m
    Zensus grid cell under it (id computed from EPSG:3035) and returns that cell's precomputed
    counts, nearest times and classes from PostGIS (identical to the map). Valhalla is only
-   called for what cannot be precomputed: the isochrone polygon, **one matrix** from the origin
-   to all facility routing points within the prefilter reach (O20; all categories in one
-   request, with the published run's costing options), which gives the reachable facilities
-   per category with times and the nearest one, and the route lines to the nearest facility
-   per category. **All of them start from the cell's origin point** (the cell centre), not
-   from the raw click position, so polygon, routes and counts always describe the same start
-   and can be cached per cell. This also holds for grid cells without residents (parks,
-   fields): the pin snaps to that cell's centre, the answer says that no precomputed values
-   exist there, and it is cached the same way. Live counts are compared with the precomputed
-   ones and differences are only logged (the map shows the precomputed values).
+   called for what cannot be precomputed: the isochrone polygon and the route lines to the
+   nearest facility per category. For scored cells the reachable facilities with times and
+   the nearest one come from `current.reachable` (written by `count` from the same matrix),
+   so the inspector matches the map by construction. Only grid cells without residents get
+   one live matrix (`costmatrix`, the run's costing, prefilter O20), marked as live. **All
+   calls start from the cell's origin point** (the cell centre), not from the raw click
+   position, so polygon, routes and counts always describe the same start and can be cached
+   per cell; this also holds for grid cells without residents (parks, fields), whose answer
+   says that no precomputed values exist there.
 9. **One isochrone call for all rings.** 5, 10 and 15 minutes are requested as contours in a single
    call, with `generalize` and `denoise` set to keep polygons small.
 10. **Cache by cell.** Live isochrones and catchments are cached per (cell, profile); repeated
@@ -361,6 +365,7 @@ pipeline and API):
 | `facilities` | facility | `facility_id` (OSM type/id), `category`, `name`, `geom` |
 | `stops` | GTFS stop | `stop_id`, `weekday_departures`, `geom` |
 | `access_counts` | cell × category × profile | `count`, `nearest_min` |
+| `reachable` | cell × profile × facility within the budget | `time_s` (matrix time, the list behind `count`) |
 | `transit_supply` | cell × profile (walking and wheelchair only) | `departures` (raw sum on the reference weekday), `stops_count`, `nearest_stop_min` |
 | `thresholds` | category (and transit class) | `k`, class bounds — copied from config at publish |
 | `scores` (**view**) | cell × category × profile | `class`, `deficit`, computed from `access_counts` + `thresholds` |
@@ -549,6 +554,7 @@ documented here in the same branch (see `AGENTS.md`).
 
 | Version | Date | Change | Why |
 |---|---|---|---|
+| v0.15 | 2026-11-05 | §6.5 rule 2: every matrix uses `costmatrix` (service config); rule 6: `count` also yields `reachable`; rule 8: inspector lists reachable facilities from `current.reachable`, live matrix only for grid cells without residents; §8: `reachable` table | N8: `select_optimal` mixed two algorithms (2.5 % of live/precomputed pairs differed; `timedistancematrix` misses wheelchair routes); N7 settled; confirmed by Rico (variant C) |
 | v0.14 | 2026-11-05 | §6.5 rule 8: inspector snaps every point (also unpopulated) to its 100 m grid cell and uses one live matrix to all facility points within the prefilter reach; rule 12: points inside a scored cell are accepted too; §9: endpoint descriptions, snapping, cache, rate limit, ETag | P5: the DB stores no nearest facility id (needed for routes, notes N7); 86 scored cells (1,144 residents) lie outside the urban boundary + 100 m (O11); confirmed by Rico (K1, K2) |
 | v0.13 | 2026-11-05 | §7: `cleanup` named next to `publish` as the only other stage touching PostGIS (it drops old run schemas) | The sentence contradicted the §7 stage table and the P4 implementation; aligned with AGENTS.md rule 6 |
 | v0.12 | 2026-11-02 | O11 changed: scoring scope = all populated cells inside the city boundary with a coverage check (≥ 0.98); urban boundary only for map, live check and recommender candidates; O13 buffer around the city boundary; O17 settled (land-use list, ±100 m); §4, §5.2, §13 | P2 showed that the land-use boundary left 8 % of residents (mostly core town) unscored (notes N3) |
