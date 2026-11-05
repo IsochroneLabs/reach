@@ -40,7 +40,11 @@ known-first-party = ["reach_pipeline", "reach_api"]
 [tool.pytest.ini_options]
 testpaths = ["pipeline/tests", "api/tests", "tests/integration"]
 # Integration tests need a local Valhalla on the test clip: `uv run pytest -m integration`.
-addopts = "-q --import-mode=importlib -m 'not integration'"
-markers = ["integration: needs a local Valhalla serving the test clip tiles (tests/integration)"]
+# Database contract tests need a disposable PostGIS: `REACH_TEST_DATABASE_URL=... uv run pytest -m db`.
+addopts = "-q --import-mode=importlib -m 'not integration and not db'"
+markers = [
+    "integration: needs a local Valhalla serving the test clip tiles (tests/integration)",
+    "db: needs a disposable PostGIS superuser URL in REACH_TEST_DATABASE_URL (CI job db-contract)",
+]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"

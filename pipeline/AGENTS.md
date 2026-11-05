@@ -50,6 +50,21 @@ this file adds the stage pattern (note N2) and wins where it is more specific.
   categories and stops, split afterwards (`count.count_block`, `count.transit_block`).
 - **Tiles:** `tiles check` (flag file, no manifest) and `tiles verify` (manifest; also the step of
   `run`). Stages never call Docker; the build, swap and restart are `make refresh` (O19).
+- **Stages after count:** `score` (only `thresholds.parquet`; classes and deficits are SQL views),
+  `validate_results` (report part 2; a `fail` stops the run), `publish`, `cleanup`. `recommend`
+  (P7) goes between `score` and `validate_results`.
+- **Database:** only through `db.py` (psycopg, autocommit connections, every write inside
+  `conn.transaction()`). Only `publish` loads data and `cleanup` drops old run schemas (arch. §7);
+  both connect as `pipeline_write` via `$DATABASE_URL_PIPELINE`. SQL lives in `infra/db/`
+  (`database.sql_dir`): `roles.sql` (re-applied every time), numbered `migrations/NNNN_name.sql`
+  (applied once, recorded in `meta.schema_migrations`; never edit an applied one, add a new file)
+  and `run_schema.sql` (template of `run_<id>`, run with `search_path = run_<id>, public`).
+  `python -m reach_pipeline migrate` (`make migrate`) applies roles and migrations as the
+  superuser (`$DATABASE_URL_ADMIN`); `publish` does it first when that variable is set. A change
+  to tables or views is a data-contract change: update `docs/data_contract.md` and
+  `tests/test_db_contract.py` in the same branch.
+- **Environment:** `make` passes `.env` to the pipeline (`uv run --env-file .env`); a failed
+  stage posts to `$FAILURE_WEBHOOK_URL` if set (`notify.py`, never raises).
 
 ## Tests
 
@@ -60,6 +75,10 @@ this file adds the stage pattern (note N2) and wins where it is more specific.
   requirement locally and in CI).
 - Tests that write files use `tmp_path` and a config copy with `data_dir` inside it
   (see `tests/test_manifest.py`).
+- Database contract tests carry the `db` marker (deselected by default) and need a disposable
+  PostGIS: `REACH_TEST_DATABASE_URL=postgresql://postgres:<pw>@localhost:5432/postgres uv run
+  pytest -m db`. They create and drop their own database; CI runs them in the job `db-contract`
+  with a PostGIS service container.
 - Integration tests against a local Valhalla on the test clip go to `tests/integration/` and
   carry the `integration` marker; they are deselected by default. Run them with the clip tiles
   served: `make refresh REACH_CONFIG=config/test_clip.yaml`, then `uv run pytest -m integration`.

@@ -9,12 +9,14 @@ They apply to every agent session, on behalf of any team member. Humans: see `RE
 of the city of Tübingen, finds underserved areas and recommends sites for new facilities. Course project
 DS500, University of Tübingen. Automation, validation, documentation and a hosted app are graded.
 
-**Status:** P3 — `docs/` (incl. a draft `docs/data_contract.md`), `config/config.yaml`,
-`config/valhalla.json`, `Makefile` (incl. `refresh`), `compose.yaml` (db, valhalla,
-valhalla-build, api placeholder, caddy placeholder), `.github/` (CI) and the pipeline stages
-`acquire`, `validate`, `tiles` and `count` exist; the stages from `score` on, `web/`,
-`compose.prod.yaml` and most of `infra/` are planned. If a
-file, folder or command referenced here does not exist yet, say so; do not invent a substitute.
+**Status:** P4 — `docs/` (incl. a draft `docs/data_contract.md`), `config/config.yaml`,
+`config/valhalla.json`, `Makefile` (incl. `refresh`, `migrate`), `compose.yaml` (db, valhalla,
+valhalla-build, api placeholder, caddy placeholder), `.github/` (CI incl. the PostGIS
+data-contract job), `infra/db/` (roles, migrations, run schema) and the pipeline stages
+`acquire`, `validate`, `tiles`, `count`, `score`, `validate_results`, `publish` and `cleanup`
+exist; `recommend`, the API endpoints, `web/`, `compose.prod.yaml` and the rest of `infra/` are
+planned. If a file, folder or command referenced here does not exist yet, say so; do not invent a
+substitute.
 
 ## Terms and roles
 
@@ -58,6 +60,8 @@ Run from the repository root.
 | Run pipeline | `make pipeline` · single stage: `make pipeline STAGE=count` |
 | Full refresh incl. tile build | `make refresh` (test clip: `make refresh REACH_CONFIG=config/test_clip.yaml`) |
 | Integration tests (local Valhalla on the clip) | `uv run pytest -m integration` |
+| DB contract tests (disposable PostGIS) | `REACH_TEST_DATABASE_URL=<superuser URL> uv run pytest -m db` |
+| DB roles + migrations | `make migrate` (needs `DATABASE_URL_ADMIN` in `.env`) |
 | Frontend | `cd web && npm ci && npm run dev` · checks: `npm run lint && npm run build` |
 | Add Python dependency | `uv add --package pipeline <pkg>` / `--package api` / `--dev` |
 

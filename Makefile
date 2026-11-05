@@ -6,15 +6,17 @@
 STAGE ?= run
 REACH_CONFIG ?= config/config.yaml
 export REACH_CONFIG
-PIPELINE = uv run python -m reach_pipeline
-# Stages after `tiles verify` in `make refresh` (O19); extended as stages are implemented (P4).
-REFRESH_STAGES = count
+# .env (connection strings, passwords, webhook) is passed to the pipeline when it exists;
+# variables already set in the shell or on the make command line win.
+PIPELINE = uv run $(if $(wildcard .env),--env-file .env) python -m reach_pipeline
+# Stages after `tiles verify` in `make refresh` (O19); recommend follows in P7.
+REFRESH_STAGES = count score validate_results publish cleanup
 # data_dir of the selected config; Valhalla tiles live in <data_dir>/valhalla (host bind mount).
 DATA_DIR = $(shell uv run --quiet python -c "from reach_pipeline.config import load_config; print(load_config('$(REACH_CONFIG)').data_dir)")
 VALHALLA_DIR = $(abspath $(DATA_DIR)/valhalla)
 COMPOSE = VALHALLA_DIR=$(VALHALLA_DIR) docker compose
 
-.PHONY: help up down logs pipeline refresh tiles-build test lint format
+.PHONY: help up down logs pipeline migrate refresh tiles-build test lint format
 
 help: ## list targets
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-10s %s\n", $$1, $$2}'
@@ -36,10 +38,13 @@ logs: ## follow the logs of all services
 pipeline: ## run all pipeline stages, or one with STAGE=<name>
 	$(PIPELINE) $(STAGE)
 
+migrate: .env ## create/update DB roles, meta schema and migrations (needs DATABASE_URL_ADMIN)
+	$(PIPELINE) migrate
+
 # Full refresh (O19): new run → tile rebuild only if its inputs changed → swap → restart →
 # verify → remaining stages. Without a rebuild, `up` only makes sure Valhalla serves this
 # config's tiles (no restart if it already does). The systemd timer (P8) calls this target.
-refresh: .env ## acquire, validate, rebuild + swap tiles if needed, restart valhalla, count
+refresh: .env ## acquire, validate, rebuild + swap tiles if needed, restart valhalla, count … cleanup
 	$(PIPELINE) acquire
 	$(PIPELINE) validate
 	$(PIPELINE) tiles check

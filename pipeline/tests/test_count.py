@@ -131,6 +131,10 @@ def stage_ctx(tmp_path: Path) -> RunContext:
     data = yaml.safe_load((REPO / "config" / "config.yaml").read_text(encoding="utf-8"))
     data["data_dir"] = str(tmp_path / "data")
     data["profiles"] = {k: data["profiles"][k] for k in ("walking_339", "cycling_15")}
+    # Monotonicity pairs may only name profiles of the config.
+    data["validation"]["results"]["monotonic"] = [
+        {"higher": "cycling_15", "lower": "walking_339", "warn_above": 0.05, "fail_above": None}
+    ]
     data["count"]["block_size_m"] = 300
     data["valhalla"].update(url="http://valhalla.test", backoff_s=0, max_matrix_pairs=500)
     cfg_path = tmp_path / "config.yaml"

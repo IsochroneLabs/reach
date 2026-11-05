@@ -1,4 +1,5 @@
-# Lint and unit tests on every push and pull request (arch. §11 "CI", §14.1).
+# Lint and unit tests, plus the PostGIS data-contract test, on every push and pull request
+# (arch. §11 "CI", §14.1).
 name: CI
 
 on:
@@ -38,3 +39,36 @@ jobs:
 
       - name: Tests
         run: uv run pytest
+
+  # Data-contract test (docs/data_contract.md): roles, migrations, run schema, views and the
+  # atomic switch of `current` against a disposable PostGIS (same image as compose.yaml).
+  # Tests with the `db` marker only; no Valhalla, no data downloads.
+  db-contract:
+    runs-on: ubuntu-24.04
+    services:
+      postgis:
+        image: imresamu/postgis:18-3.6
+        env:
+          POSTGRES_PASSWORD: ci-only
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      REACH_TEST_DATABASE_URL: postgresql://postgres:ci-only@localhost:5432/postgres
+    steps:
+      - uses: actions/checkout@v7.0.1
+
+      - uses: astral-sh/setup-uv@v10.3.3
+        with:
+          version: "0.13.6"
+          enable-cache: true
+
+      - name: Install workspace (Python from .python-version, locked versions)
+        run: uv sync --frozen
+
+      - name: Data-contract tests
+        run: uv run pytest -m db
