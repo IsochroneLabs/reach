@@ -345,6 +345,13 @@ api:
     timeout_s: 20
     retries: 1
     backoff_s: 0.5
+  # Live matrices (grid cells without residents, catchments): own client, because costmatrix
+  # answers one source slowly (cycling ~2 s) and grows Valhalla's memory (P5, notes N8).
+  live_matrix:
+    concurrency: 1
+    timeout_s: 10
+    retries: 0
+    backoff_s: 0.5
   # app_read connection pool (psycopg_pool).
   db_pool:
     min_size: 1

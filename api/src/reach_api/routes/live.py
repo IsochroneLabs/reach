@@ -3,9 +3,10 @@
 Every point is snapped to the centre of the 100 m Zensus grid cell under it, scored or not, so
 answers are cached per (run, cell, profile) and polygons, routes and counts describe the same
 start (rule 8). The point must lie inside the urban boundary plus a margin or inside a scored
-cell; anything else is rejected before any Valhalla call (rule 12). Live matrices use the costing
-options of `current.profiles` and the prefilter of the count stage (O20), so live counts equal
-the precomputed ones; a difference is only logged.
+cell; anything else is rejected before any Valhalla call (rule 12). Scored cells take their
+reachable facilities from `current.reachable`; live matrices (grid cells without residents,
+catchments) use the costing options of `current.profiles`, the prefilter of the count stage
+(O20) and their own client with the timeout and concurrency of `api.live_matrix`.
 """
 
 from __future__ import annotations
@@ -99,15 +100,44 @@ def _weakest(scores: list[dict[str, Any]]) -> str | None:
     return worst[0]["category"] if worst and worst[0]["class"] != "sufficient" else None
 
 
-async def _reachable(d: Deps, loc: Location, p: Profile) -> dict[str, list[dict[str, Any]]]:
-    """Facilities per category reachable within the budget, nearest first, each with the
-    routing point (`_point`, lon/lat) of its minimum time (one matrix for all categories)."""
+def _by_category(rows: list[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:
+    """Facilities per category, nearest first; `_point` (lon/lat) is the routing target."""
+    by_category: dict[str, list[dict[str, Any]]] = {}
+    for r in rows:
+        by_category.setdefault(r["category"], []).append(
+            {
+                "facility_id": r["facility_id"],
+                "name": r["name"],
+                "time_s": r["time_s"],
+                "time_min": round(r["time_s"] / 60, 2),
+                "_point": (r["lon"], r["lat"]),
+            }
+        )
+    for items in by_category.values():
+        items.sort(key=lambda f: (f["time_s"], f["facility_id"]))
+    return by_category
+
+
+async def _reachable_precomputed(
+    d: Deps, loc: Location, p: Profile
+) -> dict[str, list[dict[str, Any]]]:
+    """Scored cell: the facilities `count` found within the budget (`current.reachable`), so
+    list and count match the map by construction (arch. §6.5 rule 8)."""
+    return _by_category(await d.db.reachable(loc.cell_id, p.profile_id, loc.x, loc.y))
+
+
+async def _reachable_live(d: Deps, loc: Location, p: Profile) -> dict[str, list[dict[str, Any]]]:
+    """Grid cell without residents: one live matrix (`api.live_matrix` timeout and concurrency)
+    from the origin to all facility points within the prefilter reach, all categories at once,
+    with the run's costing and the count stage's prefilter (O20)."""
     rows = await d.db.facility_points_near(loc.x, loc.y, _reach_m(d, p))
     points: dict[tuple[str, int], LonLat] = {}
     for r in rows:
         points.setdefault((r["facility_id"], r["point_id"]), (r["lon"], r["lat"]))
     costing, options = _options(p)
-    times = await d.valhalla.matrix([(loc.lon, loc.lat)], list(points.values()), costing, options)
+    times = await d.live_matrix.matrix(
+        [(loc.lon, loc.lat)], list(points.values()), costing, options
+    )
     time_of = dict(zip(points, times[0] if times else [], strict=True))
     budget_s = p.time_budget_min * 60
     best: dict[tuple[str, str], dict[str, Any]] = {}
@@ -117,27 +147,17 @@ async def _reachable(d: Deps, loc: Location, p: Profile) -> dict[str, list[dict[
             continue
         key = (r["category"], r["facility_id"])
         if key not in best or t < best[key]["time_s"]:
-            best[key] = {
-                "facility_id": r["facility_id"],
-                "name": r["name"],
-                "time_s": t,
-                "time_min": round(t / 60, 2),
-                "_point": (r["lon"], r["lat"]),
-            }
-    by_category: dict[str, list[dict[str, Any]]] = {}
-    for (category, _), f in best.items():
-        by_category.setdefault(category, []).append(f)
-    for items in by_category.values():
-        items.sort(key=lambda f: (f["time_s"], f["facility_id"]))
-    return by_category
+            best[key] = {**r, "time_s": t}
+    return _by_category(list(best.values()))
 
 
 @router.post("/inspect")
 async def inspect(body: Point, d: DepsDep) -> Response:
     """Pin-drop inspector: precomputed values of the cell (identical to the map), the 5/10/15
     minute isochrone, the facilities reachable per category with times and the route to the
-    nearest one per category, all from the cell origin; plus the weakest category. The count per
-    category is the precomputed one for scored cells, the live one only for unscored cells."""
+    nearest one per category, all from the cell origin; plus the weakest category. Scored cells
+    answer from the published run (`source: precomputed`), grid cells without residents from a
+    live matrix (`source: live`)."""
     run = await current_run(d)
     p = run.profile(body.profile)
     loc = await _locate(d, body.lon, body.lat)
@@ -150,7 +170,8 @@ async def _inspect(d: Deps, run: Run, p: Profile, loc: Location) -> dict[str, An
         await d.db.cell_values(loc.cell_id, p.profile_id) if loc.scored else ([], None)
     )
     origin = (loc.lon, loc.lat)
-    isochrone, reachable = await asyncio.gather(_isochrone(d, origin, p), _reachable(d, loc, p))
+    listing = _reachable_precomputed if loc.scored else _reachable_live
+    isochrone, reachable = await asyncio.gather(_isochrone(d, origin, p), listing(d, loc, p))
     costing, options = _options(p)
     categories = sorted(run.categories)
     routes = await asyncio.gather(
@@ -162,12 +183,13 @@ async def _inspect(d: Deps, run: Run, p: Profile, loc: Location) -> dict[str, An
     )
     route_of = dict(zip([c for c in categories if c in reachable], routes, strict=True))
     precomputed = {s["category"]: s for s in scores}
-    _log_mismatch(run, loc, p, precomputed, reachable)
+    source = "precomputed" if loc.scored else "live"
     names = {c.id: c.name for c in d.config.categories}
     return {
         "run_id": run.run_id,
         "profile_id": p.profile_id,
         "cell": _cell(loc),
+        "source": source,
         "precomputed": ({"categories": scores, "transit": transit} if loc.scored else None),
         "weakest_category": _weakest(scores),
         "isochrone": isochrone,
@@ -175,10 +197,9 @@ async def _inspect(d: Deps, run: Run, p: Profile, loc: Location) -> dict[str, An
             {
                 "category": c,
                 "name": names.get(c, c),
-                # Scored cells show the published count (identical to the map); the live
-                # matrix only lists the facilities with times (differences: notes N8).
+                # Scored cells: count and list from the run (equal by construction).
                 "count": precomputed[c]["count"] if c in precomputed else len(reachable.get(c, [])),
-                "count_source": "precomputed" if c in precomputed else "live",
+                "count_source": source,
                 "reachable": [
                     {k: v for k, v in f.items() if k != "_point"} for f in reachable.get(c, [])
                 ],
@@ -187,27 +208,6 @@ async def _inspect(d: Deps, run: Run, p: Profile, loc: Location) -> dict[str, An
             for c in categories
         ],
     }
-
-
-def _log_mismatch(
-    run: Run,
-    loc: Location,
-    p: Profile,
-    precomputed: dict[str, dict[str, Any]],
-    reachable: dict[str, list[dict[str, Any]]],
-) -> None:
-    for category, s in precomputed.items():
-        live = len(reachable.get(category, []))
-        if live != s["count"]:
-            log.warning(
-                "live count differs from run %s: cell %s, %s, %s: live %d, precomputed %d",
-                run.run_id,
-                loc.cell_id,
-                p.profile_id,
-                category,
-                live,
-                s["count"],
-            )
 
 
 @router.post("/catchment")
@@ -259,7 +259,7 @@ async def _catchment(
     xy = [(pt["x"], pt["y"]) for pt in points if pt["x"] is not None]
     cells = await d.db.cells_near(xy, _reach_m(d, p)) if xy else []
     costing, options = _options(p)
-    matrix_task = d.valhalla.matrix(
+    matrix_task = d.live_matrix.matrix(
         [(c["lon"], c["lat"]) for c in cells],
         [(pt["lon"], pt["lat"]) for pt in points],
         costing,

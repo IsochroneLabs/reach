@@ -61,6 +61,9 @@ class Database(Protocol):
     async def cell_values(
         self, cell_id: str, profile_id: str
     ) -> tuple[list[dict[str, Any]], dict[str, Any] | None]: ...
+    async def reachable(
+        self, cell_id: str, profile_id: str, x: float, y: float
+    ) -> list[dict[str, Any]]: ...
     async def facility_points_near(
         self, x: float, y: float, reach_m: float
     ) -> list[dict[str, Any]]: ...
@@ -180,6 +183,23 @@ SELECT cell.cell_id, c.cell_id IS NOT NULL AS scored, c.population, c.district_i
 FROM cell
 LEFT JOIN current.cells c ON c.cell_id = cell.cell_id
 CROSS JOIN LATERAL (SELECT coalesce(c.origin_geom, cell.centre) AS origin) o
+"""
+
+# Facilities `count` found within the budget of a cell and profile, one row per category of the
+# facility; the routing target is the facility's point nearest to the origin by straight line
+# (only used to draw the route; the time is the matrix time of the run).
+_REACHABLE = """
+SELECT r.facility_id, f.category, f.name, r.time_s,
+       ST_X(ST_Transform(p.geom, 4326)) AS lon, ST_Y(ST_Transform(p.geom, 4326)) AS lat
+FROM current.reachable r
+JOIN current.facilities f USING (facility_id)
+CROSS JOIN LATERAL (
+  SELECT fp.geom FROM current.facility_points fp
+  WHERE fp.facility_id = r.facility_id
+  ORDER BY fp.geom <-> ST_SetSRID(ST_MakePoint(%(x)s, %(y)s), 25832), fp.point_id
+  LIMIT 1) p
+WHERE r.cell_id = %(cell_id)s AND r.profile_id = %(profile_id)s
+ORDER BY f.category, r.time_s, r.facility_id
 """
 
 # Facility routing points within the straight-line prefilter reach of an origin: the same
@@ -338,6 +358,12 @@ class PostgresDatabase:
             params,
         )
         return scores, transit
+
+    async def reachable(
+        self, cell_id: str, profile_id: str, x: float, y: float
+    ) -> list[dict[str, Any]]:
+        params = {"cell_id": cell_id, "profile_id": profile_id, "x": x, "y": y}
+        return await self._all(_REACHABLE, params)
 
     async def facility_points_near(
         self, x: float, y: float, reach_m: float

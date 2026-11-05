@@ -20,7 +20,7 @@ from reach_api.db import PostgresDatabase
 from reach_api.deps import Deps
 from reach_api.routes import live, read
 from reach_api.settings import Env, load_config
-from reach_api.valhalla import NoRouteError, ValhallaClient, ValhallaError
+from reach_api.valhalla import NoRouteError, ValhallaClient, ValhallaError, ValhallaTimeout
 
 log = logging.getLogger(__name__)
 
@@ -38,16 +38,17 @@ def create_app(deps: Deps | None = None) -> FastAPI:
         env = Env()
         config = load_config(env.reach_config)
         db = PostgresDatabase(env.database_url_api, config.api.db_pool)
-        valhalla = ValhallaClient(
-            env.valhalla_url, config.api.valhalla, config.valhalla.max_matrix_pairs
-        )
+        pairs = config.valhalla.max_matrix_pairs
+        valhalla = ValhallaClient(env.valhalla_url, config.api.valhalla, pairs)
+        live_matrix = ValhallaClient(env.valhalla_url, config.api.live_matrix, pairs)
         await db.open()
-        app.state.deps = Deps(config=config, db=db, valhalla=valhalla)
+        app.state.deps = Deps(config=config, db=db, valhalla=valhalla, live_matrix=live_matrix)
         log.info("API ready: config %s, Valhalla %s", env.reach_config, env.valhalla_url)
         try:
             yield
         finally:
             await valhalla.aclose()
+            await live_matrix.aclose()
             await db.close()
 
     app = FastAPI(title="reach API", version=__version__, lifespan=lifespan)
@@ -63,6 +64,11 @@ def create_app(deps: Deps | None = None) -> FastAPI:
     @app.exception_handler(NoRouteError)
     async def _no_route(request: Request, exc: NoRouteError) -> JSONResponse:
         return JSONResponse({"detail": f"no route from this point: {exc}"}, status_code=422)
+
+    @app.exception_handler(ValhallaTimeout)
+    async def _valhalla_timeout(request: Request, exc: ValhallaTimeout) -> JSONResponse:
+        log.warning("%s", exc)
+        return JSONResponse({"detail": "routing took too long, try again"}, status_code=504)
 
     @app.exception_handler(ValhallaError)
     async def _valhalla_down(request: Request, exc: ValhallaError) -> JSONResponse:
