@@ -1,6 +1,6 @@
 # Architecture — reach (15-Minute City Tübingen)
 
-> **Status:** draft v0.12 (2 Nov 2026). Describes the target architecture the team builds towards.
+> **Status:** draft v0.13 (5 Nov 2026). Describes the target architecture the team builds towards.
 > Every change bumps the version and adds a line to the [Change log](#change-log).
 > Settled and open decisions are listed in [Section 13](#13-decisions); items marked **[OPEN]**
 > must be settled before the related code is written. Methodology (categories, thresholds,
@@ -334,7 +334,8 @@ Commands:
 - `make pipeline` — all pipeline stages against the running Valhalla, without a tile rebuild.
 - `make pipeline STAGE=count` — single stage for development.
 
-Intermediate files are GeoParquet/Parquet in `data/` (git-ignored). Only `publish` writes to PostGIS.
+Intermediate files are GeoParquet/Parquet in `data/` (git-ignored). Only `publish` writes to PostGIS;
+`cleanup` only drops old run schemas and their `meta` rows.
 
 ## 8. Database (PostGIS)
 
@@ -534,6 +535,7 @@ documented here in the same branch (see `AGENTS.md`).
 
 | Version | Date | Change | Why |
 |---|---|---|---|
+| v0.13 | 2026-11-05 | §7: `cleanup` named next to `publish` as the only other stage touching PostGIS (it drops old run schemas) | The sentence contradicted the §7 stage table and the P4 implementation; aligned with AGENTS.md rule 6 |
 | v0.12 | 2026-11-02 | O11 changed: scoring scope = all populated cells inside the city boundary with a coverage check (≥ 0.98); urban boundary only for map, live check and recommender candidates; O13 buffer around the city boundary; O17 settled (land-use list, ±100 m); §4, §5.2, §13 | P2 showed that the land-use boundary left 8 % of residents (mostly core town) unscored (notes N3) |
 | v0.11 | 2026-11-02 | Settled O18 (`transit_supply` table + `transit_scores` view), O19 (`make refresh` orchestrates tile build and pipeline on the host), O20 (prefilter reach with speed factor and margin, buffer check); §3, §4, §6.1, §6.3, §6.5, §7, §8, §11, §13 (O4, O13 wording), §14 updated; review fixes | Answers to the P0 implementation plan questions |
 | v0.10 | 2026-11-02 | `scores` and `district_scores` are (materialized) views over `access_counts` + a `thresholds` table; `score` stage adjusted | Resolve conflict with the rule that classes and deficits are derived at read time |

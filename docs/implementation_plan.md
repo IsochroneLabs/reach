@@ -388,9 +388,7 @@ Measured numbers (runtime, peak memory, counts) are added here at the end of eve
    `CREATE OR REPLACE VIEW`, so a run schema that drops or reorders columns makes the switch fail
    (needs a migration path with the first contract change); add `DATABASE_URL_ADMIN` to
    existing local `.env` files.
-   Conflict inside `architecture.md` (reported 5 Nov 2026, not changed): §7 stage table lets
-   `cleanup` drop run schemas, the text below it still says "Only `publish` writes to
-   PostGIS"; align the sentence with AGENTS.md rule 6 (ask, version bump + change log).
+   The §7 conflict in `architecture.md` about `cleanup` is resolved (v0.13, confirmed by Rico).
 6. Open from P1: Starlette deprecates `httpx` for `TestClient` (warning); adding `httpx2` as a
    dev dependency is deferred to P5 (Rico, 2 Nov 2026). The pytest-asyncio loop-scope warning is
    fixed (`asyncio_default_fixture_loop_scope = "function"`).
