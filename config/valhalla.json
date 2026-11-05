@@ -94,7 +94,7 @@
     }
   },
   "thor": {
-    "source_to_target_algorithm": "select_optimal",
+    "source_to_target_algorithm": "costmatrix",
     "service": {
       "proxy": "ipc:///tmp/thor"
     },
