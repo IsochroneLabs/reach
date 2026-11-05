@@ -4,8 +4,8 @@
 > (then architecture v0.11, methodology v0.2). P1 merged (PR #19). P2 merged (PR #20; N3
 > decision → architecture v0.12, methodology v0.3). P3 merged (PR #21, 5 Nov 2026; full depth:
 > all profiles and categories; open decisions N4, N5, cycling factor). P4 merged (PR #22, 5 Nov
-> 2026; full depth; monotonicity with tolerance, N6). P5 in review (draft PR, full depth,
-> architecture v0.14). Next: P6. This file is the **handoff between
+> 2026; full depth; monotonicity with tolerance, N6). P5 merged (PR #24, 5 Nov 2026, full depth,
+> architecture v0.14); N8 follow-up: one matrix algorithm + `reachable` (architecture v0.15). Next: P6. This file is the **handoff between
 > agent sessions**: phase status, decisions, agreed deviations, measured numbers and next steps.
 > It is informative; `architecture.md` and `methodology.md` stay binding. Where this plan proposes
 > something that differs from them, it is listed in [Section 5](#5-conflicts-gaps-and-ambiguities)
@@ -22,7 +22,7 @@
 | P2 | acquire + validate inputs | `feature/rico-acquire-validate` | [x] merged PR #20 (interim depth; test-clip script open) | 11 Nov |
 | P3 | tiles + count | `feature/juju-tiles-count` | [x] merged PR #21, 5 Nov (full depth) | 16 Nov |
 | P4 | score + publish + cleanup | `feature/juju-score-publish` | [x] merged PR #22, 5 Nov (full depth) | 19 Nov |
-| P5 | API | `feature/rico-api` | [~] draft PR, full depth (5 Nov) | 21 Nov |
+| P5 | API | `feature/rico-api` | [x] merged PR #24, 5 Nov (full depth; N7/N8 follow-up `fix/rico-matrix-algorithm`) | 21 Nov |
 | P6 | Web | `feature/rico-web` | [ ] | 24 Nov |
 | — | **Interim demo (local), `v0.1.0`** | release PR `dev` → `main` on request | [ ] | 25 Nov |
 | P7 | Recommender + validation V1–V9 | `feature/rico-recommender`, `feature/rico-validation` | [ ] | 10 Jan |
@@ -333,6 +333,8 @@ Confirmed by Rico (2 Nov 2026): C6–C12 as recommended in Section 5; Q4 also co
 | 2026-11-05 | P5 assumptions | Pipeline `Config` keeps `api` as an unvalidated mapping (its models forbid unknown keys); ~~changing `api` values therefore changes the config checksum and re-runs `count`~~ — fixed before the merge: each stage hashes only the config sections it uses (`CONFIG_SECTIONS`, manifest input `config:<sections>`), `api` belongs to none; `meta.runs.config_hash` covers all sections except `api`. API reads its own view of the config (`extends` merged like the pipeline): `api`, category names, `max_speed_factor`/`prefilter_margin_m`, `valhalla.max_matrix_pairs`; speed, budget and costing options from `current.profiles`. Current run = run schema behind `current.cells` (as `publish`), one query per request; profiles/categories cached per run id. Grid id = `CRS3035RES100mN<north>E<east>` of the lower-left corner (checked against `current.cells`), origin = centre. Prefilter around the single origin (the pipeline uses the block bbox, a superset). Weakest category = worst class, then largest deficit; null if all sufficient. Routes only to nearest facilities within the budget. Catchment: reverse isochrone from the facility point; matrix sources = scored cells within the prefilter reach of any routing point; `residents_by_class` for the facility's categories. Expansion = Valhalla `action: isochrone`, budget = profile budget, own small LRU. Rate limit only on live endpoints, cache hits cost a token; client IP = last `X-Forwarded-For` entry from a trusted peer; Caddy resolved by name, re-resolved at most every 30 s. ETag `W/"<run_id>:…"` + `Cache-Control: no-cache` on all read endpoints; `/api/recommendations` returns an empty collection with `available: false` (no table yet). Errors 422 (outside, unknown values, no street near the point), 429, 502, 503. HEAD is not served. Category names from the config, not the run |
 | 2026-11-05 | P5 finding (N8) | Live counts differ from precomputed ones in 24 of 960 cell × category pairs (2.5 %, always ±1; 40 random cells × 4 profiles): Valhalla `select_optimal` answers one-source matrices with `timedistancematrix` and block matrices with `costmatrix`, which differ near the budget (example: 463 s vs. unreachable). Logged only, as agreed |
 | 2026-11-05 | P5 before merge (Rico) | (1) Config digest per stage: `CONFIG_SECTIONS` per stage module, manifest input `config:<sections>` instead of the config files, `require_ok` recomputes it; `publish` uses all pipeline sections; `api` triggers no stage (tests). One-time effect: manifests of earlier runs list the config files, so after this change the first run of each stage re-runs. Changes to unused sections (e.g. `cleanup`) no longer re-run `count`; a change in a used section still does (C10 caching across runs stays open). (2) `inspect` shows the precomputed count for scored cells (`count`, `count_source`), the live matrix only lists facilities; differences logged (N8). (3) HEAD on every GET endpoint |
+| 2026-11-05 | N8 decision (Rico, after PR #24) | Variant C: `costmatrix` fixed in `config/valhalla.json` (only settable there in 3.9.1); `count` writes `reachable` (cell × profile × facility within the budget, `time_s` smallint), the inspector reads it for scored cells; live matrix only for grid cells without residents and catchments, own client `api.live_matrix` (timeout 10 s, concurrency 1, no retry), `source: live`, 504 on timeout. Architecture v0.15, data contract v0.7, N7/N8 settled. Branch `fix/rico-matrix-algorithm` (AGENTS.md name rule instead of `fix/matrix-algorithm`) |
+| 2026-11-05 | N8 assumptions | `reachable` without primary key: the key index would take 55 MB per run, the deduplicated (`cell_id`, `profile_id`) index 4–6 MB; uniqueness is guaranteed by `count` and checked by `reachable_matches_counts` (fail). Route line of a listed facility goes to its routing point nearest to the origin by straight line (display only; the time is the run's matrix time). Catchments keep a live matrix (cells → facility); reading them from `reachable` is possible later. `matrix_vs_route` samples 25 pairs per profile (80 % near the budget), seed from the run id, warns above 60 s, never fails; needs the running Valhalla in `validate_results` (`valhalla` added to its config sections). Methodology not changed (proposal in the PR) |
 | 2026-11-05 | P5 review (fresh agent) | Fixed: live caches held Python dicts (~10× the JSON size; 2,000 cycling inspects ≈ 1 GB) → caches hold serialized JSON bytes, defaults lowered (`live_entries` 500, `expansion_entries` 10; worst case ~60 MB) and size comments corrected; rate-limit dependency was sync (threadpool, unlocked limiter state) → async; concurrent misses of one key now share one Valhalla computation (rule 10); `rank_share_lack` ranked districts without residents first → `NULLS LAST`; Valhalla retries now wait `api.valhalla.backoff_s * 2**attempt` (new key); matrix larger than the limit on both axes raises; meta ETag includes the config category names; unit tests no longer resolve DNS; db test covers a scored cell with a real grid id outside the urban boundary (K1) and snapping; contract lists 500/502 causes; commits reordered (code with its contract, `chore` types). Left: none |
 
 Measured numbers (runtime, peak memory, counts) are added here at the end of every phase.
@@ -384,6 +386,12 @@ Measured numbers (runtime, peak memory, counts) are added here at the end of eve
 | P5 | `uv run pytest` / `-m db` | 194 passed / 15 passed (API: 35 unit, 5 db; after the review fixes) |
 | P5 | Before merge: `make pipeline` with per-stage config digests (new run `20261105T195315Z`, every stage re-ran once because older manifests list the config files) / `count` with a config that only changes `api` | 3 min 46 s (acquire 33 s, validate 9.9 s, count 202 s, publish 1.0 s) / skipped in 0.04 s ("inputs unchanged") |
 | P5 | `uv run pytest` / `-m db` before merge | 200 passed / 15 passed; `make up` + curl: 9 endpoints 200, HEAD 200 on all 6 GET endpoints |
+| N8 | `count` per algorithm (fresh Valhalla, 2 threads, run `20261105T195315Z`): `select_optimal` / `costmatrix` / `timedistancematrix` | 243 s, 2.6 GB / 279 s, 2.5 GB / 54 s, 195 MB (Valhalla peak); rows differing from `costmatrix`: 28 / – / 975 (616 wheelchair) |
+| N8 | Matrix vs. /route, facility decisions where the algorithms disagree (24 pairs + 40 random of 975) | `costmatrix` closer in 58 of 73; `costmatrix` vs. /route mean 53.8 s, median 1 s, max 1,027 s (11 of 73 above 60 s) |
+| N8 | After the change: `make refresh` (tile rebuild 259 MB, run `20261105T203046Z`): count / validate_results / publish; Valhalla peak | 264 s (293 MB) / 0.9 s / 7.5 s (6.5 s re-publish); 2.78 GB; final `make pipeline` (run `20261105T203945Z`): count 294 s, publish 6.6 s, `matrix_vs_route` max 1 s |
+| N8 | `reachable`: rows (walking 3.39 / 5.0 / cycling / wheelchair) / Parquet / PostGIS heap + index | 552,917 (37,048 / 75,254 / 407,949 / 32,666) / 1.3 MB / 46.2 + 6.2 = 52.4 MB per run, ~157 MB for 3 kept runs (with a primary key: 101.6 MB, ~305 MB) |
+| N8 | `matrix_vs_route` in report part 2 (100 random pairs, 80 % near the budget) | mean 0.5 s, max 4.1 s (wheelchair), 0 flips |
+| N8 | `inspect` through Caddy, cache miss: scored walking / cycling (n = 5) · unscored (live matrix) walking / cycling (n = 4) | median 44 / 66 ms (max 131 / 82) · 77–388 ms / 2.7–3.0 s |
 
 ## 8. Next steps
 
@@ -412,10 +420,10 @@ Measured numbers (runtime, peak memory, counts) are added here at the end of eve
 6. ~~Open from P1: `httpx2` as dev dependency against the Starlette TestClient warning~~ —
    done in P5. The pytest-asyncio loop-scope warning is fixed
    (`asyncio_default_fixture_loop_scope = "function"`).
-7. P5 — draft PR (full depth). Open from P5: N7 (nearest facility id in the pipeline) and N8
-   (matrix algorithm differences, decide with a `costmatrix` test run); HEAD requests are not
-   served (405); `catchment` for recommender candidates gets its candidates in P7; production
-   command, HTTPS and no published ports in `compose.prod.yaml` (P8); measure API memory and
+7. ~~P5~~ — merged (PR #24, `88093ef`); N7 and N8 settled after it (variant C, branch
+   `fix/rico-matrix-algorithm`). Open: report the `timedistancematrix` wheelchair gap upstream (N8);
+   N4 (Valhalla memory comes from `costmatrix`); `catchment` for recommender candidates gets
+   its candidates in P7; production command, HTTPS and no published ports in `compose.prod.yaml` (P8); measure API memory and
    inspect latency on the CX23 (VF3). Next: P6 (web) on `/api/cells`, `/api/districts`,
    `/api/inspect`, `/api/meta`.
 

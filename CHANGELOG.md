@@ -8,6 +8,14 @@ adds a line under `Unreleased`.
 ## [Unreleased]
 
 ### Added
+- `reachable` table (`count/reachable.parquet`, run schema, data contract v0.7): every
+  facility a cell reaches within the budget per profile with its matrix time; the pin-drop
+  inspector lists reachable facilities from it, so list and count match the map by construction
+  (notes N7 settled). `validate_results` checks `reachable_matches_counts` and compares a
+  sample of matrix times with Valhalla /route (`matrix_vs_route`, known limitation in report
+  part 2; `validation.results.route_check`). API: own live-matrix client for grid cells without
+  residents and catchments (`api.live_matrix`: timeout, concurrency), `source: live`, 504 on
+  timeout.
 - `docs/implementation_plan.md`: phase plan P0–P8, proposed data contract, [VERIFY] items, risks,
   conflicts and decisions; handoff file between agent sessions.
 - `docs/architecture.md`: target architecture with Valhalla as the single routing engine,
@@ -102,6 +110,9 @@ adds a line under `Unreleased`.
   Valhalla algorithms); glossary: grid cell (snapping), live endpoint, trusted proxy.
 
 ### Changed
+- `config/valhalla.json`: `thor.source_to_target_algorithm` `costmatrix` instead of
+  `select_optimal`, so every matrix request uses one algorithm (notes N8 settled; architecture
+  v0.15 §6.5 rules 2, 6, 8). `count` 264–294 s (was ~243 s), `publish` ~7 s (was ~1 s).
 - Pipeline manifests: each stage records the digest of only the config sections it uses
   (`CONFIG_SECTIONS`, input `config:<sections>`) instead of the config files, so the `api`
   section or unused sections no longer re-run stages such as `count`; `meta.runs.config_hash`
