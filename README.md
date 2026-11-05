@@ -8,7 +8,7 @@ where new facilities would help the most people.
 Course project for **DS500 Data Science Project** (M.Sc. Data Science in Business and Economics,
 University of Tübingen, winter term 2026/27), Topic 9 "The 15-Minute City".
 
-> **Status: phase P4.** The local stack (PostGIS, Valhalla, API and web placeholders),
+> **Status: P4 done (merged 5 Nov 2026), P5 (API) next.** The local stack (PostGIS, Valhalla, API and web placeholders),
 > configuration, CI and the whole pipeline except the recommender exist: `acquire` downloads OSM,
 > GTFS and Zensus data, `validate` turns them into checked layers, `make refresh` builds the
 > Valhalla routing graph, `count` computes reachable facilities per cell, category and profile

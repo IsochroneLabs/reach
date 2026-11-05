@@ -9,7 +9,7 @@ They apply to every agent session, on behalf of any team member. Humans: see `RE
 of the city of Tübingen, finds underserved areas and recommends sites for new facilities. Course project
 DS500, University of Tübingen. Automation, validation, documentation and a hosted app are graded.
 
-**Status:** P4 — `docs/` (incl. a draft `docs/data_contract.md`), `config/config.yaml`,
+**Status:** P4 merged, P5 next — `docs/` (incl. a draft `docs/data_contract.md`), `config/config.yaml`,
 `config/valhalla.json`, `Makefile` (incl. `refresh`, `migrate`), `compose.yaml` (db, valhalla,
 valhalla-build, api placeholder, caddy placeholder), `.github/` (CI incl. the PostGIS
 data-contract job), `infra/db/` (roles, migrations, run schema) and the pipeline stages
@@ -39,7 +39,7 @@ terms consistently in code, docs and messages.
 |---|---|
 | `docs/architecture.md` | System: components, data flow, Valhalla usage, deployment, decisions (O-numbers) |
 | `docs/methodology.md` | What is measured: categories, thresholds, scoring, recommender, validation (V-numbers) |
-| `docs/data_contract.md` (planned) | Table and file schemas between pipeline and API |
+| `docs/data_contract.md` (draft) | Table and file schemas between pipeline and API |
 | `AGENTS.md`, `CONTRIBUTING.md` | How to work in this repo |
 
 `docs/features.md` (features and roadmap), `docs/notes.md` (open points) and
