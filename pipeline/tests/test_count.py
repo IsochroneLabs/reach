@@ -84,6 +84,24 @@ def test_count_block_splits_categories_and_counts_facilities_once() -> None:
     assert np.isnan(out.loc[(1, "grocery"), "nearest_s"])  # beyond budget → unknown
 
 
+def test_reachable_block_lists_each_facility_once_within_budget() -> None:
+    links = pd.DataFrame(
+        {
+            "target": [0, 1, 2, 3, 3, 4],
+            "facility_id": ["p1", "p1", "p1", "s1", "s1", "s2"],
+            "category": ["parks", "parks", "parks", "grocery", "pharmacy", "grocery"],
+        }
+    )
+    # one column per routing point (target 0–4)
+    times = np.array([[950.0, 600.4, np.nan, 300.0, 899.0], [1000.0, 950.0, 990.0, np.nan, 901.0]])
+    out = count.reachable_block(times, links, budget_s=900)
+    got = {(r.source, r.facility_id): r.time_s for r in out.itertuples()}
+    # p1 once with its fastest point, s1 once although in two categories, nothing for source 1
+    assert got == {(0, "p1"): 600, (0, "s1"): 300, (0, "s2"): 899}
+    assert str(out["time_s"].dtype) == "int16"
+    assert count.reachable_block(times[:0], links, 900).empty
+
+
 def test_transit_block_sums_departures_within_budget() -> None:
     times = np.array([[100.0, 650.0, np.nan], [700.0, 700.0, 700.0]])
     out = count.transit_block(times, np.array([10, 20, 30]), budget_s=600)
@@ -266,6 +284,21 @@ def test_count_stage_matches_brute_force(stage_ctx: RunContext) -> None:
             expected = (per_fac[ids] <= reach).sum(axis=1).to_numpy()
             actual = got.xs(cat, level="category").reindex(cells["cell_id"]).to_numpy()
             np.testing.assert_array_equal(actual, expected, err_msg=f"{pid} {cat}")
+
+    # reachable: only pairs within the budget; joined with facilities it gives the counts
+    reachable = pd.read_parquet(out / count_stage.REACHABLE)
+    assert list(reachable.columns) == ["cell_id", "profile_id", "facility_id", "time_s"]
+    assert str(reachable["time_s"].dtype) == "int16" and reachable["time_s"].le(900).all()
+    assert not reachable.duplicated(["cell_id", "profile_id", "facility_id"]).any()
+    derived = (
+        reachable.merge(fac[["facility_id", "category"]], on="facility_id")
+        .groupby(["cell_id", "category", "profile_id"])
+        .size()
+    )
+    counted = access.set_index(["cell_id", "category", "profile_id"])["count"]
+    pd.testing.assert_series_equal(
+        derived.reindex(counted.index, fill_value=0), counted, check_names=False, check_dtype=False
+    )
 
     supply = pd.read_parquet(out / count_stage.TRANSIT)
     assert list(supply.columns) == [

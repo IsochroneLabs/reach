@@ -124,3 +124,41 @@ def test_url_from_environment(monkeypatch: pytest.MonkeyPatch) -> None:
     assert resolve_url(CFG) == URL
     monkeypatch.setenv("VALHALLA_URL", "http://valhalla:8002/")
     assert resolve_url(CFG) == "http://valhalla:8002"
+
+
+async def test_route_times_takes_fastest_point_and_skips_no_route(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("VALHALLA_URL", raising=False)
+    import pandas as pd
+
+    from reach_pipeline.config import load_config
+    from reach_pipeline.stages import validate_results
+
+    cfg = load_config(Path(__file__).resolve().parents[2] / "config" / "config.yaml")
+    cfg = cfg.model_copy(
+        update={"valhalla": cfg.valhalla.model_copy(update={"url": "http://valhalla.test"})}
+    )
+    pairs = pd.DataFrame(
+        {
+            "cell_id": ["c1", "c2"],
+            "profile_id": ["walking_339"] * 2,
+            "facility_id": ["park", "shop"],
+            "time_s": [500, 300],
+        }
+    )
+    origins = {"c1": (9.05, 48.52), "c2": (9.06, 48.52)}
+    points = {"park": [(9.051, 48.52), (9.052, 48.52)], "shop": [(9.061, 48.52)]}
+
+    def answer(request: httpx.Request) -> httpx.Response:
+        target = json.loads(request.content)["locations"][1]["lon"]
+        if target == 9.061:
+            return httpx.Response(400, json={"error_code": 171})
+        return httpx.Response(
+            200, json={"trip": {"summary": {"time": 510 if target == 9.051 else 498}}}
+        )
+
+    with respx.mock(base_url="http://valhalla.test") as router:
+        router.post("/route").mock(side_effect=answer)
+        times = await validate_results.route_times(cfg, pairs, origins, points)
+    assert times == [498.0, None]

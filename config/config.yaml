@@ -281,6 +281,14 @@ validation:
       - {higher: walking_500, lower: walking_339, warn_above: 0, fail_above: 0.01}
       - {higher: cycling_15, lower: walking_339, warn_above: 0.05, fail_above: null}
       - {higher: walking_339, lower: wheelchair_339, warn_above: 0.05, fail_above: null}
+    # Matrix time vs. /route time (known limitation, never fails): per profile
+    # pairs_per_profile random reachable cell × facility pairs, near_budget_share of them with
+    # time_s >= that share of the budget (where a deviation changes the count); warns if any
+    # |Δ| exceeds warn_max_abs_s. Needs the running Valhalla (notes N8, P5).
+    route_check:
+      pairs_per_profile: 25
+      near_budget_share: 0.8
+      warn_max_abs_s: 60
 
 # PostGIS (arch. §8). Connection strings and passwords come from .env (DATABASE_URL_PIPELINE,
 # DATABASE_URL_ADMIN, *_PASSWORD), never from this file.

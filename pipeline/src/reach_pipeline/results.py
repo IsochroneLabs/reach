@@ -13,7 +13,7 @@ import numpy as np
 import pandas as pd
 
 from reach_pipeline import scoring
-from reach_pipeline.config import Config, Monotonic
+from reach_pipeline.config import Config, Monotonic, RouteCheck
 
 STAGE = "validate_results"
 # nearest_min is rounded to 0.01 min by count.
@@ -26,6 +26,8 @@ class Tables:
     access: pd.DataFrame  # access_counts
     transit: pd.DataFrame  # transit_supply
     thresholds: pd.DataFrame
+    reachable: pd.DataFrame | None = None  # cell_id, profile_id, facility_id, time_s
+    facilities: pd.DataFrame | None = None  # facility_id, category
 
 
 @dataclass
@@ -126,6 +128,85 @@ def thresholds_cover(t: Tables) -> list[Check]:
             f"categories without k: {missing}" if missing else f"k for {len(k)} categories",
         )
     ]
+
+
+def reachable_matches_counts(t: Tables) -> list[Check]:
+    """`reachable` joined with facilities gives exactly `access_counts.count` (the inspector
+    reads the list, the map the counts; arch. §6.5 rule 8)."""
+    keys = ["cell_id", "category", "profile_id"]
+    derived = (
+        t.reachable.merge(t.facilities[["facility_id", "category"]], on="facility_id")
+        .groupby(keys)
+        .size()
+    )
+    counted = t.access.set_index(keys)["count"]
+    diff = counted - derived.reindex(counted.index, fill_value=0)
+    extra = derived.index.difference(counted.index)
+    # The table has no primary key (size), so its key is checked here.
+    dupes = int(t.reachable.duplicated(["cell_id", "profile_id", "facility_id"]).sum())
+    bad = int((diff != 0).sum()) + len(extra) + dupes
+    problems = f"{bad - dupes} cell × category × profile rows differ, {dupes} duplicate pairs"
+    return [
+        Check(
+            "reachable_matches_counts",
+            "fail" if bad else "ok",
+            float(bad),
+            problems
+            if bad
+            else f"{len(t.reachable)} reachable pairs give all {len(counted)} counts",
+        )
+    ]
+
+
+def route_sample(
+    reachable: pd.DataFrame, budget_s: float, rc: RouteCheck, seed: int
+) -> pd.DataFrame:
+    """Pairs to compare with /route: per profile `pairs_per_profile`, a share of them close to
+    the budget (deterministic for a given seed, e.g. derived from the run id)."""
+    rng = np.random.default_rng(seed)
+    parts = []
+    for _, group in reachable.groupby("profile_id", sort=True):
+        n_near = round(rc.pairs_per_profile * rc.near_budget_share)
+        near = group[group["time_s"] >= rc.near_budget_share * budget_s]
+        far = group.drop(near.index)
+        for frame, n in ((near, n_near), (far, rc.pairs_per_profile - n_near)):
+            if n and len(frame):
+                idx = rng.choice(len(frame), size=min(n, len(frame)), replace=False)
+                parts.append(frame.iloc[np.sort(idx)])
+    cols = list(reachable.columns)
+    return pd.concat(parts, ignore_index=True) if parts else pd.DataFrame(columns=cols)
+
+
+def route_check(pairs: pd.DataFrame, budget_s: float, rc: RouteCheck) -> tuple[Check, dict]:
+    """Matrix time vs. /route time of the sampled pairs (`route_s`, NaN = no route).
+
+    Known limitation, not an error: Valhalla's matrix (costmatrix) and /route search
+    separately and can end on different paths of similar cost; `flips` = pairs the matrix
+    counts within the budget but /route takes longer.
+    """
+    per_profile: dict[str, Any] = {}
+    routed = pairs.dropna(subset=["route_s"])
+    for pid, g in pairs.groupby("profile_id", sort=True):
+        r = g.dropna(subset=["route_s"])
+        d = (r["route_s"] - r["time_s"]).abs()
+        per_profile[pid] = {
+            "pairs": int(len(g)),
+            "no_route": int(g["route_s"].isna().sum()),
+            "mean_abs_s": round(float(d.mean()), 1) if len(d) else None,
+            "max_abs_s": round(float(d.max()), 1) if len(d) else None,
+            "flips": int((r["route_s"] > budget_s).sum()),
+        }
+    d_all = (routed["route_s"] - routed["time_s"]).abs()
+    max_abs = float(d_all.max()) if len(d_all) else 0.0
+    flips = int((routed["route_s"] > budget_s).sum())
+    status = "warn" if max_abs > rc.warn_max_abs_s else "ok"
+    message = (
+        f"{len(pairs)} pairs ({int(pairs['route_s'].isna().sum())} without route): mean "
+        f"|Δ| {d_all.mean() if len(d_all) else 0:.1f} s, max {max_abs:.0f} s "
+        f"(warn > {rc.warn_max_abs_s:.0f} s), {flips} beyond the budget by /route "
+        "(known limitation, see report)"
+    )
+    return Check("matrix_vs_route", status, round(max_abs, 1), message), per_profile
 
 
 def class_rows(t: Tables) -> pd.DataFrame:
