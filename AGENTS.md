@@ -9,7 +9,7 @@ They apply to every agent session, on behalf of any team member. Humans: see `RE
 of the city of Tübingen, finds underserved areas and recommends sites for new facilities. Course project
 DS500, University of Tübingen. Automation, validation, documentation and a hosted app are graded.
 
-**Status:** P4 — `docs/` (incl. a draft `docs/data_contract.md`), `config/config.yaml`,
+**Status:** P4 merged, P5 next — `docs/` (incl. a draft `docs/data_contract.md`), `config/config.yaml`,
 `config/valhalla.json`, `Makefile` (incl. `refresh`, `migrate`), `compose.yaml` (db, valhalla,
 valhalla-build, api placeholder, caddy placeholder), `.github/` (CI incl. the PostGIS
 data-contract job), `infra/db/` (roles, migrations, run schema) and the pipeline stages
@@ -39,7 +39,7 @@ terms consistently in code, docs and messages.
 |---|---|
 | `docs/architecture.md` | System: components, data flow, Valhalla usage, deployment, decisions (O-numbers) |
 | `docs/methodology.md` | What is measured: categories, thresholds, scoring, recommender, validation (V-numbers) |
-| `docs/data_contract.md` (planned) | Table and file schemas between pipeline and API |
+| `docs/data_contract.md` (draft) | Table and file schemas between pipeline and API |
 | `AGENTS.md`, `CONTRIBUTING.md` | How to work in this repo |
 
 `docs/features.md` (features and roadmap), `docs/notes.md` (open points) and
@@ -142,7 +142,8 @@ Output:      commit/PR wanted? summary format?
    to EPSG:4326 only at the API (`ST_Transform`). Never compute distances in degrees.
 4. **No hard-coded values:** thresholds, speeds, tags, URLs and paths come from `config/` or `.env`.
 5. **Store raw counts and times;** classes and deficits are derived at read time.
-6. **Only the `publish` stage writes to PostGIS.** The API reads only from the `current` schema.
+6. **Only the `publish` stage writes to PostGIS**; `cleanup` only drops old run schemas and their
+   `meta` rows (arch. §7). The API reads only from the `current` schema.
 7. **Pipeline stages are idempotent** and write a manifest; each stage checks the previous manifest.
 8. **No public data APIs at runtime** (Overpass, Nominatim). OSM data comes from the clipped Geofabrik extract.
 

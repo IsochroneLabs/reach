@@ -1,11 +1,10 @@
 # Implementation plan — reach
 
 > **Status:** P0 done (2 Nov 2026): Q1–Q5, C6–C12 and review points confirmed and applied
-> (then architecture v0.11, methodology v0.2). P1 merged (PR #19). P2 implemented (2 Nov 2026,
-> PR #20; N3 decision → architecture v0.12, methodology v0.3). P3 implemented (3 Nov 2026,
-> branch `feature/juju-tiles-count`, full depth: all profiles and categories; open decisions N4,
-> N5, cycling factor). P4 implemented (4 Nov 2026, branch `feature/juju-score-publish`, stacked
-> on P3 draft PR #21, full depth; monotonicity with tolerance, N6). Next: P5. This file is the **handoff between
+> (then architecture v0.11, methodology v0.2). P1 merged (PR #19). P2 merged (PR #20; N3
+> decision → architecture v0.12, methodology v0.3). P3 merged (PR #21, 5 Nov 2026; full depth:
+> all profiles and categories; open decisions N4, N5, cycling factor). P4 merged (PR #22, 5 Nov
+> 2026; full depth; monotonicity with tolerance, N6). Next: P5. This file is the **handoff between
 > agent sessions**: phase status, decisions, agreed deviations, measured numbers and next steps.
 > It is informative; `architecture.md` and `methodology.md` stay binding. Where this plan proposes
 > something that differs from them, it is listed in [Section 5](#5-conflicts-gaps-and-ambiguities)
@@ -18,10 +17,10 @@
 | Phase | Topic | Branch | Status | Target date |
 |---|---|---|---|---|
 | P0 | Implementation plan | `docs/rico-implementation-plan` | [x] PR #17 | 2 Nov |
-| P1 | Scaffold & tooling | `feature/rico-scaffold` | [x] draft PR #19 (stacked on #17), CI green | 6 Nov |
-| P2 | acquire + validate inputs | `feature/rico-acquire-validate` | [x] draft PR #20 (interim depth; test-clip script open) | 11 Nov |
-| P3 | tiles + count | `feature/juju-tiles-count` | [x] implemented 3 Nov (full depth; draft PR) | 16 Nov |
-| P4 | score + publish + cleanup | `feature/juju-score-publish` | [x] implemented 4 Nov (full depth; draft PR #22 stacked on #21, CI green) | 19 Nov |
+| P1 | Scaffold & tooling | `feature/rico-scaffold` | [x] merged PR #19 | 6 Nov |
+| P2 | acquire + validate inputs | `feature/rico-acquire-validate` | [x] merged PR #20 (interim depth; test-clip script open) | 11 Nov |
+| P3 | tiles + count | `feature/juju-tiles-count` | [x] merged PR #21, 5 Nov (full depth) | 16 Nov |
+| P4 | score + publish + cleanup | `feature/juju-score-publish` | [x] merged PR #22, 5 Nov (full depth) | 19 Nov |
 | P5 | API | `feature/rico-api` | [ ] | 21 Nov |
 | P6 | Web | `feature/rico-web` | [ ] | 24 Nov |
 | — | **Interim demo (local), `v0.1.0`** | release PR `dev` → `main` on request | [ ] | 25 Nov |
@@ -323,7 +322,8 @@ Confirmed by Rico (2 Nov 2026): C6–C12 as recommended in Section 5; Q4 also co
 | 2026-11-04 | P4 answers (Juju) | Full depth (real `cleanup`, full report part 2); `DATABASE_URL_ADMIN` in `.env` for `migrate` (`make migrate`, and first step of `publish` when set); PostGIS data-contract test as CI job `db-contract` with a service container, documented |
 | 2026-11-04 | P4 deviation (Juju) | Monotonicity 5.0 ≥ 3.39 km/h fails 6 of 1,699 cells on real data (steps avoided at higher speed, N6) → tolerance check instead of hard fail: warn > 0, fail > 1 % of cells; cycling ≥ walking 3.39 and walking 3.39 ≥ wheelchair warn > 5 %, never fail |
 | 2026-11-04 | P4 assumptions | `migrate` = CLI command (`python -m reach_pipeline migrate`), not a stage; `roles.sql` re-applied every time, migrations once (`meta.schema_migrations`, new table in the contract); role passwords only set when their `*_PASSWORD` variable is present. Privileges: `app_read` reads `current.*` and `meta` only (view-owner rights cover the run tables), `supervisor_read` every run schema via default privileges, `pipeline_write` owns `current` and the run schemas. `current` views `SELECT *`; current run found via `pg_depend` of `current.cells`. Re-publishing the current run: load + switch in one transaction (the `DROP SCHEMA … CASCADE` would otherwise drop the views first). `meta.runs` row upserted as `running` before the load; `failed` on a DB error unless already published. `profiles.costing_options` = the options as sent to Valhalla (incl. speed). Districts/urban boundary forced to MultiPolygon. Failure webhook in the CLI for every stage (not only `publish`, arch. §11 "a failed run posts"), body `{"text": …}`. `cleanup`: deletes runs older than the oldest kept published run (schemas, `meta.runs` rows, `data/raw/<id>/`, `data/runs/<id>/`), never the current run or newer unpublished runs; nothing with ≤ 3 published runs. Report part 2 sample cells = nearest cells to `count.evidence.sample_points`. `make` passes `.env` via `uv run --env-file` |
-| 2026-11-04 | P4 conflict (reported) | AGENTS.md rule 6 "only `publish` writes to PostGIS" vs. arch. §7: `cleanup` drops old run schemas → implemented as in the architecture; AGENTS.md wording to be aligned (ask) |
+| 2026-11-04 | P4 conflict (reported) | AGENTS.md rule 6 "only `publish` writes to PostGIS" vs. arch. §7: `cleanup` drops old run schemas → implemented as in the architecture; AGENTS.md wording to be aligned (ask); **resolved 5 Nov 2026 (Rico):** rule 6 now names `cleanup` |
+| 2026-11-05 | P3/P4 review and merge (Rico) | Reviewed and run locally (lint, unit, `-m db`, `-m integration` on the clip tiles, `make refresh`), approved; #21 merged, #22 retargeted to `dev` (no rebase needed: the P3 commits were unchanged) and merged |
 
 Measured numbers (runtime, peak memory, counts) are added here at the end of every phase.
 
@@ -363,31 +363,32 @@ Measured numbers (runtime, peak memory, counts) are added here at the end of eve
 | P4 | Hand check of `current.scores` as `app_read` (7 cells incl. 3 "insufficient", all profiles × categories) | 168 rows, 0 mismatches |
 | P4 | Cleanup demo (separate DB `reach_demo`, 4 cloned runs published) | 3 schemas, 3 `meta.runs` rows, 3 run and raw folders left |
 | P4 | `uv run pytest` / `uv run pytest -m db` (local PostGIS 18-3.6) | 161 passed / 10 passed (a broken `scores` view fails 4 of them) |
+| P4 | Review run on `dev` after the merge (Rico, 5 Nov): `make refresh` without tile rebuild, run `20261105T184022Z`: acquire / validate / count / publish / cleanup | 3.2 s / 24.4 s (2,062 MB) / 289 s (289 MB) / 1.1 s / 0.03 s; `validate_results` 0 fail, 2 warn (N6); `current.scores` 40,776 rows, class and deficit recomputed from raw tables: 0 mismatches |
 
 ## 8. Next steps
 
 1. ~~Confirm C6–C12 and the review points~~ — done 2 Nov 2026; P0 closed.
-2. ~~P1 scaffold~~ — implemented 2 Nov 2026 (draft PR #19, CI green). After #17 is squash-merged: rebase
-   `feature/rico-scaffold` onto `origin/dev`, re-run checks, change the PR base to `dev`.
-3. ~~P2~~ — implemented 2 Nov 2026 (draft PR #20). Open from P2: decide N3 (urban boundary land-use
+2. ~~P1 scaffold~~ — merged (PR #19).
+3. ~~P2~~ — merged (PR #20). Open from P2: decide N3 (urban boundary land-use
    values / closing distance, ask first); `scripts/build_test_clip.py` and the clip bbox
    refinement (interim: may follow later); osmium memory for the CX23 (risk table, VF3); extend
    `reference_day` before 2028-06-17 (the run fails with a clear message otherwise). N3 settled
    (architecture v0.12). P3 must measure the effect of the larger routing area (346 km², 1,699
    cells) on tile build and count runtime.
-4. ~~P3~~ — implemented 3 Nov 2026 (`feature/juju-tiles-count`). Open from P3: decide the
+4. ~~P3~~ — merged (PR #21, 5 Nov 2026). Open from P3: decide the
    cycling `max_speed_factor` (1.0 or 1.05, O20), N4 (Valhalla memory per thread, before P8) and
-   N5 (walking times include slopes: architecture/methodology wording, G1); fresh-agent review
-   before the PR leaves draft; count caching across runs (C10) when P4 needs it; the golden pairs
-   need a manual map check (PR).
-5. ~~P4~~ — implemented 4 Nov 2026 (`feature/juju-score-publish`, stacked on #21). Open from P4:
-   rebase onto `dev` after #21 is merged and re-run checks; fresh-agent review before the PR
-   leaves draft; N6 (cause of the monotonicity violations, methodology wording); count caching
+   N5 (walking times include slopes: architecture/methodology wording, G1); the golden pairs
+   need a manual map check (PR #21).
+5. ~~P4~~ — merged (PR #22, 5 Nov 2026). Open from P4:
+   N6 (cause of the monotonicity violations, methodology wording); count caching
    across runs (C10): every config change, also a threshold or a validation key, invalidates the
    `count` manifest and re-routes (3.5 min) — needed before thresholds are tuned (M2);
    `publish` is a no-op when its manifest is up to date even if the database lost the schema
-   (delete `publish/manifest.json` to force); align AGENTS.md rule 6 with `cleanup` (ask);
-   add `DATABASE_URL_ADMIN` to existing local `.env` files.
+   (delete `publish/manifest.json` to force); `current.*` views are `SELECT *` replaced with
+   `CREATE OR REPLACE VIEW`, so a run schema that drops or reorders columns makes the switch fail
+   (needs a migration path with the first contract change); add `DATABASE_URL_ADMIN` to
+   existing local `.env` files.
+   The §7 conflict in `architecture.md` about `cleanup` is resolved (v0.13, confirmed by Rico).
 6. Open from P1: Starlette deprecates `httpx` for `TestClient` (warning); adding `httpx2` as a
    dev dependency is deferred to P5 (Rico, 2 Nov 2026). The pytest-asyncio loop-scope warning is
    fixed (`asyncio_default_fixture_loop_scope = "function"`).
