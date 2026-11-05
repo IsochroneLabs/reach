@@ -96,11 +96,16 @@ adds a line under `Unreleased`.
   (Valhalla isochrone/matrix/route/expansion, snapped to the 100 m grid cell, boundary check,
   LRU cache per run/cell/profile, token-bucket rate limit per client IP behind Caddy);
   `infra/api.Dockerfile`, `.dockerignore`, `api` section in `config/config.yaml`; tests with a
-  fake database, recorded Valhalla responses and PostGIS (`-m db`); data contract v0.6 (API responses); `docs/notes.md` N7
+  fake database, recorded Valhalla responses and PostGIS (`-m db`). `inspect` shows the
+  precomputed count for scored cells (`count_source`); every GET endpoint also answers HEAD; data contract v0.6 (API responses); `docs/notes.md` N7
   (store the nearest facility in the pipeline) and N8 (live and block matrices use different
   Valhalla algorithms); glossary: grid cell (snapping), live endpoint, trusted proxy.
 
 ### Changed
+- Pipeline manifests: each stage records the digest of only the config sections it uses
+  (`CONFIG_SECTIONS`, input `config:<sections>`) instead of the config files, so the `api`
+  section or unused sections no longer re-run stages such as `count`; `meta.runs.config_hash`
+  covers all sections except `api`. Manifests of older runs trigger one re-run per stage.
 - `docs/architecture.md` v0.14: inspector snaps every point to its 100 m grid cell and uses one
   live matrix for the reachable facilities (§6.5 rule 8); live endpoints also accept points in
   scored cells outside the urban boundary (rule 12); §9 endpoint details.
