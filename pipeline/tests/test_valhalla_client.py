@@ -162,3 +162,97 @@ async def test_route_times_takes_fastest_point_and_skips_no_route(
         router.post("/route").mock(side_effect=answer)
         times = await validate_results.route_times(cfg, pairs, origins, points)
     assert times == [498.0, None]
+
+
+async def test_route_times_aborts_on_valhalla_failure(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Only 4xx means "no route"; 5xx and timeouts after retries must not look like a clean check.
+    import pandas as pd
+
+    from reach_pipeline.config import load_config
+    from reach_pipeline.stages import validate_results
+
+    monkeypatch.delenv("VALHALLA_URL", raising=False)
+    cfg = load_config(Path(__file__).resolve().parents[2] / "config" / "config.yaml")
+    vcfg = cfg.valhalla.model_copy(update={"url": "http://valhalla.test", "retries": 0})
+    cfg = cfg.model_copy(update={"valhalla": vcfg})
+    pairs = pd.DataFrame(
+        {"cell_id": ["c1"], "profile_id": ["walking_339"], "facility_id": ["shop"], "time_s": [300]}
+    )
+    for failure in (httpx.Response(503, text="busy"), httpx.ReadTimeout("slow")):
+        with respx.mock(base_url="http://valhalla.test") as router:
+            router.post("/route").mock(side_effect=[failure])
+            with pytest.raises(ExternalError, match="failed after 1 attempts"):
+                await validate_results.route_times(
+                    cfg, pairs, {"c1": (9.05, 48.52)}, {"shop": [(9.06, 48.52)]}
+                )
+
+
+def test_check_routes_reports_known_limitation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import types
+
+    import geopandas as gpd
+    import pandas as pd
+    import shapely
+
+    from reach_pipeline import results
+    from reach_pipeline.config import load_config
+    from reach_pipeline.stages import validate_results
+
+    monkeypatch.delenv("VALHALLA_URL", raising=False)
+    cfg = load_config(Path(__file__).resolve().parents[2] / "config" / "config.yaml")
+    cfg = cfg.model_copy(
+        update={"valhalla": cfg.valhalla.model_copy(update={"url": "http://valhalla.test"})}
+    )
+    gpd.GeoDataFrame(
+        {"facility_id": ["f1", "f1", "f2"], "point_id": [0, 1, 0], "kind": "access"},
+        geometry=[
+            shapely.Point(503000, 5374000),
+            shapely.Point(503100, 5374000),
+            shapely.Point(503500, 5374200),
+        ],
+        crs="EPSG:25832",
+    ).to_parquet(tmp_path / "facility_points.parquet")
+    monkeypatch.setattr(
+        validate_results,
+        "_paths",
+        lambda ctx: {"facility_points": tmp_path / "facility_points.parquet"},
+    )
+    origins = gpd.GeoDataFrame(
+        {"cell_id": ["c1", "c2"]},
+        geometry=[shapely.Point(502900, 5374000), shapely.Point(503400, 5374100)],
+        crs="EPSG:25832",
+    )
+    reachable = pd.DataFrame(
+        {
+            "cell_id": ["c1", "c2", "c1"],
+            "profile_id": ["walking_339"] * 3,
+            "facility_id": ["f1", "f2", "f2"],
+            "time_s": [120, 880, 700],
+        }
+    )
+    t = results.Tables(cells=None, access=None, transit=None, thresholds=None, reachable=reachable)
+    ctx = types.SimpleNamespace(config=cfg, run_id="20261105T203945Z")
+    with respx.mock(base_url="http://valhalla.test") as router:
+        router.post("/route").mock(
+            return_value=httpx.Response(200, json={"trip": {"summary": {"time": 905.0}}})
+        )
+        check, rc = validate_results.check_routes(ctx, t, origins)
+    walk = rc["profiles"]["walking_339"]
+    assert walk["pairs"] == 3 and walk["no_route"] == 0 and walk["flips"] == 3
+    assert check.check == "matrix_vs_route" and check.status == "warn"  # 785 s > 60 s
+    md = validate_results._markdown(
+        {
+            "run_id": "x",
+            "status": "ok",
+            "generated_at": "now",
+            "checks": [],
+            "summary": None,
+            "samples": [],
+            "route_check": rc,
+            "runtime_s": 0,
+            "peak_rss_mb": 0,
+        }
+    )
+    assert "Known limitation: matrix times vs. /route" in md and "| walking_339 | 3 | 0 |" in md

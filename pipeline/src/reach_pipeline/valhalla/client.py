@@ -15,7 +15,7 @@ import httpx
 import numpy as np
 
 from reach_pipeline.config import Profile, Valhalla
-from reach_pipeline.errors import ConfigError, ExternalError
+from reach_pipeline.errors import BadRequestError, ConfigError, ExternalError
 
 log = logging.getLogger(__name__)
 
@@ -77,7 +77,7 @@ class ValhallaClient:
                     return resp.json()
                 if resp.status_code < 500:
                     # Bad request (e.g. a location without nearby edges): retrying cannot help.
-                    raise ExternalError(f"{what} answered {resp.status_code}: {resp.text[:500]}")
+                    raise BadRequestError(f"{what} answered {resp.status_code}: {resp.text[:500]}")
                 problem = f"HTTP {resp.status_code}: {resp.text[:200]}"
             if attempt + 1 < attempts:
                 wait = self.cfg.backoff_s * 2**attempt

@@ -25,7 +25,7 @@ from pyproj import Transformer
 from reach_pipeline import results
 from reach_pipeline.config import Config
 from reach_pipeline.context import RunContext
-from reach_pipeline.errors import ExternalError, StageValidationError
+from reach_pipeline.errors import BadRequestError, StageValidationError
 from reach_pipeline.manifest import (
     FileOutput,
     Manifest,
@@ -117,7 +117,7 @@ async def route_times(
                 }
                 try:
                     body = await client.post("route", payload)
-                except ExternalError:  # 4xx: no route to this point
+                except BadRequestError:  # 4xx: no route to this point; other errors abort
                     continue
                 times.append(float(body["trip"]["summary"]["time"]))
             return min(times, default=None)

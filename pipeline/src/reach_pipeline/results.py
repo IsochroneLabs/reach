@@ -199,9 +199,12 @@ def route_check(pairs: pd.DataFrame, budget_s: float, rc: RouteCheck) -> tuple[C
     d_all = (routed["route_s"] - routed["time_s"]).abs()
     max_abs = float(d_all.max()) if len(d_all) else 0.0
     flips = int((routed["route_s"] > budget_s).sum())
-    status = "warn" if max_abs > rc.warn_max_abs_s else "ok"
+    no_route = int(pairs["route_s"].isna().sum())
+    # Pairs come from `reachable`, so the matrix found a path: many pairs without a route mean
+    # the comparison itself is not meaningful.
+    status = "warn" if max_abs > rc.warn_max_abs_s or no_route * 2 > len(pairs) else "ok"
     message = (
-        f"{len(pairs)} pairs ({int(pairs['route_s'].isna().sum())} without route): mean "
+        f"{len(pairs)} pairs ({no_route} without route): mean "
         f"|Δ| {d_all.mean() if len(d_all) else 0:.1f} s, max {max_abs:.0f} s "
         f"(warn > {rc.warn_max_abs_s:.0f} s), {flips} beyond the budget by /route "
         "(known limitation, see report)"

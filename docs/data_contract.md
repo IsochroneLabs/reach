@@ -102,8 +102,9 @@ precomputed times in minutes (`nearest_min`). Classes and deficits are the value
 `current` views. Errors: `{"detail": …}` with 404 (unknown district or facility), 422 (unknown
 profile or category, invalid body, point outside, no street near the point), 429 (rate limit,
 `Retry-After`), 500 (a profile of the run is missing in the config), 502 (Valhalla down or a
-matrix too large), 503 (database down or no published run), 504 (a live matrix exceeded
-`api.live_matrix.timeout_s`). Concurrent requests for the same
+matrix too large), 503 (database down or no published run), 504 (a Valhalla call timed out:
+`api.live_matrix.timeout_s` for live matrices, `api.valhalla.timeout_s` after its retries for
+isochrone, route and expansion). Concurrent requests for the same
 uncached answer share one Valhalla computation and report `cached: true`.
 
 **Read endpoints** (`GET` and `HEAD`; no rate limit; header `ETag: W/"<run_id>:<endpoint>:…"`,
@@ -125,7 +126,7 @@ property `contour_min` (5, 10, 15), sorted ascending; display only.
 
 | Endpoint | Request | Body |
 |---|---|---|
-| `POST /api/inspect` | {`lon`, `lat`, `profile`} | `run_id`, `profile_id`, `cell`, `source` (`precomputed` for scored cells: list from `current.reachable`; `live` for grid cells without residents: live matrix), `precomputed` ({`categories` [{`category`, `count`, `nearest_min`, `class`, `deficit`}], `transit` {`departures`, `stops_count`, `nearest_stop_min`, `class`} or null} or null for unscored cells), `weakest_category` (worst class, then largest deficit; null if all sufficient or unscored), `isochrone`, `categories` [{`category`, `name`, `count` (precomputed for scored cells, live for unscored), `count_source` (`precomputed`/`live`), `reachable` (from `current.reachable`, or the live matrix for unscored cells) [{`facility_id`, `name`, `time_s`, `time_min`}] nearest first, `nearest_route` (Feature LineString, properties `time_s`, `length_m`) or null}], `cached` |
+| `POST /api/inspect` | {`lon`, `lat`, `profile`} | `run_id`, `profile_id`, `cell`, `source` (`precomputed` for scored cells: list from `current.reachable`; `live` for grid cells without residents: live matrix), `precomputed` ({`categories` [{`category`, `count`, `nearest_min`, `class`, `deficit`}], `transit` {`departures`, `stops_count`, `nearest_stop_min`, `class`} or null} or null for unscored cells), `weakest_category` (worst class, then largest deficit; null if all sufficient or unscored), `isochrone`, `categories` [{`category`, `name`, `count` (precomputed for scored cells, live for unscored), `count_source` (`precomputed`/`live`), `reachable` (from `current.reachable`, or the live matrix for unscored cells) [{`facility_id`, `name`, `time_s`, `time_min`}] nearest first, `nearest_route` (Feature LineString, properties `time_s`, `length_m` of /route; display only: for scored cells it goes to the facility's routing point nearest to the origin by straight line, so its `time_s` can differ from the listed matrix time, mostly for parks) or null}], `cached` |
 | `POST /api/catchment` | {`facility_id`, `profile`} or {`lon`, `lat`, `profile`} | `run_id`, `profile_id`, `target` ({`kind`: `facility`, `facility_id`, `name`, `categories`} or {`kind`: `cell`, …`cell`}), `residents`, `cells`, `cell_ids` (scored cells reaching the target within the budget), `residents_by_class` {category: {class: residents}} (facility categories only), `isochrone` (reverse: areas from which the target is reached), `cached` |
 | `POST /api/expansion` | {`lon`, `lat`, `profile`} | FeatureCollection of LineStrings (property `duration` in seconds) + `run_id`, `profile_id`, `cell`, `budget_min`, `cached` |
 
