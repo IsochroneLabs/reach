@@ -10,12 +10,13 @@ import pytest
 import yaml
 
 from reach_pipeline import cli
-from reach_pipeline.config import config_files, load_config
+from reach_pipeline.config import load_config, pipeline_sections, section_digest
 from reach_pipeline.context import RunContext, new_run_id
 from reach_pipeline.errors import StageValidationError
 from reach_pipeline.manifest import (
     FileOutput,
     Manifest,
+    config_input,
     file_inputs,
     is_up_to_date,
     read_manifest,
@@ -23,8 +24,19 @@ from reach_pipeline.manifest import (
     write_manifest,
 )
 from reach_pipeline.metrics import measure
+from reach_pipeline.stages import (
+    acquire,
+    cleanup,
+    count,
+    publish,
+    score,
+    tiles,
+    validate,
+    validate_results,
+)
 
 REPO = Path(__file__).resolve().parents[2]
+STAGE_MODULES = (acquire, validate, tiles, count, score, validate_results, publish, cleanup)
 
 
 @pytest.fixture
@@ -65,19 +77,36 @@ def test_round_trip(tmp_path: Path) -> None:
 
 
 def test_require_ok(tmp_path: Path) -> None:
+    cfg = load_config(REPO / "config" / "config.yaml")
     with pytest.raises(StageValidationError, match="no manifest"):
-        require_ok(tmp_path / "demo", "demo")
+        require_ok(tmp_path / "demo", "demo", cfg)
 
     write_manifest(_manifest(tmp_path, status="failed"), tmp_path / "demo")
     with pytest.raises(StageValidationError, match="did not finish ok"):
-        require_ok(tmp_path / "demo", "demo")
+        require_ok(tmp_path / "demo", "demo", cfg)
 
     write_manifest(_manifest(tmp_path), tmp_path / "demo")
-    assert require_ok(tmp_path / "demo", "demo").status == "ok"
+    assert require_ok(tmp_path / "demo", "demo", cfg).status == "ok"
 
     (tmp_path / "input.txt").write_text("changed", encoding="utf-8")
     with pytest.raises(StageValidationError, match="inputs of stage 'demo' changed"):
-        require_ok(tmp_path / "demo", "demo")
+        require_ok(tmp_path / "demo", "demo", cfg)
+
+
+def test_require_ok_checks_config_sections(tmp_path: Path) -> None:
+    cfg = load_config(REPO / "config" / "config.yaml")
+    manifest = _manifest(tmp_path)
+    manifest.inputs = [config_input(cfg, ("profiles",)), *manifest.inputs]
+    write_manifest(manifest, tmp_path / "demo")
+    assert manifest.inputs[0].path == "config:profiles"
+
+    api_changed = cfg.model_copy(update={"api": {**cfg.api, "boundary_margin_m": 250}})
+    assert require_ok(tmp_path / "demo", "demo", api_changed).status == "ok"
+
+    profiles = {**cfg.profiles}
+    profiles["walking_339"] = profiles["walking_339"].model_copy(update={"speed_kmh": 3.5})
+    with pytest.raises(StageValidationError, match="config:profiles"):
+        require_ok(tmp_path / "demo", "demo", cfg.model_copy(update={"profiles": profiles}))
 
 
 def test_is_up_to_date(tmp_path: Path) -> None:
@@ -89,9 +118,10 @@ def test_is_up_to_date(tmp_path: Path) -> None:
 
 
 def _demo_stage(ctx: RunContext) -> Manifest:
-    """Minimal stage following the pattern: config checksum as input, no-op on re-run."""
+    """Minimal stage following the pattern: digest of its config sections as input, no-op on
+    re-run."""
     stage_dir = ctx.stage_dir("demo")
-    inputs = file_inputs(config_files(ctx.config_path))
+    inputs = [config_input(ctx.config, ("profiles", "time_budgets_min"))]
     previous = read_manifest(stage_dir)
     if is_up_to_date(previous, inputs):
         return previous
@@ -124,27 +154,63 @@ def test_stage_writes_manifest_and_skips_rerun(config_path: Path, demo: None) ->
     stage_dir = config_path.parent / "data" / "runs" / run_id / "demo"
     first = read_manifest(stage_dir)
     assert first is not None and first.status == "ok" and first.peak_rss_mb > 0
-    assert first.inputs[0].path == str(config_path)
+    assert first.inputs[0].path == "config:profiles,time_budgets_min"
 
     # Unchanged inputs: the second run is a no-op and keeps the manifest.
     assert cli.main(["demo", "--config", str(config_path)]) == 0  # latest run id reused
     assert read_manifest(stage_dir) == first
 
 
-def test_stage_reruns_when_parent_config_changes(config_path: Path, demo: None) -> None:
+def _edit_yaml(path: Path, change) -> None:
+    data = yaml.safe_load(path.read_text(encoding="utf-8"))
+    change(data)
+    path.write_text(yaml.safe_dump(data, allow_unicode=True), encoding="utf-8")
+
+
+def test_stage_reruns_only_when_its_sections_change(config_path: Path, demo: None) -> None:
     child = config_path.parent / "child.yaml"
     child.write_text("extends: config.yaml\n", encoding="utf-8")
     run_id = "20261102T120000Z"
     assert cli.main(["demo", "--run-id", run_id, "--config", str(child)]) == 0
     stage_dir = config_path.parent / "data" / "runs" / run_id / "demo"
     first = read_manifest(stage_dir)
-    assert first is not None and len(first.inputs) == 2
+    assert first is not None and len(first.inputs) == 1
 
-    # Only the parent changes; the merged config differs, so the stage must run again.
-    config_path.write_text(config_path.read_text(encoding="utf-8") + "\n# edit\n", "utf-8")
+    # The api section (read by reach_api only) and sections the stage does not use, in the
+    # parent file: the stage stays a no-op and keeps its manifest.
+    def unrelated(d: dict) -> None:
+        d["api"]["boundary_margin_m"] = 250
+        d["cleanup"]["keep_published_runs"] = 5
+
+    _edit_yaml(config_path, unrelated)
+    assert cli.main(["demo", "--run-id", run_id, "--config", str(child)]) == 0
+    assert read_manifest(stage_dir) == first
+
+    # A section it uses changes in the parent: the merged config differs, so it runs again.
+    _edit_yaml(config_path, lambda d: d["time_budgets_min"].update(transit=12))
     assert cli.main(["demo", "--run-id", run_id, "--config", str(child)]) == 0
     second = read_manifest(stage_dir)
     assert second is not None and second.inputs != first.inputs
+
+
+def test_config_sections_of_the_stages() -> None:
+    assert {m.STAGE for m in STAGE_MODULES} == set(cli.STAGES)
+    # Every pipeline section is used by at least one stage, `api` by none, and publish records
+    # the digest of all pipeline sections (meta.runs.config_hash).
+    used = {sec for module in STAGE_MODULES for sec in module.CONFIG_SECTIONS}
+    assert "api" not in used
+    assert used | {"data_dir"} == set(pipeline_sections())
+    assert set(publish.CONFIG_SECTIONS) == set(pipeline_sections())
+
+
+def test_api_section_leaves_every_stage_input_unchanged() -> None:
+    cfg = load_config(REPO / "config" / "config.yaml")
+    changed = cfg.model_copy(update={"api": {**cfg.api, "rate_limit": {"burst": 1}}})
+    for module in STAGE_MODULES:
+        assert config_input(cfg, module.CONFIG_SECTIONS) == config_input(
+            changed, module.CONFIG_SECTIONS
+        ), module.STAGE
+    assert section_digest(cfg, pipeline_sections()) == section_digest(changed, pipeline_sections())
 
 
 def test_failed_stage_writes_failed_manifest(

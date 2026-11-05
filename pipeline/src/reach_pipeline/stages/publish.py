@@ -13,7 +13,6 @@ The only stage that writes to PostGIS besides `cleanup` (AGENTS.md rule 6, arch.
 
 from __future__ import annotations
 
-import hashlib
 import json
 import logging
 import os
@@ -27,12 +26,13 @@ import psycopg
 import shapely
 
 from reach_pipeline import db
-from reach_pipeline.config import Config, config_files
+from reach_pipeline.config import Config, pipeline_sections, section_digest
 from reach_pipeline.context import RunContext
 from reach_pipeline.errors import ConfigError, ExternalError, StageValidationError
 from reach_pipeline.manifest import (
     FileOutput,
     Manifest,
+    config_input,
     file_inputs,
     is_up_to_date,
     read_manifest,
@@ -44,6 +44,10 @@ from reach_pipeline.stages import acquire, count, score, validate, validate_resu
 from reach_pipeline.valhalla.client import costing_options
 
 STAGE = "publish"
+# Config sections this stage uses; only they are part of its inputs (see
+# manifest.config_input): all pipeline sections, because `meta.runs.config_hash` records their
+# digest (re-publishing takes ~1 s); `api` is not one of them.
+CONFIG_SECTIONS = pipeline_sections()
 PREVIOUS = validate_results.STAGE
 URL_ENV, ADMIN_URL_ENV = "DATABASE_URL_PIPELINE", "DATABASE_URL_ADMIN"
 DATA_SOURCES = "data_sources.parquet"
@@ -144,7 +148,8 @@ def run_row(ctx: RunContext) -> dict[str, Any]:
         "gtfs_valid_from": s.get("gtfs_valid_from"),
         "gtfs_valid_to": s.get("gtfs_valid_to"),
         "reference_weekday": s.get("reference_weekday"),
-        "config_hash": hashlib.sha256(ctx.config.model_dump_json().encode()).hexdigest(),
+        # Digest of the pipeline sections (without `api`), the same one recorded as input.
+        "config_hash": section_digest(ctx.config, CONFIG_SECTIONS),
     }
 
 
@@ -228,13 +233,16 @@ def migrate_if_admin(cfg: Config) -> None:
 
 def run(ctx: RunContext) -> Manifest:
     """Publish this run into PostGIS and make it `current`."""
-    require_ok(ctx.stage_dir(PREVIOUS), PREVIOUS)
+    require_ok(ctx.stage_dir(PREVIOUS), PREVIOUS, ctx.config)
     cfg = ctx.config
     stage_dir = ctx.stage_dir(STAGE)
     sql_dir = cfg.database.sql_dir
     paths = _paths(ctx)
     sql_files = [sql_dir / db.ROLES_SQL, sql_dir / db.RUN_SCHEMA_SQL, *db.migrations(sql_dir)]
-    inputs = file_inputs([*config_files(ctx.config_path), *paths.values(), *sql_files])
+    inputs = [
+        config_input(ctx.config, CONFIG_SECTIONS),
+        *file_inputs([*paths.values(), *sql_files]),
+    ]
     previous = read_manifest(stage_dir)
     if is_up_to_date(previous, inputs):
         log.info("inputs unchanged since %s, nothing to do", previous.finished_at.isoformat())

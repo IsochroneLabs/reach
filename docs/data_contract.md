@@ -40,7 +40,7 @@ Roles, passwords (from `.env`) and migrations are applied by `python -m reach_pi
 | `gtfs_valid_from` | `date` | yes | Feed validity start |
 | `gtfs_valid_to` | `date` | yes | Feed validity end |
 | `reference_weekday` | `date` | yes | Day used for transit departures |
-| `config_hash` | `text` | no | SHA-256 of the merged config |
+| `config_hash` | `text` | no | SHA-256 of the merged pipeline config: all top-level sections except `api` (`config.section_digest`, since P5) |
 
 ### `meta.data_sources`
 
@@ -141,7 +141,7 @@ GeoParquet/Parquet layers with the same columns as the tables above, plus:
 | `started_at`, `finished_at` | ISO 8601 UTC | |
 | `runtime_s` | number | Wall time of the stage |
 | `peak_rss_mb` | number | Peak RSS in MB of the process (or its largest child) up to the end of the stage; under `run` it includes earlier stages |
-| `inputs` | list of {`path`, `sha256`} | Files read, with checksums |
+| `inputs` | list of {`path`, `sha256`} | Files read, with checksums; first entry `config:<section>,…` = SHA-256 of the config sections the stage uses (`CONFIG_SECTIONS`, since P5) |
 | `outputs` | list of {`path`, `rows` (null if not tabular)} | Files written |
 | `message` | string | Summary or error message |
 

@@ -22,13 +22,13 @@ from urllib.parse import urlparse
 import httpx
 import pandas as pd
 
-from reach_pipeline.config import Download, Source, config_files
+from reach_pipeline.config import Download, Source
 from reach_pipeline.context import RunContext, is_run_id
 from reach_pipeline.errors import ExternalError, StageValidationError
 from reach_pipeline.manifest import (
     FileOutput,
     Manifest,
-    file_inputs,
+    config_input,
     is_up_to_date,
     read_manifest,
     write_manifest,
@@ -36,6 +36,9 @@ from reach_pipeline.manifest import (
 from reach_pipeline.metrics import measure
 
 STAGE = "acquire"
+# Config sections this stage uses; only they are part of its inputs (see
+# manifest.config_input): downloads (`sources`, retries in `download`).
+CONFIG_SECTIONS = ("download", "sources")
 PROVENANCE = "data_sources.parquet"
 _CHUNK = 1 << 20
 
@@ -259,7 +262,7 @@ def _clean(row: dict) -> dict:
 def run(ctx: RunContext) -> Manifest:
     """Download all sources of `config.sources` (first stage, no previous manifest)."""
     stage_dir = ctx.stage_dir(STAGE)
-    inputs = file_inputs(config_files(ctx.config_path))
+    inputs = [config_input(ctx.config, CONFIG_SECTIONS)]
     previous = read_manifest(stage_dir)
     outputs_exist = previous is not None and all(Path(o.path).exists() for o in previous.outputs)
     if is_up_to_date(previous, inputs) and outputs_exist:

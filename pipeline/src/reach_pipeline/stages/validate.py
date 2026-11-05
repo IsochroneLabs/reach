@@ -22,12 +22,12 @@ import geopandas as gpd
 import shapely
 
 from reach_pipeline import boundary, facilities, gtfs, osm, zensus
-from reach_pipeline.config import config_files
 from reach_pipeline.context import RUN_ID_FORMAT, RunContext
 from reach_pipeline.errors import StageValidationError
 from reach_pipeline.manifest import (
     FileOutput,
     Manifest,
+    config_input,
     file_inputs,
     is_up_to_date,
     read_manifest,
@@ -38,6 +38,17 @@ from reach_pipeline.metrics import measure
 from reach_pipeline.stages import acquire
 
 STAGE = "validate"
+# Config sections this stage uses; only they are part of its inputs (see
+# manifest.config_input): boundaries, facilities, Zensus, GTFS and the input checks.
+CONFIG_SECTIONS = (
+    "access_points",
+    "categories",
+    "districts",
+    "reference_day",
+    "sources",
+    "study_area",
+    "validation",
+)
 PREVIOUS = acquire.STAGE
 METRIC_CRS = "EPSG:25832"
 ROUTING_PBF = "routing.osm.pbf"
@@ -445,14 +456,14 @@ def _markdown(report: dict[str, Any]) -> str:
 
 def run(ctx: RunContext) -> Manifest:
     """Check the acquire manifest, build and check all layers, write them and the report."""
-    previous_stage = require_ok(ctx.stage_dir(PREVIOUS), PREVIOUS)
+    previous_stage = require_ok(ctx.stage_dir(PREVIOUS), PREVIOUS, ctx.config)
     stage_dir = ctx.stage_dir(STAGE)
     inp = _inputs(ctx)
     raw = [inp.pbf, inp.zensus_csv, *inp.gtfs_files]
     missing = [str(p) for p in raw if not p.exists()]
     if missing:
         raise StageValidationError(f"raw files missing (run acquire): {missing}")
-    inputs = file_inputs([*config_files(ctx.config_path), *raw])
+    inputs = [config_input(ctx.config, CONFIG_SECTIONS), *file_inputs(raw)]
     previous = read_manifest(stage_dir)
     if is_up_to_date(previous, inputs):
         log.info("inputs unchanged since %s, nothing to do", previous.finished_at.isoformat())

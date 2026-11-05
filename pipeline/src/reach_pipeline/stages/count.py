@@ -28,12 +28,13 @@ import pandas as pd
 from pyproj import Transformer
 
 from reach_pipeline import count, gtfs, transit
-from reach_pipeline.config import Config, Profile, config_files
+from reach_pipeline.config import Config, Profile
 from reach_pipeline.context import RunContext
 from reach_pipeline.errors import StageValidationError
 from reach_pipeline.manifest import (
     FileOutput,
     Manifest,
+    config_input,
     file_inputs,
     is_up_to_date,
     read_manifest,
@@ -45,6 +46,9 @@ from reach_pipeline.stages import tiles, validate
 from reach_pipeline.valhalla.client import ValhallaClient, costing_options
 
 STAGE = "count"
+# Config sections this stage uses; only they are part of its inputs (see
+# manifest.config_input): targets, blocks, profiles, budgets and the Valhalla client.
+CONFIG_SECTIONS = ("categories", "count", "profiles", "time_budgets_min", "valhalla")
 PREVIOUS = tiles.STAGE
 ACCESS, TRANSIT, STOPS = "access_counts.parquet", "transit_supply.parquet", "stops.parquet"
 REPORT = "report_count.json"
@@ -341,7 +345,6 @@ def _input_paths(ctx: RunContext) -> list[Path]:
     gtfs_dir = ctx.raw_dir / "gtfs"
     gtfs_files = [gtfs_dir / f for f in GTFS_FILES if (gtfs_dir / f).exists()]
     return [
-        *config_files(ctx.config_path),
         tiles.valhalla_config(ctx),
         vdir / validate.ROUTING_PBF,
         *(vdir / f"{name}.parquet" for name in LAYERS),
@@ -352,10 +355,10 @@ def _input_paths(ctx: RunContext) -> list[Path]:
 
 def run(ctx: RunContext) -> Manifest:
     """Count every cell × category × profile and the transit supply; write outputs + report."""
-    require_ok(ctx.stage_dir(PREVIOUS), PREVIOUS)
+    require_ok(ctx.stage_dir(PREVIOUS), PREVIOUS, ctx.config)
     stage_dir = ctx.stage_dir(STAGE)
     vdir = ctx.stage_dir(validate.STAGE)
-    inputs = file_inputs(_input_paths(ctx))
+    inputs = [config_input(ctx.config, CONFIG_SECTIONS), *file_inputs(_input_paths(ctx))]
     previous = read_manifest(stage_dir)
     if is_up_to_date(previous, inputs):
         log.info("inputs unchanged since %s, nothing to do", previous.finished_at.isoformat())
