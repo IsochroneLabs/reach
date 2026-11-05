@@ -16,20 +16,21 @@ from reach_pipeline.context import RunContext, is_run_id, latest_run_id, new_run
 from reach_pipeline.errors import ConfigError, PipelineError
 from reach_pipeline.manifest import Manifest, write_manifest
 from reach_pipeline.metrics import Measurement, measure
-from reach_pipeline.stages import acquire, validate
+from reach_pipeline.stages import acquire, count, tiles, validate
 
 DEFAULT_CONFIG = "config/config.yaml"
+TILES_ACTIONS = ("check", "verify")
 
 # Implemented stages in execution order; `run` executes all of them. The first one starts a run.
 STAGES: dict[str, Callable[[RunContext], Manifest]] = {
     acquire.STAGE: acquire.run,
     validate.STAGE: validate.run,
+    tiles.STAGE: tiles.run,  # `tiles verify`; `tiles check` is called on its own (make refresh)
+    count.STAGE: count.run,
 }
 # Stages that follow (C11), with the phase that implements them: a single one fails with a
 # clear message, `run` logs each as skipped. Move a stage to STAGES when it is implemented.
 PLANNED: dict[str, str] = {
-    "tiles": "P3",
-    "count": "P3",
     "score": "P4",
     "recommend": "P7",
     "validate_results": "P4",
@@ -61,6 +62,12 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(prog="python -m reach_pipeline", description=__doc__)
     parser.add_argument(
         "stage", choices=[*STAGES, *PLANNED, "run"], help="stage to run, or 'run' for all"
+    )
+    parser.add_argument(
+        "action",
+        nargs="?",
+        choices=TILES_ACTIONS,
+        help="tiles only: 'check' (write the rebuild flag) or 'verify' (default)",
     )
     parser.add_argument(
         "--run-id",
@@ -119,6 +126,15 @@ def _run_stage(name: str, ctx: RunContext) -> Manifest:
         _current_stage.reset(token)
 
 
+def _tiles_check(ctx: RunContext) -> None:
+    """`tiles check`: writes the rebuild flag file only, no manifest (O19)."""
+    token = _current_stage.set(tiles.STAGE)
+    try:
+        tiles.check(ctx)
+    finally:
+        _current_stage.reset(token)
+
+
 def main(argv: list[str] | None = None) -> int:
     """Entry point; returns the process exit code (0 ok, 1 validation, 2 config, 3 external)."""
     setup_logging()
@@ -128,11 +144,16 @@ def main(argv: list[str] | None = None) -> int:
             raise ConfigError(
                 f"stage {args.stage!r} is not implemented yet (planned in {PLANNED[args.stage]})"
             )
+        if args.action and args.stage != tiles.STAGE:
+            raise ConfigError(f"{args.action!r} is only valid for the tiles stage")
         config_path = Path(args.config)
         config = load_config(config_path)
         run_id = _resolve_run_id(args.run_id, args.stage, config.data_dir / "runs")
         ctx = RunContext(config=config, config_path=config_path, run_id=run_id)
         log.info("run %s, config %s", run_id, config_path)
+        if args.action == "check":
+            _tiles_check(ctx)
+            return 0
         names = list(STAGES) if args.stage == "run" else [args.stage]
         for name in names:
             _run_stage(name, ctx)

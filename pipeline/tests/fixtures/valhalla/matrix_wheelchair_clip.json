@@ -1,0 +1,67 @@
+{
+  "note": "Recorded 2026-11-02 from Valhalla 3.9.1 on the test clip tiles (no elevation): wheelchair, 2 cell origins in the old town -> Schloss Hohentuebingen (unreachable: steps), a doctor and a supermarket. Replayed with respx in test_valhalla_client.py.",
+  "request": {
+    "sources": [
+      {
+        "lon": 9.0568,
+        "lat": 48.5204
+      },
+      {
+        "lon": 9.05076,
+        "lat": 48.51862
+      }
+    ],
+    "targets": [
+      {
+        "lon": 9.0506,
+        "lat": 48.5193
+      },
+      {
+        "lon": 9.05458,
+        "lat": 48.52024
+      },
+      {
+        "lon": 9.05669,
+        "lat": 48.5222
+      }
+    ],
+    "costing": "pedestrian",
+    "costing_options": {
+      "pedestrian": {
+        "type": "wheelchair",
+        "walking_speed": 3.39
+      }
+    },
+    "verbose": false
+  },
+  "response": {
+    "sources_to_targets": {
+      "durations": [
+        [
+          null,
+          176,
+          229
+        ],
+        [
+          null,
+          357,
+          753
+        ]
+      ],
+      "distances": [
+        [
+          0.0,
+          0.166,
+          0.215
+        ],
+        [
+          0.0,
+          0.335,
+          0.707
+        ]
+      ]
+    },
+    "units": "kilometers",
+    "algorithm": "timedistancematrix"
+  }
+}

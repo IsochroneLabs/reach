@@ -22,6 +22,8 @@ Project vocabulary used in code, docs, issues and prompts. People and roles ("yo
 | **reach** | Maximum straight-line distance of a profile (speed × time budget); the prefilter uses speed × speed factor × budget + margin (`architecture.md` §6.3). |
 | **access point** | Routing point of a park or playground where a walkable way crosses its boundary (fallback: points along the boundary); a park counts once, with the minimum time over its access points. |
 | **refresh** | `make refresh`: full weekly update on the host — acquire, validate, tile build and swap, Valhalla restart, remaining stages. |
+| **block** | Square group of cells (`count.block_size_m`, 500 m) whose origins are the sources of one matrix request per profile (`architecture.md` §6.5 rule 2). |
+| **prefilter evidence** | Matrices with widened candidate sets for sample blocks in every `count` run; shows whether any facility is reachable beyond the prefilter reach (O20, `count/report_count.json`). |
 | **count (A)** | Number of facilities of a category reachable from a cell within the time budget, via Valhalla matrix. |
 | **class** | Lack / insufficient / sufficient per cell, category and profile (`methodology.md` §4). |
 | **deficit (U)** | Population-weighted unmet need per cell (`methodology.md` §4). |

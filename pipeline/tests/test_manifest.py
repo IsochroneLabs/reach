@@ -175,8 +175,25 @@ def test_stage_order() -> None:
 
 
 def test_planned_stage_fails_clearly(config_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
-    assert cli.main(["count", "--config", str(config_path)]) == 2
-    assert "stage 'count' is not implemented yet (planned in P3)" in capsys.readouterr().err
+    assert cli.main(["score", "--config", str(config_path)]) == 2
+    assert "stage 'score' is not implemented yet (planned in P4)" in capsys.readouterr().err
+
+
+def test_action_only_for_tiles(config_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    assert cli.main(["count", "check", "--config", str(config_path)]) == 2
+    assert "'check' is only valid for the tiles stage" in capsys.readouterr().err
+
+
+def test_tiles_check_runs_without_manifest(
+    config_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    called: list[str] = []
+    monkeypatch.setattr(cli.tiles, "check", lambda ctx: called.append(ctx.run_id) or True)
+    assert (
+        cli.main(["tiles", "check", "--config", str(config_path), "--run-id", "20261102T120000Z"])
+        == 0
+    )
+    assert called == ["20261102T120000Z"]
 
 
 def test_run_logs_planned_stages_as_skipped(
@@ -188,7 +205,7 @@ def test_run_logs_planned_stages_as_skipped(
     }
     monkeypatch.setattr(cli, "STAGES", stages)
     assert cli.main(["run", "--config", str(config_path)]) == 0
-    assert seen == ["acquire", "validate"]
+    assert seen == ["acquire", "validate", "tiles", "count"]
     err = capsys.readouterr().err  # the CLI logs to stderr
     for name, phase in cli.PLANNED.items():
         assert f"stage {name} skipped: not implemented yet (planned in {phase})" in err

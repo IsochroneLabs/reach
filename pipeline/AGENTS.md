@@ -42,6 +42,14 @@ this file adds the stage pattern (note N2) and wins where it is more specific.
   node ID (about 1.7 GB per ID bitmap), not with the file size; keep the number of
   `extract`/`tags-filter` passes over the regional PBF small.
 - **Raw inputs:** `acquire.raw_path(raw_dir, source, file)`; later stages never download.
+- **Valhalla:** only through `valhalla/client.py` (`ValhallaClient`: async httpx, at most
+  `valhalla.concurrency` requests in flight, retries on timeouts/5xx, `matrix()` with compact
+  output, NaN = unreachable, target sets split above `valhalla.max_matrix_pairs`). The URL comes
+  from `$VALHALLA_URL`, else `valhalla.url`. Counting follows arch. §6.5: blocks
+  (`count.make_blocks`), exact prefilter (`count.prefilter`), one matrix per block for all
+  categories and stops, split afterwards (`count.count_block`, `count.transit_block`).
+- **Tiles:** `tiles check` (flag file, no manifest) and `tiles verify` (manifest; also the step of
+  `run`). Stages never call Docker; the build, swap and restart are `make refresh` (O19).
 
 ## Tests
 
@@ -53,4 +61,5 @@ this file adds the stage pattern (note N2) and wins where it is more specific.
 - Tests that write files use `tmp_path` and a config copy with `data_dir` inside it
   (see `tests/test_manifest.py`).
 - Integration tests against a local Valhalla on the test clip go to `tests/integration/` and
-  carry the `integration` marker.
+  carry the `integration` marker; they are deselected by default. Run them with the clip tiles
+  served: `make refresh REACH_CONFIG=config/test_clip.yaml`, then `uv run pytest -m integration`.

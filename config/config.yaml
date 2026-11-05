@@ -207,10 +207,54 @@ download:
   backoff_s: 5
   timeout_s: 60
 
-# Valhalla tile build (arch. §6.1, C6).
+# Valhalla tile build (arch. §6.1, C6) and the checks of `tiles verify` (P3).
 tiles:
   # Production tiles are always built with elevation; the test clip builds without it.
   elevation: true
+  # `tiles verify` routes this golden pair ([lon, lat], EPSG:4326) on the running Valhalla:
+  # Marktplatz → Schloss Hohentübingen, a short steep route inside the test clip. The route
+  # must exist and its length must lie between the straight line and max_detour_factor times
+  # it; with elevation, its edges must carry grades (VF1).
+  verify:
+    route: [[9.0568, 48.5204], [9.0506, 48.5193]]
+    costing: pedestrian
+    max_detour_factor: 3.0
+
+# Valhalla service used by the pipeline (arch. §6.5). The environment variable VALHALLA_URL
+# overrides `url` (Compose sets http://valhalla:8002).
+valhalla:
+  url: http://localhost:8002
+  # Parallel requests; equals the worker threads of valhalla_service (compose.yaml, 2 = vCPUs).
+  concurrency: 2
+  # Seconds per request; retries with backoff_s * 2**attempt on timeouts, connection errors
+  # and 5xx.
+  timeout_s: 300
+  retries: 3
+  backoff_s: 2
+  # Sources × targets per matrix request; must not exceed service_limits.<costing>
+  # .max_matrix_location_pairs in config/valhalla.json. Larger target sets are split.
+  max_matrix_pairs: 25000
+
+# Counting (arch. §6.3, §6.5).
+count:
+  # Cells are grouped into square blocks of this size by their origin; one matrix per block
+  # and profile (500 m: at most 25 sources, ~24k pairs for cycling in Tübingen, P3).
+  block_size_m: 500
+  # Prefilter evidence (O20): for the blocks around these points ([lon, lat]; the block of the
+  # nearest scored cell) the candidates are widened to reach * widen_factor + widen_m, so
+  # facilities beyond the prefilter reach are measured too. The highest implied speed
+  # (straight line ÷ time) is reported per band of travel time, band_edges as fractions of the
+  # budget: short pairs are dominated by the snap distance (not counted as time), the band ending
+  # at the budget is the one that matters for the prefilter (P3 measurement).
+  evidence:
+    widen_factor: 1.5
+    widen_m: 500
+    band_edges: [0.1, 0.33, 0.67, 1.0]
+    sample_points:
+      centre: [9.0568, 48.5204]       # Marktplatz, old town
+      steep: [9.0650, 48.5390]        # Waldhäuser-Ost, hilltop above the centre
+      edge_north: [9.0050, 48.5460]   # Hagelloch, Teilort on the Schönbuch edge
+      edge_south: [8.9480, 48.4880]   # Bühl, Teilort in the Neckar valley
 
 # Validation thresholds (arch. §7 "validate inputs").
 validation:
