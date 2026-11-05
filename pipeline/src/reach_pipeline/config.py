@@ -291,6 +291,8 @@ class Config(_Model):
     validation: Validation
     database: Database
     cleanup: Cleanup
+    # Read and validated by reach_api.settings; kept as is here.
+    api: dict[str, Any] = Field(default_factory=dict)
 
     @field_validator("categories")
     @classmethod
