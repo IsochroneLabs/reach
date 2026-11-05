@@ -104,7 +104,7 @@ profile or category, invalid body, point outside, no street near the point), 429
 matrix too large), 503 (database down or no published run). Concurrent requests for the same
 uncached answer share one Valhalla computation and report `cached: true`.
 
-**Read endpoints** (no rate limit; header `ETag: W/"<run_id>:<endpoint>:…"`,
+**Read endpoints** (`GET` and `HEAD`; no rate limit; header `ETag: W/"<run_id>:<endpoint>:…"`,
 `Cache-Control: no-cache`, `If-None-Match` → 304):
 
 | Endpoint | Body |
@@ -123,7 +123,7 @@ property `contour_min` (5, 10, 15), sorted ascending; display only.
 
 | Endpoint | Request | Body |
 |---|---|---|
-| `POST /api/inspect` | {`lon`, `lat`, `profile`} | `run_id`, `profile_id`, `cell`, `precomputed` ({`categories` [{`category`, `count`, `nearest_min`, `class`, `deficit`}], `transit` {`departures`, `stops_count`, `nearest_stop_min`, `class`} or null} or null for unscored cells), `weakest_category` (worst class, then largest deficit; null if all sufficient or unscored), `isochrone`, `categories` [{`category`, `name`, `reachable` [{`facility_id`, `name`, `time_s`, `time_min`}] nearest first, `nearest_route` (Feature LineString, properties `time_s`, `length_m`) or null}], `cached` |
+| `POST /api/inspect` | {`lon`, `lat`, `profile`} | `run_id`, `profile_id`, `cell`, `precomputed` ({`categories` [{`category`, `count`, `nearest_min`, `class`, `deficit`}], `transit` {`departures`, `stops_count`, `nearest_stop_min`, `class`} or null} or null for unscored cells), `weakest_category` (worst class, then largest deficit; null if all sufficient or unscored), `isochrone`, `categories` [{`category`, `name`, `count` (precomputed for scored cells, live for unscored), `count_source` (`precomputed`/`live`), `reachable` (live matrix) [{`facility_id`, `name`, `time_s`, `time_min`}] nearest first, `nearest_route` (Feature LineString, properties `time_s`, `length_m`) or null}], `cached` |
 | `POST /api/catchment` | {`facility_id`, `profile`} or {`lon`, `lat`, `profile`} | `run_id`, `profile_id`, `target` ({`kind`: `facility`, `facility_id`, `name`, `categories`} or {`kind`: `cell`, …`cell`}), `residents`, `cells`, `cell_ids` (scored cells reaching the target within the budget), `residents_by_class` {category: {class: residents}} (facility categories only), `isochrone` (reverse: areas from which the target is reached), `cached` |
 | `POST /api/expansion` | {`lon`, `lat`, `profile`} | FeatureCollection of LineStrings (property `duration` in seconds) + `run_id`, `profile_id`, `cell`, `budget_min`, `cached` |
 
@@ -237,4 +237,4 @@ their row counts.
 | v0.3 | 2026-11-02 | `cells` = all populated cells inside the city boundary; routing area around the city; report coverage keys (`scored_share`, `excluded_by_district`, …) | Architecture v0.12, O11 |
 | v0.4 | 2026-11-03 | `tiles/` and `count/` files (`access_counts`, `transit_supply`, `stops` with `weekday_departures`, reports); `nearest_min` only within the budget | P3 tiles + count |
 | v0.5 | 2026-11-04 | Roles, `meta` and run schema implemented (`infra/db/`); `meta.schema_migrations`; `profiles.costing_options` = options as sent to Valhalla; FKs of `access_counts`/`transit_supply`; `district_scores` details; `score/`, report part 2 and `publish` manifest files | P4 score + publish + cleanup |
-| v0.6 | 2026-11-05 | API responses (read and live endpoints, errors, ETag, snapping) | P5 API |
+| v0.6 | 2026-11-05 | API responses (read and live endpoints, errors, ETag, snapping, HEAD, inspect `count`/`count_source`); manifest config input per stage; `config_hash` without `api` | P5 API |

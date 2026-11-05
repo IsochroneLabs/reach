@@ -16,6 +16,8 @@ from reach_api.db import TRANSIT
 from reach_api.deps import Deps, current_run, deps
 
 router = APIRouter(prefix="/api")
+# Every read endpoint also answers HEAD (same headers incl. ETag, no body).
+GET_HEAD = ["GET", "HEAD"]
 
 GEOJSON = "application/geo+json"
 # Revalidate on every use (cheap 304), so a new run shows up at once.
@@ -60,7 +62,7 @@ def _json(request: Request, etag: str, content: Any) -> Response:
 DepsDep = Annotated[Deps, Depends(deps)]
 
 
-@router.get("/meta")
+@router.api_route("/meta", methods=GET_HEAD)
 async def meta(request: Request, d: DepsDep) -> Response:
     """Run id, data dates and sources, validation summary, profiles, categories, classes."""
     run = await current_run(d)
@@ -96,7 +98,7 @@ async def meta(request: Request, d: DepsDep) -> Response:
     return _json(request, _etag(run.run_id, "meta", names_tag), _jsonable(content))
 
 
-@router.get("/districts")
+@router.api_route("/districts", methods=GET_HEAD)
 async def districts(request: Request, d: DepsDep) -> Response:
     """District polygons (EPSG:4326) with residents and cell counts."""
     run = await current_run(d)
@@ -105,7 +107,7 @@ async def districts(request: Request, d: DepsDep) -> Response:
     )
 
 
-@router.get("/districts/{district_id}/scores")
+@router.api_route("/districts/{district_id}/scores", methods=GET_HEAD)
 async def district_scores(
     request: Request,
     d: DepsDep,
@@ -124,7 +126,7 @@ async def district_scores(
     return _json(request, etag, _jsonable({"run_id": run.run_id, **result}))
 
 
-@router.get("/cells")
+@router.api_route("/cells", methods=GET_HEAD)
 async def cells(
     request: Request,
     d: DepsDep,
@@ -145,7 +147,7 @@ async def cells(
     )
 
 
-@router.get("/recommendations")
+@router.api_route("/recommendations", methods=GET_HEAD)
 async def recommendations(
     request: Request,
     d: DepsDep,

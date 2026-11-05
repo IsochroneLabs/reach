@@ -102,3 +102,24 @@ def test_no_published_run(client: TestClient, db: FakeDatabase) -> None:
 
 def test_health(client: TestClient) -> None:
     assert client.get("/api/health").json()["status"] == "ok"
+
+
+def test_head_on_every_get_endpoint(client: TestClient) -> None:
+    for path in [
+        "/api/health",
+        "/api/meta",
+        "/api/districts",
+        "/api/districts/r1/scores",
+        "/api/cells?category=grocery&profile=walking_339",
+        "/api/recommendations",
+    ]:
+        get, head = client.get(path), client.head(path)
+        assert head.status_code == get.status_code == 200, path
+        assert head.content == b"", path
+        assert head.headers.get("etag") == get.headers.get("etag"), path
+        assert head.headers["content-type"] == get.headers["content-type"], path
+
+
+def test_every_get_route_allows_head(client: TestClient) -> None:
+    routes = [r for r in client.app.routes if "GET" in getattr(r, "methods", set())]
+    assert routes and all("HEAD" in r.methods for r in routes), [r.path for r in routes]

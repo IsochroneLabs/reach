@@ -52,7 +52,7 @@ def create_app(deps: Deps | None = None) -> FastAPI:
 
     app = FastAPI(title="reach API", version=__version__, lifespan=lifespan)
 
-    @app.get("/api/health")
+    @app.api_route("/api/health", methods=read.GET_HEAD)
     def health() -> dict[str, str]:
         """Liveness check used by the Compose healthcheck."""
         return {"status": "ok", "version": __version__}

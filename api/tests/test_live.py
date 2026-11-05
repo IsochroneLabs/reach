@@ -99,13 +99,23 @@ def test_unscored_cell_snapped_and_cached(
     assert valhalla.calls.call_count == calls
 
 
-def test_mismatch_is_logged(
+def test_scored_cell_shows_precomputed_count(
     client: TestClient, db: FakeDatabase, caplog: pytest.LogCaptureFixture
 ) -> None:
-    db.scores[0]["count"] = 3  # live matrix finds 2 groceries
+    db.scores[0]["count"] = 3  # published count 3, the live matrix finds 2 groceries (N8)
     with caplog.at_level(logging.WARNING, logger="reach_api.routes.live"):
-        assert client.post("/api/inspect", json=INSPECT).status_code == 200
+        body = client.post("/api/inspect", json=INSPECT).json()
+    grocery = next(c for c in body["categories"] if c["category"] == "grocery")
+    assert grocery["count"] == 3 and grocery["count_source"] == "precomputed"
+    assert len(grocery["reachable"]) == 2  # the list stays live
     assert "live 2, precomputed 3" in caplog.text
+
+
+def test_unscored_cell_shows_live_count(client: TestClient, db: FakeDatabase) -> None:
+    db.scored = False
+    body = client.post("/api/inspect", json=INSPECT).json()
+    grocery = next(c for c in body["categories"] if c["category"] == "grocery")
+    assert grocery["count"] == 2 and grocery["count_source"] == "live"
 
 
 def test_unknown_profile(client: TestClient, valhalla: respx.MockRouter) -> None:

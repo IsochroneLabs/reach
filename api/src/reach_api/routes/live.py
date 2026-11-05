@@ -136,7 +136,8 @@ async def _reachable(d: Deps, loc: Location, p: Profile) -> dict[str, list[dict[
 async def inspect(body: Point, d: DepsDep) -> Response:
     """Pin-drop inspector: precomputed values of the cell (identical to the map), the 5/10/15
     minute isochrone, the facilities reachable per category with times and the route to the
-    nearest one per category, all from the cell origin; plus the weakest category."""
+    nearest one per category, all from the cell origin; plus the weakest category. The count per
+    category is the precomputed one for scored cells, the live one only for unscored cells."""
     run = await current_run(d)
     p = run.profile(body.profile)
     loc = await _locate(d, body.lon, body.lat)
@@ -174,6 +175,10 @@ async def _inspect(d: Deps, run: Run, p: Profile, loc: Location) -> dict[str, An
             {
                 "category": c,
                 "name": names.get(c, c),
+                # Scored cells show the published count (identical to the map); the live
+                # matrix only lists the facilities with times (differences: notes N8).
+                "count": precomputed[c]["count"] if c in precomputed else len(reachable.get(c, [])),
+                "count_source": "precomputed" if c in precomputed else "live",
                 "reachable": [
                     {k: v for k, v in f.items() if k != "_point"} for f in reachable.get(c, [])
                 ],
