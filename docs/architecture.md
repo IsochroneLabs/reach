@@ -1,6 +1,6 @@
 # Architecture — reach (15-Minute City Tübingen)
 
-> **Status:** draft v0.13 (5 Nov 2026). Describes the target architecture the team builds towards.
+> **Status:** draft v0.14 (5 Nov 2026). Describes the target architecture the team builds towards.
 > Every change bumps the version and adds a line to the [Change log](#change-log).
 > Settled and open decisions are listed in [Section 13](#13-decisions); items marked **[OPEN]**
 > must be settled before the related code is written. Methodology (categories, thresholds,
@@ -266,21 +266,29 @@ The server has 4 GB RAM, so every Valhalla call must be cheap. Rules:
 
 **Live endpoints (API)**
 
-8. **Answer from precomputed data first.** The pin-drop inspector snaps the pin to the census cell
-   under it and returns that cell's precomputed counts and nearest times from PostGIS (identical
-   to the map). Valhalla is only called for what cannot be precomputed: the isochrone polygon and
-   the route lines to the nearest facility per category. **Both start from the cell's origin
-   point**, not from the raw click position, so polygon, routes and counts always describe the
-   same start and can be cached per cell. Inside populated cells the pin is shown snapped to the
-   origin; outside populated cells (parks, fields) the inspector routes from the clicked point
-   and says that no precomputed values exist there.
+8. **Answer from precomputed data first.** The pin-drop inspector snaps the pin to the 100 m
+   Zensus grid cell under it (id computed from EPSG:3035) and returns that cell's precomputed
+   counts, nearest times and classes from PostGIS (identical to the map). Valhalla is only
+   called for what cannot be precomputed: the isochrone polygon, **one matrix** from the origin
+   to all facility routing points within the prefilter reach (O20; all categories in one
+   request, with the published run's costing options), which gives the reachable facilities
+   per category with times and the nearest one, and the route lines to the nearest facility
+   per category. **All of them start from the cell's origin point** (the cell centre), not
+   from the raw click position, so polygon, routes and counts always describe the same start
+   and can be cached per cell. This also holds for grid cells without residents (parks,
+   fields): the pin snaps to that cell's centre, the answer says that no precomputed values
+   exist there, and it is cached the same way. Live counts are compared with the precomputed
+   ones and differences are only logged (the map shows the precomputed values).
 9. **One isochrone call for all rings.** 5, 10 and 15 minutes are requested as contours in a single
    call, with `generalize` and `denoise` set to keep polygons small.
 10. **Cache by cell.** Live isochrones and catchments are cached per (cell, profile); repeated
     clicks in the same cell never hit Valhalla twice.
 11. **Expensive calls on demand only.** `expansion` is only called when the user opens the
     "spread" view and is limited to the 15-minute budget.
-12. **Validate before routing.** Points outside the urban boundary plus a small margin are rejected before any Valhalla call.
+12. **Validate before routing.** A point is accepted if it lies inside the urban boundary plus
+    a small margin **or** inside a scored cell (O11: scored cells outside the urban boundary
+    are shown on the map, so they can be inspected); every other point is rejected before any
+    Valhalla call.
 
 **Valhalla service**
 
@@ -373,11 +381,17 @@ Read endpoints (from `current`):
 - `GET /api/recommendations?category=&profile=`
 
 Live endpoints (call Valhalla, small and fast, no queue):
-- `POST /api/inspect` — pin-drop: isochrone + reachable facilities per category with times + weakest category.
-- `POST /api/catchment` — facility or candidate: isochrone + residents reaching it.
+- `POST /api/inspect` — pin-drop: precomputed values of the grid cell, isochrone, reachable
+  facilities per category with times (one matrix), route to the nearest one per category,
+  weakest category.
+- `POST /api/catchment` — facility or point (e.g. a candidate site): reverse isochrone +
+  residents reaching it (matrix from the scored cells within the prefilter reach).
 - `POST /api/expansion` — street-level spread for visualisation.
 
-Live endpoints validate that the point lies inside the urban boundary (plus a small margin) and enforce simple rate limits.
+Live endpoints snap the point to its 100 m grid cell, accept it only inside the urban boundary
+(plus a small margin) or inside a scored cell (§6.5 rule 12), cache per (run, cell, profile) and
+enforce a token-bucket rate limit per client IP (`X-Forwarded-For` trusted only from Caddy).
+Read endpoints carry an ETag per run id. Response formats: `docs/data_contract.md`.
 
 ## 10. Frontend
 
@@ -535,6 +549,7 @@ documented here in the same branch (see `AGENTS.md`).
 
 | Version | Date | Change | Why |
 |---|---|---|---|
+| v0.14 | 2026-11-05 | §6.5 rule 8: inspector snaps every point (also unpopulated) to its 100 m grid cell and uses one live matrix to all facility points within the prefilter reach; rule 12: points inside a scored cell are accepted too; §9: endpoint descriptions, snapping, cache, rate limit, ETag | P5: the DB stores no nearest facility id (needed for routes, notes N7); 86 scored cells (1,144 residents) lie outside the urban boundary + 100 m (O11); confirmed by Rico (K1, K2) |
 | v0.13 | 2026-11-05 | §7: `cleanup` named next to `publish` as the only other stage touching PostGIS (it drops old run schemas) | The sentence contradicted the §7 stage table and the P4 implementation; aligned with AGENTS.md rule 6 |
 | v0.12 | 2026-11-02 | O11 changed: scoring scope = all populated cells inside the city boundary with a coverage check (≥ 0.98); urban boundary only for map, live check and recommender candidates; O13 buffer around the city boundary; O17 settled (land-use list, ±100 m); §4, §5.2, §13 | P2 showed that the land-use boundary left 8 % of residents (mostly core town) unscored (notes N3) |
 | v0.11 | 2026-11-02 | Settled O18 (`transit_supply` table + `transit_scores` view), O19 (`make refresh` orchestrates tile build and pipeline on the host), O20 (prefilter reach with speed factor and margin, buffer check); §3, §4, §6.1, §6.3, §6.5, §7, §8, §11, §13 (O4, O13 wording), §14 updated; review fixes | Answers to the P0 implementation plan questions |

@@ -9,6 +9,7 @@ annotated-types==0.8.0
 anyio==4.16.0
     # via
     #   httpx
+    #   httpx2
     #   starlette
     #   watchfiles
 certifi==2026.10.23
@@ -30,9 +31,12 @@ geopandas==1.2.0
 h11==0.16.0
     # via
     #   httpcore
+    #   httpcore2
     #   uvicorn
 httpcore==1.0.9
     # via httpx
+httpcore2==2.16.0 ; sys_platform != 'emscripten'
+    # via httpx2
 httptools==0.9.0
     # via uvicorn
 httpx==0.28.1
@@ -40,10 +44,14 @@ httpx==0.28.1
     #   reach-api
     #   reach-pipeline
     #   respx
+httpx2==2.16.0
+httpx2-jsfetch==1.0 ; sys_platform == 'emscripten'
+    # via httpx2
 idna==3.20
     # via
     #   anyio
     #   httpx
+    #   httpx2
 iniconfig==2.3.1
     # via pytest
 numpy==2.5.4
@@ -71,6 +79,8 @@ psycopg==3.3.6
     #   reach-api
     #   reach-pipeline
 psycopg-binary==3.3.6 ; implementation_name != 'pypy'
+    # via psycopg
+psycopg-pool==3.3.3
     # via psycopg
 pyarrow==26.0.0
     # via reach-pipeline
@@ -103,6 +113,7 @@ python-dotenv==1.2.4
     #   uvicorn
 pyyaml==6.0.3
     # via
+    #   reach-api
     #   reach-pipeline
     #   uvicorn
 respx==0.23.1
@@ -113,12 +124,18 @@ shapely==2.2.0
     #   reach-pipeline
 starlette==1.10.0
     # via fastapi
+truststore==0.10.5 ; sys_platform != 'emscripten'
+    # via
+    #   httpcore2
+    #   httpx2
 typing-extensions==4.16.0
     # via
     #   anyio
     #   fastapi
+    #   httpx2
     #   opentelemetry-api
     #   psycopg
+    #   psycopg-pool
     #   pydantic
     #   pydantic-core
     #   pydantic-settings

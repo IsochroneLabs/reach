@@ -172,3 +172,46 @@ lists the share and examples.
 `max_hiking_difficulty` effects on the chosen path per speed; or accept, because "a faster
 walker avoids steps" is Valhalla's model of preference, and document it in methodology (V5
 sensitivity). Changing costing options changes counts → ask first.
+
+## N7. Store the nearest facility per cell, category and profile in the pipeline
+
+**Status:** open · **Added:** 5 Nov 2026 · **Related:** `architecture.md` §6.5 rule 8, §9,
+`docs/data_contract.md` (`access_counts`), P5 decision K2
+
+**Current choice (P5, option a):** `access_counts` stores `count` and `nearest_min`, not which
+facility is the nearest. `POST /api/inspect` therefore sends one live matrix from the cell
+origin to all facility routing points within the prefilter reach (all categories in one
+request) and routes to the nearest one per category. Cached per (run, cell, profile).
+
+**Option b:** `count` already has the minimum time per facility; it could store
+`nearest_facility_id` (and the routing point) next to `nearest_min`. The inspector would then
+skip the live matrix and only call `isochrone` and `route`, and the "nearest" shown would match
+the map exactly (see N8). Cost: data-contract change (`access_counts`, `scores` view), a
+migration path for the `current` views (implementation plan, open from P4) and a pipeline change.
+The list of all reachable facilities per category would still need the matrix (or a new
+cell × facility table, ~250k rows per walking profile).
+
+**Decide:** after P6, if the inspector is too slow on the CX23 or N8 differences are visible.
+
+## N8. Live matrix and pipeline blocks use different Valhalla matrix algorithms
+
+**Status:** open · **Added:** 5 Nov 2026 · **Related:** `architecture.md` §6.5 rules 2 and 8,
+`config/valhalla.json` (`thor.source_to_target_algorithm: select_optimal`), N7
+
+**Finding (P5, Valhalla 3.9.1, run `20261105T184022Z`):** with `select_optimal`, Valhalla answers
+a one-source matrix (live inspector) with `timedistancematrix` and a block matrix (count stage,
+15–25 sources) with `costmatrix`. For 40 random scored cells × 4 profiles × 6 categories (960
+pairs) the live count differed from the precomputed count in 24 pairs (2.5 %), always by ±1,
+mostly cycling and walking 5.0. Example: cell `CRS3035RES100mN2821500E4246900`, wheelchair,
+childcare `w611309782`: block 463 s, single source unreachable. Pipeline blocks with a single
+cell are answered by `timedistancematrix` too, so the precomputed counts mix both algorithms.
+
+**Current handling:** the API logs differences (`live count differs from run …`) and the map
+and inspector show the precomputed counts; the live list of reachable facilities can differ by
+one facility near the 15-minute limit.
+
+**Options:** (a) set `source_to_target_algorithm` to one algorithm in `config/valhalla.json`
+(changes counts → re-run, compare, ask first); (b) send the cell's whole block as sources in the
+live matrix (same request as the pipeline, more pairs per inspect); (c) N7 option b; (d) accept
+and document. Recommendation: test (a) with `costmatrix` on the full run and compare runtimes
+and counts (V-experiment), then decide.

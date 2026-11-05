@@ -1,6 +1,6 @@
 # Data contract — reach
 
-> **Status:** draft v0.5 (4 Nov 2026), from `implementation_plan.md` §3. Binding for the tables
+> **Status:** draft v0.6 (5 Nov 2026), from `implementation_plan.md` §3. Binding for the tables
 > and files exchanged between pipeline and API once a phase implements them; every change needs
 > confirmation (AGENTS.md) and a data-contract test. Tables marked *(planned, Pn)* do not exist yet.
 
@@ -40,7 +40,7 @@ Roles, passwords (from `.env`) and migrations are applied by `python -m reach_pi
 | `gtfs_valid_from` | `date` | yes | Feed validity start |
 | `gtfs_valid_to` | `date` | yes | Feed validity end |
 | `reference_weekday` | `date` | yes | Day used for transit departures |
-| `config_hash` | `text` | no | SHA-256 of the merged config |
+| `config_hash` | `text` | no | SHA-256 of the merged pipeline config: all top-level sections except `api` (`config.section_digest`, since P5) |
 
 ### `meta.data_sources`
 
@@ -93,6 +93,40 @@ the `cells` table holds only scored cells (C12): every populated cell whose cent
 city boundary (architecture O11). Facilities are counted once per facility id,
 with the minimum time over their points.
 
+## API responses *(implemented, P5: `api/src/reach_api/routes/`)*
+
+All bodies are JSON; coordinates EPSG:4326 `[lon, lat]` with at most 6 decimals, built in
+PostGIS (`ST_Transform`, `ST_AsGeoJSON(…, 6)`). Times from Valhalla in seconds (`time_s`),
+precomputed times in minutes (`nearest_min`). Classes and deficits are the values of the
+`current` views. Errors: `{"detail": …}` with 404 (unknown district or facility), 422 (unknown
+profile or category, invalid body, point outside, no street near the point), 429 (rate limit,
+`Retry-After`), 500 (a profile of the run is missing in the config), 502 (Valhalla down or a
+matrix too large), 503 (database down or no published run). Concurrent requests for the same
+uncached answer share one Valhalla computation and report `cached: true`.
+
+**Read endpoints** (`GET` and `HEAD`; no rate limit; header `ETag: W/"<run_id>:<endpoint>:…"`,
+`Cache-Control: no-cache`, `If-None-Match` → 304):
+
+| Endpoint | Body |
+|---|---|
+| `GET /api/meta` | `run` (row of `meta.runs`), `data_sources` (rows of `meta.data_sources`: `source`, `url`, `retrieved_at`, `checksum`, `licence`), `validation` {`ok`, `warn`, `fail` counts, `issues`: non-ok rows of `validation_report`}, `profiles` [{`profile_id`, `costing`, `speed_kmh`, `time_budget_min`, `transit`}], `categories` [{`id`, `name` (config), `k`}], `transit_classes` [{`class`, `lower`, `upper`}] |
+| `GET /api/districts` | GeoJSON FeatureCollection (`application/geo+json`) + `run_id`; feature `id` = `district_id`, properties `district_id`, `name`, `admin_level`, `residents`, `cells` (scored cells) |
+| `GET /api/districts/{id}/scores?profile=` | `run_id`, `district_id`, `name`, `admin_level`, `scores` [{`category`, `profile_id`, `share_lack`, `share_insufficient`, `share_sufficient`, `deficit_sum`, `residents_lack`, `rank_deficit`, `rank_share_lack`, `districts_ranked`}]; ranks over all districts per category × profile (1 = highest), `profile` optional |
+| `GET /api/cells?category=&profile=` | GeoJSON FeatureCollection + `run_id`, `category`, `profile_id`; feature `id` = `cell_id`, Polygon; properties `cell_id`, `population`, `district_id`, `count`, `nearest_min`, `class`, `deficit`. `category=transit` (profiles with transit only): `departures`, `stops_count`, `nearest_stop_min`, `class` instead of the count columns |
+| `GET /api/recommendations?category=&profile=` | FeatureCollection + `run_id`, `available: false`, empty `features` until P7 |
+
+**Live endpoints** (`POST`, JSON body; token bucket per client IP; `cached` true when served
+from the in-process cache of the run). Points are snapped to the 100 m Zensus grid cell; `cell`
+= {`cell_id`, `scored`, `population`, `district_id`, `origin` [lon, lat]} (`population` and
+`district_id` null for unscored cells). `isochrone` = FeatureCollection of Polygons with
+property `contour_min` (5, 10, 15), sorted ascending; display only.
+
+| Endpoint | Request | Body |
+|---|---|---|
+| `POST /api/inspect` | {`lon`, `lat`, `profile`} | `run_id`, `profile_id`, `cell`, `precomputed` ({`categories` [{`category`, `count`, `nearest_min`, `class`, `deficit`}], `transit` {`departures`, `stops_count`, `nearest_stop_min`, `class`} or null} or null for unscored cells), `weakest_category` (worst class, then largest deficit; null if all sufficient or unscored), `isochrone`, `categories` [{`category`, `name`, `count` (precomputed for scored cells, live for unscored), `count_source` (`precomputed`/`live`), `reachable` (live matrix) [{`facility_id`, `name`, `time_s`, `time_min`}] nearest first, `nearest_route` (Feature LineString, properties `time_s`, `length_m`) or null}], `cached` |
+| `POST /api/catchment` | {`facility_id`, `profile`} or {`lon`, `lat`, `profile`} | `run_id`, `profile_id`, `target` ({`kind`: `facility`, `facility_id`, `name`, `categories`} or {`kind`: `cell`, …`cell`}), `residents`, `cells`, `cell_ids` (scored cells reaching the target within the budget), `residents_by_class` {category: {class: residents}} (facility categories only), `isochrone` (reverse: areas from which the target is reached), `cached` |
+| `POST /api/expansion` | {`lon`, `lat`, `profile`} | FeatureCollection of LineStrings (property `duration` in seconds) + `run_id`, `profile_id`, `cell`, `budget_min`, `cached` |
+
 ## Files (`data/runs/<run_id>/<stage>/`)
 
 GeoParquet/Parquet layers with the same columns as the tables above, plus:
@@ -107,7 +141,7 @@ GeoParquet/Parquet layers with the same columns as the tables above, plus:
 | `started_at`, `finished_at` | ISO 8601 UTC | |
 | `runtime_s` | number | Wall time of the stage |
 | `peak_rss_mb` | number | Peak RSS in MB of the process (or its largest child) up to the end of the stage; under `run` it includes earlier stages |
-| `inputs` | list of {`path`, `sha256`} | Files read, with checksums |
+| `inputs` | list of {`path`, `sha256`} | Files read, with checksums; first entry `config:<section>,…` = SHA-256 of the config sections the stage uses (`CONFIG_SECTIONS`, since P5) |
 | `outputs` | list of {`path`, `rows` (null if not tabular)} | Files written |
 | `message` | string | Summary or error message |
 
@@ -203,3 +237,4 @@ their row counts.
 | v0.3 | 2026-11-02 | `cells` = all populated cells inside the city boundary; routing area around the city; report coverage keys (`scored_share`, `excluded_by_district`, …) | Architecture v0.12, O11 |
 | v0.4 | 2026-11-03 | `tiles/` and `count/` files (`access_counts`, `transit_supply`, `stops` with `weekday_departures`, reports); `nearest_min` only within the budget | P3 tiles + count |
 | v0.5 | 2026-11-04 | Roles, `meta` and run schema implemented (`infra/db/`); `meta.schema_migrations`; `profiles.costing_options` = options as sent to Valhalla; FKs of `access_counts`/`transit_supply`; `district_scores` details; `score/`, report part 2 and `publish` manifest files | P4 score + publish + cleanup |
+| v0.6 | 2026-11-05 | API responses (read and live endpoints, errors, ETag, snapping, HEAD, inspect `count`/`count_source`); manifest config input per stage; `config_hash` without `api` | P5 API |

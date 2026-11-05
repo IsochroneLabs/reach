@@ -25,9 +25,9 @@ help: ## list targets
 	@echo "Missing .env: copy .env.example to .env and set the passwords." >&2; exit 1
 
 up: .env ## start db, api, caddy and valhalla (once tiles exist) and wait until they are healthy
-	@if [ -f "$(VALHALLA_DIR)/valhalla_tiles.tar" ]; then $(COMPOSE) up -d --wait; \
+	@if [ -f "$(VALHALLA_DIR)/valhalla_tiles.tar" ]; then $(COMPOSE) up -d --build --wait; \
 	else echo "No tiles in $(VALHALLA_DIR) yet: starting without valhalla (run make refresh)" >&2; \
-	$(COMPOSE) up -d --wait db api caddy; fi
+	$(COMPOSE) up -d --build --wait db api caddy; fi
 
 down: ## stop the local stack (volumes are kept)
 	docker compose down

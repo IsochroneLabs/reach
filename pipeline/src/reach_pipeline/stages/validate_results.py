@@ -19,12 +19,12 @@ import pandas as pd
 from pyproj import Transformer
 
 from reach_pipeline import results
-from reach_pipeline.config import config_files
 from reach_pipeline.context import RunContext
 from reach_pipeline.errors import StageValidationError
 from reach_pipeline.manifest import (
     FileOutput,
     Manifest,
+    config_input,
     file_inputs,
     is_up_to_date,
     read_manifest,
@@ -35,6 +35,9 @@ from reach_pipeline.metrics import measure
 from reach_pipeline.stages import count, score, validate
 
 STAGE = results.STAGE
+# Config sections this stage uses; only they are part of its inputs (see
+# manifest.config_input): result checks and sample points.
+CONFIG_SECTIONS = ("categories", "count", "profiles", "time_budgets_min", "validation")
 # recommend (P7) will sit between score and validate_results (arch. §7).
 PREVIOUS = score.STAGE
 REPORT_JSON, REPORT_MD = "report_results.json", "report_results.md"
@@ -171,10 +174,10 @@ def _markdown(report: dict[str, Any]) -> str:
 
 def run(ctx: RunContext) -> Manifest:
     """Check the results of count and score; write report part 2; fail on any failed check."""
-    require_ok(ctx.stage_dir(PREVIOUS), PREVIOUS)
-    require_ok(ctx.stage_dir(count.STAGE), count.STAGE)
+    require_ok(ctx.stage_dir(PREVIOUS), PREVIOUS, ctx.config)
+    require_ok(ctx.stage_dir(count.STAGE), count.STAGE, ctx.config)
     stage_dir = ctx.stage_dir(STAGE)
-    inputs = file_inputs([*config_files(ctx.config_path), *_paths(ctx).values()])
+    inputs = [config_input(ctx.config, CONFIG_SECTIONS), *file_inputs(list(_paths(ctx).values()))]
     previous = read_manifest(stage_dir)
     if is_up_to_date(previous, inputs):
         log.info("inputs unchanged since %s, nothing to do", previous.finished_at.isoformat())

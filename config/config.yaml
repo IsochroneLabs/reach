@@ -295,3 +295,49 @@ database:
 # data/runs/<run_id>/); older runs are deleted. Fewer published runs = nothing is deleted.
 cleanup:
   keep_published_runs: 3
+
+# API (arch. §6.5 rules 8–12, §9), read by reach_api.settings; the pipeline ignores this section.
+# URLs and the database DSN come from .env (VALHALLA_URL, DATABASE_URL_API), never from here.
+api:
+  # Live endpoints accept a point inside the urban boundary buffered by this distance, or inside
+  # a scored cell (rule 12, architecture v0.14).
+  boundary_margin_m: 100
+  # One isochrone call with these contours in minutes (rule 9); display only, never counted.
+  isochrone:
+    contours_min: [5, 10, 15]
+    # Valhalla polygon simplification: generalize = tolerance in metres, denoise = 0..1 (drops
+    # small islands); checked on Valhalla 3.9.1 (P5).
+    generalize_m: 20
+    denoise: 0.5
+  # In-process LRU caches of serialized JSON bodies, keyed by run, endpoint, cell (or facility)
+  # and profile (rule 10). Sizes measured in P5: worst case ~26 + 14 + 22 MB, within the API's
+  # ~0.2 GB share of the server (arch. §11).
+  cache:
+    # inspect + catchment answers: 5–19 KB walking, up to ~52 KB cycling.
+    live_entries: 500
+    # expansion answers: ~0.48 MB walking, ~1.4 MB cycling (15 min).
+    expansion_entries: 10
+    # /api/cells (~0.7 MB), /api/districts (~0.3 MB) and small run data of the current run.
+    read_entries: 32
+  # Token bucket per client IP for the live endpoints: `burst` requests at once, refilled at
+  # `per_minute`; at most `max_clients` buckets are kept (idle ones are dropped first).
+  rate_limit:
+    burst: 10
+    per_minute: 30
+    max_clients: 10000
+  # Hosts whose X-Forwarded-For header is trusted (Caddy on the Compose network); the client IP
+  # of any other peer is its own address. Names are resolved at start and re-resolved when an
+  # unknown peer appears, at most every `resolve_interval_s`.
+  trusted_proxies: [caddy]
+  resolve_interval_s: 30
+  # Live Valhalla calls: parallel requests, seconds per request, retries on timeouts and 5xx
+  # after backoff_s * 2**attempt seconds.
+  valhalla:
+    concurrency: 2
+    timeout_s: 20
+    retries: 1
+    backoff_s: 0.5
+  # app_read connection pool (psycopg_pool).
+  db_pool:
+    min_size: 1
+    max_size: 4

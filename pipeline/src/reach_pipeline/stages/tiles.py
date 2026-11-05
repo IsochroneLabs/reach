@@ -28,12 +28,12 @@ import geopandas as gpd
 import numpy as np
 from pyproj import Transformer
 
-from reach_pipeline.config import config_files
 from reach_pipeline.context import RunContext
 from reach_pipeline.errors import ExternalError, StageValidationError
 from reach_pipeline.manifest import (
     FileOutput,
     Manifest,
+    config_input,
     file_inputs,
     require_ok,
     sha256_file,
@@ -44,6 +44,9 @@ from reach_pipeline.stages import validate
 from reach_pipeline.valhalla.client import ValhallaClient
 
 STAGE = "tiles"
+# Config sections this stage uses; only they are part of its inputs (see
+# manifest.config_input): tile build flags and the golden route.
+CONFIG_SECTIONS = ("tiles", "valhalla")
 PREVIOUS = validate.STAGE
 FLAG = "rebuild_needed"
 SOURCE_FILE = "tiles_source.sha256"
@@ -92,7 +95,7 @@ def _bbox_lonlat(ctx: RunContext) -> str:
 
 def check(ctx: RunContext) -> bool:
     """Write the flag file if the tiles must be (re)built; return whether they must."""
-    require_ok(ctx.stage_dir(PREVIOUS), PREVIOUS)
+    require_ok(ctx.stage_dir(PREVIOUS), PREVIOUS, ctx.config)
     pbf, vjson = _routing_pbf(ctx), valhalla_config(ctx)
     current = fingerprint(pbf, vjson, ctx.config.tiles.elevation)
     flag = ctx.stage_dir(STAGE) / FLAG
@@ -167,10 +170,10 @@ async def _verify(ctx: RunContext) -> dict[str, Any]:
 
 def run(ctx: RunContext) -> Manifest:
     """`tiles verify`: the running Valhalla answers and serves a plausible graph."""
-    require_ok(ctx.stage_dir(PREVIOUS), PREVIOUS)
+    require_ok(ctx.stage_dir(PREVIOUS), PREVIOUS, ctx.config)
     stage_dir = ctx.stage_dir(STAGE)
     pbf, vjson = _routing_pbf(ctx), valhalla_config(ctx)
-    inputs = file_inputs([*config_files(ctx.config_path), vjson, pbf])
+    inputs = [config_input(ctx.config, CONFIG_SECTIONS), *file_inputs([vjson, pbf])]
     started_at = datetime.now(UTC)
     with measure() as m:
         result = asyncio.run(_verify(ctx))

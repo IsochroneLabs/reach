@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
+from collections.abc import Iterable
 from datetime import date
 from pathlib import Path
 from typing import Any, Literal
@@ -291,6 +294,8 @@ class Config(_Model):
     validation: Validation
     database: Database
     cleanup: Cleanup
+    # Read and validated by reach_api.settings; kept as is here.
+    api: dict[str, Any] = Field(default_factory=dict)
 
     @field_validator("categories")
     @classmethod
@@ -372,6 +377,30 @@ def _read_yaml(path: Path, seen: tuple[Path, ...] = ()) -> tuple[dict[str, Any],
         raise ConfigError(f"{path}: 'extends' must be a file name, got {parent!r}")
     base, files = _read_yaml(path.parent / parent, (*seen, path.resolve()))
     return _deep_merge(base, data), [path, *files]
+
+
+# Read by reach_api only; no pipeline stage depends on it (P5).
+API_SECTION = "api"
+
+
+def pipeline_sections() -> tuple[str, ...]:
+    """Top-level config sections the pipeline uses: every field except `api`."""
+    return tuple(name for name in Config.model_fields if name != API_SECTION)
+
+
+def section_digest(cfg: Config, sections: Iterable[str]) -> str:
+    """SHA-256 of the given top-level sections of the merged config (canonical JSON).
+
+    A stage records the digest of the sections it uses, so a change elsewhere (e.g. in `api`)
+    does not re-run it.
+    """
+    names = sorted(set(sections))
+    unknown = sorted(set(names) - Config.model_fields.keys())
+    if unknown:
+        raise ConfigError(f"unknown config sections {unknown}")
+    data = cfg.model_dump(mode="json", include=set(names))
+    text = json.dumps(data, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    return hashlib.sha256(text.encode()).hexdigest()
 
 
 def config_files(path: str | Path) -> list[Path]:

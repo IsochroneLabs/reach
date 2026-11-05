@@ -11,12 +11,11 @@ import logging
 from datetime import UTC, datetime
 
 from reach_pipeline import scoring
-from reach_pipeline.config import config_files
 from reach_pipeline.context import RunContext
 from reach_pipeline.manifest import (
     FileOutput,
     Manifest,
-    file_inputs,
+    config_input,
     is_up_to_date,
     read_manifest,
     require_ok,
@@ -26,6 +25,9 @@ from reach_pipeline.metrics import measure
 from reach_pipeline.stages import count
 
 STAGE = "score"
+# Config sections this stage uses; only they are part of its inputs (see
+# manifest.config_input): thresholds.
+CONFIG_SECTIONS = ("categories", "transit_classes")
 PREVIOUS = count.STAGE
 THRESHOLDS = "thresholds.parquet"
 
@@ -34,9 +36,9 @@ log = logging.getLogger(__name__)
 
 def run(ctx: RunContext) -> Manifest:
     """Write the thresholds table (categories: k; transit: class bounds)."""
-    require_ok(ctx.stage_dir(PREVIOUS), PREVIOUS)
+    require_ok(ctx.stage_dir(PREVIOUS), PREVIOUS, ctx.config)
     stage_dir = ctx.stage_dir(STAGE)
-    inputs = file_inputs(config_files(ctx.config_path))
+    inputs = [config_input(ctx.config, CONFIG_SECTIONS)]
     previous = read_manifest(stage_dir)
     if is_up_to_date(previous, inputs):
         log.info("inputs unchanged since %s, nothing to do", previous.finished_at.isoformat())

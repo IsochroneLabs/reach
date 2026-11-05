@@ -3,18 +3,35 @@
 Rules for agents working in `api/` (package `reach_api`, FastAPI). The root `AGENTS.md` applies;
 this file wins where it is more specific.
 
-- **Status:** placeholder until P5; only `GET /api/health` exists (`src/reach_api/main.py`).
+- **Status:** P5 — read endpoints (`routes/read.py`) and live endpoints (`routes/live.py`) exist;
+  response formats are fixed in `docs/data_contract.md` ("API responses").
+- **Layout:** `main.py` (`create_app(deps)`, lifespan builds pool and client from the
+  environment, error mapping), `settings.py` (env + `api` section of the config), `db.py` (all
+  SQL, `Database` protocol), `valhalla.py` (async client), `deps.py` (shared state, run context,
+  rate-limit dependency), `cache.py`, `ratelimit.py`.
 - **Read-only from `current`.** The API connects as role `app_read` and reads only the views in
-  schema `current` (arch. §8, rule 6). It never writes to the database and never reads a
-  `run_<id>` schema directly.
-- **CRS:** data is stored in EPSG:25832; transform to EPSG:4326 in SQL (`ST_Transform`) at the
-  API boundary only. Never compute distances in degrees.
+  schema `current` and `meta.runs`/`meta.data_sources` (arch. §8, rule 6). It never writes to the
+  database and never reads a `run_<id>` schema directly. All SQL lives in `db.py`.
+- **CRS and GeoJSON:** data is stored in EPSG:25832; transform to EPSG:4326 in SQL
+  (`ST_Transform`, `ST_AsGeoJSON(…, 6)`) at the API boundary only; build GeoJSON bodies in
+  PostGIS, not in Python. Never compute distances in degrees.
+- **No derived values in Python:** classes, deficits and district shares come from the views
+  (`scores`, `transit_scores`, `district_scores`); the API only sorts and ranks them.
 - **Live endpoints** call Valhalla only for what is not precomputed (arch. §6.5 rules 8–12):
-  validate the point against the urban boundary first, one isochrone call for all contours,
-  cache per (cell, profile), rate-limit per client IP.
-- **Settings** come from environment variables (`.env.example`: `DATABASE_URL_API`,
-  `VALHALLA_URL`); no hard-coded URLs or credentials.
-- **Tests** live in `api/tests/`: `fastapi.testclient.TestClient`, a fake DB layer, and Valhalla
-  mocked with `respx` from recorded responses. No network, no real database in unit tests.
-- **Local run:** `make up` starts the API in Docker with hot reload on `api/src`
-  (`http://127.0.0.1:8080/api/health` through Caddy).
+  snap the point to its 100 m grid cell, check urban boundary + margin or scored cell before any
+  call, one isochrone call for all contours, one matrix for all categories (costing from
+  `current.profiles`, prefilter as in `count`), cache per (run, cell, profile) as serialized
+  JSON bytes (Python objects are ~10× larger), concurrent misses share one computation,
+  rate-limit per client IP (async dependency: no threadpool). `X-Forwarded-For` is trusted
+  only from `api.trusted_proxies` (Caddy); uvicorn runs with `--no-proxy-headers`.
+- **Settings:** URLs and DSN from the environment (`DATABASE_URL_API`, `VALHALLA_URL`,
+  `REACH_CONFIG`); every tunable value in the `api` section of `config/config.yaml`; no
+  hard-coded URLs, credentials or limits.
+- **Tests** live in `api/tests/`: `TestClient` on `create_app(deps)` with the fake database of
+  `conftest.py`, Valhalla mocked with `respx` from `fixtures/valhalla/*.json` (real responses,
+  recorded once). No network and no real database in unit tests; `test_db_queries.py` (marker
+  `db`) runs the SQL against a disposable PostGIS as `app_read`. With `--import-mode=importlib`
+  test modules cannot import `conftest`: share helpers as fixtures.
+- **Local run:** `make up` builds `infra/api.Dockerfile` and starts the API with hot reload on
+  `api/src` (through Caddy: `http://127.0.0.1:8080/api/…`; no host port). After a dependency
+  change `make up` rebuilds the image.

@@ -18,15 +18,20 @@ this file adds the stage pattern (note N2) and wins where it is more specific.
   stage modules only do I/O and orchestration.
 - **`RunContext`** (`context.py`) holds the typed `Config`, `config_path` and `run_id`, and
   gives the paths: `data/raw/<run_id>/`, `data/runs/<run_id>/<stage>/`.
-- **Start of a stage:** `manifest.require_ok(ctx.stage_dir(<previous>), <previous>)` checks the
-  previous stage (status ok, input checksums unchanged). Then compute the own inputs with
-  `file_inputs([...])`; if `is_up_to_date(read_manifest(stage_dir), inputs)`, return the old
+- **Start of a stage:** `manifest.require_ok(ctx.stage_dir(<previous>), <previous>, ctx.config)`
+  checks the previous stage (status ok, input checksums and config digest unchanged). Then
+  compute the own inputs with `[config_input(ctx.config, CONFIG_SECTIONS), *file_inputs([...])]`; if `is_up_to_date(read_manifest(stage_dir), inputs)`, return the old
   manifest (re-running with unchanged inputs is a no-op).
 - **End of a stage:** wrap the work in `metrics.measure()`, then `write_manifest(...)` with
   inputs (checksums), outputs (path, rows), runtime and peak RSS. Peak RSS is the process
   high-water mark up to the end of the stage: under `run`, a stage reports at least the peak of
-  earlier stages. Config inputs are `config_files(ctx.config_path)` (the whole `extends` chain). The CLI writes a `failed`
-  manifest if the stage raises.
+  earlier stages. The CLI writes a `failed` manifest if the stage raises.
+- **Config sections:** every stage module declares `CONFIG_SECTIONS`, the top-level config
+  sections it (and the helpers it calls) reads; its config input is `config:<sections>` with the
+  digest of exactly those sections of the merged config (`config.section_digest`), so a change
+  elsewhere, e.g. in `api` (read by `reach_api` only), never re-runs it. Reading a new section
+  in a stage → add it to `CONFIG_SECTIONS` (`test_config_sections_of_the_stages` checks that
+  every section belongs to a stage). `publish` uses all pipeline sections (`config_hash`).
 - **Errors and exit codes** (`errors.py`): `StageValidationError` → 1, `ConfigError` → 2,
   `ExternalError` → 3 (network, Valhalla, DB after retries). Raise them with a clear message;
   never `sys.exit` inside a stage.

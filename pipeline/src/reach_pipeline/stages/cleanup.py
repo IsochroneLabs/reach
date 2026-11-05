@@ -15,11 +15,10 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from reach_pipeline import db
-from reach_pipeline.config import config_files
 from reach_pipeline.context import RunContext, is_run_id
 from reach_pipeline.manifest import (
     Manifest,
-    file_inputs,
+    config_input,
     is_up_to_date,
     read_manifest,
     require_ok,
@@ -29,6 +28,9 @@ from reach_pipeline.metrics import measure
 from reach_pipeline.stages import publish
 
 STAGE = "cleanup"
+# Config sections this stage uses; only they are part of its inputs (see
+# manifest.config_input): retention and the database.
+CONFIG_SECTIONS = ("cleanup", "database")
 PREVIOUS = publish.STAGE
 
 log = logging.getLogger(__name__)
@@ -80,10 +82,10 @@ def delete_files(data_dir: Path, run_id: str) -> None:
 
 def run(ctx: RunContext) -> Manifest:
     """Drop old run schemas and delete old run directories."""
-    require_ok(ctx.stage_dir(PREVIOUS), PREVIOUS)
+    require_ok(ctx.stage_dir(PREVIOUS), PREVIOUS, ctx.config)
     cfg = ctx.config
     stage_dir = ctx.stage_dir(STAGE)
-    inputs = file_inputs(config_files(ctx.config_path))
+    inputs = [config_input(ctx.config, CONFIG_SECTIONS)]
     previous = read_manifest(stage_dir)
     if is_up_to_date(previous, inputs):
         log.info("already cleaned up after this run at %s", previous.finished_at.isoformat())

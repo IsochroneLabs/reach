@@ -8,14 +8,15 @@ where new facilities would help the most people.
 Course project for **DS500 Data Science Project** (M.Sc. Data Science in Business and Economics,
 University of Tübingen, winter term 2026/27), Topic 9 "The 15-Minute City".
 
-> **Status: P4 done (merged 5 Nov 2026), P5 (API) next.** The local stack (PostGIS, Valhalla, API and web placeholders),
-> configuration, CI and the whole pipeline except the recommender exist: `acquire` downloads OSM,
-> GTFS and Zensus data, `validate` turns them into checked layers, `make refresh` builds the
-> Valhalla routing graph, `count` computes reachable facilities per cell, category and profile
-> plus public transport departures, `validate_results` checks the results, and `publish` loads
-> each validated run into PostGIS and switches the `current` views to it. The API, the map and
-> the recommender are being built; progress:
-> [`docs/implementation_plan.md`](docs/implementation_plan.md).
+> **Status: P5 (API) in review (branch `feature/rico-api`), P6 (web) next.** The local stack
+> (PostGIS, Valhalla, API, web placeholder), configuration, CI, the whole pipeline except the
+> recommender and the API exist: `acquire` downloads OSM, GTFS and Zensus data, `validate` turns
+> them into checked layers, `make refresh` builds the Valhalla routing graph, `count` computes
+> reachable facilities per cell, category and profile plus public transport departures,
+> `validate_results` checks the results, `publish` loads each validated run into PostGIS and
+> switches the `current` views to it, and the API serves the results as GeoJSON plus live
+> isochrones, routes, catchments and street spread. The map and the recommender are being
+> built; progress: [`docs/implementation_plan.md`](docs/implementation_plan.md).
 
 ## What it does
 
@@ -53,10 +54,10 @@ with Docker Compose on one small server. Details: [`docs/architecture.md`](docs/
 | `CONTRIBUTING.md` | Branches, commits, pull requests, releases | ✅ |
 | `CHANGELOG.md` | Change history | ✅ |
 | `pipeline/` | Data pipeline (Python, uv workspace member): stages `acquire`, `validate`, `tiles`, `count`, `score`, `validate_results`, `publish`, `cleanup`; `recommend` planned | partial |
-| `api/` | FastAPI backend (Python, uv workspace member): health endpoint | placeholder |
+| `api/` | FastAPI backend (Python, uv workspace member): read endpoints from `current`, live endpoints via Valhalla | ✅ |
 | `web/` | React + MapLibre frontend | planned |
 | `config/` | Study area, profiles, categories, thresholds (`config.yaml`), test clip, Valhalla service config (`valhalla.json`) | ✅ |
-| `infra/` | Caddyfile and placeholder page; `db/`: roles, migrations, run schema template; Dockerfiles, scheduler planned | partial |
+| `infra/` | Caddyfile and placeholder page; `api.Dockerfile`; `db/`: roles, migrations, run schema template; pipeline image, scheduler planned | partial |
 | `Makefile`, `compose.yaml`, `.env.example` | Local stack (incl. Valhalla and its one-shot tile build) and command wrappers | ✅ |
 | `tests/integration/` | Golden travel times against a local Valhalla on the test clip | ✅ |
 | `.github/` | CI (lint + tests; PostGIS data-contract test), PR template, CODEOWNERS | ✅ |
@@ -104,6 +105,26 @@ it in one transaction; `cleanup` keeps the last 3 published runs (schemas and `d
 image) downloads elevation tiles once into `data/valhalla/elevation/`; tiles are swapped with
 `mv`, the previous ones kept as `valhalla_tiles.prev.tar`. A full count of Tübingen takes about
 3.5 minutes on a laptop; Valhalla then holds up to ~3 GB of RAM (`docs/notes.md` N4).
+
+API (through Caddy at `http://127.0.0.1:8080/api/…` after `make up` and a published run;
+response formats in [`docs/data_contract.md`](docs/data_contract.md)):
+
+```bash
+curl -s http://127.0.0.1:8080/api/meta                                   # run, data dates, validation
+curl -s "http://127.0.0.1:8080/api/cells?category=grocery&profile=walking_339"   # GeoJSON
+curl -s http://127.0.0.1:8080/api/districts                              # GeoJSON
+curl -s "http://127.0.0.1:8080/api/districts/<district_id>/scores?profile=walking_339"
+curl -s -X POST http://127.0.0.1:8080/api/inspect -H 'content-type: application/json' \
+     -d '{"lon": 9.0568, "lat": 48.5204, "profile": "walking_339"}'      # pin-drop inspector
+curl -s -X POST http://127.0.0.1:8080/api/catchment -H 'content-type: application/json' \
+     -d '{"facility_id": "n12004391663", "profile": "walking_339"}'      # residents reaching it
+curl -s -X POST http://127.0.0.1:8080/api/expansion -H 'content-type: application/json' \
+     -d '{"lon": 9.0568, "lat": 48.5204, "profile": "walking_339"}'      # street spread
+```
+
+The API image is built from `infra/api.Dockerfile` by `make up`; locally `api/src` and
+`config/` are mounted and uvicorn reloads on changes. Tunable values (boundary margin, cache
+sizes, rate limit, isochrone contours) live in the `api` section of `config/config.yaml`.
 
 Test clip: `make refresh REACH_CONFIG=config/test_clip.yaml` (own data and tile directory under
 `data/test_clip/`, tiles without elevation), then `uv run pytest -m integration` runs the golden

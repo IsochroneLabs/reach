@@ -9,9 +9,13 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from reach_pipeline.config import Config, section_digest
 from reach_pipeline.errors import StageValidationError
 
 MANIFEST_NAME = "manifest.json"
+# Path prefix of the config input: `config:<section>,<section>,…` with the digest of exactly
+# those sections of the merged config (`section_digest`), not the checksum of a file.
+CONFIG_INPUT = "config:"
 _CHUNK = 1 << 20
 
 
@@ -60,6 +64,12 @@ def file_inputs(paths: list[Path]) -> list[FileInput]:
     return [FileInput(path=str(p), sha256=sha256_file(p)) for p in paths]
 
 
+def config_input(cfg: Config, sections: tuple[str, ...]) -> FileInput:
+    """Input entry for the config sections a stage uses."""
+    names = sorted(set(sections))
+    return FileInput(path=CONFIG_INPUT + ",".join(names), sha256=section_digest(cfg, names))
+
+
 def write_manifest(manifest: Manifest, stage_dir: Path) -> Path:
     stage_dir.mkdir(parents=True, exist_ok=True)
     path = stage_dir / MANIFEST_NAME
@@ -76,14 +86,15 @@ def read_manifest(stage_dir: Path) -> Manifest | None:
     return Manifest.model_validate_json(path.read_text(encoding="utf-8"))
 
 
-def require_ok(stage_dir: Path, stage: str) -> Manifest:
-    """Manifest of a previous stage; fails if it is missing, failed or its inputs changed."""
+def require_ok(stage_dir: Path, stage: str, config: Config) -> Manifest:
+    """Manifest of a previous stage; fails if it is missing, failed or its inputs changed
+    (files by checksum, its config sections by digest of `config`)."""
     manifest = read_manifest(stage_dir)
     if manifest is None:
         raise StageValidationError(f"stage {stage!r} has no manifest in {stage_dir}; run it first")
     if manifest.status != "ok":
         raise StageValidationError(f"stage {stage!r} did not finish ok: {manifest.message}")
-    changed = [i.path for i in manifest.inputs if not _unchanged(i)]
+    changed = [i.path for i in manifest.inputs if not _unchanged(i, config)]
     if changed:
         raise StageValidationError(f"inputs of stage {stage!r} changed since it ran: {changed}")
     return manifest
@@ -94,6 +105,9 @@ def is_up_to_date(manifest: Manifest | None, inputs: list[FileInput]) -> bool:
     return manifest is not None and manifest.status == "ok" and manifest.inputs == inputs
 
 
-def _unchanged(item: FileInput) -> bool:
+def _unchanged(item: FileInput, config: Config) -> bool:
+    if item.path.startswith(CONFIG_INPUT):
+        sections = item.path.removeprefix(CONFIG_INPUT).split(",")
+        return section_digest(config, sections) == item.sha256
     path = Path(item.path)
     return path.exists() and sha256_file(path) == item.sha256

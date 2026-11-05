@@ -1,0 +1,10 @@
+# Build context of infra/*.Dockerfile: only what the images copy (data/, .venv/, caches stay out).
+*
+!pyproject.toml
+!uv.lock
+!.python-version
+!api/pyproject.toml
+!api/src/
+!pipeline/pyproject.toml
+!config/
+**/__pycache__

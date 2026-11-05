@@ -8,8 +8,9 @@ dependencies = [
     "uvicorn[standard]>=0.37",
     "pydantic>=2.11",
     "pydantic-settings>=2.10",
-    "psycopg[binary]>=3.2",
+    "psycopg[binary,pool]>=3.3.6",
     "httpx>=0.28",
+    "pyyaml>=6.0.3",
 ]
 
 [build-system]

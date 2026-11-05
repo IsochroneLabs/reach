@@ -92,41 +92,35 @@ services:
       - ${VALHALLA_DIR:-./data/valhalla}/elevation:/data/valhalla/elevation
 
   api:
-    <<: *uv-service
-    # Hot reload on changes in api/src.
-    command:
-      - uv
-      - run
-      - --frozen
-      - --no-dev
-      - --package
-      - reach-api
-      - uvicorn
-      - reach_api.main:app
-      - --host=0.0.0.0
-      - --port=8000
-      - --reload
-      - --reload-dir=api/src
+    # Image from infra/api.Dockerfile (reach-api, no dev dependencies). Locally api/src and
+    # config/ are bind-mounted and uvicorn reloads on changes; production (P8) runs the image's
+    # own command without --reload. No host port: clients go through Caddy (/api).
+    build:
+      context: .
+      dockerfile: infra/api.Dockerfile
+    image: reach-api:dev
+    command: ["uvicorn", "reach_api.main:app", "--host=0.0.0.0", "--port=8000",
+              "--no-proxy-headers", "--reload", "--reload-dir=api/src"]
+    volumes:
+      - ./api/src:/app/api/src:ro
+      - ./config:/app/config:ro
     environment:
-      UV_PROJECT_ENVIRONMENT: /venv
-      UV_PYTHON_DOWNLOADS: never
-      UV_LINK_MODE: copy
-      DATABASE_URL: ${DATABASE_URL_API:-}
+      DATABASE_URL_API: ${DATABASE_URL_API:?set DATABASE_URL_API in .env}
       VALHALLA_URL: http://valhalla:8002
+      REACH_CONFIG: ${REACH_CONFIG:-config/config.yaml}
     depends_on:
       db:
         condition: service_healthy
     healthcheck:
       test:
         - CMD
-        - /venv/bin/python
+        - python
         - -c
         - "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')"
       interval: 10s
       timeout: 5s
       retries: 6
-      # First start syncs the environment into the volume.
-      start_period: 120s
+      start_period: 20s
     restart: unless-stopped
 
   caddy:

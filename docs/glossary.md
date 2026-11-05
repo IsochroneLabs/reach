@@ -29,6 +29,9 @@ Project vocabulary used in code, docs, issues and prompts. People and roles ("yo
 | **deficit (U)** | Population-weighted unmet need per cell (`methodology.md` §4). |
 | **k_c** | Sufficiency threshold of category *c* (`methodology.md` §2). |
 | **catchment** | Cells that reach a facility or candidate site within the time budget. |
+| **grid cell (snapping)** | The 100 m Zensus grid cell under a clicked point, populated or not; its id is computed from EPSG:3035 and live endpoints start from its centre, so answers are cached per (run, cell, profile) (`architecture.md` §6.5 rule 8). |
+| **live endpoint** | API endpoint that calls Valhalla (`inspect`, `catchment`, `expansion`); boundary check first, cached, rate-limited. Read endpoints only read `current`. |
+| **trusted proxy** | Host whose `X-Forwarded-For` header the API believes (Caddy, `api.trusted_proxies`); for any other peer the client IP is the peer address. |
 | **reference weekday** | Regular Tuesday in the GTFS validity period used to count departures: first one on or after the run date that is no public or school holiday (`reference_day` in config) and has active services. |
 | **provenance** | Per source and run: URL, retrieval time, SHA-256, licence (`acquire/data_sources.parquet`, published to `meta.data_sources`). |
 | **matrix** | Valhalla `sources_to_targets`: travel times between many points; used for all counting. |
