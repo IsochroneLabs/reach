@@ -91,6 +91,8 @@ adds a line under `Unreleased`.
   glossary: validation report, monotonicity check, published run, migration.
 
 ### Changed
+- `AGENTS.md` rule 6: `cleanup` may drop old run schemas and their `meta` rows (aligned with
+  architecture §7; reported in P4).
 - `make pipeline`/`make refresh` pass `.env` to the pipeline (`uv run --env-file`) and run all
   stages up to `cleanup`; `recommend` (P7) is the only stage still logged as skipped.
 - Monotonicity 5.0 ≥ 3.39 km/h is checked with a tolerance instead of failing on any violation

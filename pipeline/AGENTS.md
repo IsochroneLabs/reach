@@ -36,7 +36,8 @@ this file adds the stage pattern (note N2) and wins where it is more specific.
   A new key needs a pydantic field, a comment in the YAML and, if it has rules, a validator plus
   a test in `tests/test_config.py`. `extends:` merges an override file (see `test_clip.yaml`).
 - **Outputs:** GeoParquet/Parquet in EPSG:25832 under the stage directory; schemas follow
-  `docs/data_contract.md`. Only `publish` writes to PostGIS.
+  `docs/data_contract.md`. Only `publish` writes to PostGIS; `cleanup` only drops old run
+  schemas (AGENTS.md rule 6).
 - **OSM:** only through `osm.py` (osmium CLI: `tags-filter` → `extract` → `export` as GeoJSON
   lines → GeoPandas); never read the full PBF in Python. osmium's memory grows with the highest
   node ID (about 1.7 GB per ID bitmap), not with the file size; keep the number of
