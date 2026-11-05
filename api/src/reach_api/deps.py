@@ -19,6 +19,9 @@ class Deps:
     config: Config
     db: Database
     valhalla: ValhallaClient
+    # Own client for live matrices (costmatrix is slow and memory-heavy for one source):
+    # timeout and concurrency from `api.live_matrix`.
+    live_matrix: ValhallaClient
     live_cache: LRUCache = field(init=False)
     expansion_cache: LRUCache = field(init=False)
     read_cache: LRUCache = field(init=False)

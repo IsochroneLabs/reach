@@ -87,6 +87,12 @@ CONTRACT = {
         ("time_budget_min", DOUBLE),
     ],
     "access_counts": ACCESS_COLS,
+    "reachable": [
+        ("cell_id", "text"),
+        ("profile_id", "text"),
+        ("facility_id", "text"),
+        ("time_s", "smallint"),
+    ],
     "transit_supply": [
         ("cell_id", "text"),
         ("profile_id", "text"),
@@ -260,6 +266,17 @@ def run_tables(grocery_a: int = 0) -> dict[str, pd.DataFrame]:
             }
         ),
         "access_counts": access,
+        # n1 (grocery) within the budget of the cells counting a grocery on foot
+        "reachable": pd.DataFrame(
+            {
+                "cell_id": [
+                    c for c, n in zip(cells, counts[("walk", "grocery")], strict=True) if n
+                ],
+                "profile_id": "walk",
+                "facility_id": "n1",
+                "time_s": 270,
+            }
+        ),
         "transit_supply": pd.DataFrame(
             {
                 "cell_id": cells,
@@ -381,6 +398,32 @@ def test_district_scores(published: str) -> None:
         ("d1", pytest.approx(1 / 3), pytest.approx(2 / 3), 0.0, 20.0, 10),
         ("d2", 0.0, 0.0, 1.0, 0.0, 0),
     ]
+
+
+def test_reachable(published: str) -> None:
+    # Readable as app_read through current; foreign keys and the time check hold. The key is
+    # unique by construction (no primary key, checked by validate_results); the lookup index
+    # on (cell_id, profile_id) exists.
+    rows = _rows(
+        published,
+        "SELECT cell_id, profile_id, facility_id, time_s FROM current.reachable ORDER BY cell_id",
+    )
+    assert rows == [("b", "walk", "n1", 270), ("c", "walk", "n1", 270), ("d", "walk", "n1", 270)]
+    table = f"{db.schema_name(RUN_A)}.reachable"
+    bad = [
+        ("zz", "walk", "n1", 1),  # unknown cell
+        ("b", "car", "n2", 1),  # unknown profile
+        ("b", "walk", "n2", -1),  # negative time
+    ]
+    with _as(published, "pipeline_write") as conn:
+        for row in bad:
+            with pytest.raises(psycopg.errors.IntegrityError), conn.transaction():
+                conn.execute(f"INSERT INTO {table} VALUES (%s, %s, %s, %s)", row)
+        (index,) = conn.execute(
+            "SELECT indexdef FROM pg_indexes WHERE schemaname = %s AND tablename = 'reachable'",
+            [db.schema_name(RUN_A)],
+        ).fetchone()
+        assert "(cell_id, profile_id)" in index
 
 
 def test_meta_and_validation_report(published: str) -> None:

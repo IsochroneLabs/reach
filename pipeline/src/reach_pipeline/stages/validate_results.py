@@ -1,13 +1,16 @@
 """validate_results: validation report part 2 (arch. §7 "validate results").
 
 Checks completeness, value ranges, thresholds, class totals (residents in classes = scored
-residents) and monotonicity between profiles (`validation.results.monotonic`), and lists the
-values of sample cells for a manual check. Writes `report_results.json` + `.md`; any failed
+residents), that `reachable` gives exactly the counts, monotonicity between profiles
+(`validation.results.monotonic`), and compares a sample of matrix times with /route
+(`validation.results.route_check`, a known limitation, never fails); lists the values of sample
+cells for a manual check. Writes `report_results.json` + `.md`; any failed
 check fails the stage after the report is written, so `publish` does not run.
 """
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 from dataclasses import asdict
@@ -15,12 +18,14 @@ from datetime import UTC, datetime
 from typing import Any
 
 import geopandas as gpd
+import numpy as np
 import pandas as pd
 from pyproj import Transformer
 
 from reach_pipeline import results
+from reach_pipeline.config import Config
 from reach_pipeline.context import RunContext
-from reach_pipeline.errors import StageValidationError
+from reach_pipeline.errors import BadRequestError, StageValidationError
 from reach_pipeline.manifest import (
     FileOutput,
     Manifest,
@@ -33,11 +38,19 @@ from reach_pipeline.manifest import (
 )
 from reach_pipeline.metrics import measure
 from reach_pipeline.stages import count, score, validate
+from reach_pipeline.valhalla.client import ValhallaClient, costing_options
 
 STAGE = results.STAGE
 # Config sections this stage uses; only they are part of its inputs (see
 # manifest.config_input): result checks and sample points.
-CONFIG_SECTIONS = ("categories", "count", "profiles", "time_budgets_min", "validation")
+CONFIG_SECTIONS = (
+    "categories",
+    "count",
+    "profiles",
+    "time_budgets_min",
+    "validation",
+    "valhalla",
+)
 # recommend (P7) will sit between score and validate_results (arch. §7).
 PREVIOUS = score.STAGE
 REPORT_JSON, REPORT_MD = "report_results.json", "report_results.md"
@@ -51,6 +64,9 @@ def _paths(ctx: RunContext) -> dict[str, Any]:
         "cells": vdir / "cells.parquet",
         "report_inputs": vdir / validate.REPORT_JSON,
         "access": cdir / count.ACCESS,
+        "reachable": cdir / count.REACHABLE,
+        "facilities": vdir / "facilities.parquet",
+        "facility_points": vdir / "facility_points.parquet",
         "transit": cdir / count.TRANSIT,
         "thresholds": ctx.stage_dir(score.STAGE) / score.THRESHOLDS,
     }
@@ -66,8 +82,68 @@ def load_tables(ctx: RunContext) -> tuple[results.Tables, gpd.GeoDataFrame]:
         access=pd.read_parquet(p["access"]),
         transit=pd.read_parquet(p["transit"]),
         thresholds=pd.read_parquet(p["thresholds"]),
+        reachable=pd.read_parquet(p["reachable"]),
+        facilities=pd.read_parquet(p["facilities"], columns=["facility_id", "category"]),
     )
     return tables, origins
+
+
+def _lonlat(geoms: gpd.GeoSeries) -> np.ndarray:
+    g = geoms.to_crs("EPSG:4326")
+    return np.column_stack([g.x.to_numpy(), g.y.to_numpy()])
+
+
+async def route_times(
+    cfg: Config,
+    pairs: pd.DataFrame,
+    origins: dict[str, tuple[float, float]],
+    points: dict[str, list[tuple[float, float]]],
+) -> list[float | None]:
+    """/route time from the cell origin to the facility (fastest of its routing points) per
+    pair; None if Valhalla finds no route to any point."""
+
+    async with ValhallaClient(cfg.valhalla) as client:
+
+        async def one(cell_id: str, profile_id: str, facility_id: str) -> float | None:
+            profile = cfg.profiles[profile_id]
+            lon, lat = origins[cell_id]
+            times = []
+            for plon, plat in points[facility_id]:
+                payload = {
+                    "locations": [{"lon": lon, "lat": lat}, {"lon": plon, "lat": plat}],
+                    "costing": profile.costing,
+                    "costing_options": costing_options(profile),
+                    "directions_type": "none",
+                }
+                try:
+                    body = await client.post("route", payload)
+                except BadRequestError:  # 4xx: no route to this point; other errors abort
+                    continue
+                times.append(float(body["trip"]["summary"]["time"]))
+            return min(times, default=None)
+
+        return await asyncio.gather(
+            *(one(r.cell_id, r.profile_id, r.facility_id) for r in pairs.itertuples())
+        )
+
+
+def check_routes(ctx: RunContext, t: results.Tables, origins: gpd.GeoDataFrame) -> tuple:
+    """Sample matrix times of `reachable` and compare them with /route (known limitation)."""
+    cfg = ctx.config
+    rc = cfg.validation.results.route_check
+    budget_s = cfg.time_budgets_min.facilities * 60
+    seed = int("".join(ch for ch in ctx.run_id if ch.isdigit()))
+    pairs = results.route_sample(t.reachable, budget_s, rc, seed)
+    o = dict(zip(origins["cell_id"], map(tuple, _lonlat(origins.geometry)), strict=True))
+    fp = gpd.read_parquet(_paths(ctx)["facility_points"])
+    fp = fp[fp["facility_id"].isin(set(pairs["facility_id"]))]
+    pts: dict[str, list[tuple[float, float]]] = {}
+    for fid, xy in zip(fp["facility_id"], _lonlat(fp.geometry), strict=True):
+        pts.setdefault(fid, []).append(tuple(xy))
+    times = asyncio.run(route_times(cfg, pairs, o, pts)) if len(pairs) else []
+    pairs = pairs.assign(route_s=pd.array(times, dtype="Float64").astype(float))
+    check, per_profile = results.route_check(pairs, budget_s, rc)
+    return check, {"budget_s": budget_s, "profiles": per_profile}
 
 
 def build_report(ctx: RunContext, t: results.Tables, origins: gpd.GeoDataFrame) -> dict[str, Any]:
@@ -75,11 +151,14 @@ def build_report(ctx: RunContext, t: results.Tables, origins: gpd.GeoDataFrame) 
     cfg = ctx.config
     part1 = json.loads(_paths(ctx)["report_inputs"].read_text(encoding="utf-8"))
     checks = results.completeness(cfg, t)
-    out: dict[str, Any] = {"summary": None, "samples": []}
+    out: dict[str, Any] = {"summary": None, "samples": [], "route_check": None}
     if all(c.status != "fail" for c in checks):
         rows = results.class_rows(t)
         checks += results.value_ranges(cfg, t)
         checks += results.thresholds_cover(t)
+        checks += results.reachable_matches_counts(t)
+        route, out["route_check"] = check_routes(ctx, t, origins)
+        checks.append(route)
         checks += results.totals(t, rows, part1["summary"].get("residents_scored"))
         checks += [results.monotonic(pair, t) for pair in cfg.validation.results.monotonic]
         out["summary"] = results.summary(t, rows)
@@ -150,6 +229,27 @@ def _markdown(report: dict[str, Any]) -> str:
             f"| {p} | " + ", ".join(f"{c} {v:.1%}" for c, v in shares.items()) + " |"
             for p, shares in s["transit"].items()
         ]
+    rc = report.get("route_check")
+    if rc:
+        lines += [
+            "",
+            "## Known limitation: matrix times vs. /route",
+            "",
+            "Counts use Valhalla's matrix (`costmatrix`, the same algorithm for every request, "
+            "notes N8). For a sample of reachable cell × facility pairs the matrix time is "
+            "compared with Valhalla's /route time from the same origin; both search separately "
+            "and can end on different paths of similar cost, so a facility close to the "
+            f"{rc['budget_s'] / 60:.0f}-minute budget can count although /route takes longer "
+            "(`flips`).",
+            "",
+            "| Profile | Pairs | No route | Mean abs. Δ (s) | Max abs. Δ (s) | Flips |",
+            "|---|---|---|---|---|---|",
+        ]
+        lines += [
+            f"| {p} | {v['pairs']} | {v['no_route']} | {v['mean_abs_s']} | {v['max_abs_s']} "
+            f"| {v['flips']} |"
+            for p, v in rc["profiles"].items()
+        ]
     for sample in report["samples"]:
         lines += [
             "",
@@ -197,6 +297,7 @@ def run(ctx: RunContext) -> Manifest:
         "checks": [asdict(c) for c in checks],
         "summary": built["summary"],
         "samples": built["samples"],
+        "route_check": built["route_check"],
         "runtime_s": m.runtime_s,
         "peak_rss_mb": m.peak_rss_mb,
     }

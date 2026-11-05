@@ -149,6 +149,23 @@ class FakeDatabase:
             "class": "high",
         }
 
+    async def reachable(self, cell_id: str, profile_id: str, x: float, y: float):
+        """Published reachable facilities: the two grocery points within 900 s of the
+        recording (145 s and 225 s by the recorded matrix)."""
+        self.calls.append("reachable")
+        near = self.rec["points"][2:]
+        return [
+            {
+                "facility_id": p["facility_id"],
+                "category": p["category"],
+                "name": p["name"],
+                "time_s": t,
+                "lon": p["lon"],
+                "lat": p["lat"],
+            }
+            for p, t in zip(near, (145, 225), strict=True)
+        ]
+
     async def facility_points_near(self, x: float, y: float, reach_m: float):
         self.calls.append("facility_points_near")
         return [
@@ -188,8 +205,10 @@ def _make_deps(db: FakeDatabase, **api: Any) -> Deps:
     config = load_config(REPO / "config" / "config.yaml")
     if api:
         config = config.model_copy(update={"api": config.api.model_copy(update=api)})
-    valhalla = ValhallaClient(VALHALLA, config.api.valhalla, config.valhalla.max_matrix_pairs)
-    return Deps(config=config, db=db, valhalla=valhalla)
+    pairs = config.valhalla.max_matrix_pairs
+    valhalla = ValhallaClient(VALHALLA, config.api.valhalla, pairs)
+    live_matrix = ValhallaClient(VALHALLA, config.api.live_matrix, pairs)
+    return Deps(config=config, db=db, valhalla=valhalla, live_matrix=live_matrix)
 
 
 @pytest.fixture(autouse=True)

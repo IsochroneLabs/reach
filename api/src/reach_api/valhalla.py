@@ -27,6 +27,10 @@ class ValhallaError(Exception):
     """Valhalla is unreachable or answered 5xx after retries."""
 
 
+class ValhallaTimeout(ValhallaError):
+    """The last attempt timed out (`timeout_s` of the client's config)."""
+
+
 class NoRouteError(Exception):
     """Valhalla rejected the request (4xx), e.g. no street near the location."""
 
@@ -88,18 +92,21 @@ class ValhallaClient:
                     resp = await self._http.post(f"/{action}", json=payload)
             except (httpx.TimeoutException, httpx.TransportError) as exc:
                 problem = f"{type(exc).__name__}: {exc}"
+                timed_out = isinstance(exc, httpx.TimeoutException)
             else:
                 if resp.status_code < 400:
                     return resp.json()
                 if resp.status_code < 500:
                     raise NoRouteError(f"Valhalla {action}: {resp.text[:300]}")
                 problem = f"HTTP {resp.status_code}: {resp.text[:200]}"
+                timed_out = False
             log.warning(
                 "Valhalla %s failed (%s), attempt %d/%d", action, problem, attempt + 1, attempts
             )
             if attempt + 1 < attempts:
                 await asyncio.sleep(self.cfg.backoff_s * 2**attempt)
-        raise ValhallaError(f"Valhalla {action} failed after {attempts} attempts: {problem}")
+        error = ValhallaTimeout if timed_out else ValhallaError
+        raise error(f"Valhalla {action} failed after {attempts} attempts: {problem}")
 
     async def isochrone(
         self,

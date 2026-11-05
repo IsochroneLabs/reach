@@ -253,8 +253,19 @@ class Monotonic(_Model):
         return self
 
 
+class RouteCheck(_Model):
+    """Sample of reachable cell × facility pairs whose matrix time is compared with /route."""
+
+    pairs_per_profile: int = Field(ge=0)
+    # Share of the sample drawn from pairs with time_s >= near_budget_share × budget, where a
+    # deviation can change the count.
+    near_budget_share: float = Field(ge=0, le=1)
+    warn_max_abs_s: float = Field(ge=0)
+
+
 class ResultsValidation(_Model):
     monotonic: list[Monotonic] = Field(default_factory=list)
+    route_check: RouteCheck
 
 
 class Validation(_Model):

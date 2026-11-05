@@ -162,3 +162,77 @@ def test_samples_pick_nearest_cell(cfg: Config) -> None:
         "class": "insufficient",
         "deficit": 10.0,
     }
+
+
+def _with_reachable(t: results.Tables) -> results.Tables:
+    """Facilities g1–g3 (grocery, g1 also pharmacy, p1–p2 pharmacy) matching the counts."""
+    t.facilities = pd.DataFrame(
+        {
+            "facility_id": ["g1", "g2", "g3", "g1", "p1", "p2"],
+            "category": ["grocery", "grocery", "grocery", "pharmacy", "pharmacy", "pharmacy"],
+        }
+    )
+    order = {"grocery": ["g1", "g2", "g3"], "pharmacy": ["g1", "p1", "p2"]}
+    pairs = set()
+    for r in t.access.itertuples():
+        for fid in order[r.category][: r.count]:
+            pairs.add((r.cell_id, r.profile_id, fid))
+    # grocery and pharmacy counts are equal per cell, and g1 is in both: consistent pairs
+    t.reachable = pd.DataFrame(
+        sorted(pairs), columns=["cell_id", "profile_id", "facility_id"]
+    ).assign(time_s=600)
+    return t
+
+
+def test_reachable_matches_counts(cfg: Config) -> None:
+    t = _with_reachable(_tables(cfg))
+    assert _status(results.reachable_matches_counts(t)) == {"reachable_matches_counts": "ok"}
+    t.reachable = t.reachable.iloc[1:]  # one pair missing → that count differs
+    (check,) = results.reachable_matches_counts(t)
+    assert check.status == "fail" and check.value >= 1
+    t = _with_reachable(_tables(cfg))
+    t.reachable = pd.concat([t.reachable, t.reachable.iloc[:1]])  # duplicate key (no PK in DB)
+    (check,) = results.reachable_matches_counts(t)
+    assert check.status == "fail" and "1 duplicate pairs" in check.message
+
+
+def test_route_sample_is_deterministic_and_near_the_budget(cfg: Config) -> None:
+    rc = cfg.validation.results.route_check.model_copy(
+        update={"pairs_per_profile": 4, "near_budget_share": 0.5}
+    )
+    reachable = pd.DataFrame(
+        {
+            "cell_id": [f"c{i}" for i in range(20)],
+            "profile_id": ["walk"] * 20,
+            "facility_id": "f",
+            "time_s": [100 * (i % 10) for i in range(20)],  # 0 … 900 s
+        }
+    )
+    a = results.route_sample(reachable, 900, rc, seed=1)
+    assert a.equals(results.route_sample(reachable, 900, rc, seed=1))
+    assert len(a) == 4 and (a["time_s"] >= 450).sum() == 2
+
+
+def test_route_check_reports_deviation_and_flips(cfg: Config) -> None:
+    rc = cfg.validation.results.route_check  # warn above 60 s
+    pairs = pd.DataFrame(
+        {
+            "cell_id": ["a", "b", "c", "d"],
+            "profile_id": ["walk", "walk", "fast", "fast"],
+            "facility_id": "f",
+            "time_s": [600, 890, 300, 500],
+            "route_s": [601.0, 905.0, 300.0, float("nan")],
+        }
+    )
+    check, per_profile = results.route_check(pairs, 900, rc)
+    assert check.status == "ok" and check.value == 15.0
+    assert per_profile["walk"] == {
+        "pairs": 2,
+        "no_route": 0,
+        "mean_abs_s": 8.0,
+        "max_abs_s": 15.0,
+        "flips": 1,
+    }
+    assert per_profile["fast"]["no_route"] == 1
+    pairs.loc[0, "route_s"] = 700.0
+    assert results.route_check(pairs, 900, rc)[0].status == "warn"

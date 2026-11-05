@@ -23,3 +23,7 @@ class ExternalError(PipelineError):
     """Network, Valhalla or database failure after retries."""
 
     exit_code = 3
+
+
+class BadRequestError(ExternalError):
+    """Valhalla rejected the request (4xx), e.g. no route or no street near a location."""

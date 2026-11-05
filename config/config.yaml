@@ -281,6 +281,14 @@ validation:
       - {higher: walking_500, lower: walking_339, warn_above: 0, fail_above: 0.01}
       - {higher: cycling_15, lower: walking_339, warn_above: 0.05, fail_above: null}
       - {higher: walking_339, lower: wheelchair_339, warn_above: 0.05, fail_above: null}
+    # Matrix time vs. /route time (known limitation, never fails): per profile
+    # pairs_per_profile random reachable cell × facility pairs, near_budget_share of them with
+    # time_s >= that share of the budget (where a deviation changes the count); warns if any
+    # |Δ| exceeds warn_max_abs_s. Needs the running Valhalla (notes N8, P5).
+    route_check:
+      pairs_per_profile: 25
+      near_budget_share: 0.8
+      warn_max_abs_s: 60
 
 # PostGIS (arch. §8). Connection strings and passwords come from .env (DATABASE_URL_PIPELINE,
 # DATABASE_URL_ADMIN, *_PASSWORD), never from this file.
@@ -336,6 +344,13 @@ api:
     concurrency: 2
     timeout_s: 20
     retries: 1
+    backoff_s: 0.5
+  # Live matrices (grid cells without residents, catchments): own client, because costmatrix
+  # answers one source slowly (cycling ~2 s) and grows Valhalla's memory (P5, notes N8).
+  live_matrix:
+    concurrency: 1
+    timeout_s: 10
+    retries: 0
     backoff_s: 0.5
   # app_read connection pool (psycopg_pool).
   db_pool:

@@ -28,6 +28,7 @@ Project vocabulary used in code, docs, issues and prompts. People and roles ("yo
 | **class** | Lack / insufficient / sufficient per cell, category and profile (`methodology.md` §4). |
 | **deficit (U)** | Population-weighted unmet need per cell (`methodology.md` §4). |
 | **k_c** | Sufficiency threshold of category *c* (`methodology.md` §2). |
+| **reachable** | Facilities a cell reaches within the time budget per profile, with matrix time (`reachable` table, written by `count`); the list behind `count (A)`, read by the inspector. |
 | **catchment** | Cells that reach a facility or candidate site within the time budget. |
 | **grid cell (snapping)** | The 100 m Zensus grid cell under a clicked point, populated or not; its id is computed from EPSG:3035 and live endpoints start from its centre, so answers are cached per (run, cell, profile) (`architecture.md` §6.5 rule 8). |
 | **live endpoint** | API endpoint that calls Valhalla (`inspect`, `catchment`, `expansion`); boundary check first, cached, rate-limited. Read endpoints only read `current`. |

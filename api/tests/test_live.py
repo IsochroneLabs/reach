@@ -3,11 +3,9 @@
 from __future__ import annotations
 
 import json
-import logging
 from typing import Any
 
 import httpx
-import pytest
 import respx
 from fastapi.testclient import TestClient
 
@@ -49,14 +47,20 @@ def test_inspect(client: TestClient, valhalla: respx.MockRouter, rec: dict[str, 
     pharmacy = next(c for c in body["categories"] if c["category"] == "pharmacy")
     assert pharmacy["reachable"] == [] and pharmacy["nearest_route"] is None
 
-    # One isochrone (all contours), one matrix (all categories), one route per category.
+    # Scored cell: list from current.reachable, no matrix; one isochrone (all contours) and
+    # one route per category with a reachable facility.
+    assert body["source"] == "precomputed"
     assert valhalla["isochrone"].call_count == 1
-    assert valhalla["matrix"].call_count == 1
+    assert valhalla["matrix"].call_count == 0
     assert valhalla["route"].call_count == 1
 
 
-def test_inspect_uses_run_costing(client: TestClient, valhalla: respx.MockRouter) -> None:
-    client.post("/api/inspect", json=INSPECT)
+def test_live_matrix_uses_run_costing(
+    client: TestClient, db: FakeDatabase, valhalla: respx.MockRouter
+) -> None:
+    db.scored = False  # only grid cells without residents call the live matrix
+    body = client.post("/api/inspect", json=INSPECT).json()
+    assert body["source"] == "live" and valhalla["matrix"].call_count == 1
     sent = json.loads(valhalla["matrix"].calls.last.request.content)
     assert sent["costing"] == "pedestrian"
     assert sent["costing_options"] == {"pedestrian": {"walking_speed": 3.39}}
@@ -99,22 +103,34 @@ def test_unscored_cell_snapped_and_cached(
     assert valhalla.calls.call_count == calls
 
 
-def test_scored_cell_shows_precomputed_count(
-    client: TestClient, db: FakeDatabase, caplog: pytest.LogCaptureFixture
-) -> None:
-    db.scores[0]["count"] = 3  # published count 3, the live matrix finds 2 groceries (N8)
-    with caplog.at_level(logging.WARNING, logger="reach_api.routes.live"):
-        body = client.post("/api/inspect", json=INSPECT).json()
+def test_scored_cell_lists_published_facilities(client: TestClient, db: FakeDatabase) -> None:
+    body = client.post("/api/inspect", json=INSPECT).json()
     grocery = next(c for c in body["categories"] if c["category"] == "grocery")
-    assert grocery["count"] == 3 and grocery["count_source"] == "precomputed"
-    assert len(grocery["reachable"]) == 2  # the list stays live
-    assert "live 2, precomputed 3" in caplog.text
+    assert grocery["count"] == 2 and grocery["count_source"] == "precomputed"
+    assert [f["time_s"] for f in grocery["reachable"]] == [145, 225]
+    assert "reachable" in db.calls and "facility_points_near" not in db.calls
+
+
+def test_live_matrix_timeout_is_504(
+    db: FakeDatabase, valhalla: respx.MockRouter, make_deps: Any
+) -> None:
+    from reach_api.settings import LiveValhalla
+
+    db.scored = False
+    slow = LiveValhalla(concurrency=1, timeout_s=1, retries=0, backoff_s=0)
+    deps = make_deps(db, live_matrix=slow)
+    assert deps.live_matrix.cfg.concurrency == 1 and deps.live_matrix.cfg.timeout_s == 1
+    valhalla["matrix"].mock(side_effect=httpx.ReadTimeout("slow"))
+    with TestClient(create_app(deps)) as c:
+        r = c.post("/api/inspect", json=INSPECT)
+    assert r.status_code == 504 and valhalla["matrix"].call_count == 1  # no retry configured
 
 
 def test_unscored_cell_shows_live_count(client: TestClient, db: FakeDatabase) -> None:
     db.scored = False
     body = client.post("/api/inspect", json=INSPECT).json()
     grocery = next(c for c in body["categories"] if c["category"] == "grocery")
+    assert body["source"] == "live"
     assert grocery["count"] == 2 and grocery["count_source"] == "live"
 
 

@@ -78,6 +78,37 @@ def count_block(times: np.ndarray, links: pd.DataFrame, budget_s: float) -> pd.D
     return out.rename(columns={"min": "nearest_s"}).reset_index()[cols]
 
 
+def reachable_block(times: np.ndarray, links: pd.DataFrame, budget_s: float) -> pd.DataFrame:
+    """Facilities reachable within the budget per source, with their minimum time.
+
+    Same inputs as `count_block`; one row per source and facility (a facility in several
+    categories or with several routing points appears once). Columns `source`, `facility_id`,
+    `time_s` (whole seconds, int16: the budget is far below 32,767 s). Joined with `facilities`
+    by `facility_id`, these rows give exactly the counts of `count_block`.
+    """
+    cols = ["source", "facility_id", "time_s"]
+    if times.shape[0] == 0 or links.empty:
+        return pd.DataFrame(columns=cols)
+    pts = links.drop_duplicates(["target", "facility_id"])
+    t = times[:, pts["target"].to_numpy()]
+    long = pd.DataFrame(
+        {
+            "source": np.repeat(np.arange(times.shape[0]), len(pts)),
+            "facility_id": np.tile(pts["facility_id"].to_numpy(), times.shape[0]),
+            "time": t.reshape(-1),
+        }
+    )
+    long = long[long["time"] <= budget_s]  # NaN (unreachable) compares False
+    out = long.groupby(["source", "facility_id"], sort=False)["time"].min().reset_index()
+    return pd.DataFrame(
+        {
+            "source": out["source"].to_numpy(),
+            "facility_id": out["facility_id"].to_numpy(),
+            "time_s": np.rint(out["time"].to_numpy()).astype(np.int16),
+        }
+    )
+
+
 def transit_block(times: np.ndarray, departures: np.ndarray, budget_s: float) -> pd.DataFrame:
     """Transit supply per source from the stop columns of one block (methodology §3).
 

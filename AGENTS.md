@@ -9,7 +9,7 @@ They apply to every agent session, on behalf of any team member. Humans: see `RE
 of the city of Tübingen, finds underserved areas and recommends sites for new facilities. Course project
 DS500, University of Tübingen. Automation, validation, documentation and a hosted app are graded.
 
-**Status:** P4 merged, P5 (API) in review — `docs/` (incl. a draft `docs/data_contract.md`), `config/config.yaml`,
+**Status:** P5 (API) merged, P6 next — `docs/` (incl. a draft `docs/data_contract.md`), `config/config.yaml`,
 `config/valhalla.json`, `Makefile` (incl. `refresh`, `migrate`), `compose.yaml` (db, valhalla,
 valhalla-build, api from `infra/api.Dockerfile`, caddy placeholder), `.github/` (CI incl. the PostGIS
 data-contract job), `infra/db/` (roles, migrations, run schema) and the pipeline stages

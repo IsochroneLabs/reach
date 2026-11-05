@@ -1,6 +1,6 @@
 # Data contract — reach
 
-> **Status:** draft v0.6 (5 Nov 2026), from `implementation_plan.md` §3. Binding for the tables
+> **Status:** draft v0.7 (5 Nov 2026), from `implementation_plan.md` §3. Binding for the tables
 > and files exchanged between pipeline and API once a phase implements them; every change needs
 > confirmation (AGENTS.md) and a data-contract test. Tables marked *(planned, Pn)* do not exist yet.
 
@@ -80,6 +80,7 @@ replaces all of them in one transaction.
 | `stops` | GTFS stop | `stop_id` text, `name` text, `weekday_departures` integer, `geom` Point | `stop_id` |
 | `profiles` | profile | `profile_id` text, `costing` text, `costing_options` jsonb (options exactly as sent to Valhalla, incl. `walking_speed`/`cycling_speed`), `speed_kmh` double, `time_budget_min` double (facility budget) | `profile_id` |
 | `access_counts` | cell × category × profile | `cell_id` text (FK `cells`), `category` text, `profile_id` text (FK `profiles`), `count` integer, `nearest_min` double null | (`cell_id`, `category`, `profile_id`) |
+| `reachable` | cell × profile × facility within the facility budget | `cell_id` text (FK `cells`), `profile_id` text (FK `profiles`), `facility_id` text, `time_s` smallint (matrix time in whole seconds, minimum over the facility's routing points, ≤ budget); only reachable pairs; joined with `facilities` by `facility_id` it gives `access_counts.count` (checked by `validate_results`) | (`cell_id`, `profile_id`, `facility_id`) unique by construction, checked by `validate_results`; no primary key (index ~55 MB per run), index on (`cell_id`, `profile_id`) |
 | `transit_supply` | cell × walking/wheelchair profile | `cell_id` text, `profile_id` text, `departures` integer, `stops_count` integer, `nearest_stop_min` double null | (`cell_id`, `profile_id`) |
 | `thresholds` | category or transit class | `category` text (`transit` for transit classes), `k` integer null, `class` text null, `lower` integer null, `upper` integer null | unique (`category`, `class`) `NULLS NOT DISTINCT` (`class` is null on category rows, so no PK) |
 | `scores` (view) | cell × category × profile | `access_counts` columns + `class` text (`lack`, `insufficient`, `sufficient`), `deficit` double | as `access_counts` |
@@ -101,7 +102,9 @@ precomputed times in minutes (`nearest_min`). Classes and deficits are the value
 `current` views. Errors: `{"detail": …}` with 404 (unknown district or facility), 422 (unknown
 profile or category, invalid body, point outside, no street near the point), 429 (rate limit,
 `Retry-After`), 500 (a profile of the run is missing in the config), 502 (Valhalla down or a
-matrix too large), 503 (database down or no published run). Concurrent requests for the same
+matrix too large), 503 (database down or no published run), 504 (a Valhalla call timed out:
+`api.live_matrix.timeout_s` for live matrices, `api.valhalla.timeout_s` after its retries for
+isochrone, route and expansion). Concurrent requests for the same
 uncached answer share one Valhalla computation and report `cached: true`.
 
 **Read endpoints** (`GET` and `HEAD`; no rate limit; header `ETag: W/"<run_id>:<endpoint>:…"`,
@@ -123,7 +126,7 @@ property `contour_min` (5, 10, 15), sorted ascending; display only.
 
 | Endpoint | Request | Body |
 |---|---|---|
-| `POST /api/inspect` | {`lon`, `lat`, `profile`} | `run_id`, `profile_id`, `cell`, `precomputed` ({`categories` [{`category`, `count`, `nearest_min`, `class`, `deficit`}], `transit` {`departures`, `stops_count`, `nearest_stop_min`, `class`} or null} or null for unscored cells), `weakest_category` (worst class, then largest deficit; null if all sufficient or unscored), `isochrone`, `categories` [{`category`, `name`, `count` (precomputed for scored cells, live for unscored), `count_source` (`precomputed`/`live`), `reachable` (live matrix) [{`facility_id`, `name`, `time_s`, `time_min`}] nearest first, `nearest_route` (Feature LineString, properties `time_s`, `length_m`) or null}], `cached` |
+| `POST /api/inspect` | {`lon`, `lat`, `profile`} | `run_id`, `profile_id`, `cell`, `source` (`precomputed` for scored cells: list from `current.reachable`; `live` for grid cells without residents: live matrix), `precomputed` ({`categories` [{`category`, `count`, `nearest_min`, `class`, `deficit`}], `transit` {`departures`, `stops_count`, `nearest_stop_min`, `class`} or null} or null for unscored cells), `weakest_category` (worst class, then largest deficit; null if all sufficient or unscored), `isochrone`, `categories` [{`category`, `name`, `count` (precomputed for scored cells, live for unscored), `count_source` (`precomputed`/`live`), `reachable` (from `current.reachable`, or the live matrix for unscored cells) [{`facility_id`, `name`, `time_s`, `time_min`}] nearest first, `nearest_route` (Feature LineString, properties `time_s`, `length_m` of /route; display only: for scored cells it goes to the facility's routing point nearest to the origin by straight line, so its `time_s` can differ from the listed matrix time, mostly for parks) or null}], `cached` |
 | `POST /api/catchment` | {`facility_id`, `profile`} or {`lon`, `lat`, `profile`} | `run_id`, `profile_id`, `target` ({`kind`: `facility`, `facility_id`, `name`, `categories`} or {`kind`: `cell`, …`cell`}), `residents`, `cells`, `cell_ids` (scored cells reaching the target within the budget), `residents_by_class` {category: {class: residents}} (facility categories only), `isochrone` (reverse: areas from which the target is reached), `cached` |
 | `POST /api/expansion` | {`lon`, `lat`, `profile`} | FeatureCollection of LineStrings (property `duration` in seconds) + `run_id`, `profile_id`, `cell`, `budget_min`, `cached` |
 
@@ -200,6 +203,7 @@ Plain Parquet (no geometry), columns and types as in the run schema above:
 | File | Grain | Columns |
 |---|---|---|
 | `access_counts.parquet` | cell × category × profile (complete grid) | `cell_id`, `category`, `profile_id`, `count` (int32), `nearest_min` (double, null if no facility of the category is reachable within the budget) |
+| `reachable.parquet` | cell × profile × facility within the budget | `cell_id`, `profile_id`, `facility_id`, `time_s` (int16) |
 | `transit_supply.parquet` | cell × profile with `transit: true` | `cell_id`, `profile_id`, `departures` (int32, sum over stops reachable within the transit budget), `stops_count` (int32), `nearest_stop_min` (double, null if none within the budget) |
 | `stops.parquet` | GTFS stop (GeoParquet) | validate's `stops` + `weekday_departures` (int64: stop events of trips active on the reference weekday, without `pickup_type` 1) |
 | `report_count.json` | run | `reference_weekday`, `cells`, `profiles` {profile: `blocks`, `requests`, `runtime_s`, `max_sources`, `targets_max`, `targets_median`, `pairs`, `facility_reach_m`, `transit_reach_m`}, `evidence` (`sample_blocks`, per profile `facilities` / `stops`: `pairs`, `reachable_pairs`, `nominal_reach_m`, `prefilter_reach_m`, `max_reachable_distance_m`, `required_factor`, `max_speed_ratio_by_band`, `beyond_nominal`, `beyond_prefilter`; `beyond_prefilter_examples`), `runtime_s`, `peak_rss_mb` |
@@ -217,9 +221,10 @@ guarantee that the nearest facility was among the matrix targets.
 | Key | Content |
 |---|---|
 | `run_id`, `stage`, `status` (`ok`/`fail`), `generated_at`, `runtime_s`, `peak_rss_mb` | |
-| `checks` | rows of `validation_report`: `access_counts_complete`, `transit_supply_complete`, `value_ranges`, `thresholds_cover_categories`, `class_totals`, `monotonic_<higher>_ge_<lower>` (value = share of violating cells), `sample_cells` |
+| `checks` | rows of `validation_report`: `access_counts_complete`, `transit_supply_complete`, `value_ranges`, `thresholds_cover_categories`, `class_totals`, `reachable_matches_counts`, `monotonic_<higher>_ge_<lower>` (value = share of violating cells), `matrix_vs_route` (value = max abs. deviation in s; warn only), `sample_cells` |
 | `summary` | `residents_scored`; `access` {profile: {category: `share_lack`, `share_insufficient`, `share_sufficient`, `residents_lack`, `deficit_sum`}}; `transit` {profile: {class: share of residents}} |
 | `samples` | per `count.evidence.sample_points` point: nearest `cell_id`, `district_id`, `population`, `values` {`profile/category`: `count`, `class`, `deficit`} |
+| `route_check` | `budget_s`, `profiles` {profile: `pairs`, `no_route`, `mean_abs_s`, `max_abs_s`, `flips` (matrix within the budget, /route beyond)}: sample of `reachable` pairs vs. Valhalla /route (`validation.results.route_check`) |
 
 Any `fail` stops the pipeline before `publish`.
 
@@ -238,3 +243,4 @@ their row counts.
 | v0.4 | 2026-11-03 | `tiles/` and `count/` files (`access_counts`, `transit_supply`, `stops` with `weekday_departures`, reports); `nearest_min` only within the budget | P3 tiles + count |
 | v0.5 | 2026-11-04 | Roles, `meta` and run schema implemented (`infra/db/`); `meta.schema_migrations`; `profiles.costing_options` = options as sent to Valhalla; FKs of `access_counts`/`transit_supply`; `district_scores` details; `score/`, report part 2 and `publish` manifest files | P4 score + publish + cleanup |
 | v0.6 | 2026-11-05 | API responses (read and live endpoints, errors, ETag, snapping, HEAD, inspect `count`/`count_source`); manifest config input per stage; `config_hash` without `api` | P5 API |
+| v0.7 | 2026-11-05 | `reachable` table and `count/reachable.parquet`; report part 2 checks `reachable_matches_counts`, `matrix_vs_route` and key `route_check`; inspect `source`; error 504 | Notes N7/N8, architecture v0.15 (variant C) |

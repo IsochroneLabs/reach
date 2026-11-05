@@ -175,43 +175,57 @@ sensitivity). Changing costing options changes counts → ask first.
 
 ## N7. Store the nearest facility per cell, category and profile in the pipeline
 
-**Status:** open · **Added:** 5 Nov 2026 · **Related:** `architecture.md` §6.5 rule 8, §9,
-`docs/data_contract.md` (`access_counts`), P5 decision K2
+**Status:** settled 5 Nov 2026 (Rico, variant C of N8) · **Added:** 5 Nov 2026 · **Related:**
+`architecture.md` v0.15 §6.5 rules 6 and 8, `docs/data_contract.md` (`reachable`), N8
 
-**Current choice (P5, option a):** `access_counts` stores `count` and `nearest_min`, not which
-facility is the nearest. `POST /api/inspect` therefore sends one live matrix from the cell
-origin to all facility routing points within the prefilter reach (all categories in one
-request) and routes to the nearest one per category. Cached per (run, cell, profile).
-
-**Option b:** `count` already has the minimum time per facility; it could store
-`nearest_facility_id` (and the routing point) next to `nearest_min`. The inspector would then
-skip the live matrix and only call `isochrone` and `route`, and the "nearest" shown would match
-the map exactly (see N8). Cost: data-contract change (`access_counts`, `scores` view), a
-migration path for the `current` views (implementation plan, open from P4) and a pipeline change.
-The list of all reachable facilities per category would still need the matrix (or a new
-cell × facility table, ~250k rows per walking profile).
-
-**Decide:** after P6, if the inspector is too slow on the CX23 or N8 differences are visible.
+**Decision:** `count` writes every facility a cell reaches within the budget with its matrix
+time (`reachable`: `cell_id`, `profile_id`, `facility_id`, `time_s` smallint; only pairs within
+the budget). The inspector lists reachable facilities and routes to the nearest one per category
+from `current.reachable`, so list and count match the map by construction; `validate_results`
+checks that `reachable` joined with `facilities` gives exactly `access_counts.count`. A live
+matrix is only sent for grid cells without residents (and catchments).
 
 ## N8. Live matrix and pipeline blocks use different Valhalla matrix algorithms
 
-**Status:** open · **Added:** 5 Nov 2026 · **Related:** `architecture.md` §6.5 rules 2 and 8,
-`config/valhalla.json` (`thor.source_to_target_algorithm: select_optimal`), N7
+**Status:** settled 5 Nov 2026 (Rico, variant C) · **Added:** 5 Nov 2026 · **Related:**
+`architecture.md` v0.15 §6.5 rules 2 and 8, `config/valhalla.json`
+(`thor.source_to_target_algorithm`), N4, N7
 
 **Finding (P5, Valhalla 3.9.1, run `20261105T184022Z`):** with `select_optimal`, Valhalla answers
-a one-source matrix (live inspector) with `timedistancematrix` and a block matrix (count stage,
-15–25 sources) with `costmatrix`. For 40 random scored cells × 4 profiles × 6 categories (960
-pairs) the live count differed from the precomputed count in 24 pairs (2.5 %), always by ±1,
-mostly cycling and walking 5.0. Example: cell `CRS3035RES100mN2821500E4246900`, wheelchair,
-childcare `w611309782`: block 463 s, single source unreachable. Pipeline blocks with a single
-cell are answered by `timedistancematrix` too, so the precomputed counts mix both algorithms.
+one-source matrices and single-cell blocks with `timedistancematrix` and larger blocks with
+`costmatrix`. 24 of 960 live/precomputed cell × category pairs (2.5 %) differed by ±1. The
+algorithm can only be set in the service config (`valhalla_build_config --help`: "one of
+timedistancematrix or costmatrix; if blank, the optimal will be selected"); request parameters
+(`prioritize_bidirectional`, `source_to_target_algorithm`) do not change it (tested).
 
-**Current handling:** the API logs differences (`live count differs from run …`) and the map
-and inspector show the precomputed counts; the live list of reachable facilities can differ by
-one facility near the 15-minute limit.
+**Comparison with /route** (facility decisions that differ between the algorithms): the 24 pairs
+→ 25 facilities, `costmatrix` closer in 22; a random sample of 40 of the 975 rows that differ in
+a full run → 48 facilities, `costmatrix` closer in 36 (median |Δ| 1 s vs. 20 s). Full `count`
+(fresh container, 2 threads): `select_optimal` 243 s / Valhalla peak 2.6 GB, `costmatrix`
+279 s / 2.5 GB, `timedistancematrix` 54 s / 195 MB; one-source matrix median for cycling
+1,861 ms (`costmatrix`) vs. 152 ms. `costmatrix` also depends on the request: one source and the
+whole block differ in 7 of 64 checked pairs (walking 5.0).
 
-**Options:** (a) set `source_to_target_algorithm` to one algorithm in `config/valhalla.json`
-(changes counts → re-run, compare, ask first); (b) send the cell's whole block as sources in the
-live matrix (same request as the pipeline, more pairs per inspect); (c) N7 option b; (d) accept
-and document. Recommendation: test (a) with `costmatrix` on the full run and compare runtimes
-and counts (V-experiment), then decide.
+**`timedistancematrix` misses wheelchair routes** (reproducible on the Tübingen tiles of
+5 Nov 2026, Valhalla 3.9.1 with `"source_to_target_algorithm": "timedistancematrix"`):
+
+```bash
+curl -s localhost:8002/sources_to_targets -d '{"sources":[{"lon":8.998298,"lat":48.502861}],
+  "targets":[{"lon":8.99685,"lat":48.499493}],"costing":"pedestrian","verbose":false,
+  "costing_options":{"pedestrian":{"type":"wheelchair","walking_speed":3.39}}}'
+# timedistancematrix: durations [[null]]   costmatrix: [[463]]   /route: 463.9 s, 437 m
+# same request without "type":"wheelchair": timedistancematrix [[463]]; reverse direction
+# (target as source) with wheelchair: [[470]]
+```
+
+Origin = cell `CRS3035RES100mN2821500E4246900`, target = childcare `w611309782` (Katholisches
+Kinderhaus St. Martin). In the random sample, 22 wheelchair facilities were "unreachable" for
+`timedistancematrix` although /route finds a path within the budget; 616 of the 975 differing
+rows of a full run are wheelchair rows.
+
+**Decision (Rico, 5 Nov 2026, variant C):** `costmatrix` for every request (`config/valhalla.json`);
+the inspector reads `current.reachable` (N7) instead of a live matrix for scored cells. The
+remaining matrix-vs-/route deviation is measured every run (`validate_results`,
+`matrix_vs_route`) and listed as a known limitation in report part 2. Not done: report the
+`timedistancematrix` wheelchair gap upstream (Valhalla issue) — worth a short issue with the
+example above. Memory: the Valhalla peak during `count` comes from `costmatrix` (N4 stays open).

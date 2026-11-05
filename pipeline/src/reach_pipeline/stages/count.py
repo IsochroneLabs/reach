@@ -51,6 +51,7 @@ STAGE = "count"
 CONFIG_SECTIONS = ("categories", "count", "profiles", "time_budgets_min", "valhalla")
 PREVIOUS = tiles.STAGE
 ACCESS, TRANSIT, STOPS = "access_counts.parquet", "transit_supply.parquet", "stops.parquet"
+REACHABLE = "reachable.parquet"
 REPORT = "report_count.json"
 LAYERS = ["cells", "facilities", "facility_points", "stops"]
 GTFS_FILES = ["stop_times.txt", "trips.txt", "calendar.txt", "calendar_dates.txt"]
@@ -158,23 +159,27 @@ async def _block(
 
 async def count_profile(
     client: ValhallaClient, data: Data, labels: np.ndarray, profile: Profile, reach: Reach
-) -> tuple[pd.DataFrame, pd.DataFrame, dict[str, Any]]:
-    """Counts (`source` = cell index) and transit supply of one profile, plus statistics."""
+) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, dict[str, Any]]:
+    """Counts, reachable facilities and transit supply of one profile (`source` = cell index),
+    plus statistics."""
     n_points = len(data.points.xy)
     blocks = [np.flatnonzero(labels == b) for b in range(labels.max() + 1)]
     sizes: list[tuple[int, int]] = []
 
-    async def one(src: np.ndarray) -> tuple[pd.DataFrame, pd.DataFrame]:
+    async def one(src: np.ndarray) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
         f_idx = count.prefilter(data.origin_xy[src], data.points, reach.facility_m)
         s_idx = count.prefilter(data.origin_xy[src], data.stops, reach.transit_m)
         sizes.append((len(src), len(f_idx) + len(s_idx)))
         times = await _block(client, data, src, f_idx, s_idx, profile)
         ft, st = times[:, : len(f_idx)], times[:, len(f_idx) :]
-        acc = count.count_block(ft, _block_links(data.links, f_idx, n_points), reach.facility_s)
+        links = _block_links(data.links, f_idx, n_points)
+        acc = count.count_block(ft, links, reach.facility_s)
         acc["source"] = src[acc["source"].to_numpy(dtype=np.int64)]
+        rch = count.reachable_block(ft, links, reach.facility_s)
+        rch["source"] = src[rch["source"].to_numpy(dtype=np.int64)]
         tr = count.transit_block(st, data.departures[s_idx], reach.transit_s)
         tr["source"] = src[tr["source"].to_numpy()]
-        return acc, tr
+        return acc, rch, tr
 
     before = client.requests
     started = time.perf_counter()
@@ -194,6 +199,7 @@ async def count_profile(
     return (
         pd.concat([p[0] for p in parts], ignore_index=True),
         pd.concat([p[1] for p in parts], ignore_index=True),
+        pd.concat([p[2] for p in parts], ignore_index=True),
         stats,
     )
 
@@ -213,6 +219,19 @@ def _complete_access(
             "profile_id": profile_id,
             "count": acc["count"].fillna(0).astype(np.int32),
             "nearest_min": (acc["nearest_s"] / 60).round(2),
+        }
+    )
+
+
+def _reachable_rows(rch: pd.DataFrame, cell_ids: np.ndarray, profile_id: str) -> pd.DataFrame:
+    """`reachable` rows: cell × profile × facility within the budget (data contract)."""
+    rch = rch.sort_values(["source", "time_s", "facility_id"], kind="stable")
+    return pd.DataFrame(
+        {
+            "cell_id": cell_ids[rch["source"].to_numpy(dtype=np.int64)],
+            "profile_id": profile_id,
+            "facility_id": rch["facility_id"].astype(str).to_numpy(),
+            "time_s": rch["time_s"].astype(np.int16).to_numpy(),
         }
     )
 
@@ -305,17 +324,19 @@ async def evidence_profile(
 
 async def _count_all(
     cfg: Config, data: Data
-) -> tuple[pd.DataFrame, pd.DataFrame, dict[str, Any], dict[str, Any]]:
+) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, dict[str, Any], dict[str, Any]]:
     labels = count.make_blocks(data.origin_xy, cfg.count.block_size_m)
     categories = [c.id for c in cfg.categories]
     sample = evidence_blocks(data, labels, cfg.count.evidence.sample_points)
-    access, supply, stats, evidence = [], [], {}, {"sample_blocks": sample, "profiles": {}}
+    access, reachable, supply = [], [], []
+    stats, evidence = {}, {"sample_blocks": sample, "profiles": {}}
     async with ValhallaClient(cfg.valhalla) as client:
         for pid, profile in cfg.profiles.items():
             reach = Reach.of(profile, cfg)
-            acc, tr, stats[pid] = await count_profile(client, data, labels, profile, reach)
+            acc, rch, tr, stats[pid] = await count_profile(client, data, labels, profile, reach)
             log.info("profile %s: %s", pid, stats[pid])
             access.append(_complete_access(acc, data.cell_ids, categories, pid))
+            reachable.append(_reachable_rows(rch, data.cell_ids, pid))
             if profile.transit:
                 supply.append(_transit_rows(tr, data.cell_ids, pid))
             evidence["profiles"][pid] = await evidence_profile(
@@ -325,6 +346,7 @@ async def _count_all(
     transit_cols = ["cell_id", "profile_id", "departures", "stops_count", "nearest_stop_min"]
     return (
         pd.concat(access, ignore_index=True),
+        pd.concat(reachable, ignore_index=True),
         pd.concat(supply, ignore_index=True) if supply else pd.DataFrame(columns=transit_cols),
         stats,
         evidence,
@@ -378,11 +400,12 @@ def run(ctx: RunContext) -> Manifest:
             len(departures),
         )
         data, stops = load_data(vdir, departures)
-        access, supply, stats, evidence = asyncio.run(_count_all(ctx.config, data))
+        access, reachable, supply, stats, evidence = asyncio.run(_count_all(ctx.config, data))
 
         stage_dir.mkdir(parents=True, exist_ok=True)
         outputs = []
-        for name, frame in ((ACCESS, access), (TRANSIT, supply), (STOPS, stops)):
+        frames = ((ACCESS, access), (REACHABLE, reachable), (TRANSIT, supply), (STOPS, stops))
+        for name, frame in frames:
             frame.to_parquet(stage_dir / name, index=False)
             outputs.append(FileOutput(path=str(stage_dir / name), rows=len(frame)))
 
@@ -419,8 +442,9 @@ def run(ctx: RunContext) -> Manifest:
         message=(
             f"{len(access)} counts ({len(data.cell_ids)} cells × "
             f"{access['category'].nunique()} categories × {len(stats)} profiles), "
-            f"{len(supply)} transit rows, {sum(s['requests'] for s in stats.values())} "
-            f"matrix requests; beyond prefilter: {beyond}"
+            f"{len(reachable)} reachable pairs, {len(supply)} transit rows, "
+            f"{sum(s['requests'] for s in stats.values())} matrix requests; "
+            f"beyond prefilter: {beyond}"
         ),
     )
     write_manifest(manifest, stage_dir)

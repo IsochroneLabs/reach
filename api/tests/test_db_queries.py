@@ -169,3 +169,12 @@ async def test_locate_scored_cell_outside_boundary(pg: PostgresDatabase) -> None
         "pharmacy": "sufficient",
     }
     assert transit["class"] == "medium"
+
+
+async def test_reachable_lists_published_facilities(pg: PostgresDatabase) -> None:
+    rows = await pg.reachable("b", "walk", 500_150, 5_400_050)
+    assert [(r["facility_id"], r["category"], r["time_s"]) for r in rows] == [
+        ("n1", "grocery", 270)
+    ]
+    assert 8 < rows[0]["lon"] < 10 and 48 < rows[0]["lat"] < 49.5
+    assert await pg.reachable("a", "walk", 500_050, 5_400_050) == []  # nothing within budget

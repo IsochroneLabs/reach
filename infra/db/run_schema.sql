@@ -64,6 +64,18 @@ CREATE TABLE access_counts (
     PRIMARY KEY (cell_id, category, profile_id)
 );
 
+-- Facilities reachable within the facility budget per cell and profile (count stage): one row
+-- per facility with its minimum time over its routing points; joined with facilities by
+-- facility_id it gives access_counts.count. Read by the pin-drop inspector (arch. §6.5 rule 8).
+-- (cell_id, profile_id, facility_id) is unique by construction and checked by validate_results;
+-- no primary key: its index would take ~55 MB per run, the deduplicated lookup index ~4 MB.
+CREATE TABLE reachable (
+    cell_id     text NOT NULL REFERENCES cells,
+    profile_id  text NOT NULL REFERENCES profiles,
+    facility_id text NOT NULL,
+    time_s      smallint NOT NULL CHECK (time_s >= 0)
+);
+
 CREATE TABLE transit_supply (
     cell_id          text NOT NULL REFERENCES cells,
     profile_id       text NOT NULL REFERENCES profiles,
@@ -104,6 +116,7 @@ CREATE INDEX ON facilities (category);
 CREATE INDEX ON facility_points USING gist (geom);
 CREATE INDEX ON stops USING gist (geom);
 CREATE INDEX ON access_counts (category, profile_id);
+CREATE INDEX ON reachable (cell_id, profile_id);
 
 -- methodology §4: lack A = 0, insufficient 0 < A < k, sufficient A >= k;
 -- deficit U = P * max(0, 1 - A / k).

@@ -74,6 +74,7 @@ class Api(_Model):
     trusted_proxies: list[str]
     resolve_interval_s: float = Field(ge=0)
     valhalla: LiveValhalla
+    live_matrix: LiveValhalla
     db_pool: DbPool
 
 

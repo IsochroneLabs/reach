@@ -8,7 +8,7 @@ where new facilities would help the most people.
 Course project for **DS500 Data Science Project** (M.Sc. Data Science in Business and Economics,
 University of Tübingen, winter term 2026/27), Topic 9 "The 15-Minute City".
 
-> **Status: P5 (API) in review (branch `feature/rico-api`), P6 (web) next.** The local stack
+> **Status: P5 (API) merged (5 Nov 2026), P6 (web) next.** The local stack
 > (PostGIS, Valhalla, API, web placeholder), configuration, CI, the whole pipeline except the
 > recommender and the API exist: `acquire` downloads OSM, GTFS and Zensus data, `validate` turns
 > them into checked layers, `make refresh` builds the Valhalla routing graph, `count` computes
@@ -96,9 +96,10 @@ test clip uses its own data directory: `REACH_CONFIG=config/test_clip.yaml make 
 grows with the highest OSM node ID); see the risks in the implementation plan.
 
 Outputs of a run: `data/runs/<run_id>/validate/report_inputs.md` (input checks),
-`count/access_counts.parquet`, `count/transit_supply.parquet` and `count/report_count.json`
+`count/access_counts.parquet`, `count/reachable.parquet` (facilities within the budget per
+cell), `count/transit_supply.parquet` and `count/report_count.json`
 (runtime, matrix sizes, prefilter evidence), `validate_results/report_results.md` (result
-checks, residents per class, sample cells). `publish` loads the run into the PostGIS schema
+checks, residents per class, sample cells, matrix vs. /route as a known limitation). `publish` loads the run into the PostGIS schema
 `run_<id>` and points the `current` views (`scores`, `transit_scores`, `district_scores`, …) at
 it in one transaction; `cleanup` keeps the last 3 published runs (schemas and `data/` folders).
 `make` passes `.env` to the pipeline; set `DATABASE_URL_ADMIN` there for `make migrate`. The tile build (`valhalla-build`, official Valhalla
