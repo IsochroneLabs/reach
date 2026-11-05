@@ -9,12 +9,12 @@ They apply to every agent session, on behalf of any team member. Humans: see `RE
 of the city of Tübingen, finds underserved areas and recommends sites for new facilities. Course project
 DS500, University of Tübingen. Automation, validation, documentation and a hosted app are graded.
 
-**Status:** P4 merged, P5 next — `docs/` (incl. a draft `docs/data_contract.md`), `config/config.yaml`,
+**Status:** P4 merged, P5 (API) in review — `docs/` (incl. a draft `docs/data_contract.md`), `config/config.yaml`,
 `config/valhalla.json`, `Makefile` (incl. `refresh`, `migrate`), `compose.yaml` (db, valhalla,
-valhalla-build, api placeholder, caddy placeholder), `.github/` (CI incl. the PostGIS
+valhalla-build, api from `infra/api.Dockerfile`, caddy placeholder), `.github/` (CI incl. the PostGIS
 data-contract job), `infra/db/` (roles, migrations, run schema) and the pipeline stages
 `acquire`, `validate`, `tiles`, `count`, `score`, `validate_results`, `publish` and `cleanup`
-exist; `recommend`, the API endpoints, `web/`, `compose.prod.yaml` and the rest of `infra/` are
+and the API endpoints (`api/`) exist; `recommend`, `web/`, `compose.prod.yaml` and the rest of `infra/` are
 planned. If a file, folder or command referenced here does not exist yet, say so; do not invent a
 substitute.
 

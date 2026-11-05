@@ -4,7 +4,8 @@
 > (then architecture v0.11, methodology v0.2). P1 merged (PR #19). P2 merged (PR #20; N3
 > decision → architecture v0.12, methodology v0.3). P3 merged (PR #21, 5 Nov 2026; full depth:
 > all profiles and categories; open decisions N4, N5, cycling factor). P4 merged (PR #22, 5 Nov
-> 2026; full depth; monotonicity with tolerance, N6). Next: P5. This file is the **handoff between
+> 2026; full depth; monotonicity with tolerance, N6). P5 in review (draft PR, full depth,
+> architecture v0.14). Next: P6. This file is the **handoff between
 > agent sessions**: phase status, decisions, agreed deviations, measured numbers and next steps.
 > It is informative; `architecture.md` and `methodology.md` stay binding. Where this plan proposes
 > something that differs from them, it is listed in [Section 5](#5-conflicts-gaps-and-ambiguities)
@@ -21,7 +22,7 @@
 | P2 | acquire + validate inputs | `feature/rico-acquire-validate` | [x] merged PR #20 (interim depth; test-clip script open) | 11 Nov |
 | P3 | tiles + count | `feature/juju-tiles-count` | [x] merged PR #21, 5 Nov (full depth) | 16 Nov |
 | P4 | score + publish + cleanup | `feature/juju-score-publish` | [x] merged PR #22, 5 Nov (full depth) | 19 Nov |
-| P5 | API | `feature/rico-api` | [ ] | 21 Nov |
+| P5 | API | `feature/rico-api` | [~] draft PR, full depth (5 Nov) | 21 Nov |
 | P6 | Web | `feature/rico-web` | [ ] | 24 Nov |
 | — | **Interim demo (local), `v0.1.0`** | release PR `dev` → `main` on request | [ ] | 25 Nov |
 | P7 | Recommender + validation V1–V9 | `feature/rico-recommender`, `feature/rico-validation` | [ ] | 10 Jan |
@@ -150,6 +151,9 @@ match hand computation for sample cells; re-publishing switches `current` atomic
 
 **Done when:** all endpoints respond on the local stack; `curl` examples in the PR; tests pass.
 *Interim:* read endpoints + `inspect`; `catchment`/`expansion` after the interim.
+*Changed in P5 (Rico, 5 Nov 2026):* full depth; extra module `deps.py` (shared state, run
+context); `infra/api.Dockerfile` installs package `reach-api`; `.dockerignore` and `make up --build`
+added with it; boundary check and inspector snapping per architecture v0.14 (K1, K2).
 
 ### P6 — Web
 
@@ -324,6 +328,10 @@ Confirmed by Rico (2 Nov 2026): C6–C12 as recommended in Section 5; Q4 also co
 | 2026-11-04 | P4 assumptions | `migrate` = CLI command (`python -m reach_pipeline migrate`), not a stage; `roles.sql` re-applied every time, migrations once (`meta.schema_migrations`, new table in the contract); role passwords only set when their `*_PASSWORD` variable is present. Privileges: `app_read` reads `current.*` and `meta` only (view-owner rights cover the run tables), `supervisor_read` every run schema via default privileges, `pipeline_write` owns `current` and the run schemas. `current` views `SELECT *`; current run found via `pg_depend` of `current.cells`. Re-publishing the current run: load + switch in one transaction (the `DROP SCHEMA … CASCADE` would otherwise drop the views first). `meta.runs` row upserted as `running` before the load; `failed` on a DB error unless already published. `profiles.costing_options` = the options as sent to Valhalla (incl. speed). Districts/urban boundary forced to MultiPolygon. Failure webhook in the CLI for every stage (not only `publish`, arch. §11 "a failed run posts"), body `{"text": …}`. `cleanup`: deletes runs older than the oldest kept published run (schemas, `meta.runs` rows, `data/raw/<id>/`, `data/runs/<id>/`), never the current run or newer unpublished runs; nothing with ≤ 3 published runs. Report part 2 sample cells = nearest cells to `count.evidence.sample_points`. `make` passes `.env` via `uv run --env-file` |
 | 2026-11-04 | P4 conflict (reported) | AGENTS.md rule 6 "only `publish` writes to PostGIS" vs. arch. §7: `cleanup` drops old run schemas → implemented as in the architecture; AGENTS.md wording to be aligned (ask); **resolved 5 Nov 2026 (Rico):** rule 6 now names `cleanup` |
 | 2026-11-05 | P3/P4 review and merge (Rico) | Reviewed and run locally (lint, unit, `-m db`, `-m integration` on the clip tiles, `make refresh`), approved; #21 merged, #22 retargeted to `dev` (no rebase needed: the P3 commits were unchanged) and merged |
+| 2026-11-05 | P5 answers (Rico) | Full depth (if not done by 12 Nov: shorten `catchment`/`expansion` so P6 stays on time); dependencies `psycopg[binary,pool]` (psycopg-pool 3.3.3), `pyyaml` 6.0.3 (api), `httpx2` 2.16.0 (dev), no other upgrades; K1 accepted: live point allowed inside urban boundary + margin **or** a scored cell (86 scored cells, 1,144 residents lie outside boundary + 100 m); K2 (a): one live matrix origin → facility points within the count prefilter, same costing, differences only logged; (b) → notes N7; K3 (a): `api` section in `config/config.yaml`, `.env` only URLs, DSN, `REACH_CONFIG`; Dockerfile and compose change approved. Changed assumptions: unpopulated clicks snap to the centre of their 100 m grid cell (id from EPSG:3035) and are cached like scored cells; `X-Forwarded-For` only from Caddy (trusted proxy), API port not published, test; `/api/cells` with 6 decimals, gzip in Caddy, ETag/cache per run id. Architecture v0.14 (§6.5 rules 8 and 12, §9) |
+| 2026-11-05 | P5 assumptions | Pipeline `Config` keeps `api` as an unvalidated mapping (its models forbid unknown keys); changing `api` values therefore changes the config checksum and re-runs `count` (as every config change, C10). API reads its own view of the config (`extends` merged like the pipeline): `api`, category names, `max_speed_factor`/`prefilter_margin_m`, `valhalla.max_matrix_pairs`; speed, budget and costing options from `current.profiles`. Current run = run schema behind `current.cells` (as `publish`), one query per request; profiles/categories cached per run id. Grid id = `CRS3035RES100mN<north>E<east>` of the lower-left corner (checked against `current.cells`), origin = centre. Prefilter around the single origin (the pipeline uses the block bbox, a superset). Weakest category = worst class, then largest deficit; null if all sufficient. Routes only to nearest facilities within the budget. Catchment: reverse isochrone from the facility point; matrix sources = scored cells within the prefilter reach of any routing point; `residents_by_class` for the facility's categories. Expansion = Valhalla `action: isochrone`, budget = profile budget, own small LRU. Rate limit only on live endpoints, cache hits cost a token; client IP = last `X-Forwarded-For` entry from a trusted peer; Caddy resolved by name, re-resolved at most every 30 s. ETag `W/"<run_id>:…"` + `Cache-Control: no-cache` on all read endpoints; `/api/recommendations` returns an empty collection with `available: false` (no table yet). Errors 422 (outside, unknown values, no street near the point), 429, 502, 503. HEAD is not served. Category names from the config, not the run |
+| 2026-11-05 | P5 finding (N8) | Live counts differ from precomputed ones in 24 of 960 cell × category pairs (2.5 %, always ±1; 40 random cells × 4 profiles): Valhalla `select_optimal` answers one-source matrices with `timedistancematrix` and block matrices with `costmatrix`, which differ near the budget (example: 463 s vs. unreachable). Logged only, as agreed |
+| 2026-11-05 | P5 review (fresh agent) | Fixed: live caches held Python dicts (~10× the JSON size; 2,000 cycling inspects ≈ 1 GB) → caches hold serialized JSON bytes, defaults lowered (`live_entries` 500, `expansion_entries` 10; worst case ~60 MB) and size comments corrected; rate-limit dependency was sync (threadpool, unlocked limiter state) → async; concurrent misses of one key now share one Valhalla computation (rule 10); `rank_share_lack` ranked districts without residents first → `NULLS LAST`; Valhalla retries now wait `api.valhalla.backoff_s * 2**attempt` (new key); matrix larger than the limit on both axes raises; meta ETag includes the config category names; unit tests no longer resolve DNS; db test covers a scored cell with a real grid id outside the urban boundary (K1) and snapping; contract lists 500/502 causes; commits reordered (code with its contract, `chore` types). Left: none |
 
 Measured numbers (runtime, peak memory, counts) are added here at the end of every phase.
 
@@ -364,6 +372,14 @@ Measured numbers (runtime, peak memory, counts) are added here at the end of eve
 | P4 | Cleanup demo (separate DB `reach_demo`, 4 cloned runs published) | 3 schemas, 3 `meta.runs` rows, 3 run and raw folders left |
 | P4 | `uv run pytest` / `uv run pytest -m db` (local PostGIS 18-3.6) | 161 passed / 10 passed (a broken `scores` view fails 4 of them) |
 | P4 | Review run on `dev` after the merge (Rico, 5 Nov): `make refresh` without tile rebuild, run `20261105T184022Z`: acquire / validate / count / publish / cleanup | 3.2 s / 24.4 s (2,062 MB) / 289 s (289 MB) / 1.1 s / 0.03 s; `validate_results` 0 fail, 2 warn (N6); `current.scores` 40,776 rows, class and deficit recomputed from raw tables: 0 mismatches |
+| P5 | Response times through Caddy (local stack, run `20261105T184022Z`): `/api/cells` grocery walking 3.39, first after restart / cached / 304 | 56 ms / 9 ms / 4 ms; 1,699 features, 680 KB plain, 59 KB gzip (transit 705 / 64 KB) |
+| P5 | `/api/districts` / `/api/meta` / district scores | 290 KB (81 KB gzip), 10–41 ms / 3.0 KB, 27 ms / 1.6 KB, 9 ms |
+| P5 | `POST /api/inspect` (miss: 1 isochrone + 1 matrix + ≤ 6 routes), Marktplatz walking 3.39 / cycling / cache hit | 180 ms (18.5 KB) / 292 ms (52 KB) / 4 ms; 40 random cells (host): median 36 ms walking 3.39, 55 ms walking 5.0, 200 ms cycling, 37 ms wheelchair, max 248 ms |
+| P5 | `POST /api/catchment` (pharmacy, walking 3.39) / `POST /api/expansion` Marktplatz walking / cycling | 37 ms, 82 cells, 6,574 residents / 25–30 ms, 3,410 edges, 477 KB (45 KB gzip) / 73 ms, 9,714 edges, 1.37 MB |
+| P5 | Rejected point (outside boundary) | 2–3 ms, no Valhalla call |
+| P5 | API memory (`docker stats`): dev (`--reload`) idle / after load; image CMD idle / after 24 cell bodies + 3 cycling expansions + 4 cycling inspects | 78 / 101 MB; 51 / 111 MB with Python objects in the live caches, **82 MB** after the review fix (serialized bodies) (P1–P4 with `uv run` in the uv image: 366–482 MB idle). Image 357 MB |
+| P5 | Other services at the same time: db / valhalla / caddy | 96 MB / 2.2 GB (after the earlier count, N4) / 22 MB |
+| P5 | `uv run pytest` / `-m db` | 194 passed / 15 passed (API: 35 unit, 5 db; after the review fixes) |
 
 ## 8. Next steps
 
@@ -389,9 +405,15 @@ Measured numbers (runtime, peak memory, counts) are added here at the end of eve
    (needs a migration path with the first contract change); add `DATABASE_URL_ADMIN` to
    existing local `.env` files.
    The §7 conflict in `architecture.md` about `cleanup` is resolved (v0.13, confirmed by Rico).
-6. Open from P1: Starlette deprecates `httpx` for `TestClient` (warning); adding `httpx2` as a
-   dev dependency is deferred to P5 (Rico, 2 Nov 2026). The pytest-asyncio loop-scope warning is
-   fixed (`asyncio_default_fixture_loop_scope = "function"`).
+6. ~~Open from P1: `httpx2` as dev dependency against the Starlette TestClient warning~~ —
+   done in P5. The pytest-asyncio loop-scope warning is fixed
+   (`asyncio_default_fixture_loop_scope = "function"`).
+7. P5 — draft PR (full depth). Open from P5: N7 (nearest facility id in the pipeline) and N8
+   (matrix algorithm differences, decide with a `costmatrix` test run); HEAD requests are not
+   served (405); `catchment` for recommender candidates gets its candidates in P7; production
+   command, HTTPS and no published ports in `compose.prod.yaml` (P8); measure API memory and
+   inspect latency on the CX23 (VF3). Next: P6 (web) on `/api/cells`, `/api/districts`,
+   `/api/inspect`, `/api/meta`.
 
 ## 9. Working rules (copy from the start prompt)
 

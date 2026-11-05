@@ -89,8 +89,24 @@ adds a line under `Unreleased`.
 - `.env.example`: `DATABASE_URL_ADMIN`, `REACH_TEST_DATABASE_URL`; data contract v0.5;
   `docs/notes.md` N6 (faster walking can reach fewer facilities: Valhalla routes by cost);
   glossary: validation report, monotonicity check, published run, migration.
+- P5 API (`api/`): read endpoints `GET /api/meta`, `/api/districts`,
+  `/api/districts/{id}/scores`, `/api/cells` (GeoJSON in EPSG:4326 built in PostGIS, transit
+  classes via `category=transit`, ETag per run, gzip via Caddy) and `/api/recommendations`
+  (empty until P7); live endpoints `POST /api/inspect`, `/api/catchment`, `/api/expansion`
+  (Valhalla isochrone/matrix/route/expansion, snapped to the 100 m grid cell, boundary check,
+  LRU cache per run/cell/profile, token-bucket rate limit per client IP behind Caddy);
+  `infra/api.Dockerfile`, `.dockerignore`, `api` section in `config/config.yaml`; tests with a
+  fake database, recorded Valhalla responses and PostGIS (`-m db`); data contract v0.6 (API responses); `docs/notes.md` N7
+  (store the nearest facility in the pipeline) and N8 (live and block matrices use different
+  Valhalla algorithms); glossary: grid cell (snapping), live endpoint, trusted proxy.
 
 ### Changed
+- `docs/architecture.md` v0.14: inspector snaps every point to its 100 m grid cell and uses one
+  live matrix for the reachable facilities (§6.5 rule 8); live endpoints also accept points in
+  scored cells outside the urban boundary (rule 12); §9 endpoint details.
+- `compose.yaml`: the `api` service runs the `infra/api.Dockerfile` image (78 MB idle instead of
+  ~400 MB); `make up` builds it. New dependencies `psycopg-pool`, `pyyaml` (api) and `httpx2`
+  (dev, removes the Starlette TestClient warning).
 - `AGENTS.md` rule 6: `cleanup` may drop old run schemas and their `meta` rows (aligned with
   architecture §7; reported in P4).
 - `docs/architecture.md` v0.13: §7 names `cleanup` as dropping old run schemas (matches rule 6).
