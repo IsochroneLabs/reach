@@ -325,7 +325,7 @@ typescript-eslint allow minimatch 11.
 
 ## N11. Wheelchair profile: `max_grade` excludes no edges, routes include steep sections
 
-**Status:** open, finding only (no change to counts or config) · **Added:** 6 Nov 2026 ·
+**Status:** open: option (a) done 6 Nov 2026 (branch `docs/rico-wheelchair-text`: architecture v0.17 §6.1, methodology v0.5 §1, config comment), option (b) part of V11 · **Added:** 6 Nov 2026 ·
 **Related:** `architecture.md` §6.1, O7, N5, `config/config.yaml` (`wheelchair_339`)
 
 **Finding (running service, Valhalla 3.9.1, Tübingen tiles with elevation):** `/route` with

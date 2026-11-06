@@ -8,6 +8,10 @@ adds a line under `Unreleased`.
 ## [Unreleased]
 
 ### Changed
+- Wheelchair profile documented as it behaves (notes N11): it avoids steps but not steep
+  sections, because Valhalla 3.9.1 ignores `max_grade`; known limitation (wheelchair counts
+  optimistic on hillsides) in `methodology.md` v0.5 §1, `architecture.md` v0.17 §6.1 and the
+  `wheelchair_339` comment in `config/config.yaml`. Counts and config values unchanged.
 - Web inspector shows the travel time first: the route to the nearest facility reads
   "Route to the nearest: 16.4 min · 697 m" (time from /route, length secondary) instead of only
   its length, and the times of the reachable facilities are no longer greyed out (notes N9).
