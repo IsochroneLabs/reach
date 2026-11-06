@@ -111,7 +111,53 @@ export type Cells = FeatureCollection<Polygon, CellProps> & {
   profile_id: string
 }
 
-export type Recommendations = FeatureCollection & { run_id: string; available: boolean }
+/** A recommended zone (100 m grid cell) for one new facility of a category (methodology §5). */
+export interface RecommendationProps {
+  category: string
+  profile_id: string
+  rank: number
+  candidate_id: string
+  /** Reduction of the deficit sum (residents) if one facility is added here. */
+  population_gain: number
+  /** Residents of cells that had no facility of the category within the budget. */
+  residents_gaining_access: number
+  /** Residents whose class becomes "sufficient". */
+  residents_to_sufficient: number
+  catchment_residents: number
+  catchment_cells: number
+  district_id: string | null
+  district_name: string | null
+  /** Zone centre [lon, lat]: the target of its catchment. */
+  point: [number, number]
+}
+
+export type Recommendations = FeatureCollection<Polygon, RecommendationProps> & {
+  run_id: string
+  available: boolean
+}
+
+/** POST /api/catchment for a recommended zone: the catchment the recommender used. */
+export interface CandidateCatchment {
+  run_id: string
+  profile_id: string
+  target: {
+    kind: 'candidate'
+    candidate_id: string
+    category: string
+    rank: number
+    population_gain: number
+    residents_gaining_access: number
+    residents_to_sufficient: number
+    origin: [number, number]
+  }
+  source: 'precomputed'
+  residents: number
+  cells: number
+  cell_ids: string[]
+  residents_by_class: Record<string, Record<string, number>>
+  isochrone: FeatureCollection<Polygon, { contour_min: number }>
+  cached: boolean
+}
 
 export interface InspectCell {
   cell_id: string

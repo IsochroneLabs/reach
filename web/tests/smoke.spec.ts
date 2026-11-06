@@ -14,6 +14,7 @@ const API: [RegExp, string][] = [
   [/\/api\/cells/, 'cells_grocery_walking_339.json'],
   [/\/api\/recommendations/, 'recommendations.json'],
   [/\/api\/inspect$/, 'inspect_walking_339.json'],
+  [/\/api\/catchment$/, 'catchment_candidate.json'],
 ]
 
 const BLANK_STYLE = JSON.stringify({
@@ -102,6 +103,40 @@ test('loads the class map and inspects a location', async ({ page }) => {
   await page.getByRole('link', { name: 'Data & validation' }).click()
   await expect(page.getByTestId('data-page')).toContainText('Known limitations')
 
+  expect(errors).toEqual([])
+})
+
+test('lists recommended sites and shows the catchment of one', async ({ page }) => {
+  const errors: string[] = []
+  page.on('console', (m) => m.type() === 'error' && errors.push(m.text()))
+  page.on('pageerror', (e) => errors.push(e.message))
+  if (!live) await mockNetwork(page)
+
+  await page.goto('/#/map?profile=walking_339&category=grocery')
+  await expect(page.getByTestId('map')).toHaveAttribute('data-ready', 'true', { timeout: 30_000 })
+  const panel = page.getByRole('region', { name: 'Recommended sites' })
+  const items = panel.locator('.rec-list > li')
+  await expect(items).toHaveCount(5)
+  await expect(items.first()).toContainText('residents gain access')
+  await expect(panel).toContainText('Accessibility only')
+
+  // a click on the rank-1 marker on the map selects it and loads its catchment
+  const first = (await page.evaluate(() =>
+    fetch('/api/recommendations?category=grocery&profile=walking_339').then((r) => r.json()),
+  )) as { features: { properties: { point: [number, number]; district_name: string } }[] }
+  const { x, y } = await initialPixel(page, first.features[0].properties.point)
+  await page.mouse.click(x, y)
+  await expect(items.first()).toHaveClass(/selected/)
+  await expect(panel.locator('.rec-detail')).toContainText('residents in')
+  await expect(panel.locator('.rec-detail')).toContainText('Lack')
+  if (!live) {
+    await expect(items.first()).toContainText('Lustnau-Zentrum')
+    await expect(panel.locator('.rec-detail')).toContainText('6,722 residents in 110 cells')
+  }
+  // no inspector pin was dropped by the marker click
+  await expect(page.getByTestId('inspect-result')).toHaveCount(0)
+  await panel.getByRole('button', { name: 'Clear' }).click()
+  await expect(panel.locator('.rec-detail')).toHaveCount(0)
   expect(errors).toEqual([])
 })
 

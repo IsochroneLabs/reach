@@ -1,13 +1,22 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from 'react'
-import { errorMessage, getCells, getDistricts, getMeta, getRecommendations, postInspect } from './api'
+import {
+  errorMessage,
+  getCells,
+  getDistricts,
+  getMeta,
+  getRecommendations,
+  postCandidateCatchment,
+  postInspect,
+} from './api'
 import Controls from './components/Controls'
 import DataPage from './components/DataPage'
 import DistrictPanel from './components/DistrictPanel'
 import Inspector, { type InspectState } from './components/Inspector'
 import MapView from './components/MapView'
+import RecommendationsPanel, { type CatchmentState } from './components/RecommendationsPanel'
 import { FACILITY_CLASSES, TRANSIT } from './palette'
 import { routeHash, useRoute } from './route'
-import type { Cells, Districts, Meta, Recommendations } from './types'
+import type { Cells, Districts, Meta, RecommendationProps, Recommendations } from './types'
 
 // Scored cells answer in < 100 ms: show the spinner only for slower (live) answers.
 const SPINNER_DELAY_MS = 300
@@ -64,6 +73,12 @@ function Main({ meta, districts }: { meta: Meta; districts: Districts }) {
   const [inspect, setInspect] = useState<InspectState>({ status: 'idle' })
   const [district, setDistrict] = useState<string | null>(null)
   const inspectAbort = useRef<AbortController | null>(null)
+  // catchment of a recommended zone; it belongs to the selection it was loaded for
+  const [catchment, setCatchment] = useState<{ key: string; state: CatchmentState }>({
+    key: '',
+    state: { status: 'idle' },
+  })
+  const catchmentAbort = useRef<AbortController | null>(null)
 
   // Normalise the hash once (defaults or an unknown profile/category in a shared link).
   useEffect(() => {
@@ -82,7 +97,7 @@ function Main({ meta, districts }: { meta: Meta; districts: Districts }) {
     }
   }, [category, profile.profile_id, viewKey])
 
-  // Recommendations (P7): the layer stays hidden while the endpoint reports `available: false`.
+  // Recommendations: layer and panel stay hidden while the run has none for the selection.
   useEffect(() => {
     if (category === TRANSIT) return
     let cancelled = false
@@ -135,6 +150,26 @@ function Main({ meta, districts }: { meta: Meta; districts: Districts }) {
     setPin([lon, lat])
     runInspect(lon, lat, profile.profile_id)
   }
+
+  const selectRecommendation = (rec: RecommendationProps | null) => {
+    catchmentAbort.current?.abort()
+    if (!rec) {
+      setCatchment({ key: viewKey, state: { status: 'idle' } })
+      return
+    }
+    const controller = new AbortController()
+    catchmentAbort.current = controller
+    const candidateId = rec.candidate_id
+    setCatchment({ key: viewKey, state: { status: 'loading', candidateId } })
+    postCandidateCatchment(candidateId, rec.category, rec.profile_id, controller.signal).then(
+      (data) => !controller.signal.aborted && setCatchment({ key: viewKey, state: { status: 'done', candidateId, data } }),
+      (err: unknown) =>
+        !controller.signal.aborted &&
+        setCatchment({ key: viewKey, state: { status: 'error', candidateId, message: errorMessage(err) } }),
+    )
+  }
+  const catchmentState: CatchmentState = catchment.key === viewKey ? catchment.state : { status: 'idle' }
+  const currentRecommendations = recommendations?.key === viewKey ? recommendations.data : null
 
   const cells = cellsResult.cells
   const cellsCurrent = cellsResult.key === viewKey
@@ -204,6 +239,13 @@ function Main({ meta, districts }: { meta: Meta; districts: Districts }) {
               onCategory={(id) => select({ category: id })}
               onClose={closeInspector}
             />
+            <RecommendationsPanel
+              meta={meta}
+              category={category}
+              recommendations={currentRecommendations}
+              catchment={catchmentState}
+              onSelect={selectRecommendation}
+            />
             <DistrictPanel
               meta={meta}
               districts={districts}
@@ -223,8 +265,14 @@ function Main({ meta, districts }: { meta: Meta; districts: Districts }) {
             inspect={shownInspect}
             pin={pin}
             routeCategory={category}
-            recommendations={recommendations?.key === viewKey ? recommendations.data : null}
+            recommendations={currentRecommendations}
+            selectedCandidate={catchmentState.status === 'idle' ? null : catchmentState.candidateId}
+            catchment={catchmentState.status === 'done' ? catchmentState.data : null}
             onPick={pick}
+            onRecommendation={(id) => {
+              const rec = currentRecommendations?.features.find((f) => f.properties.candidate_id === id)
+              if (rec) selectRecommendation(rec.properties)
+            }}
           />
           {pin && (
             <a className="details-hint" href="#inspector" onClick={scrollToInspector}>
