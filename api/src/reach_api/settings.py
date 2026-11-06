@@ -1,7 +1,8 @@
 """Settings: URLs and DSN from the environment, tunable values from `config/config.yaml`.
 
 The API reads the `api` section plus the few pipeline keys it must share with the pipeline
-(category names, prefilter factor and margin per profile, Valhalla matrix limit), so live
+(category names, transit budget, prefilter factor and margin per profile, Valhalla matrix
+limit), so live
 matrices use the same prefilter as the `count` stage (arch. §6.5 rule 8). Costing options and
 speeds come from `current.profiles` of the published run, not from here.
 """
@@ -88,6 +89,10 @@ class CategoryName(_Shared):
     name: str
 
 
+class TimeBudgets(_Shared):
+    transit: float = Field(gt=0)
+
+
 class ValhallaLimits(_Shared):
     max_matrix_pairs: int = Field(ge=1)
 
@@ -96,6 +101,7 @@ class Config(_Shared):
     api: Api
     profiles: dict[str, Prefilter]
     categories: list[CategoryName]
+    time_budgets_min: TimeBudgets
     valhalla: ValhallaLimits
 
     def prefilter_reach_m(self, profile_id: str, speed_kmh: float, budget_min: float) -> float:

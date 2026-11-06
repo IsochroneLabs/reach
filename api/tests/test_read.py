@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import Any
 
 from fastapi.testclient import TestClient
+
+from reach_api.main import create_app
 
 RUN_ID = "20261105T184022Z"
 FakeDatabase = Any  # conftest.FakeDatabase (not importable with --import-mode=importlib)
@@ -76,6 +79,25 @@ def test_meta(client: TestClient) -> None:
         "walking_339": True,
         "cycling_15": False,
     }
+    # walking time to stops from the config, only for profiles with transit
+    assert {p["profile_id"]: p["transit_budget_min"] for p in body["profiles"]} == {
+        "walking_339": 10,
+        "cycling_15": None,
+    }
+
+
+def test_meta_etag_follows_transit_budget(db: FakeDatabase, make_deps: Callable[..., Any]) -> None:
+    def meta(transit: float, etag: str = "") -> Any:
+        d = make_deps(db)
+        budgets = d.config.time_budgets_min.model_copy(update={"transit": transit})
+        d.config = d.config.model_copy(update={"time_budgets_min": budgets})
+        with TestClient(create_app(d)) as c:
+            return c.get("/api/meta", headers={"If-None-Match": etag} if etag else {})
+
+    old = meta(10).headers["etag"]
+    r = meta(12, old)
+    assert r.status_code == 200 and r.headers["etag"] != old
+    assert r.json()["profiles"][0]["transit_budget_min"] == 12
 
 
 def test_districts_and_scores(client: TestClient) -> None:

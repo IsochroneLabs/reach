@@ -229,3 +229,49 @@ remaining matrix-vs-/route deviation is measured every run (`validate_results`,
 `matrix_vs_route`) and listed as a known limitation in report part 2. Not done: report the
 `timedistancematrix` wheelchair gap upstream (Valhalla issue) — worth a short issue with the
 example above. Memory: the Valhalla peak during `count` comes from `costmatrix` (N4 stays open).
+
+## N9. Block matrices can miss facilities that a one-source matrix reaches within the budget
+
+**Status:** open, needs a check in the pipeline · **Added:** 6 Nov 2026 · **Related:**
+`architecture.md` §6.5, N8, `validate_results` (`matrix_vs_route`)
+
+**Finding (P6, run `20261105T203945Z`, Valhalla 3.9.1, `costmatrix`):** for some cells, the
+`count` block matrix gives a much longer time than a one-source `sources_to_targets` request with
+the same origin, target and costing options, and the count drops to 0 near the budget:
+
+| Cell | Facility | Run (block) | One source now |
+|---|---|---|---|
+| `CRS3035RES100mN2822800E4249500` (Burgholzweg 127) | childcare `w644434788` | not within 900 s (walking 3.39); 667 s at walking 5.0 (≈ 927 m) | 740 s, 697 m |
+| `CRS3035RES100mN2823600E4252700` (Österberg) | parks `w5541667` | lack | 834 s, 782 m |
+| `CRS3035RES100mN2824700E4250800` (Schönblick) | parks `w222111961` | lack | 894 s, 837 m |
+
+A random sample of 40 cells (grocery, walking 3.39) differs in 2 cells by ±1, so most counts
+agree; the examples above deviate by 60–240 s, more than `matrix_vs_route` samples (it only
+checks pairs the run found reachable, so it cannot see these false lacks). A 66-source ×
+1-target request still gives 740 s for the first example; the effect of the full block
+(25 sources × up to 476 targets) is not reproduced yet.
+
+**Also seen:** the running Valhalla container still uses the `config/valhalla.json` it loaded
+at start (the file was replaced on disk by a git checkout; the single-file bind mount keeps the
+old inode, `cat` inside the container fails); a 25 × 101 pedestrian request was refused with
+error 150 "Exceeded max locations: 2500" although `max_matrix_location_pairs` is 25,000 (not
+investigated).
+
+**To do:** restart Valhalla (`docker compose restart valhalla`), rerun `count` on the clip and
+in Tübingen, and compare every `nearest_min` null / count with one-source matrices for a sample
+of near-budget pairs; if block matrices are biased, options are smaller blocks, a second pass
+for pairs that are within the budget by straight line but unreachable, or `timedistancematrix`
+for walking (N8: misses wheelchair routes). Changing the algorithm or blocks changes counts →
+ask first.
+
+## N10. `npm audit`: minimatch ReDoS in the lint toolchain (dev only)
+
+**Status:** known, accepted for now · **Added:** 6 Nov 2026 · **Related:** `web/package.json`
+
+`npm audit` reports GHSA-g3hv-75wg-m249 (moderate) for minimatch 10.2.6, pulled in by eslint
+10.13.0 (`@eslint/config-array`) and typescript-eslint 8.72.0
+(`@typescript-eslint/typescript-estree`). The fix is minimatch ≥ 11.0.1, a major version
+outside the `^10.2` ranges these packages declare, so there is no non-breaking update and no
+`overrides` entry; `npm audit fix --force` would downgrade eslint to 9 (breaking). It is not
+in the production bundle (lint only, on trusted repository files). Recheck when eslint or
+typescript-eslint allow minimatch 11.

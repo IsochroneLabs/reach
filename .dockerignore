@@ -7,4 +7,12 @@
 !api/src/
 !pipeline/pyproject.toml
 !config/
+!infra/Caddyfile
+!web/package.json
+!web/package-lock.json
+!web/index.html
+!web/vite.config.ts
+!web/tsconfig*.json
+!web/.env.production
+!web/src/
 **/__pycache__

@@ -8,6 +8,19 @@ adds a line under `Unreleased`.
 ## [Unreleased]
 
 ### Added
+- Web app (`web/`, P6): React + TypeScript + Vite + MapLibre GL JS, served by Caddy at `:8080`
+  (`infra/web.Dockerfile`: Node 24 build → `caddy:2.11.7-alpine`). Profile and category
+  selector, class map of cells from `/api/cells` with a colour-blind-safe legend (ordered
+  lightness, checked with simulated deuteranopia/protanopia), residents per class, district
+  statistics, pin-drop inspector (`POST /api/inspect`: classes, counts, weakest category,
+  reachable facilities, route to the nearest, 5/10/15 min isochrone; live results labelled,
+  messages for 422/429/502/503/504), data & validation page from `/api/meta` with known
+  limitations, attribution always visible; recommendations layer hidden until P7. Basemap:
+  OpenFreeMap Positron (no key). CI job `web`: lint, type check, build, bundle sizes, Playwright
+  smoke test against recorded API responses.
+- `GET /api/meta`: `profiles[].transit_budget_min` (walking time to stops, from
+  `time_budgets_min.transit`; null without transit; data contract v0.8); the transit legend
+  shows it.
 - `reachable` table (`count/reachable.parquet`, run schema, data contract v0.7): every
   facility a cell reaches within the budget per profile with its matrix time; the pin-drop
   inspector lists reachable facilities from it, so list and count match the map by construction
@@ -110,6 +123,7 @@ adds a line under `Unreleased`.
   Valhalla algorithms); glossary: grid cell (snapping), live endpoint, trusted proxy.
 
 ### Changed
+- `make up` builds the Caddy image with the web app; `infra/web-placeholder/` removed.
 - `config/valhalla.json`: `thor.source_to_target_algorithm` `costmatrix` instead of
   `select_optimal`, so every matrix request uses one algorithm (notes N8 settled; architecture
   v0.15 §6.5 rules 2, 6, 8). `count` 264–294 s (was ~243 s), `publish` ~7 s (was ~1 s).

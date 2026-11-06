@@ -64,10 +64,13 @@ DepsDep = Annotated[Deps, Depends(deps)]
 
 @router.api_route("/meta", methods=GET_HEAD)
 async def meta(request: Request, d: DepsDep) -> Response:
-    """Run id, data dates and sources, validation summary, profiles, categories, classes."""
+    """Run id, data dates and sources, validation summary, profiles, categories, classes.
+
+    `transit_budget_min` (walking time to stops) is null for profiles without transit."""
     run = await current_run(d)
     m = await d.db.meta(run.run_id)
     names = {c.id: c.name for c in d.config.categories}
+    transit_budget = d.config.time_budgets_min.transit
     checks = m["checks"]
     counts = {s: sum(1 for c in checks if c["status"] == s) for s in ("ok", "warn", "fail")}
     content = {
@@ -81,6 +84,9 @@ async def meta(request: Request, d: DepsDep) -> Response:
                 "speed_kmh": p.speed_kmh,
                 "time_budget_min": p.time_budget_min,
                 "transit": p.profile_id in run.transit_profiles,
+                "transit_budget_min": (
+                    transit_budget if p.profile_id in run.transit_profiles else None
+                ),
             }
             for p in run.profiles.values()
         ],
@@ -93,8 +99,10 @@ async def meta(request: Request, d: DepsDep) -> Response:
             if t["category"] == TRANSIT
         ],
     }
-    # Category names come from the config, not the run: they are part of the version.
-    names_tag = hashlib.sha256(json.dumps(names, sort_keys=True).encode()).hexdigest()[:8]
+    # Category names and the transit budget come from the config, not the run: they are part
+    # of the version.
+    tagged = {"names": names, "transit_budget_min": transit_budget}
+    names_tag = hashlib.sha256(json.dumps(tagged, sort_keys=True).encode()).hexdigest()[:8]
     return _json(request, _etag(run.run_id, "meta", names_tag), _jsonable(content))
 
 

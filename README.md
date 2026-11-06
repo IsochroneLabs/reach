@@ -8,15 +8,16 @@ where new facilities would help the most people.
 Course project for **DS500 Data Science Project** (M.Sc. Data Science in Business and Economics,
 University of Tübingen, winter term 2026/27), Topic 9 "The 15-Minute City".
 
-> **Status: P5 (API) merged (5 Nov 2026), P6 (web) next.** The local stack
-> (PostGIS, Valhalla, API, web placeholder), configuration, CI, the whole pipeline except the
-> recommender and the API exist: `acquire` downloads OSM, GTFS and Zensus data, `validate` turns
-> them into checked layers, `make refresh` builds the Valhalla routing graph, `count` computes
-> reachable facilities per cell, category and profile plus public transport departures,
-> `validate_results` checks the results, `publish` loads each validated run into PostGIS and
-> switches the `current` views to it, and the API serves the results as GeoJSON plus live
-> isochrones, routes, catchments and street spread. The map and the recommender are being
-> built; progress: [`docs/implementation_plan.md`](docs/implementation_plan.md).
+> **Status: P6 (web) in review (6 Nov 2026).** The local stack
+> (PostGIS, Valhalla, API, web app behind Caddy), configuration, CI, the whole pipeline except
+> the recommender, the API and the web app exist: `acquire` downloads OSM, GTFS and Zensus data,
+> `validate` turns them into checked layers, `make refresh` builds the Valhalla routing graph,
+> `count` computes reachable facilities per cell, category and profile plus public transport
+> departures, `validate_results` checks the results, `publish` loads each validated run into
+> PostGIS and switches the `current` views to it, the API serves the results as GeoJSON plus
+> live isochrones and routes, and the web app shows the class map, a pin-drop inspector,
+> district statistics and the data & validation page. The recommender is next; progress:
+> [`docs/implementation_plan.md`](docs/implementation_plan.md).
 
 ## What it does
 
@@ -55,19 +56,20 @@ with Docker Compose on one small server. Details: [`docs/architecture.md`](docs/
 | `CHANGELOG.md` | Change history | ✅ |
 | `pipeline/` | Data pipeline (Python, uv workspace member): stages `acquire`, `validate`, `tiles`, `count`, `score`, `validate_results`, `publish`, `cleanup`; `recommend` planned | partial |
 | `api/` | FastAPI backend (Python, uv workspace member): read endpoints from `current`, live endpoints via Valhalla | ✅ |
-| `web/` | React + MapLibre frontend | planned |
+| `web/` | React + TypeScript + MapLibre frontend (npm): class map, inspector, districts, data & validation page; recommendations planned (P7) | ✅ |
 | `config/` | Study area, profiles, categories, thresholds (`config.yaml`), test clip, Valhalla service config (`valhalla.json`) | ✅ |
-| `infra/` | Caddyfile and placeholder page; `api.Dockerfile`; `db/`: roles, migrations, run schema template; pipeline image, scheduler planned | partial |
+| `infra/` | Caddyfile; `api.Dockerfile`, `web.Dockerfile` (web build in the Caddy image); `db/`: roles, migrations, run schema template; pipeline image, scheduler planned | partial |
 | `Makefile`, `compose.yaml`, `.env.example` | Local stack (incl. Valhalla and its one-shot tile build) and command wrappers | ✅ |
 | `tests/integration/` | Golden travel times against a local Valhalla on the test clip | ✅ |
-| `.github/` | CI (lint + tests; PostGIS data-contract test), PR template, CODEOWNERS | ✅ |
+| `.github/` | CI (lint + tests; PostGIS data-contract test; web lint, build and browser smoke test), PR template, CODEOWNERS | ✅ |
 
 ## Getting started
 
 Requirements: [uv](https://docs.astral.sh/uv/), Docker (Desktop) with Compose,
 [osmium-tool](https://osmcode.org/osmium-tool/) ≥ 1.16 for the pipeline and its tests (tested with
 1.19.1 from Homebrew and 1.16 from Ubuntu 24.04 apt: `brew install osmium-tool` /
-`sudo apt-get install osmium-tool`), Node.js for the frontend. Without uv:
+`sudo apt-get install osmium-tool`), Node.js 24 LTS for frontend development (`web/.nvmrc`; `make up`
+builds the app in Docker without it). Without uv:
 `pip install -r requirements.txt` (exported from `uv.lock`).
 
 ```bash
@@ -80,7 +82,7 @@ make test               # unit tests (uv run pytest; integration tests are desel
 make lint               # ruff check + format check
 
 cp .env.example .env    # then replace every "change-me"
-make up                 # start PostGIS, API, Caddy (+ Valhalla once tiles exist); http://127.0.0.1:8080
+make up                 # start PostGIS, API, Caddy with the web app (+ Valhalla once tiles exist)
 make migrate            # once: DB roles (passwords from .env), meta schema, migrations
 make refresh            # new run: acquire (~350 MB) → validate → build Valhalla tiles if the
                         # clipped OSM changed → swap + restart Valhalla → tiles verify → count
@@ -88,6 +90,21 @@ make refresh            # new run: acquire (~350 MB) → validate → build Valh
 make pipeline STAGE=count     # one stage against the running Valhalla (latest run)
 make pipeline           # all implemented stages without a tile rebuild; recommend is skipped
 make down               # stop the stack
+```
+
+**Open the app:** after `make up` and a published run (`make refresh`), open
+<http://localhost:8080> — map, selectors, inspector (click the map), district panel and the
+*Data & validation* page. A link can preset the view, e.g.
+`http://localhost:8080/#/map?profile=walking_339&category=grocery`. Frontend development with hot
+reload (Node 24):
+
+```bash
+cd web && npm ci
+npm run dev             # http://127.0.0.1:5173, proxies /api to the stack at :8080
+npm run lint && npm run build
+npx playwright install chromium   # once
+npx playwright test               # browser smoke test against recorded API responses
+E2E_LIVE=1 npx playwright test    # the same test against http://localhost:8080
 ```
 
 A second `acquire` skips unchanged downloads and hard-links the files of the previous run. The
@@ -143,6 +160,7 @@ config. If port 5432, 8002 or 8080 is taken on your machine, change `DB_PORT`, `
 | [NVBW](https://www.nvbw.de/open-data/fahrplandaten) GTFS (naldo) | Public transport stops and departures | dl-de/by-2-0, ODbL |
 | [Destatis Zensus 2022](https://www.zensus2022.de/) 100 m grid | Residents per cell | dl-de/by-2-0 |
 | Elevation tiles via Valhalla | Slopes (per-profile setting) | per source |
+| [OpenFreeMap](https://openfreemap.org/) Positron (OpenMapTiles schema) | Basemap of the web app (no key) | © OpenMapTiles, © OpenStreetMap contributors (ODbL) |
 
 © OpenStreetMap contributors · © Statistisches Bundesamt (Destatis) · NVBW.
 
