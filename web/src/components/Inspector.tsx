@@ -1,5 +1,5 @@
 // Pin-drop inspector (POST /api/inspect): precomputed classes and counts of the cell, reachable
-// facilities with times, the route to the nearest one and the 5/10/15 min isochrone (display).
+// facilities with travel times, the route to the nearest one (time first, length secondary) and the 5/10/15 min isochrone (display).
 import { classColour, classLabel, TRANSIT } from '../palette'
 import type { Inspect, Meta } from '../types'
 
@@ -129,15 +129,21 @@ function InspectBody({
                     {c.reachable.map((f) => (
                       <li key={f.facility_id}>
                         <span>{f.name ?? <span className="muted">unnamed</span>}</span>
-                        <span className="muted">{fmtMin(f.time_min)}</span>
+                        <span className="reach-time">{fmtMin(f.time_min)}</span>
                       </li>
                     ))}
                   </ol>
                 )}
                 {c.nearest_route && (
-                  <p className="muted small">
-                    Route to the nearest ({Math.round(c.nearest_route.properties.length_m)} m) shown on the map when
-                    this category is selected.
+                  <p className="small route-info" data-testid={`route-${c.category}`}>
+                    Route to the nearest:{' '}
+                    <strong title="Travel time of the route, including slopes">
+                      {fmtMin(c.nearest_route.properties.time_s / 60)}
+                    </strong>{' '}
+                    <span className="muted">
+                      · {Math.round(c.nearest_route.properties.length_m)} m · shown on the map when this category is
+                      selected
+                    </span>
                   </p>
                 )}
               </details>

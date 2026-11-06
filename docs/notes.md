@@ -307,8 +307,8 @@ old inode); a 25 × 101 pedestrian request was refused with error 150 "Exceeded 
   1 × 2,600 pass for pedestrian, wheelchair and bicycle); 2,500 is the limit of the `auto`
   costing.
 
-**Open:** show the route time next to its length in the inspector (web). N5 settled
-(6 Nov 2026: slopes kept); `false_negatives` warns above 0.5 % since then (one hit in ~480
+**Open:** none. The inspector shows the route time first and its length second (6 Nov 2026,
+branch `fix/rico-inspector-time`). N5 settled (6 Nov 2026: slopes kept); `false_negatives` warns above 0.5 % since then (one hit in ~480
 pairs is expected).
 
 ## N10. `npm audit`: minimatch ReDoS in the lint toolchain (dev only)

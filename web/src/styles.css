@@ -364,6 +364,7 @@ code {
 
 .cat-count,
 .cat-time,
+.reach-time,
 .num {
   text-align: right;
   font-variant-numeric: tabular-nums;
@@ -404,6 +405,10 @@ code {
   display: flex;
   justify-content: space-between;
   gap: 0.75rem;
+}
+
+.route-info {
+  margin: 0 0 0.4rem 2.2rem;
 }
 
 /* districts */
