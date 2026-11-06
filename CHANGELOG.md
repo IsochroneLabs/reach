@@ -7,6 +7,22 @@ adds a line under `Unreleased`.
 
 ## [Unreleased]
 
+### Changed
+- Documented that walking and wheelchair times include Valhalla's slope model (notes N5
+  settled, decision: keep it, counts unchanged): `architecture.md` v0.16 §6.1 and O7 (what
+  Valhalla does with elevation per profile, with evidence), `methodology.md` v0.4 (speeds are
+  flat-ground speeds, results conservative; new experiments V10 "matrix vs. /route" (existing checks)
+  and V11 "with vs. without slopes" (P7); architecture §7 names the /route checks of
+  `validate results`.
+- `validation.results.false_negatives.warn_above` 0 → 0.005: one missed pair in a sample of
+  ~480 (rare block `costmatrix` effect, notes N9) no longer warns; fail stays above 2 %.
+
+### Added (validation)
+- `validate_results` check `budget_flips` (methodology V10): per profile and direction the share
+  of sampled pairs on which matrix and /route lie on different sides of the budget, from the
+  `matrix_vs_route` and `false_negatives` samples; report section "Budget flips", warns above
+  `validation.results.budget_flips.warn_above` (5 %), never fails (data contract v0.9).
+
 ### Added
 - `validate_results` check `false_negatives` (notes N9): random cell × facility pairs within the
   prefilter reach that are not in `reachable` are routed with /route; the share reached within

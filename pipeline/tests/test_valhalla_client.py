@@ -334,8 +334,18 @@ def test_check_false_negatives_routes_unreached_pairs_within_reach(
             "samples": [],
             "route_check": None,
             "false_negatives": detail,
+            "budget_flips": {
+                "warn_above": 0.05,
+                "profiles": {
+                    "walking_339": {
+                        "within_to_beyond": {"routed": 25, "flips": 0, "rate": 0.0},
+                        "beyond_to_within": {"routed": 1, "flips": 1, "rate": 1.0},
+                    }
+                },
+            },
             "runtime_s": 0,
             "peak_rss_mb": 0,
         }
     )
     assert "## Missed facilities" in md and "| walking_339 | grocery | 1 | 0 | 1 | 100.0% |" in md
+    assert "## Budget flips" in md and "| walking_339 | 0 of 25 (0.0%) | 1 of 1 (100.0%) |" in md

@@ -14,7 +14,7 @@ import pandas as pd
 import shapely
 
 from reach_pipeline import scoring
-from reach_pipeline.config import Config, FalseNegativeCheck, Monotonic, RouteCheck
+from reach_pipeline.config import BudgetFlips, Config, FalseNegativeCheck, Monotonic, RouteCheck
 
 STAGE = "validate_results"
 # nearest_min is rounded to 0.01 min by count.
@@ -454,3 +454,50 @@ def samples(
             }
         )
     return out
+
+
+def budget_flips(
+    route: dict[str, Any], missed: dict[str, Any], bf: BudgetFlips
+) -> tuple[Check, dict[str, Any]]:
+    """Share of sampled pairs on which matrix and /route lie on different sides of the budget,
+    per profile and direction (methodology V10), from the details of `route_check` (pairs in
+    `reachable`: matrix within, /route beyond) and `false_negative_check` (pairs not in
+    `reachable`: matrix beyond, /route within). Rates are over pairs with a route; the two
+    samples differ (near the budget vs. uniform within the prefilter reach), so the directions
+    are not comparable with each other. Known limitation: warns, never fails.
+    """
+    per_profile: dict[str, Any] = {}
+    for pid in sorted(set(route["profiles"]) | set(missed["profiles"])):
+        r = route["profiles"].get(pid, {"pairs": 0, "no_route": 0, "flips": 0})
+        cats = missed["profiles"].get(pid, {}).values()
+        m_routed = sum(v["pairs"] - v["no_route"] for v in cats)
+        m_flips = sum(v["false_negatives"] for v in cats)
+        r_routed = r["pairs"] - r["no_route"]
+        per_profile[pid] = {
+            "within_to_beyond": {
+                "routed": r_routed,
+                "flips": r["flips"],
+                "rate": round(r["flips"] / r_routed, 4) if r_routed else 0.0,
+            },
+            "beyond_to_within": {
+                "routed": m_routed,
+                "flips": m_flips,
+                "rate": round(m_flips / m_routed, 4) if m_routed else 0.0,
+            },
+        }
+    rates = [d["rate"] for v in per_profile.values() for d in v.values()]
+    worst = max(rates, default=0.0)
+    above = [
+        f"{pid} {direction} {d['rate']:.1%}"
+        for pid, v in per_profile.items()
+        for direction, d in v.items()
+        if d["rate"] > bf.warn_above
+    ]
+    message = (
+        f"highest flip rate {worst:.1%} (warn > {bf.warn_above:.1%})"
+        + (f": {', '.join(above)}" if above else "")
+        + "; matrix within/route beyond from the route_check sample, matrix beyond/route "
+        "within from the false_negatives sample (known limitation, see report)"
+    )
+    check = Check("budget_flips", "warn" if above else "ok", round(worst, 4), message)
+    return check, {"warn_above": bf.warn_above, "profiles": per_profile}

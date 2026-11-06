@@ -314,3 +314,33 @@ def test_false_negative_check_warns_then_fails_above_threshold(cfg: Config) -> N
     assert detail["examples"][0]["facility_id"] == "f2"
     pairs.loc[3, "route_s"] = 800.0
     assert results.false_negative_check(pairs, 900, fc)[0].status == "fail"  # 50 % > 30 %
+
+
+def test_budget_flips_per_profile_and_direction(cfg: Config) -> None:
+    bf = cfg.validation.results.budget_flips.model_copy(update={"warn_above": 0.05})
+    route = {
+        "profiles": {
+            "walk": {"pairs": 25, "no_route": 5, "flips": 1},
+            "bike": {"pairs": 25, "no_route": 0, "flips": 0},
+        }
+    }
+    missed = {
+        "profiles": {
+            "walk": {
+                "grocery": {"pairs": 20, "no_route": 0, "false_negatives": 0},
+                "parks": {"pairs": 20, "no_route": 0, "false_negatives": 0},
+            },
+            "bike": {"grocery": {"pairs": 20, "no_route": 4, "false_negatives": 1}},
+        }
+    }
+    check, detail = results.budget_flips(route, missed, bf)
+    assert check.check == "budget_flips" and check.status == "warn" and check.value == 0.0625
+    assert detail["profiles"]["walk"] == {
+        "within_to_beyond": {"routed": 20, "flips": 1, "rate": 0.05},  # not above 5 %
+        "beyond_to_within": {"routed": 40, "flips": 0, "rate": 0.0},
+    }
+    assert "bike beyond_to_within 6.2%" in check.message and "walk" not in check.message
+    route["profiles"]["walk"]["no_route"] = 25  # no routed pair: rate 0, never a division by 0
+    missed["profiles"]["bike"]["grocery"]["false_negatives"] = 0
+    check, _ = results.budget_flips(route, missed, bf)
+    assert check.status == "ok" and check.value == 0.0

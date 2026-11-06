@@ -123,8 +123,8 @@ changing the thread count or the refresh sequence is an architecture change (ask
 
 ## N5. Walking times already depend on slopes when the tiles carry elevation
 
-**Status:** open, needs a decision · **Added:** 3 Nov 2026 · **Related:** `architecture.md`
-§6.1, O7, gate G1 (`methodology.md` §6), VF1, C6
+**Status:** settled 6 Nov 2026 (option a) · **Added:** 3 Nov 2026 · **Related:**
+`architecture.md` §6.1, O7, gate G1 and V11 (`methodology.md` §1, §6), VF1, C6, N9
 
 **Finding (P3, Valhalla 3.9.1):** with elevation in the tiles, the default `pedestrian` costing
 is slower uphill and on steep downhill, and `use_hills` (0, default, 1) does not change the
@@ -145,6 +145,17 @@ elevation-free tile set for walking/wheelchair (second graph, more memory, again
 tile set"); (c) look for a pedestrian costing option that disables the grade factor (`use_hills` does
 not; not checked further in P3). Recommendation: (a), with a methodology note and G1 marked as
 answered. Needs confirmation (architecture/methodology change).
+
+**Resolution (6 Nov 2026, Rico):** option (a). Walking and wheelchair keep Valhalla's slope
+model, counts do not change (architecture v0.16 §6.1/O7, methodology v0.4 §1/§6). Evidence
+(running service, 3.9.1): N9 examples 932–984 s uphill vs. 740–894 s on flat ground;
+wheelchair uses the same grade factor (Burgholzweg 127 → Waldkindergarten 881 s up, 700 s back,
+666 s flat; `type: wheelchair` changes the route, not the factor; `max_grade` 2 or 30 changes
+neither walking nor wheelchair times on the two test routes). 300 random walking routes
+(≤ ~1 km) take a median 1.08 × the flat-ground time (0.91–1.66), 235 wheelchair routes 1.06
+(0.94–1.79): gentle downhill can be up to 9 % faster than flat ground, so the prefilter factor
+1.0 (O20) relies on the detour (measured required factor 0.94–0.96, `count` prefilter
+evidence). The slope-free comparison is V11 (P7, one-off elevation-free tile set).
 
 
 ## N6. Faster walking can reach fewer facilities: Valhalla routes by cost, not time
@@ -296,8 +307,9 @@ old inode); a 25 × 101 pedestrian request was refused with error 150 "Exceeded 
   1 × 2,600 pass for pedestrian, wheelchair and bicycle); 2,500 is the limit of the `auto`
   costing.
 
-**Open:** N5 (slopes in walking times: document or remove; architecture §6.1/O7 still say
-"ignored for now"); show the route time next to its length in the inspector (web).
+**Open:** show the route time next to its length in the inspector (web). N5 settled
+(6 Nov 2026: slopes kept); `false_negatives` warns above 0.5 % since then (one hit in ~480
+pairs is expected).
 
 ## N10. `npm audit`: minimatch ReDoS in the lint toolchain (dev only)
 
@@ -310,3 +322,34 @@ outside the `^10.2` ranges these packages declare, so there is no non-breaking u
 `overrides` entry; `npm audit fix --force` would downgrade eslint to 9 (breaking). It is not
 in the production bundle (lint only, on trusted repository files). Recheck when eslint or
 typescript-eslint allow minimatch 11.
+
+## N11. Wheelchair profile: `max_grade` excludes no edges, routes include steep sections
+
+**Status:** open, finding only (no change to counts or config) · **Added:** 6 Nov 2026 ·
+**Related:** `architecture.md` §6.1, O7, N5, `config/config.yaml` (`wheelchair_339`)
+
+**Finding (running service, Valhalla 3.9.1, Tübingen tiles with elevation):** `/route` with
+`pedestrian`, `type: wheelchair`, `walking_speed` 3.39 and `max_grade` unset, 1, 4, 6, 12 or 30
+gives the same route, time and length in both directions on four steep routes; the
+default route's steepest edge (`trace_attributes`, max. up/down grade) is shown:
+
+| Route | Wheelchair up / back | Steepest edge | Walking up |
+|---|---|---|---|
+| Burgholzweg 127 → Waldkindergarten | 881 s, 627 m / 700 s | 12 % | 984 s, 697 m |
+| Marktplatz → Schloss Hohentübingen | 681 s, 506 m / 619 s | 12 % | 681 s, 506 m |
+| Hauptbahnhof → Waldhäuser-Ost | 5,262 s, 4,226 m / 4,601 s, 4,366 m | 20 % | 4,909 s, 3,849 m |
+| Neckarbrücke → Österberg | 1,080 s, 1,028 m / 1,144 s, 1,035 m | 5 % | 1,124 s, 1,071 m |
+
+So `max_grade` does not exclude edges in this version (even 1 % keeps edges with 12–20 %);
+the wheelchair profile differs from walking by its route (no steps: other paths on
+Burgholzweg and to Waldhäuser-Ost) and by the shared grade factor on time (N5), not by a
+slope limit. Wheelchair routes can therefore use sections far steeper than ramp guidelines
+(DIN 18040: 6 %), and wheelchair counts are optimistic on hillsides in this respect.
+`architecture.md` §6.1 ("avoids steps and steep sections") and the `wheelchair_339` comment in
+`config/config.yaml` overstate it.
+
+**Options (ask first):** (a) document the limitation (§6.1 wording, methodology limitations,
+data page); (b) find out why `max_grade` has no effect (option name or parsing in 3.9.1, edge
+grades in the tiles) with a small request test against the Valhalla source; (c) exclude steep
+edges ourselves — not possible with the matrix without a custom graph. Recommendation: (a) now,
+(b) as part of V11.

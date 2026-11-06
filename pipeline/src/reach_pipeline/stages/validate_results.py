@@ -5,9 +5,11 @@ residents), that `reachable` gives exactly the counts, monotonicity between prof
 (`validation.results.monotonic`), and compares a sample of matrix times with /route
 (`validation.results.route_check`, a known limitation, never fails), checks a sample of pairs
 within the prefilter reach that are not in `reachable` with /route for missed facilities
-(`validation.results.false_negatives`, notes N9); lists the values of sample cells for a manual
-check. Writes `report_results.json` + `.md`; any failed
-check fails the stage after the report is written, so `publish` does not run.
+(`validation.results.false_negatives`, notes N9), and reports from both samples the share of
+pairs on which matrix and /route lie on different sides of the budget
+(`validation.results.budget_flips`, methodology V10, warns only); lists the values of sample
+cells for a manual check. Writes `report_results.json` + `.md`; any failed check fails the
+stage after the report is written, so `publish` does not run.
 """
 
 from __future__ import annotations
@@ -210,6 +212,7 @@ def build_report(ctx: RunContext, t: results.Tables, origins: gpd.GeoDataFrame) 
         "samples": [],
         "route_check": None,
         "false_negatives": None,
+        "budget_flips": None,
     }
     if all(c.status != "fail" for c in checks):
         rows = results.class_rows(t)
@@ -220,6 +223,10 @@ def build_report(ctx: RunContext, t: results.Tables, origins: gpd.GeoDataFrame) 
         checks.append(route)
         missed, out["false_negatives"] = check_false_negatives(ctx, t, origins)
         checks.append(missed)
+        flips, out["budget_flips"] = results.budget_flips(
+            out["route_check"], out["false_negatives"], cfg.validation.results.budget_flips
+        )
+        checks.append(flips)
         checks += results.totals(t, rows, part1["summary"].get("residents_scored"))
         checks += [results.monotonic(pair, t) for pair in cfg.validation.results.monotonic]
         out["summary"] = results.summary(t, rows)
@@ -339,6 +346,27 @@ def _markdown(report: dict[str, Any]) -> str:
                 f"| {e['distance_m']} | {e['route_s']} |"
                 for e in fn["examples"]
             ]
+    bf = report.get("budget_flips")
+    if bf:
+        lines += [
+            "",
+            "## Budget flips: matrix and /route on different sides of the budget",
+            "",
+            "Share of routed pairs per profile and direction (methodology V10). *Within → "
+            "beyond*: counted by the matrix, /route takes longer than the budget (sample "
+            "above, mostly near the budget). *Beyond → within*: not counted, /route within "
+            "the budget (missed-facility sample). The samples differ, so the two directions "
+            f"are not comparable; warns above {bf['warn_above']:.1%}, never fails.",
+            "",
+            "| Profile | Within → beyond | Beyond → within |",
+            "|---|---|---|",
+        ]
+        lines += [
+            f"| {p} | {v['within_to_beyond']['flips']} of {v['within_to_beyond']['routed']} "
+            f"({v['within_to_beyond']['rate']:.1%}) | {v['beyond_to_within']['flips']} of "
+            f"{v['beyond_to_within']['routed']} ({v['beyond_to_within']['rate']:.1%}) |"
+            for p, v in bf["profiles"].items()
+        ]
     for sample in report["samples"]:
         lines += [
             "",
@@ -389,6 +417,7 @@ def run(ctx: RunContext) -> Manifest:
         "samples": built["samples"],
         "route_check": built["route_check"],
         "false_negatives": built["false_negatives"],
+        "budget_flips": built["budget_flips"],
         "runtime_s": m.runtime_s,
         "peak_rss_mb": m.peak_rss_mb,
     }

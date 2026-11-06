@@ -72,7 +72,7 @@ Residents are a secondary audience served by the same map.
 ## 7. Stretch
 
 What-if sandbox (place a hypothetical facility), finer categories (discounters, GPs, school
-types), age-weighted demand (M6), slope-aware walking (gate G1), transit routing, second city,
+types), age-weighted demand (M6), transit routing, second city,
 address search.
 
 ## 8. Course requirements
@@ -82,7 +82,7 @@ address search.
 | Data acquisition | Scripted OSM (Geofabrik), GTFS (NVBW) and Zensus downloads |
 | Data preparation and validation | Pipeline validation stages and report |
 | Data analysis | Network accessibility counting, scoring, deficits, recommender, spatial statistics (M5) |
-| Validation of results | Experiments V1–V9 (`methodology.md` §6) |
+| Validation of results | Experiments V1–V11 (`methodology.md` §6) |
 | Presentation (interactive) | Web app |
 | Automation, usable without touching code | One-command pipeline, weekly refresh, V9 |
 | Version control | GitHub repository, `CONTRIBUTING.md` |
