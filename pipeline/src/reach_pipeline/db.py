@@ -195,9 +195,20 @@ def load_run(
 
 
 def switch_current(conn: psycopg.Connection, schema: str, run_id: str) -> list[str]:
-    """Point every `current.<name>` view at `schema` and mark the run published, atomically."""
+    """Point every `current.<name>` view at `schema` and mark the run published, atomically.
+
+    Views of relations the run schema does not have (e.g. an older run without a newer table)
+    are dropped, so `current` never mixes two runs.
+    """
     names = relations(conn, schema)
+    stale = sorted(set(relations(conn, CURRENT)) - set(names))
     with conn.transaction():
+        for name in stale:
+            conn.execute(
+                sql.SQL("DROP VIEW IF EXISTS {}.{}").format(
+                    sql.Identifier(CURRENT), sql.Identifier(name)
+                )
+            )
         for name in names:
             conn.execute(
                 sql.SQL("CREATE OR REPLACE VIEW {}.{} AS SELECT * FROM {}.{}").format(

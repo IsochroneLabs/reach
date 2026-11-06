@@ -41,7 +41,7 @@ from reach_pipeline.manifest import (
     write_manifest,
 )
 from reach_pipeline.metrics import measure
-from reach_pipeline.stages import count, score, validate
+from reach_pipeline.stages import count, recommend, score, validate
 from reach_pipeline.valhalla.client import ValhallaClient, costing_options
 
 STAGE = results.STAGE
@@ -51,12 +51,12 @@ CONFIG_SECTIONS = (
     "categories",
     "count",
     "profiles",
+    "recommend",
     "time_budgets_min",
     "validation",
     "valhalla",
 )
-# recommend (P7) will sit between score and validate_results (arch. §7).
-PREVIOUS = score.STAGE
+PREVIOUS = recommend.STAGE
 REPORT_JSON, REPORT_MD = "report_results.json", "report_results.md"
 
 log = logging.getLogger(__name__)
@@ -73,6 +73,8 @@ def _paths(ctx: RunContext) -> dict[str, Any]:
         "facility_points": vdir / "facility_points.parquet",
         "transit": cdir / count.TRANSIT,
         "thresholds": ctx.stage_dir(score.STAGE) / score.THRESHOLDS,
+        "recommendations": ctx.stage_dir(recommend.STAGE) / recommend.RECOMMENDATIONS,
+        "recommendation_catchments": ctx.stage_dir(recommend.STAGE) / recommend.REC_CATCHMENTS,
     }
 
 
@@ -88,6 +90,8 @@ def load_tables(ctx: RunContext) -> tuple[results.Tables, gpd.GeoDataFrame]:
         thresholds=pd.read_parquet(p["thresholds"]),
         reachable=pd.read_parquet(p["reachable"]),
         facilities=pd.read_parquet(p["facilities"], columns=["facility_id", "category"]),
+        recommendations=pd.read_parquet(p["recommendations"], columns=recommend.REC_COLUMNS),
+        recommendation_catchments=pd.read_parquet(p["recommendation_catchments"]),
     )
     return tables, origins
 
@@ -227,6 +231,7 @@ def build_report(ctx: RunContext, t: results.Tables, origins: gpd.GeoDataFrame) 
             out["route_check"], out["false_negatives"], cfg.validation.results.budget_flips
         )
         checks.append(flips)
+        checks.append(results.recommendations_consistent(cfg, t))
         checks += results.totals(t, rows, part1["summary"].get("residents_scored"))
         checks += [results.monotonic(pair, t) for pair in cfg.validation.results.monotonic]
         out["summary"] = results.summary(t, rows)
@@ -367,6 +372,26 @@ def _markdown(report: dict[str, Any]) -> str:
             f"{v['beyond_to_within']['routed']} ({v['beyond_to_within']['rate']:.1%}) |"
             for p, v in bf["profiles"].items()
         ]
+    recs = report.get("recommendations") or []
+    if recs:
+        lines += [
+            "",
+            "## Recommendations (methodology §5)",
+            "",
+            "Greedy picks per category and profile; gain = reduction of the deficit sum "
+            "(residents), checked by `recommendations_consistent`. Accessibility only: zoning, "
+            "parcels, capacity and statutory planning are not considered.",
+            "",
+            "| Profile | Category | Rank | Zone | Gain | Gaining access | To sufficient "
+            "| Catchment residents |",
+            "|---|---|---|---|---|---|---|---|",
+        ]
+        lines += [
+            f"| {r['profile_id']} | {r['category']} | {r['rank']} | {r['candidate_id']} "
+            f"| {r['population_gain']} | {r['residents_gaining_access']} "
+            f"| {r['residents_to_sufficient']} | {r['catchment_residents']} |"
+            for r in recs
+        ]
     for sample in report["samples"]:
         lines += [
             "",
@@ -418,6 +443,9 @@ def run(ctx: RunContext) -> Manifest:
         "route_check": built["route_check"],
         "false_negatives": built["false_negatives"],
         "budget_flips": built["budget_flips"],
+        "recommendations": tables.recommendations.sort_values(
+            ["profile_id", "category", "rank"]
+        ).to_dict("records"),
         "runtime_s": m.runtime_s,
         "peak_rss_mb": m.peak_rss_mb,
     }

@@ -13,12 +13,14 @@ import numpy as np
 import pandas as pd
 import shapely
 
-from reach_pipeline import scoring
+from reach_pipeline import recommend, scoring
 from reach_pipeline.config import BudgetFlips, Config, FalseNegativeCheck, Monotonic, RouteCheck
 
 STAGE = "validate_results"
 # nearest_min is rounded to 0.01 min by count.
 _ROUND_MIN = 0.01
+# population_gain is rounded to 0.01 residents by recommend.
+_ROUND_GAIN = 0.011
 
 
 @dataclass
@@ -29,6 +31,8 @@ class Tables:
     thresholds: pd.DataFrame
     reachable: pd.DataFrame | None = None  # cell_id, profile_id, facility_id, time_s
     facilities: pd.DataFrame | None = None  # facility_id, category
+    recommendations: pd.DataFrame | None = None  # recommend stage (without geometries)
+    recommendation_catchments: pd.DataFrame | None = None  # candidate_id, profile_id, cell_id
 
 
 @dataclass
@@ -501,3 +505,63 @@ def budget_flips(
     )
     check = Check("budget_flips", "warn" if above else "ok", round(worst, 4), message)
     return check, {"warn_above": bf.warn_above, "profiles": per_profile}
+
+
+def recommendations_consistent(cfg: Config, t: Tables) -> Check:
+    """Recommendations (methodology §5) agree with the counts and their stored catchments:
+    ranks 1..n ≤ `top_n` per category × profile, only `recommend.profiles`, each zone once,
+    gains ≥ `min_gain`, and gain, residents gaining access and residents reaching "sufficient"
+    recomputed by adding the picks one after the other to `access_counts`."""
+    recs, rc = t.recommendations, t.recommendation_catchments
+    r = cfg.recommend
+    if recs is None or rc is None:
+        return Check("recommendations_consistent", "fail", None, "recommend outputs missing")
+    k = {c.id: c.k for c in cfg.categories}
+    pop = t.cells.set_index("cell_id")["population"]
+    problems: list[str] = []
+    if extra := sorted(set(recs["profile_id"]) - set(r.profiles)):
+        problems.append(f"profiles not in recommend.profiles: {extra}")
+    if (recs["population_gain"] < r.min_gain).any():
+        problems.append(f"gains below min_gain {r.min_gain}")
+    for (cat, pid), group in recs.groupby(["category", "profile_id"]):
+        group = group.sort_values("rank")
+        name = f"{cat}/{pid}"
+        if group["rank"].tolist() != list(range(1, len(group) + 1)) or len(group) > r.top_n:
+            problems.append(f"{name}: ranks {group['rank'].tolist()}")
+            continue
+        if not group["candidate_id"].is_unique:
+            problems.append(f"{name}: a zone is recommended twice")
+        mine = rc[rc["profile_id"] == pid]
+        cells = [mine.loc[mine["candidate_id"] == c, "cell_id"] for c in group["candidate_id"]]
+        if [len(c) for c in cells] != group["catchment_cells"].tolist() or [
+            int(pop.reindex(c).sum()) for c in cells
+        ] != group["catchment_residents"].tolist():
+            problems.append(f"{name}: catchment cells or residents differ from the catchments")
+            continue
+        a = t.access[(t.access["category"] == cat) & (t.access["profile_id"] == pid)]
+        a = a.set_index("cell_id")["count"].reindex(pop.index, fill_value=0)
+        index = [pop.index.get_indexer(c) for c in cells]
+        stored = list(
+            zip(
+                group["population_gain"],
+                group["residents_gaining_access"],
+                group["residents_to_sufficient"],
+                strict=True,
+            )
+        )
+        replayed = recommend.replay(index, pop.to_numpy(), a.to_numpy(), k[cat])
+        if any(
+            abs(g - rg) > _ROUND_GAIN or (ga, ts) != (rga, rts)
+            for (g, ga, ts), (rg, rga, rts) in zip(stored, replayed, strict=True)
+        ):
+            problems.append(f"{name}: gains differ from a replay on access_counts")
+    n = len(recs)
+    return Check(
+        "recommendations_consistent",
+        "fail" if problems else "ok",
+        float(n),
+        "; ".join(problems[:5])
+        if problems
+        else f"{n} recommendations for {sorted(set(recs['profile_id']))} agree with the counts "
+        "and their catchments",
+    )

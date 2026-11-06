@@ -236,6 +236,39 @@ class Count(_Model):
     evidence: Evidence
 
 
+class Recommend(_Model):
+    """Recommender (methodology §5, arch. §6.4): candidates, catchments, greedy selection."""
+
+    # Profiles the recommender runs for; empty = no recommendations in this run.
+    profiles: list[str]
+    top_n: int = Field(ge=1)
+    min_gain: float = Field(ge=0)
+    candidate_spacing_m: int = Field(ge=100)
+    group_size_m: float = Field(gt=0)
+    exclude_tags: list[dict[str, str]]
+
+    @field_validator("candidate_spacing_m")
+    @classmethod
+    def _on_the_grid(cls, v: int):
+        if v % 100:
+            raise ValueError(f"candidate_spacing_m must be a multiple of 100 (grid), got {v}")
+        return v
+
+    @field_validator("profiles")
+    @classmethod
+    def _unique_profiles(cls, v: list[str]):
+        if len(set(v)) != len(v):
+            raise ValueError(f"recommend.profiles must be unique, got {v}")
+        return v
+
+    @field_validator("exclude_tags")
+    @classmethod
+    def _one_pair_per_tag(cls, v: list[dict[str, str]]):
+        if any(len(tag) != 1 for tag in v):
+            raise ValueError("each exclude_tags entry must be exactly one key: value pair")
+        return v
+
+
 class Monotonic(_Model):
     """Expected order of two profiles: counts (and departures) of `higher` >= those of `lower`."""
 
@@ -329,6 +362,7 @@ class Config(_Model):
     tiles: Tiles
     valhalla: Valhalla
     count: Count
+    recommend: Recommend
     validation: Validation
     database: Database
     cleanup: Cleanup
@@ -363,6 +397,13 @@ class Config(_Model):
             unknown = sorted({pair.higher, pair.lower} - self.profiles.keys())
             if unknown:
                 raise ValueError(f"validation.results.monotonic: unknown profiles {unknown}")
+        return self
+
+    @model_validator(mode="after")
+    def _recommend_profiles_exist(self):
+        unknown = sorted(set(self.recommend.profiles) - self.profiles.keys())
+        if unknown:
+            raise ValueError(f"recommend.profiles: unknown profiles {unknown}")
         return self
 
     @model_validator(mode="after")

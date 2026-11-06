@@ -1,6 +1,6 @@
 # Data contract — reach
 
-> **Status:** draft v0.9 (6 Nov 2026), from `implementation_plan.md` §3. Binding for the tables
+> **Status:** draft v0.10 (6 Nov 2026), from `implementation_plan.md` §3. Binding for the tables
 > and files exchanged between pipeline and API once a phase implements them; every change needs
 > confirmation (AGENTS.md) and a data-contract test. Tables marked *(planned, Pn)* do not exist yet.
 
@@ -86,7 +86,8 @@ replaces all of them in one transaction.
 | `scores` (view) | cell × category × profile | `access_counts` columns + `class` text (`lack`, `insufficient`, `sufficient`), `deficit` double | as `access_counts` |
 | `transit_scores` (view) | cell × profile | `cell_id`, `profile_id`, `class` text (`lack`, `insufficient`, `medium`, `high`; bounds inclusive) | (`cell_id`, `profile_id`) |
 | `district_scores` (mat. view) | district × category × profile | `district_id`, `category`, `profile_id` text, `share_lack`, `share_insufficient`, `share_sufficient` double (of the district's residents), `deficit_sum` double, `residents_lack` integer; cells without district left out; refreshed by `publish` | (`district_id`, `category`, `profile_id`), unique index |
-| `recommendations` *(planned, P7)* | candidate × category × profile | `rank` integer, `population_gain` double, `geom` Polygon | (`category`, `profile_id`, `rank`) |
+| `recommendations` *(P7)* | recommended zone × category × profile | `category` text, `profile_id` text (FK `profiles`), `rank` integer (1 = best), `candidate_id` text (Zensus grid id of the zone), `population_gain` double (ΔW = reduction of the deficit sum, residents), `residents_gaining_access` integer (residents of catchment cells with count 0 before), `residents_to_sufficient` integer (count < k ≤ count + 1), `catchment_residents` integer, `catchment_cells` integer, `geom` Polygon (the 100 m zone), `point_geom` Point (zone centre, target of the catchment); gains assume the zones of better ranks are added first | (`category`, `profile_id`, `rank`); unique (`category`, `profile_id`, `candidate_id`); GiST on `geom` |
+| `recommendation_catchments` *(P7)* | recommended zone × profile × cell | `candidate_id` text, `profile_id` text (FK `profiles`), `cell_id` text (FK `cells`), `time_s` smallint (matrix time cell → zone centre, ≤ budget) | (`candidate_id`, `profile_id`, `cell_id`) |
 | `validation_report` | check | `check` text, `stage` text, `status` text (`ok`, `warn`, `fail`), `value` double null, `message` text; rows of report parts 1 (`validate`) and 2 (`validate_results`) | (`stage`, `check`) |
 
 `cells.cell_id` is the Zensus `GITTER_ID_100m` (EPSG:3035 grid id, e.g. `CRS3035RES100mN2822200E4250500`; verified 2 Nov 2026);
@@ -116,7 +117,7 @@ uncached answer share one Valhalla computation and report `cached: true`.
 | `GET /api/districts` | GeoJSON FeatureCollection (`application/geo+json`) + `run_id`; feature `id` = `district_id`, properties `district_id`, `name`, `admin_level`, `residents`, `cells` (scored cells) |
 | `GET /api/districts/{id}/scores?profile=` | `run_id`, `district_id`, `name`, `admin_level`, `scores` [{`category`, `profile_id`, `share_lack`, `share_insufficient`, `share_sufficient`, `deficit_sum`, `residents_lack`, `rank_deficit`, `rank_share_lack`, `districts_ranked`}]; ranks over all districts per category × profile (1 = highest), `profile` optional |
 | `GET /api/cells?category=&profile=` | GeoJSON FeatureCollection + `run_id`, `category`, `profile_id`; feature `id` = `cell_id`, Polygon; properties `cell_id`, `population`, `district_id`, `count`, `nearest_min`, `class`, `deficit`. `category=transit` (profiles with transit only): `departures`, `stops_count`, `nearest_stop_min`, `class` instead of the count columns |
-| `GET /api/recommendations?category=&profile=` | FeatureCollection + `run_id`, `available: false`, empty `features` until P7 |
+| `GET /api/recommendations?category=&profile=` | GeoJSON FeatureCollection (`application/geo+json`) + `run_id`, `available` (false and no features if the run has no `recommendations` table); both filters optional (422 for an unknown one); feature `id` = `<profile>/<category>/<rank>`, Polygon = the 100 m zone; properties = the columns of `recommendations` without geometries, plus `district_id`, `district_name` (district containing the zone centre, null outside) and `point` [lon, lat] (zone centre); ordered by profile, category, rank |
 
 **Live endpoints** (`POST`, JSON body; token bucket per client IP; `cached` true when served
 from the in-process cache of the run). Points are snapped to the 100 m Zensus grid cell; `cell`
@@ -127,7 +128,7 @@ property `contour_min` (5, 10, 15), sorted ascending; display only.
 | Endpoint | Request | Body |
 |---|---|---|
 | `POST /api/inspect` | {`lon`, `lat`, `profile`} | `run_id`, `profile_id`, `cell`, `source` (`precomputed` for scored cells: list from `current.reachable`; `live` for grid cells without residents: live matrix), `precomputed` ({`categories` [{`category`, `count`, `nearest_min`, `class`, `deficit`}], `transit` {`departures`, `stops_count`, `nearest_stop_min`, `class`} or null} or null for unscored cells), `weakest_category` (worst class, then largest deficit; null if all sufficient or unscored), `isochrone`, `categories` [{`category`, `name`, `count` (precomputed for scored cells, live for unscored), `count_source` (`precomputed`/`live`), `reachable` (from `current.reachable`, or the live matrix for unscored cells) [{`facility_id`, `name`, `time_s`, `time_min`}] nearest first, `nearest_route` (Feature LineString, properties `time_s`, `length_m` of /route; display only: for scored cells it goes to the facility's routing point nearest to the origin by straight line, so its `time_s` can differ from the listed matrix time, mostly for parks) or null}], `cached` |
-| `POST /api/catchment` | {`facility_id`, `profile`} or {`lon`, `lat`, `profile`} | `run_id`, `profile_id`, `target` ({`kind`: `facility`, `facility_id`, `name`, `categories`} or {`kind`: `cell`, …`cell`}), `residents`, `cells`, `cell_ids` (scored cells reaching the target within the budget), `residents_by_class` {category: {class: residents}} (facility categories only), `isochrone` (reverse: areas from which the target is reached), `cached` |
+| `POST /api/catchment` | {`facility_id`, `profile`}, {`lon`, `lat`, `profile`} or {`candidate_id`, `category`, `profile`} (a recommended zone; 404 if it is not recommended for that category and profile) | `run_id`, `profile_id`, `target` ({`kind`: `facility`, `facility_id`, `name`, `categories`}, {`kind`: `cell`, …`cell`} or {`kind`: `candidate`, `candidate_id`, `category`, `rank`, `population_gain`, `residents_gaining_access`, `residents_to_sufficient`, `origin` [lon, lat]}), `source` (`live`: live matrix; `precomputed`: the stored `recommendation_catchments` of the zone), `residents`, `cells`, `cell_ids` (scored cells reaching the target within the budget), `residents_by_class` {category: {class: residents}} (facility categories, or the zone's category; classes of today, before the new facility), `isochrone` (reverse: areas from which the target is reached; live), `cached` |
 | `POST /api/expansion` | {`lon`, `lat`, `profile`} | FeatureCollection of LineStrings (property `duration` in seconds) + `run_id`, `profile_id`, `cell`, `budget_min`, `cached` |
 
 ## Files (`data/runs/<run_id>/<stage>/`)
@@ -218,13 +219,26 @@ guarantee that the nearest facility was among the matrix targets.
 `thresholds.parquet`: the `thresholds` table of the run (category rows with `k`; transit rows with
 `category = 'transit'`, `class`, `lower`, `upper`), nullable integers.
 
+### `recommend/` *(implemented, P7)*
+
+| File | Grain | Columns |
+|---|---|---|
+| `candidates.parquet` | candidate zone (GeoParquet) | `candidate_id` (Zensus grid id), `geometry` (zone centre): grid cells inside the urban boundary after the land-use filter |
+| `catchments.parquet` | routed candidate × profile × cell | `profile_id`, `candidate_id`, `cell_id`, `time_s` (int16, ≤ budget): catchments of every routed candidate |
+| `recommendations.parquet` | as the table (GeoParquet) | columns of `recommendations`; `geometry` = zone polygon, `point_geom` = centre |
+| `recommendation_catchments.parquet` | as the table | `candidate_id`, `profile_id`, `cell_id`, `time_s` |
+| `report_recommend.json` | run | `valhalla` (as in `report_count.json`, null without profiles), `candidates` {`grid_in_urban_boundary`, `excluded_landuse`, `kept`}, `profiles` {profile: `candidates_routed`, `cells_with_deficit`, `groups`, `requests`, `runtime_s`, `max_sources`, `pairs`, `catchment_pairs`, `reach_m`, `not_routable` (candidate ids Valhalla could not snap), `greedy_s`, `recommendations`}, `recommendations` (rows without geometries), `runtime_s`, `peak_rss_mb` |
+
+Empty `recommend.profiles` writes empty tables (the app hides the layer).
+
 ### Validation report part 2: `validate_results/report_results.json` + `.md` *(implemented, P4)*
 
 | Key | Content |
 |---|---|
 | `run_id`, `stage`, `status` (`ok`/`fail`), `generated_at`, `runtime_s`, `peak_rss_mb` | |
-| `checks` | rows of `validation_report`: `access_counts_complete`, `transit_supply_complete`, `value_ranges`, `thresholds_cover_categories`, `class_totals`, `reachable_matches_counts`, `monotonic_<higher>_ge_<lower>` (value = share of violating cells), `matrix_vs_route` (value = max abs. deviation in s; warn only), `false_negatives` (value = share of sampled non-reachable pairs that /route reaches within the budget), `budget_flips` (value = highest flip rate over profiles and directions; warn only), `sample_cells` |
+| `checks` | rows of `validation_report`: `access_counts_complete`, `transit_supply_complete`, `value_ranges`, `thresholds_cover_categories`, `class_totals`, `reachable_matches_counts`, `monotonic_<higher>_ge_<lower>` (value = share of violating cells), `matrix_vs_route` (value = max abs. deviation in s; warn only), `false_negatives` (value = share of sampled non-reachable pairs that /route reaches within the budget), `budget_flips` (value = highest flip rate over profiles and directions; warn only), `recommendations_consistent` (value = number of recommendations; fails if ranks, profiles, `min_gain`, catchment sums or a replay of the gains on `access_counts` disagree), `sample_cells` |
 | `summary` | `residents_scored`; `access` {profile: {category: `share_lack`, `share_insufficient`, `share_sufficient`, `residents_lack`, `deficit_sum`}}; `transit` {profile: {class: share of residents}} |
+| `recommendations` | rows of `recommendations` without geometries, by profile, category, rank |
 | `samples` | per `count.evidence.sample_points` point: nearest `cell_id`, `district_id`, `population`, `values` {`profile/category`: `count`, `class`, `deficit`} |
 | `route_check` | `budget_s`, `profiles` {profile: `pairs`, `no_route`, `mean_abs_s`, `max_abs_s`, `flips` (matrix within the budget, /route beyond)}: sample of `reachable` pairs vs. Valhalla /route (`validation.results.route_check`) |
 | `false_negatives` | `budget_s`, `pairs`, `false_negatives`, `rate`, `profiles` {profile: {category: `pairs`, `no_route`, `false_negatives`, `rate`}}, `examples` (up to 20: `profile_id`, `category`, `cell_id`, `facility_id`, `distance_m`, `route_s`): random cell × facility pairs within the prefilter reach that are not in `reachable`, checked with /route (`validation.results.false_negatives`) |
@@ -250,3 +264,4 @@ their row counts.
 | v0.7 | 2026-11-05 | `reachable` table and `count/reachable.parquet`; report part 2 checks `reachable_matches_counts`, `matrix_vs_route` and key `route_check`; inspect `source`; error 504 | Notes N7/N8, architecture v0.15 (variant C) |
 | v0.8 | 2026-11-06 | `GET /api/meta`: `profiles[].transit_budget_min` (from the config like category names; part of the meta ETag) | Transit legend in the web app (P6) |
 | v0.9 | 2026-11-06 | Report part 2: check and key `budget_flips` (flip rate per profile and direction) | Methodology V10 (matrix vs. /route) |
+| v0.10 | 2026-11-06 | `recommendations` columns (gain, residents gaining access / reaching sufficient, catchment, zone + centre) and new `recommendation_catchments`; `recommend/` files; check and key `recommendations` in report part 2; `/api/recommendations` filled (geo+json, district of the zone); `/api/catchment` for a recommended zone and `source`; `publish` drops `current` views of relations the run does not have | P7 recommender (methodology v0.6 §5, architecture v0.18); confirmed by Rico |

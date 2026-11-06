@@ -45,7 +45,7 @@ ACCESS_COLS = [
     ("count", "integer"),
     ("nearest_min", DOUBLE),
 ]
-# docs/data_contract.md, "Schema run_<id> and views current.*" (recommendations follow in P7).
+# docs/data_contract.md, "Schema run_<id> and views current.*".
 CONTRACT = {
     "cells": [
         ("cell_id", "text"),
@@ -99,6 +99,25 @@ CONTRACT = {
         ("departures", "integer"),
         ("stops_count", "integer"),
         ("nearest_stop_min", DOUBLE),
+    ],
+    "recommendations": [
+        ("category", "text"),
+        ("profile_id", "text"),
+        ("rank", "integer"),
+        ("candidate_id", "text"),
+        ("population_gain", DOUBLE),
+        ("residents_gaining_access", "integer"),
+        ("residents_to_sufficient", "integer"),
+        ("catchment_residents", "integer"),
+        ("catchment_cells", "integer"),
+        ("geom", POLY),
+        ("point_geom", POINT),
+    ],
+    "recommendation_catchments": [
+        ("candidate_id", "text"),
+        ("profile_id", "text"),
+        ("cell_id", "text"),
+        ("time_s", "smallint"),
     ],
     "thresholds": [
         ("category", "text"),
@@ -287,6 +306,30 @@ def run_tables(grocery_a: int = 0) -> dict[str, pd.DataFrame]:
             }
         ),
         "thresholds": thr,
+        # one pharmacy zone for walking: catchment a, b (30 residents, b lacks a pharmacy)
+        "recommendations": pd.DataFrame(
+            {
+                "category": ["pharmacy"],
+                "profile_id": ["walk"],
+                "rank": [1],
+                "candidate_id": ["CRS3035RES100mN1E1"],
+                "population_gain": [20.0],
+                "residents_gaining_access": [20],
+                "residents_to_sufficient": [20],
+                "catchment_residents": [30],
+                "catchment_cells": [2],
+                "geom": _geo([squares[0]]),
+                "point_geom": _geo([squares[0].centroid]),
+            }
+        ),
+        "recommendation_catchments": pd.DataFrame(
+            {
+                "candidate_id": "CRS3035RES100mN1E1",
+                "profile_id": "walk",
+                "cell_id": ["a", "b"],
+                "time_s": [120, 480],
+            }
+        ),
         "validation_report": pd.DataFrame(
             {
                 "check": ["crs", "monotonic_x"],
@@ -426,6 +469,22 @@ def test_reachable(published: str) -> None:
         assert "(cell_id, profile_id)" in index
 
 
+def test_recommendations(published: str) -> None:
+    rows = _rows(
+        published,
+        "SELECT r.category, r.rank, r.population_gain, sum(c.population)::int, "
+        "ST_Contains(r.geom, r.point_geom) FROM current.recommendations r "
+        "JOIN current.recommendation_catchments rc USING (candidate_id, profile_id) "
+        "JOIN current.cells c USING (cell_id) GROUP BY 1, 2, 3, r.geom, r.point_geom",
+    )
+    assert rows == [("pharmacy", 1, 20.0, 30, True)]
+    table = f"{db.schema_name(RUN_A)}.recommendation_catchments"
+    with _as(published, "pipeline_write") as conn:
+        for row in [("z", "walk", "zz", 1), ("z", "car", "a", 1), ("z", "walk", "a", -1)]:
+            with pytest.raises(psycopg.errors.IntegrityError), conn.transaction():
+                conn.execute(f"INSERT INTO {table} VALUES (%s, %s, %s, %s)", row)
+
+
 def test_meta_and_validation_report(published: str) -> None:
     (run,) = _rows(published, "SELECT run_id, status, finished_at IS NOT NULL FROM meta.runs")
     assert run == (RUN_A, "published", True)
@@ -477,6 +536,16 @@ def test_republish_switches_current(published: str) -> None:
         "SELECT class FROM current.scores WHERE cell_id = 'a' AND category = 'grocery' "
         "AND profile_id = 'walk'",
     ) == [("lack",)]
+
+
+def test_switch_drops_views_the_run_does_not_have(published: str) -> None:
+    # e.g. switching back to a run published before a table existed
+    with _as(published, "pipeline_write") as conn:
+        schema = db.current_schema(conn)
+        conn.execute(f"CREATE VIEW current.zz_old AS SELECT * FROM {schema}.cells")
+        db.switch_current(conn, schema, db.run_id_of(schema))
+        assert "zz_old" not in db.relations(conn, db.CURRENT)
+        assert set(db.relations(conn, db.CURRENT)) == set(db.relations(conn, schema))
 
 
 def test_failed_switch_leaves_current_untouched(

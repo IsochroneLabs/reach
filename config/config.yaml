@@ -257,6 +257,38 @@ count:
       edge_north: [9.0050, 48.5460]   # Hagelloch, Teilort on the Schönbuch edge
       edge_south: [8.9480, 48.4880]   # Bühl, Teilort in the Neckar valley
 
+# Recommender (meth. §5, arch. §6.4, §6.5 rule 7): where would one new facility of a category
+# help most? Candidates = 100 m Zensus grid cells (populated or not) whose centre lies inside the
+# urban boundary, outside the excluded land use below, and within the prefilter reach of a cell
+# with a deficit for the profile. Catchment of a candidate = scored cells reaching its centre
+# within the facility budget (matrix: cells as sources, candidates as targets, in groups).
+# Greedy per category and profile: gain = reduction of the deficit sum
+# sum P_i * [min(1, (A_i+1)/k) - min(1, A_i/k)] over the catchment (= ΔW, meth. §5).
+recommend:
+  # Profiles with recommendations. Cycling is left out for now (decision by Rico, 6 Nov 2026):
+  # hardly any cycling deficit, and its large costmatrix requests grow Valhalla's memory (N4).
+  # Empty list = the run has no recommendations (the app hides the layer).
+  profiles: [walking_339, walking_500, wheelchair_339]
+  # Ranked zones per category and profile (at most).
+  top_n: 5
+  # Selection stops when the best remaining gain (residents, deficit reduction) is below this.
+  min_gain: 50
+  # Candidate spacing on the Zensus grid; a multiple of 100 (100 = every grid cell).
+  candidate_spacing_m: 100
+  # Candidates are grouped in squares of this size; one matrix per group (rule 7): sources =
+  # scored cells within the prefilter reach of the group, targets = the group's candidates.
+  group_size_m: 500
+  # OSM land use where no facility is recommended (polygons; a candidate is dropped if its
+  # centre lies inside). industrial is kept on purpose: supermarkets and doctors are often in
+  # commercial/industrial areas (decision by Rico, 6 Nov 2026).
+  exclude_tags:
+    - {landuse: forest}
+    - {landuse: farmland}
+    - {natural: water}
+    - {natural: wood}
+    - {boundary: protected_area}
+    - {leisure: nature_reserve}
+
 # Validation thresholds (arch. §7 "validate inputs").
 validation:
   # Allowed relative deviation of the summed Zensus population from the official city total.
