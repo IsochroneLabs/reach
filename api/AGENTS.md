@@ -20,8 +20,9 @@ this file wins where it is more specific.
 - **Live endpoints** call Valhalla only for what is not precomputed (arch. §6.5 rules 8–12):
   snap the point to its 100 m grid cell, check urban boundary + margin or scored cell before any
   call, one isochrone call for all contours; scored cells list reachable facilities from
-  `current.reachable` (no matrix), only grid cells without residents and catchments send a live
-  matrix through the `live_matrix` client (`api.live_matrix`: timeout, concurrency; costing from
+  `current.reachable` (no matrix), catchments of recommended zones come from
+  `current.recommendation_catchments` (no matrix), only grid cells without residents and other
+  catchments send a live matrix through the `live_matrix` client (`api.live_matrix`: timeout, concurrency; costing from
   `current.profiles`, prefilter as in `count`), cache per (run, cell, profile) as serialized
   JSON bytes (Python objects are ~10× larger), concurrent misses share one computation,
   rate-limit per client IP (async dependency: no threadpool). `X-Forwarded-For` is trusted

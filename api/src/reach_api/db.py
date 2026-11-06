@@ -74,6 +74,12 @@ class Database(Protocol):
     async def residents_by_class(
         self, cell_ids: list[str], category: str, profile_id: str
     ) -> dict[str, int]: ...
+    async def recommendations_geojson(
+        self, run_id: str, category: str | None, profile_id: str | None
+    ) -> str | None: ...
+    async def recommendation(
+        self, candidate_id: str, category: str, profile_id: str
+    ) -> dict[str, Any] | None: ...
 
 
 # Run schema that `current.cells` reads from (same lookup as reach_pipeline.db.current_schema),
@@ -243,6 +249,52 @@ ORDER BY c.cell_id
 """
 
 
+# Recommended zones (recommend stage, methodology §5) as GeoJSON polygons, best rank first;
+# `point` is the zone centre, the target of its catchment; the district is the one containing
+# it (null outside every district). Filters are optional.
+_RECOMMENDATIONS = f"""
+SELECT json_build_object(
+  'type', 'FeatureCollection', 'run_id', %(run_id)s::text, 'available', true,
+  'features', coalesce(json_agg(json_build_object(
+    'type', 'Feature', 'id', r.profile_id || '/' || r.category || '/' || r.rank,
+    'geometry', {_GEOM.format("r.geom")},
+    'properties', json_build_object(
+      'category', r.category, 'profile_id', r.profile_id, 'rank', r.rank,
+      'candidate_id', r.candidate_id, 'population_gain', r.population_gain,
+      'residents_gaining_access', r.residents_gaining_access,
+      'residents_to_sufficient', r.residents_to_sufficient,
+      'catchment_residents', r.catchment_residents, 'catchment_cells', r.catchment_cells,
+      'district_id', d.district_id, 'district_name', d.name,
+      'point', json_build_array(round(ST_X(ST_Transform(r.point_geom, 4326))::numeric, 6),
+                                round(ST_Y(ST_Transform(r.point_geom, 4326))::numeric, 6)))
+  ) ORDER BY r.profile_id, r.category, r.rank), '[]'::json))::text AS body
+FROM current.recommendations r
+LEFT JOIN LATERAL (SELECT district_id, name FROM current.districts
+                   WHERE ST_Contains(geom, r.point_geom) ORDER BY district_id LIMIT 1) d ON true
+WHERE (%(category)s::text IS NULL OR r.category = %(category)s::text)
+  AND (%(profile_id)s::text IS NULL OR r.profile_id = %(profile_id)s::text)
+"""
+
+# One recommendation with the cells of its stored catchment (recommendation_catchments).
+_RECOMMENDATION = """
+SELECT r.category, r.profile_id, r.rank, r.candidate_id, r.population_gain,
+       r.residents_gaining_access, r.residents_to_sufficient,
+       ST_X(ST_Transform(r.point_geom, 4326)) AS lon,
+       ST_Y(ST_Transform(r.point_geom, 4326)) AS lat,
+       coalesce((SELECT array_agg(rc.cell_id ORDER BY rc.cell_id)
+                 FROM current.recommendation_catchments rc
+                 WHERE rc.candidate_id = r.candidate_id AND rc.profile_id = r.profile_id),
+                '{}') AS cell_ids,
+       coalesce((SELECT sum(c.population)::bigint FROM current.recommendation_catchments rc
+                 JOIN current.cells c USING (cell_id)
+                 WHERE rc.candidate_id = r.candidate_id AND rc.profile_id = r.profile_id),
+                0) AS residents
+FROM current.recommendations r
+WHERE r.candidate_id = %(candidate_id)s AND r.category = %(category)s
+  AND r.profile_id = %(profile_id)s
+"""
+
+
 class PostgresDatabase:
     """`Database` on an async psycopg pool."""
 
@@ -389,3 +441,26 @@ class PostgresDatabase:
             {"ids": cell_ids, "cat": category, "p": profile_id},
         )
         return {r["class"]: r["residents"] for r in rows}
+
+    async def _has_recommendations(self) -> bool:
+        # Runs published before the recommender (P7) have no such view.
+        row = await self._one("SELECT to_regclass('current.recommendations') IS NOT NULL AS ok")
+        return bool(row and row["ok"])
+
+    async def recommendations_geojson(
+        self, run_id: str, category: str | None, profile_id: str | None
+    ) -> str | None:
+        """None if the current run has no recommendations table."""
+        if not await self._has_recommendations():
+            return None
+        params = {"run_id": run_id, "category": category, "profile_id": profile_id}
+        row = await self._one(_RECOMMENDATIONS, params)
+        return row["body"]
+
+    async def recommendation(
+        self, candidate_id: str, category: str, profile_id: str
+    ) -> dict[str, Any] | None:
+        if not await self._has_recommendations():
+            return None
+        params = {"candidate_id": candidate_id, "category": category, "profile_id": profile_id}
+        return await self._one(_RECOMMENDATION, params)

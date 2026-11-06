@@ -45,12 +45,18 @@ class CatchmentRequest(BaseModel):
     facility_id: str | None = None
     lon: float | None = Field(default=None, ge=-180, le=180)
     lat: float | None = Field(default=None, ge=-90, le=90)
+    # A recommended zone (recommend stage) with the category it is recommended for.
+    candidate_id: str | None = None
+    category: str | None = None
 
     @model_validator(mode="after")
     def _one_target(self):
         has_point = self.lon is not None and self.lat is not None
-        if (self.facility_id is None) == (not has_point):
-            raise ValueError("give either facility_id or lon and lat")
+        targets = [self.facility_id is not None, has_point, self.candidate_id is not None]
+        if sum(targets) != 1:
+            raise ValueError("give exactly one of facility_id, lon and lat, or candidate_id")
+        if (self.candidate_id is None) != (self.category is None):
+            raise ValueError("candidate_id needs category (and category needs candidate_id)")
         return self
 
 
@@ -212,11 +218,15 @@ async def _inspect(d: Deps, run: Run, p: Profile, loc: Location) -> dict[str, An
 
 @router.post("/catchment")
 async def catchment(body: CatchmentRequest, d: DepsDep) -> Response:
-    """Residents reaching a facility (or a point, e.g. a candidate site) within the budget:
-    matrix from the scored cells within the prefilter reach to the facility's routing points,
-    plus the reverse 5/10/15 minute isochrone (display only)."""
+    """Residents reaching a facility (or a point) within the budget: matrix from the scored
+    cells within the prefilter reach to the facility's routing points, plus the reverse
+    5/10/15 minute isochrone (display only). A recommended zone (`candidate_id`, `category`)
+    answers with the catchment the recommender used (`current.recommendation_catchments`), so
+    the numbers match the recommendation; only the isochrone is live."""
     run = await current_run(d)
     p = run.profile(body.profile)
+    if body.candidate_id is not None:
+        return await _candidate_catchment(d, run, p, body.candidate_id, body.category)
     if body.facility_id is not None:
         facility = await d.db.facility(body.facility_id)
         if facility is None:
@@ -282,12 +292,54 @@ async def _catchment(
         "run_id": run.run_id,
         "profile_id": p.profile_id,
         "target": target,
+        "source": "live",
         "residents": sum(c["population"] for c in reaching),
         "cells": len(reaching),
         "cell_ids": ids,
         "residents_by_class": by_class,
         "isochrone": isochrone,
     }
+
+
+async def _candidate_catchment(
+    d: Deps, run: Run, p: Profile, candidate_id: str, category: str
+) -> Response:
+    if category not in run.categories:
+        raise HTTPException(422, f"unknown category {category!r}")
+    r = await d.db.recommendation(candidate_id, category, p.profile_id)
+    if r is None:
+        raise HTTPException(
+            404, f"no recommendation {candidate_id!r} for {category!r} and {p.profile_id!r}"
+        )
+    key = (run.run_id, "catchment", "candidate", candidate_id, category, p.profile_id)
+
+    async def build() -> dict[str, Any]:
+        ids = list(r["cell_ids"])
+        isochrone = await _isochrone(d, (r["lon"], r["lat"]), p, reverse=True)
+        return {
+            "run_id": run.run_id,
+            "profile_id": p.profile_id,
+            "target": {
+                "kind": "candidate",
+                "candidate_id": candidate_id,
+                "category": category,
+                "rank": r["rank"],
+                "population_gain": r["population_gain"],
+                "residents_gaining_access": r["residents_gaining_access"],
+                "residents_to_sufficient": r["residents_to_sufficient"],
+                "origin": [round(r["lon"], 6), round(r["lat"], 6)],
+            },
+            "source": "precomputed",
+            "residents": int(r["residents"]),
+            "cells": len(ids),
+            "cell_ids": ids,
+            "residents_by_class": {
+                category: await d.db.residents_by_class(ids, category, p.profile_id) if ids else {}
+            },
+            "isochrone": isochrone,
+        }
+
+    return await _serve(d.live_cache, key, build)
 
 
 @router.post("/expansion")

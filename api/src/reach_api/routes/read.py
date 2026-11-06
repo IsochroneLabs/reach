@@ -162,19 +162,23 @@ async def recommendations(
     category: Annotated[str | None, Query()] = None,
     profile: Annotated[str | None, Query()] = None,
 ) -> Response:
-    """Ranked recommendation zones; empty until the recommender exists (P7)."""
+    """Ranked recommendation zones (methodology §5) as GeoJSON polygons, optionally filtered by
+    category and profile; `available: false` for a run published without recommendations."""
     run = await current_run(d)
     if profile is not None:
         run.profile(profile)
-        if category is not None:
-            run.check_category(category, profile)
-    content = {
-        "type": "FeatureCollection",
-        "run_id": run.run_id,
-        "available": False,
-        "features": [],
-    }
-    return _json(request, _etag(run.run_id, "recommendations"), content)
+    if category is not None and category not in run.categories:
+        raise HTTPException(422, f"unknown category {category!r}")
+
+    async def build() -> str:
+        body = await d.db.recommendations_geojson(run.run_id, category, profile)
+        if body is None:
+            empty = {"type": "FeatureCollection", "run_id": run.run_id, "available": False}
+            return json.dumps({**empty, "features": []})
+        return body
+
+    key = (run.run_id, "recommendations", category or "*", profile or "*")
+    return await _cached_body(request, d, key, GEOJSON, build)
 
 
 def _jsonable(value: Any) -> Any:
