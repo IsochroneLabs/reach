@@ -353,3 +353,23 @@ data page); (b) find out why `max_grade` has no effect (option name or parsing i
 grades in the tiles) with a small request test against the Valhalla source; (c) exclude steep
 edges ourselves — not possible with the matrix without a custom graph. Recommendation: (a) now,
 (b) as part of V11.
+
+## N12. Recommender follow-ups
+
+**Status:** open · **Added:** 6 Nov 2026 · **Related:** `methodology.md` §5 (M4),
+`architecture.md` §6.4, `config/config.yaml` (`recommend`), N4
+
+What the first version (P7, branch `feature/rico-recommender`) leaves open:
+
+- **Cycling is off** (`recommend.profiles`, decision by Rico): hardly any cycling deficit, and
+  large cycling `costmatrix` requests grow Valhalla's memory (N4). Switching it on is a config
+  change; measure runtime and the Valhalla peak first (walking + wheelchair: 84 s, 1.2 GB).
+- **osmium peak ~950 MB** for the land-use filter (`tags-filter` on the clipped PBF; the ID
+  bitmaps, not the 11 MB file, set the size). Could move into `validate` pass 1 (one pass fewer
+  over the regional PBF there, but a new validate output); only if the CX23 needs it (P8).
+- **Catchments are recomputed every run** (~80 s), like `count` (C10: no caching across runs).
+- **Gains of ranks 2…N assume the better-ranked zones are built first** (greedy); the app says
+  "deficit −X" per zone. A plain-language decision card (`features.md` §5) and the equity mode
+  (M4) are not built yet.
+- The data page does not list the recommender limits or the wheelchair limitation (N11) yet; the
+  recommendation panel states its limits.

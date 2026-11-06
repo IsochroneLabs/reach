@@ -1,6 +1,6 @@
 # Architecture — reach (15-Minute City Tübingen)
 
-> **Status:** draft v0.17 (6 Nov 2026). Describes the target architecture the team builds towards.
+> **Status:** draft v0.18 (6 Nov 2026). Describes the target architecture the team builds towards.
 > Every change bumps the version and adds a line to the [Change log](#change-log).
 > Settled and open decisions are listed in [Section 13](#13-decisions); items marked **[OPEN]**
 > must be settled before the related code is written. Methodology (categories, thresholds,
@@ -238,9 +238,12 @@ Matrix limits are raised in our Valhalla config to fit these batches.
 
 For a candidate location *x*, the catchment is the set of cells that reach *x* within the budget:
 matrix with nearby cells as sources and *x* as target. The greedy recommender
-(`methodology.md` §5) uses these catchments to compute marginal gains. Candidates come
-from high-deficit areas and are filtered by OSM land use (no water, forest, farmland, industrial,
-protected areas).
+(`methodology.md` §5) uses these catchments to compute marginal gains. Candidates are 100 m
+Zensus grid cells inside the urban boundary near cells with a deficit, filtered by OSM land use
+(no water, forest, farmland, protected areas; tags in `config/config.yaml`, read with osmium from
+the run's clipped PBF). Catchments depend on the profile only, so one set of matrices per profile
+serves all categories (rule 7). The catchments of the recommended zones are stored
+(`recommendation_catchments`), so `/api/catchment` shows exactly the cells the recommender used.
 
 ### 6.5 Using Valhalla efficiently
 
@@ -323,7 +326,7 @@ flowchart LR
 | `tiles` | clipped PBF, cached elevation tiles | `valhalla_tiles.tar` (with elevation) in the shared volume | The pipeline stage only checks whether a rebuild is needed and verifies the tiles after the restart; the build itself is the one-shot `valhalla-build` started by `make refresh` on the host (O19), only when the OSM snapshot changed; see below and 11.1 |
 | `count` | cells, facilities, stops, Valhalla | raw counts and nearest times per cell × category × profile | Section 6.3 |
 | `score` | raw counts, config thresholds | `thresholds` table; classes and deficits as views over the raw counts (§8) | `methodology.md` §4; the pipeline writes no derived score tables |
-| `recommend` | deficits, catchments | ranked candidate zones with population gain | Greedy, land-use filtered |
+| `recommend` | counts, cells, urban boundary, clipped PBF, Valhalla | ranked candidate zones with population gain and their catchments | Greedy per category × profile (`recommend.profiles`), land-use filtered; §6.4 |
 | `validate results` | all results | validation report part 2 | Monotonicity, totals, sample checks; `reachable` gives exactly the counts; calls Valhalla /route for a sample of counted pairs (`matrix_vs_route`), a sample of uncounted pairs within the prefilter reach (`false_negatives`) and reports the budget flips of both (methodology V10) |
 | `publish` | validated results | new DB schema `run_<id>`, then `current` view switched | Atomic; previous run stays available |
 | `cleanup` | run history | – | Keeps the last 3 published runs (DB schemas and `data/raw/<run_id>/`), deletes older ones; 40 GB disk |
@@ -373,7 +376,8 @@ pipeline and API):
 | `scores` (**view**) | cell × category × profile | `class`, `deficit`, computed from `access_counts` + `thresholds` |
 | `transit_scores` (**view**) | cell × profile | transit `class`, computed from `transit_supply` + `thresholds` |
 | `district_scores` (**materialized view**) | district × category × profile | `share_lack`, `share_sufficient`, `deficit_sum`; refreshed on publish or when thresholds change |
-| `recommendations` | candidate × category × profile | `rank`, `population_gain`, `geom` |
+| `recommendations` | recommended zone × category × profile | `rank`, `candidate_id`, `population_gain`, `residents_gaining_access`, `residents_to_sufficient`, `geom` (100 m zone), `point_geom` |
+| `recommendation_catchments` | recommended zone × profile × cell | `time_s` (cells reaching the zone centre within the budget) |
 | `validation_report` | check | `check`, `status`, `value`, `message` |
 
 Roles: `app_read` (API), `pipeline_write` (pipeline), `supervisor_read` (read-only, for the
@@ -391,8 +395,9 @@ Live endpoints (call Valhalla, small and fast, no queue):
 - `POST /api/inspect` — pin-drop: precomputed values of the grid cell, isochrone, reachable
   facilities per category with times (one matrix), route to the nearest one per category,
   weakest category.
-- `POST /api/catchment` — facility or point (e.g. a candidate site): reverse isochrone +
-  residents reaching it (matrix from the scored cells within the prefilter reach).
+- `POST /api/catchment` — facility, point or recommended zone: reverse isochrone + residents
+  reaching it (matrix from the scored cells within the prefilter reach; for a recommended zone
+  the stored `recommendation_catchments`, rule 8).
 - `POST /api/expansion` — street-level spread for visualisation.
 
 Live endpoints snap the point to its 100 m grid cell, accept it only inside the urban boundary
@@ -556,6 +561,7 @@ documented here in the same branch (see `AGENTS.md`).
 
 | Version | Date | Change | Why |
 |---|---|---|---|
+| v0.18 | 2026-11-06 | §6.4: candidates = grid cells near deficits, land-use filter without industrial, catchments per profile, stored catchments of the picks; §7 `recommend` row; §8 `recommendations` columns and new `recommendation_catchments`; §9 catchment of a recommended zone | P7 recommender; decisions by Rico (6 Nov 2026): store the catchments (numbers in the app match the recommendation), keep industrial land use; methodology v0.6 |
 | v0.17 | 2026-11-06 | §6.1: wheelchair profile avoids steps only; `max_grade` excludes no edges in Valhalla 3.9.1, steep sections stay in wheelchair routes (known limitation) | N11 evidence: four steep routes give the same route, time and length for every `max_grade` value; the old text ("avoids steps and steep sections") overstated the profile; no change to counts or config values |
 | v0.16 | 2026-11-06 | §6.1: Valhalla applies elevation to every profile (pedestrian grade factor for walking and wheelchair, bicycle costing for cycling), per-profile table with evidence; §12: slope-aware walking removed from out of scope; O7 changed (slope model kept, slope-free times only for V11); §7: `validate results` checks `reachable` and calls /route (`matrix_vs_route`, `false_negatives`, budget flips, methodology V10) | N5/N9: walking and wheelchair times already included slopes (e.g. 984 s instead of 740 s uphill), the old text said "ignored for now"; `use_hills` cannot switch it off; decision by Rico: keep it, no change to counts; the §7 stage table did not mention the /route checks (N8 review) |
 | v0.15 | 2026-11-05 | §6.5 rule 2: every matrix uses `costmatrix` (service config); rule 6: `count` also yields `reachable`; rule 8: inspector lists reachable facilities from `current.reachable`, live matrix only for grid cells without residents; §8: `reachable` table | N8: `select_optimal` mixed two algorithms (2.5 % of live/precomputed pairs differed; `timedistancematrix` misses wheelchair routes); N7 settled; confirmed by Rico (variant C) |

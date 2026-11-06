@@ -7,6 +7,24 @@ adds a line under `Unreleased`.
 
 ## [Unreleased]
 
+### Added (recommender, P7)
+- Pipeline stage `recommend` (methodology v0.6 §5, architecture v0.18 §6.4): 100 m grid
+  candidates inside the urban boundary without forest, farmland, water and protected areas
+  (industrial allowed), catchments per profile in candidate groups (`costmatrix`, cells →
+  zone centre), greedy per category × profile with gain = reduction of the deficit sum; top 5
+  per category, minimum gain 50 residents, profiles `walking_339`, `walking_500`,
+  `wheelchair_339` (cycling off for now); new config section `recommend`.
+- Run tables `recommendations` and `recommendation_catchments`; `validate_results` check
+  `recommendations_consistent` (replays the gains on `access_counts`) and a report section;
+  `publish` drops `current` views of relations a run does not have (data contract v0.10).
+- API: `GET /api/recommendations` returns the ranked zones (GeoJSON, with district);
+  `POST /api/catchment` accepts `{candidate_id, category, profile}` and answers with the stored
+  catchment of the zone (`source: precomputed`).
+- Web: "Recommended sites" panel and ranked markers on the map; a click shows the zone's
+  catchment (cells and reverse isochrone) and today's classes of its residents; stated limits
+  in the panel; hidden when a run has no recommendations.
+- `make refresh` and `make pipeline` run `recommend` between `score` and `validate_results`.
+
 ### Changed
 - Wheelchair profile documented as it behaves (notes N11): it avoids steps but not steep
   sections, because Valhalla 3.9.1 ignores `max_grade`; known limitation (wheelchair counts
