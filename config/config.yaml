@@ -84,7 +84,8 @@ profiles:
     prefilter_margin_m: 0
     transit: false
   wheelchair_339:
-    # Pedestrian costing with type wheelchair: avoids steps and steep sections.
+    # Pedestrian costing with type wheelchair: avoids steps, not steep sections (max_grade
+    # excludes no edges in Valhalla 3.9.1; routes keep 12–20 % grades, notes N11, arch. §6.1).
     costing: pedestrian
     speed_kmh: 3.39
     costing_options:

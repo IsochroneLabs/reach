@@ -1,6 +1,6 @@
 # Methodology — reach
 
-> **Status:** draft v0.4 (6 Nov 2026). Binding definition of **what** is measured, scored,
+> **Status:** draft v0.5 (6 Nov 2026). Binding definition of **what** is measured, scored,
 > recommended and validated. `architecture.md` describes **how** the system computes it. Every
 > change bumps the version and adds a line to the [Change log](#change-log). Items marked
 > **[M#]** are open methodology questions (Section 7).
@@ -24,6 +24,12 @@ travel profiles, and a recommender for new facility locations.
   times (up to +66 % on steep routes, at most −9 %). Results are therefore conservative compared
   with a flat-ground model: fewer facilities count as reachable on hillside cells. V11 measures
   the effect.
+- **Known limitation, wheelchair:** the wheelchair profile avoids steps but not steep sections.
+  Valhalla's `max_grade` excludes no edges in the version we use (`architecture.md` §6.1, notes
+  N11), so wheelchair routes can include grades of 12–20 %, far above ramp guidelines
+  (DIN 18040: 6 %). The slope factor still lengthens these times, but wheelchair counts are
+  **optimistic** on hillsides: some facilities counted as reachable are not usable for many
+  wheelchair users.
 - **Time budgets:** 15 minutes to facilities; 10 minutes on foot or by wheelchair to public transport stops.
 - **Count** $A_{i,c,m}$: number of facilities of category *c* reachable from cell *i* within the
   budget, using network travel times from the Valhalla matrix (never isochrone polygons).
@@ -150,6 +156,7 @@ wheelchair as well as cycling (`architecture.md` §6.1, notes N5); its effect on
 
 | Version | Date | Change | Why |
 |---|---|---|---|
+| v0.5 | 2026-11-06 | §1: known limitation of the wheelchair profile (steps avoided, steep sections not; counts optimistic on hillsides) | N11: `max_grade` has no effect in Valhalla 3.9.1; architecture v0.17; no change to counts |
 | v0.4 | 2026-11-06 | §1: speeds are flat-ground speeds, Valhalla's slope model reduces them, results conservative; §6: new experiments V10 (matrix vs. /route: `matrix_vs_route`, `false_negatives`, flip rate `budget_flips`) and V11 (with vs. without slopes, P7), G1 answered | N5 settled (decision by Rico: keep the slope model, no change to counts); the matrix-vs-/route checks of N8/N9 had no V-number; architecture v0.16 |
 | v0.3 | 2026-11-02 | §1 unit = populated cells inside the city boundary (was: urban boundary); §5 candidates restricted to the urban boundary | Architecture v0.12, O11 (notes N3) |
 | v0.2 | 2026-11-02 | §2 facility locations (representative point for polygons, access points for parks and playgrounds, park counted once with minimum time); §3 transit supply for walking and wheelchair profiles, raw values stored, classes derived at read time | Answers to the P0 implementation plan questions (Q1, Q5) |

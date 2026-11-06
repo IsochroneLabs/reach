@@ -1,6 +1,6 @@
 # Architecture — reach (15-Minute City Tübingen)
 
-> **Status:** draft v0.16 (6 Nov 2026). Describes the target architecture the team builds towards.
+> **Status:** draft v0.17 (6 Nov 2026). Describes the target architecture the team builds towards.
 > Every change bumps the version and adds a line to the [Change log](#change-log).
 > Settled and open decisions are listed in [Section 13](#13-decisions); items marked **[OPEN]**
 > must be settled before the related code is written. Methodology (categories, thresholds,
@@ -160,7 +160,7 @@ volume, so restarts never rebuild the graph.
 | Walking (inclusive) | `pedestrian` | `walking_speed` 3.39 km/h (850 m in 15 min), `step_penalty` for stairs | yes |
 | Walking (comparison) | `pedestrian` | `walking_speed` 5.0 km/h | yes |
 | Cycling | `bicycle` | bike type `Hybrid`, `cycling_speed` 15 km/h, `use_hills` (default) | yes |
-| Wheelchair / pram | `pedestrian` with `type: wheelchair` | `walking_speed` 3.39 km/h, avoids steps and steep sections | yes |
+| Wheelchair / pram | `pedestrian` with `type: wheelchair` | `walking_speed` 3.39 km/h, avoids steps; does **not** avoid steep sections (`max_grade` has no effect in 3.9.1, notes N11) | yes |
 
 **Elevation is built in, and Valhalla applies it to every profile.** The tiles are always built
 with elevation data (`build_elevation`), so every edge carries its grade (checked by `tiles
@@ -170,7 +170,7 @@ behaviour (O7, notes N5):
 | Profile | What Valhalla does with elevation | Evidence (Valhalla 3.9.1, Tübingen tiles) |
 |---|---|---|
 | Walking (both speeds) | `pedestrian` costing scales the time of each edge by a grade factor: uphill and steep downhill are slower, gentle downhill slightly faster; `walking_speed` is the flat-ground speed. `use_hills` and `max_grade` do not change the times | Burgholzweg 127 → Waldkindergarten (697 m): 984 s uphill, 769 s back, 740 s on flat ground (3.39 km/h); Marktplatz → Schloss (506 m): 681 s / 619 s vs. 537 s; 300 random routes: median 1.08 × the flat-ground time (0.91–1.66) |
-| Wheelchair | same grade factor as walking; `type: wheelchair` changes the route (no steps), not the factor | Burgholzweg 127 → Waldkindergarten (627 m without steps): 881 s uphill, 700 s back, 666 s on flat ground; 235 random routes: median 1.06 (0.94–1.79) |
+| Wheelchair | same grade factor as walking; `type: wheelchair` changes the route (no steps), not the factor. `max_grade` (unset, 1, 4, 6, 12 or 30) excludes no edges: routes keep sections of 12–20 % grade, far above ramp guidelines (DIN 18040: 6 %), so wheelchair counts are optimistic on hillsides (known limitation, `methodology.md` §1, notes N11) | Burgholzweg 127 → Waldkindergarten (627 m without steps): 881 s uphill, 700 s back, 666 s on flat ground; 235 random routes: median 1.06 (0.94–1.79) |
 | Cycling | `bicycle` costing slows uphill and speeds up downhill; `use_hills` stays at the default (0 and default give the same times) | Marktplatz → Schloss 677 s / 591 s; Hbf → Waldhäuser-Ost 1,196 s / 865 s (VF2) |
 
 Stairs are always handled through OSM `highway=steps`. Slope-free walking times would need a
@@ -556,6 +556,7 @@ documented here in the same branch (see `AGENTS.md`).
 
 | Version | Date | Change | Why |
 |---|---|---|---|
+| v0.17 | 2026-11-06 | §6.1: wheelchair profile avoids steps only; `max_grade` excludes no edges in Valhalla 3.9.1, steep sections stay in wheelchair routes (known limitation) | N11 evidence: four steep routes give the same route, time and length for every `max_grade` value; the old text ("avoids steps and steep sections") overstated the profile; no change to counts or config values |
 | v0.16 | 2026-11-06 | §6.1: Valhalla applies elevation to every profile (pedestrian grade factor for walking and wheelchair, bicycle costing for cycling), per-profile table with evidence; §12: slope-aware walking removed from out of scope; O7 changed (slope model kept, slope-free times only for V11); §7: `validate results` checks `reachable` and calls /route (`matrix_vs_route`, `false_negatives`, budget flips, methodology V10) | N5/N9: walking and wheelchair times already included slopes (e.g. 984 s instead of 740 s uphill), the old text said "ignored for now"; `use_hills` cannot switch it off; decision by Rico: keep it, no change to counts; the §7 stage table did not mention the /route checks (N8 review) |
 | v0.15 | 2026-11-05 | §6.5 rule 2: every matrix uses `costmatrix` (service config); rule 6: `count` also yields `reachable`; rule 8: inspector lists reachable facilities from `current.reachable`, live matrix only for grid cells without residents; §8: `reachable` table | N8: `select_optimal` mixed two algorithms (2.5 % of live/precomputed pairs differed; `timedistancematrix` misses wheelchair routes); N7 settled; confirmed by Rico (variant C) |
 | v0.14 | 2026-11-05 | §6.5 rule 8: inspector snaps every point (also unpopulated) to its 100 m grid cell and uses one live matrix to all facility points within the prefilter reach; rule 12: points inside a scored cell are accepted too; §9: endpoint descriptions, snapping, cache, rate limit, ETag | P5: the DB stores no nearest facility id (needed for routes, notes N7); 86 scored cells (1,144 residents) lie outside the urban boundary + 100 m (O11); confirmed by Rico (K1, K2) |
