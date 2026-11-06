@@ -223,10 +223,11 @@ guarantee that the nearest facility was among the matrix targets.
 | Key | Content |
 |---|---|
 | `run_id`, `stage`, `status` (`ok`/`fail`), `generated_at`, `runtime_s`, `peak_rss_mb` | |
-| `checks` | rows of `validation_report`: `access_counts_complete`, `transit_supply_complete`, `value_ranges`, `thresholds_cover_categories`, `class_totals`, `reachable_matches_counts`, `monotonic_<higher>_ge_<lower>` (value = share of violating cells), `matrix_vs_route` (value = max abs. deviation in s; warn only), `sample_cells` |
+| `checks` | rows of `validation_report`: `access_counts_complete`, `transit_supply_complete`, `value_ranges`, `thresholds_cover_categories`, `class_totals`, `reachable_matches_counts`, `monotonic_<higher>_ge_<lower>` (value = share of violating cells), `matrix_vs_route` (value = max abs. deviation in s; warn only), `false_negatives` (value = share of sampled non-reachable pairs that /route reaches within the budget), `sample_cells` |
 | `summary` | `residents_scored`; `access` {profile: {category: `share_lack`, `share_insufficient`, `share_sufficient`, `residents_lack`, `deficit_sum`}}; `transit` {profile: {class: share of residents}} |
 | `samples` | per `count.evidence.sample_points` point: nearest `cell_id`, `district_id`, `population`, `values` {`profile/category`: `count`, `class`, `deficit`} |
 | `route_check` | `budget_s`, `profiles` {profile: `pairs`, `no_route`, `mean_abs_s`, `max_abs_s`, `flips` (matrix within the budget, /route beyond)}: sample of `reachable` pairs vs. Valhalla /route (`validation.results.route_check`) |
+| `false_negatives` | `budget_s`, `pairs`, `false_negatives`, `rate`, `profiles` {profile: {category: `pairs`, `no_route`, `false_negatives`, `rate`}}, `examples` (up to 20: `profile_id`, `category`, `cell_id`, `facility_id`, `distance_m`, `route_s`): random cell × facility pairs within the prefilter reach that are not in `reachable`, checked with /route (`validation.results.false_negatives`) |
 
 Any `fail` stops the pipeline before `publish`.
 

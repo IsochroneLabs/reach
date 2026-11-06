@@ -263,9 +263,27 @@ class RouteCheck(_Model):
     warn_max_abs_s: float = Field(ge=0)
 
 
+class FalseNegativeCheck(_Model):
+    """Sample of cell × facility pairs within the prefilter reach that are not in `reachable`;
+    a /route time within the budget is a false negative (notes N9)."""
+
+    pairs_per_category: int = Field(ge=0)
+    # Share of false negatives among the sampled pairs (0..1, all profiles and categories)
+    # above which the check warns / fails.
+    warn_above: float = Field(ge=0, le=1)
+    fail_above: float = Field(ge=0, le=1)
+
+    @model_validator(mode="after")
+    def _fail_not_below_warn(self):
+        if self.fail_above < self.warn_above:
+            raise ValueError("fail_above must be >= warn_above")
+        return self
+
+
 class ResultsValidation(_Model):
     monotonic: list[Monotonic] = Field(default_factory=list)
     route_check: RouteCheck
+    false_negatives: FalseNegativeCheck
 
 
 class Validation(_Model):

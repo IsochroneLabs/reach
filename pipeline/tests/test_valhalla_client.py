@@ -256,3 +256,86 @@ def test_check_routes_reports_known_limitation(
         }
     )
     assert "Known limitation: matrix times vs. /route" in md and "| walking_339 | 3 | 0 |" in md
+
+
+def test_check_false_negatives_routes_unreached_pairs_within_reach(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import types
+
+    import geopandas as gpd
+    import pandas as pd
+    import shapely
+
+    from reach_pipeline import results
+    from reach_pipeline.config import load_config
+    from reach_pipeline.stages import validate_results
+
+    monkeypatch.delenv("VALHALLA_URL", raising=False)
+    cfg = load_config(Path(__file__).resolve().parents[2] / "config" / "config.yaml")
+    cfg = cfg.model_copy(
+        update={
+            "valhalla": cfg.valhalla.model_copy(update={"url": "http://valhalla.test"}),
+            "profiles": {"walking_339": cfg.profiles["walking_339"]},  # reach 847.5 m
+        }
+    )
+    gpd.GeoDataFrame(
+        {"facility_id": ["shop", "far"], "point_id": [0, 0], "kind": "node"},
+        geometry=[shapely.Point(503600, 5374000), shapely.Point(506000, 5374000)],
+        crs="EPSG:25832",
+    ).to_parquet(tmp_path / "facility_points.parquet")
+    monkeypatch.setattr(
+        validate_results,
+        "_paths",
+        lambda ctx: {"facility_points": tmp_path / "facility_points.parquet"},
+    )
+    origins = gpd.GeoDataFrame(
+        {"cell_id": ["c1", "c2"]},
+        geometry=[shapely.Point(503000, 5374000), shapely.Point(503500, 5374000)],
+        crs="EPSG:25832",
+    )
+    # c2 reaches the shop (in reachable); c1 is 600 m away and was not counted
+    reachable = pd.DataFrame(
+        {"cell_id": ["c2"], "profile_id": ["walking_339"], "facility_id": ["shop"], "time_s": [110]}
+    )
+    facilities = pd.DataFrame({"facility_id": ["shop", "far"], "category": "grocery"})
+    t = results.Tables(
+        cells=None,
+        access=None,
+        transit=None,
+        thresholds=None,
+        reachable=reachable,
+        facilities=facilities,
+    )
+    ctx = types.SimpleNamespace(config=cfg, run_id="20261106T120000Z")
+    with respx.mock(base_url="http://valhalla.test") as router:
+        route = router.post("/route").mock(
+            return_value=httpx.Response(200, json={"trip": {"summary": {"time": 640.0}}})
+        )
+        check, detail = validate_results.check_false_negatives(ctx, t, origins)
+    assert route.call_count == 1  # only (c1, shop): reachable and out-of-reach pairs are skipped
+    assert check.check == "false_negatives" and check.status == "fail"  # 1 of 1 > 2 %
+    assert detail["profiles"]["walking_339"]["grocery"]["false_negatives"] == 1
+    assert detail["examples"][0] == {
+        "profile_id": "walking_339",
+        "category": "grocery",
+        "cell_id": "c1",
+        "facility_id": "shop",
+        "distance_m": 600.0,
+        "route_s": 640.0,
+    }
+    md = validate_results._markdown(
+        {
+            "run_id": "x",
+            "status": "fail",
+            "generated_at": "now",
+            "checks": [],
+            "summary": None,
+            "samples": [],
+            "route_check": None,
+            "false_negatives": detail,
+            "runtime_s": 0,
+            "peak_rss_mb": 0,
+        }
+    )
+    assert "## Missed facilities" in md and "| walking_339 | grocery | 1 | 0 | 1 | 100.0% |" in md
