@@ -6,7 +6,7 @@
 > all profiles and categories; open decisions N4, N5, cycling factor). P4 merged (PR #22, 5 Nov
 > 2026; full depth; monotonicity with tolerance, N6). P5 merged (PR #24, 5 Nov 2026, full depth,
 > architecture v0.14); N8 follow-up: one matrix algorithm + `reachable` (architecture v0.15). P6 merged (PR #26,
-> 6 Nov 2026, squash; interim depth plus district panel; team review pending, after merge). P7 recommender in review (`feature/rico-recommender`, draft PR); validation report (V1–V11) next. This file is the **handoff between
+> 6 Nov 2026, squash; interim depth plus district panel; team review pending, after merge). P7 recommender merged (PR #31); validation report V1–V11 in review (`feature/rico-validation-report`; V7, V9 manual, not yet run). This file is the **handoff between
 > agent sessions**: phase status, decisions, agreed deviations, measured numbers and next steps.
 > It is informative; `architecture.md` and `methodology.md` stay binding. Where this plan proposes
 > something that differs from them, it is listed in [Section 5](#5-conflicts-gaps-and-ambiguities)
@@ -26,7 +26,7 @@
 | P5 | API | `feature/rico-api` | [x] merged PR #24, 5 Nov (full depth; N7/N8 follow-up `fix/rico-matrix-algorithm`) | 21 Nov |
 | P6 | Web | `feature/rico-web` | [x] merged PR #26, 6 Nov (interim + district panel; ranking/polish after; team review pending) | 24 Nov |
 | — | **Interim demo (local), `v0.1.0`** | release PR `dev` → `main` on request | [ ] | 25 Nov |
-| P7 | Recommender + validation V1–V11 | `feature/rico-recommender` (draft PR), `feature/rico-validation-report` | [~] recommender in review; validation report next | recommender 20 Nov, report 10 Jan |
+| P7 | Recommender + validation V1–V11 | `feature/rico-recommender` (draft PR), `feature/rico-validation-report` | [~] recommender merged (PR #31); validation report in review (V7, V9 manual) | recommender 20 Nov, report 10 Jan |
 | P8 | Production | `feature/rico-production` | [ ] | server from ~1 Dec, hardening until 15 Jan |
 
 The dates leave about four working days per phase until 25 Nov. To make the interim demo, P1–P6
@@ -201,7 +201,7 @@ notes. Measure memory on the CX23 (Section 4).
 | P2 | DuckDB `spatial` extension? | only if needed; must be installed in the image at build time, not downloaded at runtime |
 | P5 | `psycopg[pool]` (extra of the existing psycopg) | connection pool; cache and rate limit hand-written |
 | P6 | `maplibre-gl`, `react`, `vite`, `typescript` (npm) | stack from AGENTS.md |
-| P7 | `pulp` (CBC) | V4 exact comparison |
+| P7 | `pulp` (3.x) + `highspy` (HiGHS), `matplotlib` (dev) | V4 exact comparison (pulp's bundled CBC is x86_64-only on macOS), report figures |
 
 ## 3. Proposed data contract (`docs/data_contract.md`)
 
@@ -363,6 +363,8 @@ Confirmed by Rico (2 Nov 2026): C6–C12 as recommended in Section 5; Q4 also co
 | 2026-11-06 | P7 diagnostics | Port 8002 on the dev machine is Socke's `iso15` Valhalla 3.5.1 (rejects pedestrian matrices > 2,500 pairs); ours is 8003 via `.env`. Explains the N9 "Exceeded max locations" sighting; pipeline unaffected. Integration tests run against a temporary clip-tile container on 8004 (same image, existing clip tiles), so the demo stack keeps serving Tübingen |
 | 2026-11-06 | Valhalla URL (Rico) | No default: `valhalla.url: null`, `resolve_url` fails with a `ConfigError` (exit 2) without `VALHALLA_URL` (test); iso15 containers stopped (`docker compose down` in `~/Iso15-socke`, volumes kept). Merge of #31 after green CI approved by Rico ("Team review pending") |
 | 2026-11-06 | Inspector time (Rico) | The inspector shows travel times first: per reachable facility (matrix time, no longer greyed out) and for the route to the nearest (`nearest_route.properties.time_s` from /route, in minutes, bold), the route length as secondary text; Playwright smoke test checks both on the recorded fixture. Squash-merge after green CI approved by Rico, team review pending. Branch `fix/rico-inspector-time` |
+| 2026-11-06 | Validation answers (Rico) | `pulp` as dev dependency (lazy import); pulp 4.x no longer bundles CBC and pulp 3.3.2's CBC is x86_64-only on macOS → `highspy` 1.15.1 (MIT) as solver; `matplotlib` dev, 4 figures < 1 MB in `docs/figures/`; V2: the Kultusministerium's school WFS is disabled, no city open-data portal → one-off fetch of the city's Kita and school pages (approved; 159 requests, 1/s, only name, address, operator kept in `data/reference/`); the city's POI search service was not used (blocked by the session's permission check); recounts as proposed, cycling left out everywhere |
+| 2026-11-06 | Validation assumptions | Experiments are not stages: own package `reach_pipeline.experiments`, own settings file `config/experiments.yaml` (so `config_hash` and stage digests stay unchanged), results in `data/experiments/<run_id>/`; recounts keep the stops in the matrix (without them costmatrix gave 2 of 10,194 different counts; with them the recount is bit-identical); V4 on full-city instances (stronger than "small instances"); V3 with a second mode `created_only`; V2 places reference entries on OSM address points (no geocoder); V11 via the Docker CLI on port 8005, container and tiles removed afterwards |
 
 Measured numbers (runtime, peak memory, counts) are added here at the end of every phase.
 
@@ -437,6 +439,9 @@ Measured numbers (runtime, peak memory, counts) are added here at the end of eve
 | P7 | API through Caddy: `/api/recommendations` (category × profile) / catchment of a zone, miss / hit | 3 KB; 52 ms / 6 ms (4.8 KB) |
 | P7 | Clean-checkout test (`git clone` of `dev` `f265a7d` into a temporary folder, README only, other ports, own `COMPOSE_PROJECT_NAME`): uv sync / make test / make lint / make up / make migrate / make refresh (download, tile build with elevation, run `20261106T144003Z`) | ok / 240 passed / ok / ok / ok / acquire 80 s, validate 14 s, tile build ~30 s, count 508 s, recommend 92 s, publish 10 s; recommendations identical to the main stack (walking 3.39, 30 zones, same ids and gains). Gaps fixed in `fix/rico-readme-setup`: ports inside the URLs, second checkout takes over the first stack (`name: reach`), integration tests need `--env-file .env`, `make pipeline` needs a first refresh |
 | N9 | `false_negatives` on run `20261105T203945Z`: 480 / 4,800 sampled pairs | 0 / 1 false negatives; 2.6 / 19.4 s, ~500 MB RSS (process incl. tables) |
+| P7 | `make experiments RUN_ID=20261106T142630Z` (demo stack running, one process per experiment): total / V1 / V2 / V3 / V4 / V5 / V6 / V8 / V10 / V11 runtime and peak RSS | 255 s / 3 s, 928 MB / 8 s, 1,350 MB (+168 s for the one-off fetch) / 1 s, 341 MB / 31 s, 625 MB / 38 s, 271 MB / 52 s, 937 MB / 1 s, 495 MB / 7 s, 314 MB / 96 s, 174 MB; peaks above 900 MB are osmium children |
+| P7 | V11: elevation-free tile build / temporary Valhalla (2 threads) during the recount of 3 profiles | 8.3–8.7 s, 187–226 MB peak, 11.4 MB tiles / 1.41–1.44 GB peak, 75–85 s recount (two runs); container removed |
+| P7 | Validation headline numbers | V1 polygon over-count 18–20 % of pairs; V2 recall childcare 87.5 %, schools 95 %; V3 created-only picks within 500 m 68–98 % (random 7–34 %); V4 max gap 2.8 % (90 instances optimal); V5 district Spearman median 0.78–0.95; V6 1.9 / 2.8 % class changes; V8 Moran's I 0.72–0.88; V10 0 / 900 false negatives; V11 3.3–3.6 % class changes |
 
 ## 8. Next steps
 
@@ -482,9 +487,13 @@ Measured numbers (runtime, peak memory, counts) are added here at the end of eve
 
 10. P7 recommender — draft PR from `feature/rico-recommender` (merge only after Rico's yes, by
     20 Nov; if at risk, tell Rico by 16 Nov and keep it out of the interim demo). Open: notes
-    N12 (cycling off, osmium peak, decision card, equity mode M4, data page limits). Next: the
-    validation report V1–V11 (`feature/rico-validation-report`; V4 needs `pulp`, V2 an official
-    list: ask first).
+    N12 (cycling off, osmium peak, decision card, equity mode M4, data page limits). Merged
+    (PR #31).
+11. Validation report V1–V11 — draft PR from `feature/rico-validation-report`
+    (`docs/validation_report.md`, `make experiments`). Open: V7 and V9 by people (protocols in
+    the report; V9 by Socke or Juju, also on a newer snapshot), N1 decision (V6: keep the
+    centroid?), M5 confirmation with the supervisors (V8), methodology §6 still says V11
+    "planned" (wording update needs Rico's yes), notes N13.
 
 ## 9. Working rules (copy from the start prompt)
 

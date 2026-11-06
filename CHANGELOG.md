@@ -7,6 +7,19 @@ adds a line under `Unreleased`.
 
 ## [Unreleased]
 
+### Added (validation report, P7)
+- Validation experiments V1–V11 (methodology §6) as `reach_pipeline.experiments` and
+  `make experiments [RUN_ID=…]`: matrix vs. isochrone counts (V1), OSM completeness of childcare
+  and schools against the city's lists (V2, one-off cached download), recommender back-test (V3),
+  greedy vs. exact MILP (V4, PuLP + HiGHS), sensitivity of k, speed and budget (V5),
+  building-based origin (V6, notes N1), Moran's I and LISA (V8), larger matrix-vs-/route samples
+  (V10), with vs. without slopes on a temporary elevation-free tile set (V11, incl. notes N11 b).
+  V7 and V9 are manual protocols. Settings in `config/experiments.yaml`; results under
+  `data/experiments/<run_id>/`.
+- `docs/validation_report.md` with method, result, interpretation and limitations per
+  experiment, and four figures in `docs/figures/`.
+- Dev dependencies `pulp` (3.x), `highspy` and `matplotlib` (validation only).
+
 ### Fixed (documentation)
 - README and `.env.example` setup gaps found by a clean-checkout test: changed ports must also
   be changed in `DATABASE_URL_*` / `VALHALLA_URL`, a second checkout needs its own

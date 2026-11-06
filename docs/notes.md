@@ -8,7 +8,7 @@ what to do, and how to decide. Move an entry into `architecture.md` once it is d
 
 ## N1. Origin point per census cell — validate and possibly replace the cell centroid
 
-**Status:** open · **Added:** 2 Nov 2026 · **Related:** `architecture.md` §5.2, decision O5
+**Status:** open (V6 measured 6 Nov 2026, decision pending) · **Added:** 2 Nov 2026 · **Related:** `architecture.md` §5.2, decision O5
 
 **Current choice:** every populated Zensus 100 m cell starts its routing at the **cell centroid**.
 
@@ -50,6 +50,13 @@ residents do not use (forest track, road without sidewalk).
   the city edge → switch to the building-based origin.
 
 **Effort:** small to medium (one pipeline step with GeoPandas, one validation run, `/locate` batching).
+
+**V6 result (6 Nov 2026, run `20261106T142630Z`, `docs/validation_report.md`):** building
+origin for 1,570 of 1,699 cells (96.5 % of residents; 33 % of OSM buildings are `building=yes`),
+median shift 22 m (max 69 m); 1.9 % (walking 3.39) / 2.8 % (wheelchair) of residents ×
+categories change class, in both directions. By the rule above the differences are small →
+proposal: keep the centroid and document the robustness (decision open, Rico). The `/locate`
+snap check is not part of V6.
 
 ---
 
@@ -332,7 +339,7 @@ typescript-eslint allow minimatch 11.
 
 ## N11. Wheelchair profile: `max_grade` excludes no edges, routes include steep sections
 
-**Status:** open: option (a) done 6 Nov 2026 (branch `docs/rico-wheelchair-text`: architecture v0.17 §6.1, methodology v0.5 §1, config comment), option (b) part of V11 · **Added:** 6 Nov 2026 ·
+**Status:** open: option (a) done 6 Nov 2026 (branch `docs/rico-wheelchair-text`: architecture v0.17 §6.1, methodology v0.5 §1, config comment), option (b) done 6 Nov 2026 in V11 (no effect; cause not found) · **Added:** 6 Nov 2026 ·
 **Related:** `architecture.md` §6.1, O7, N5, `config/config.yaml` (`wheelchair_339`)
 
 **Finding (running service, Valhalla 3.9.1, Tübingen tiles with elevation):** `/route` with
@@ -361,6 +368,12 @@ grades in the tiles) with a small request test against the Valhalla source; (c) 
 edges ourselves — not possible with the matrix without a custom graph. Recommendation: (a) now,
 (b) as part of V11.
 
+**Option (b) result (V11, 6 Nov 2026):** `/route` wheelchair on the golden pair (12 % grade)
+with `max_grade` unset, 1, 6, 12 and 30 gives the same route and time on the production tiles
+(681 s) and on an elevation-free tile set (568 s): the option has no effect in 3.9.1, on either
+tile set. Why (option name, parsing, edge grades) is not found out; the known limitation
+(methodology §1) stands.
+
 ## N12. Recommender follow-ups
 
 **Status:** open · **Added:** 6 Nov 2026 · **Related:** `methodology.md` §5 (M4),
@@ -380,3 +393,24 @@ What the first version (P7, branch `feature/rico-recommender`) leaves open:
   (M4) are not built yet.
 - The data page does not list the recommender limits or the wheelchair limitation (N11) yet; the
   recommendation panel states its limits.
+
+## N13. Validation follow-ups
+
+**Status:** open · **Added:** 6 Nov 2026 · **Related:** `docs/validation_report.md`,
+`methodology.md` §6, M1, M5, N1
+
+What the first validation report (branch `feature/rico-validation-report`) leaves open:
+
+- **V7 and V9 not run** (need people): protocols and result tables in the report; V9 by Socke
+  or Juju, incl. a newer snapshot a week later.
+- **OSM gaps (V2):** 13 of 104 Kitas of the city's list and 2 of 38 schools have no OSM match
+  (list in `data/experiments/<run>/v02/`); mapping them in OSM (or a licensed city list) would
+  lower childcare "lack" in a few areas. The city's pages state no licence, so the reference list
+  stays local.
+- **M5:** Moran's I / LISA work (V8: strong clusters on cells, none between districts); confirm
+  with the supervisors that this is the "adequate method", then show the LISA map in the app?
+- **Sensitivity (V5):** absolute shares depend strongly on speed and budget; the app and slides
+  should always name the profile and budget next to a share.
+- **V3/V4 as regression checks:** both run in seconds on stored data and could become checks of
+  `validate_results` (e.g. greedy gap ≤ 5 % for N = 5); only if the team wants it.
+

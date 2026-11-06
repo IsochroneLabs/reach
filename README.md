@@ -8,7 +8,7 @@ where new facilities would help the most people.
 Course project for **DS500 Data Science Project** (M.Sc. Data Science in Business and Economics,
 University of Tübingen, winter term 2026/27), Topic 9 "The 15-Minute City".
 
-> **Status: P7 (recommender) in review (6 Nov 2026).** The local stack
+> **Status: P7 (recommender and validation report) in review (6 Nov 2026).** The local stack
 > (PostGIS, Valhalla, API, web app behind Caddy), configuration, CI, the whole pipeline, the API
 > and the web app exist: `acquire` downloads OSM, GTFS and Zensus data, `validate` turns them
 > into checked layers, `make refresh` builds the Valhalla routing graph, `count` computes
@@ -17,7 +17,9 @@ University of Tübingen, winter term 2026/27), Topic 9 "The 15-Minute City".
 > `publish` loads each validated run into PostGIS and switches the `current` views to it, the
 > API serves the results as GeoJSON plus live isochrones and routes, and the web app shows the
 > class map, a pin-drop inspector, recommended sites with their catchments, district statistics
-> and the data & validation page. The validation report (V1–V11) is next; progress:
+> and the data & validation page. The validation experiments V1–V11 run with `make experiments`
+> and are interpreted in [`docs/validation_report.md`](docs/validation_report.md) (V7 and V9
+> need people and are not run yet); progress:
 > [`docs/implementation_plan.md`](docs/implementation_plan.md).
 
 ## What it does
@@ -31,7 +33,8 @@ University of Tübingen, winter term 2026/27), Topic 9 "The 15-Minute City".
   wheelchair), ranked by the reduction of unmet demand (greedy, methodology §5); a click shows
   the residents who would reach it within 15 minutes.
 - **Automated and validated** — a weekly pipeline downloads open data, validates it and publishes
-  new results only if all checks pass.
+  new results only if all checks pass; scripted experiments (V1–V11) test the method itself
+  ([validation report](docs/validation_report.md)).
 
 ## Architecture in one picture
 
@@ -52,14 +55,14 @@ with Docker Compose on one small server. Details: [`docs/architecture.md`](docs/
 
 | Path | Content | Status |
 |---|---|---|
-| `docs/` | Architecture, methodology, features, glossary, notes, team decisions | ✅ |
+| `docs/` | Architecture, methodology, validation report (with `figures/`), features, glossary, notes, team decisions | ✅ |
 | `AGENTS.md`, `CLAUDE.md` | Rules for coding agents | ✅ |
 | `CONTRIBUTING.md` | Branches, commits, pull requests, releases | ✅ |
 | `CHANGELOG.md` | Change history | ✅ |
-| `pipeline/` | Data pipeline (Python, uv workspace member): stages `acquire`, `validate`, `tiles`, `count`, `score`, `recommend`, `validate_results`, `publish`, `cleanup` | ✅ |
+| `pipeline/` | Data pipeline (Python, uv workspace member): stages `acquire`, `validate`, `tiles`, `count`, `score`, `recommend`, `validate_results`, `publish`, `cleanup`; validation experiments V1–V11 (`reach_pipeline.experiments`) | ✅ |
 | `api/` | FastAPI backend (Python, uv workspace member): read endpoints from `current`, live endpoints via Valhalla | ✅ |
 | `web/` | React + TypeScript + MapLibre frontend (npm): class map, inspector, recommended sites with catchments, districts, data & validation page | ✅ |
-| `config/` | Study area, profiles, categories, thresholds (`config.yaml`), test clip, Valhalla service config (`valhalla.json`) | ✅ |
+| `config/` | Study area, profiles, categories, thresholds (`config.yaml`), test clip, Valhalla service config (`valhalla.json`), validation experiments (`experiments.yaml`) | ✅ |
 | `infra/` | Caddyfile; `api.Dockerfile`, `web.Dockerfile` (web build in the Caddy image); `db/`: roles, migrations, run schema template; pipeline image, scheduler planned | partial |
 | `Makefile`, `compose.yaml`, `.env.example` | Local stack (incl. Valhalla and its one-shot tile build) and command wrappers | ✅ |
 | `tests/integration/` | Golden travel times against a local Valhalla on the test clip | ✅ |
@@ -93,6 +96,10 @@ make pipeline STAGE=count     # one stage against the running Valhalla (latest r
 make pipeline           # all stages without a tile rebuild (needs the tiles of a first refresh)
 make valhalla-config    # recreate Valhalla if config/valhalla.json changed (up, refresh and
                         # pipeline do this; count fails if Valhalla runs another config)
+make experiments        # validation experiments V1–V11 on the latest run (RUN_ID=… for another):
+                        # results in data/experiments/<run_id>/, figures in docs/figures/; V2
+                        # fetches the city's Kita and school pages once (cached in data/reference/),
+                        # V11 builds and serves a temporary elevation-free tile set on port 8005
 make down               # stop the stack
 ```
 
@@ -172,6 +179,7 @@ second `make up` replaces the containers of the first (images `reach-api:dev` an
 | [Destatis Zensus 2022](https://www.zensus2022.de/) 100 m grid | Residents per cell | dl-de/by-2-0 |
 | Elevation tiles via Valhalla | Slopes (per-profile setting) | per source |
 | [OpenFreeMap](https://openfreemap.org/) Positron (OpenMapTiles schema) | Basemap of the web app (no key) | © OpenMapTiles, © OpenStreetMap contributors (ODbL) |
+| [Universitätsstadt Tübingen](https://www.tuebingen.de/kindertageseinrichtungen) Kita and school pages | Reference list for the OSM completeness check (V2), fetched once, kept locally | none stated; validation only, not redistributed |
 
 © OpenStreetMap contributors · © Statistisches Bundesamt (Destatis) · NVBW.
 
@@ -182,6 +190,7 @@ second `make up` replaces the containers of the first (images `reach-api:dev` an
 | [`docs/architecture.md`](docs/architecture.md) | **Binding** system description, decisions and change log |
 | [`docs/methodology.md`](docs/methodology.md) | **Binding** categories, thresholds, scoring, recommender, validation experiments |
 | [`docs/data_contract.md`](docs/data_contract.md) | Table and file schemas between pipeline and API (draft) |
+| [`docs/validation_report.md`](docs/validation_report.md) | Validation experiments V1–V11: method, result, interpretation, limitations |
 | [`docs/features.md`](docs/features.md) | Features, priorities and roadmap |
 | [`docs/glossary.md`](docs/glossary.md) | Project vocabulary |
 | [`docs/notes.md`](docs/notes.md) | Open points and future work |
