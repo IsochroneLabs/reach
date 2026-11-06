@@ -51,9 +51,9 @@ export default function Controls({ meta, profile, category, cells, loading, erro
 
       <div className="legend">
         <div className="legend-title" aria-live="polite">
-          {/* the transit budget differs from the profile budget and is not in /api/meta */}
+          {/* the transit budget (walking time to stops) differs from the facility budget */}
           {category === TRANSIT
-            ? 'Public transport: weekday departures at stops within walking reach'
+            ? `Public transport: weekday departures at stops within ${profile.transit_budget_min} min`
             : `${categoryName(meta, category)} within ${profile.time_budget_min} min`}
           {loading && <span className="muted"> · loading…</span>}
         </div>

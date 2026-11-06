@@ -13,11 +13,12 @@ Rules for agents working in `web/` (React + TypeScript + Vite + MapLibre GL JS).
   rules), `src/route.ts` (view and selection in the URL hash), `src/labels.ts`,
   `src/attribution.ts`, `src/components/` (`MapView`, `Controls`, `Inspector`, `DistrictPanel`,
   `DataPage`). One stylesheet, `src/styles.css`.
-- **Read the API, do not re-derive.** Categories, names, `k`, profiles, transit class bounds and
-  run data come from `/api/meta`; classes, deficits and district shares from the API. Only
-  display aggregates (e.g. residents per class in the legend) are summed here. No thresholds,
-  category names, API or basemap URLs in code; fixed UI text (attribution links, the transit
-  label, the known limitations on the data page with their doc links) is fine.
+- **Read the API, do not re-derive.** Categories, names, `k`, profiles (incl. the transit
+  budget), transit class bounds and run data come from `/api/meta`; classes, deficits and
+  district shares from the API. Only display aggregates (e.g. residents per class in the
+  legend) are summed here. No thresholds, category names, API or basemap URLs in code; fixed UI
+  text (attribution links, the transit label, the known limitations on the data page with their
+  doc links) is fine.
 - **Settings** are build-time Vite variables in `.env.development` and `.env.production`
   (committed, no secrets; keep both in sync): `VITE_API_BASE`, `VITE_BASEMAP_STYLE`,
   `VITE_BASEMAP_ATTRIBUTION`, `VITE_DOCS_URL`; `VITE_DEV_API_PROXY` for `npm run dev` only. Type

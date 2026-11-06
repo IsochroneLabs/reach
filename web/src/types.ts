@@ -35,6 +35,8 @@ export interface Profile {
   speed_kmh: number
   time_budget_min: number
   transit: boolean
+  /** Walking time to stops (transit supply); null without transit. */
+  transit_budget_min: number | null
 }
 
 export interface Category {
