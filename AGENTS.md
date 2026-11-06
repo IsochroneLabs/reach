@@ -2,7 +2,7 @@
 
 Instructions for coding agents (Claude Code, Codex, Copilot, Cursor, …) working in this repository.
 They apply to every agent session, on behalf of any team member. Humans: see `README.md` and
-`CONTRIBUTING.md`. Folder-specific rules will live in `pipeline/AGENTS.md`, `api/AGENTS.md` and
+`CONTRIBUTING.md`. Folder-specific rules live in `pipeline/AGENTS.md`, `api/AGENTS.md` and
 `web/AGENTS.md`; the nearest `AGENTS.md` to the file you edit takes precedence.
 
 **Project:** `reach` measures 15-minute accessibility (walking, cycling, wheelchair) for all residents
