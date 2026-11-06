@@ -8,6 +8,11 @@ adds a line under `Unreleased`.
 ## [Unreleased]
 
 ### Added
+- `validate_results` check `false_negatives` (notes N9): random cell × facility pairs within the
+  prefilter reach that are not in `reachable` are routed with /route; the share reached within
+  the budget is reported per profile and category (report part 2, section "Missed facilities")
+  and warns above `validation.results.false_negatives.warn_above` (0), fails above
+  `fail_above` (2 %). Golden tests replay the recorded count blocks of the three N9 examples.
 - Web app (`web/`, P6): React + TypeScript + Vite + MapLibre GL JS, served by Caddy at `:8080`
   (`infra/web.Dockerfile`: Node 24 build → `caddy:2.11.7-alpine`). Profile and category
   selector, class map of cells from `/api/cells` with a colour-blind-safe legend (ordered
@@ -123,6 +128,13 @@ adds a line under `Unreleased`.
   Valhalla algorithms); glossary: grid cell (snapping), live endpoint, trusted proxy.
 
 ### Changed
+- Valhalla config is effective by construction (notes N9): the `valhalla` service mounts
+  `config/` (not the single file, whose bind mount kept the old inode after a git checkout),
+  copies `valhalla.json` to `<data_dir>/valhalla/valhalla.effective.json` at every start and
+  serves that copy. New `make valhalla-config` recreates the service if the copy differs (run
+  by `make up`, `make refresh` and `make pipeline`); `count` fails if Valhalla runs another
+  config and records the copy (input checksum, `report_count.json` `valhalla`, incl.
+  `thor.source_to_target_algorithm`).
 - `make up` builds the Caddy image with the web app; `infra/web-placeholder/` removed.
 - `config/valhalla.json`: `thor.source_to_target_algorithm` `costmatrix` instead of
   `select_optimal`, so every matrix request uses one algorithm (notes N8 settled; architecture
