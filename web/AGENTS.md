@@ -3,16 +3,17 @@
 Rules for agents working in `web/` (React + TypeScript + Vite + MapLibre GL JS). The root
 `AGENTS.md` applies; this file wins where it is more specific.
 
-- **Status:** P6 — class map, profile/category selector, legend, pin-drop inspector, district
-  statistics, data & validation page; recommendations layer prepared (hidden while
-  `/api/recommendations` reports `available: false`).
+- **Status:** P7 — class map, profile/category selector, legend, pin-drop inspector, district
+  statistics, data & validation page; recommended sites (panel + ranked markers, click →
+  stored catchment via `/api/catchment`), hidden while `/api/recommendations` has no features
+  for the selection.
 - **Toolchain:** Node 24 LTS (`.nvmrc`, `engines`); npm with `package-lock.json`, exact versions
   (`--save-exact`). Not part of the uv workspace. New or upgraded packages: ask first.
 - **Layout:** `src/api.ts` (all requests, `ApiError`, user messages per status), `src/types.ts`
   (response shapes of `docs/data_contract.md`), `src/palette.ts` (class colours and legend
   rules), `src/route.ts` (view and selection in the URL hash), `src/labels.ts`,
-  `src/attribution.ts`, `src/components/` (`MapView`, `Controls`, `Inspector`, `DistrictPanel`,
-  `DataPage`). One stylesheet, `src/styles.css`.
+  `src/attribution.ts`, `src/components/` (`MapView`, `Controls`, `Inspector`,
+  `RecommendationsPanel`, `DistrictPanel`, `DataPage`). One stylesheet, `src/styles.css`.
 - **Read the API, do not re-derive.** Categories, names, `k`, profiles (incl. the transit
   budget), transit class bounds and run data come from `/api/meta`; classes, deficits and
   district shares from the API. Only display aggregates (e.g. residents per class in the

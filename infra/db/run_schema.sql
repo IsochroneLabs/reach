@@ -85,6 +85,35 @@ CREATE TABLE transit_supply (
     PRIMARY KEY (cell_id, profile_id)
 );
 
+-- Recommender (methodology §5, recommend stage): ranked zones per category x profile. geom = the
+-- 100 m grid cell of the candidate (a zone, not an exact site), point_geom = its centre (the
+-- routing target of its catchment). Raw gains only; classes stay derived at read time.
+CREATE TABLE recommendations (
+    category                 text NOT NULL,
+    profile_id               text NOT NULL REFERENCES profiles,
+    rank                     integer NOT NULL CHECK (rank >= 1),
+    candidate_id             text NOT NULL,
+    population_gain          double precision NOT NULL CHECK (population_gain >= 0),
+    residents_gaining_access integer NOT NULL CHECK (residents_gaining_access >= 0),
+    residents_to_sufficient  integer NOT NULL CHECK (residents_to_sufficient >= 0),
+    catchment_residents      integer NOT NULL CHECK (catchment_residents >= 0),
+    catchment_cells          integer NOT NULL CHECK (catchment_cells >= 0),
+    geom                     geometry(Polygon, 25832) NOT NULL,
+    point_geom               geometry(Point, 25832) NOT NULL,
+    PRIMARY KEY (category, profile_id, rank),
+    UNIQUE (category, profile_id, candidate_id)
+);
+
+-- Catchments of the recommended candidates: scored cells reaching the candidate's centre within
+-- the facility budget (matrix time); the same for every category of a candidate and profile.
+CREATE TABLE recommendation_catchments (
+    candidate_id text NOT NULL,
+    profile_id   text NOT NULL REFERENCES profiles,
+    cell_id      text NOT NULL REFERENCES cells,
+    time_s       smallint NOT NULL CHECK (time_s >= 0),
+    PRIMARY KEY (candidate_id, profile_id, cell_id)
+);
+
 -- Category rows: k set, class/lower/upper null. Transit rows: category 'transit', class and
 -- bounds set, k null (upper null = open-ended).
 CREATE TABLE thresholds (
@@ -117,6 +146,7 @@ CREATE INDEX ON facility_points USING gist (geom);
 CREATE INDEX ON stops USING gist (geom);
 CREATE INDEX ON access_counts (category, profile_id);
 CREATE INDEX ON reachable (cell_id, profile_id);
+CREATE INDEX ON recommendations USING gist (geom);
 
 -- methodology §4: lack A = 0, insufficient 0 < A < k, sufficient A >= k;
 -- deficit U = P * max(0, 1 - A / k).

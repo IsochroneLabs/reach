@@ -4,11 +4,12 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 import pytest
 import yaml
 
-from reach_pipeline import results, scoring
+from reach_pipeline import recommend, results, scoring
 from reach_pipeline.config import Config, Monotonic, load_config
 
 REPO = Path(__file__).resolve().parents[2]
@@ -26,6 +27,7 @@ def cfg(tmp_path: Path) -> Config:
     data["validation"]["results"]["monotonic"] = [
         {"higher": "fast", "lower": "walk", "warn_above": 0, "fail_above": 0.5}
     ]
+    data["recommend"].update(profiles=["walk"], min_gain=1)
     path = tmp_path / "config.yaml"
     path.write_text(yaml.safe_dump(data), encoding="utf-8")
     return load_config(path)
@@ -344,3 +346,49 @@ def test_budget_flips_per_profile_and_direction(cfg: Config) -> None:
     missed["profiles"]["bike"]["grocery"]["false_negatives"] = 0
     check, _ = results.budget_flips(route, missed, bf)
     assert check.status == "ok" and check.value == 0.0
+
+
+def _with_recommendations(cfg: Config) -> results.Tables:
+    """Tables plus one greedy recommendation per category for `walk` (catchment: cells a, b)."""
+    t = _tables(cfg)
+    pop = t.cells["population"].to_numpy()
+    cover = np.array([[True, True, False]])
+    rows, rc = [], []
+    for c in cfg.categories:
+        a = t.access[(t.access["profile_id"] == "walk") & (t.access["category"] == c.id)]
+        counts = a.set_index("cell_id")["count"].reindex(t.cells["cell_id"]).to_numpy()
+        for p in recommend.greedy(cover, pop, counts, c.k, 5, 1):
+            rows.append(
+                {
+                    "category": c.id,
+                    "profile_id": "walk",
+                    "rank": p.rank,
+                    "candidate_id": "z1",
+                    "population_gain": p.population_gain,
+                    "residents_gaining_access": p.residents_gaining_access,
+                    "residents_to_sufficient": p.residents_to_sufficient,
+                    "catchment_residents": p.catchment_residents,
+                    "catchment_cells": p.catchment_cells,
+                }
+            )
+    rc = pd.DataFrame(
+        {"candidate_id": "z1", "profile_id": "walk", "cell_id": ["a", "b"], "time_s": [60, 600]}
+    )
+    t.recommendations, t.recommendation_catchments = pd.DataFrame(rows), rc
+    return t
+
+
+def test_recommendations_consistent(cfg: Config) -> None:
+    t = _with_recommendations(cfg)
+    assert len(t.recommendations) >= 1
+    assert results.recommendations_consistent(cfg, t).status == "ok"
+    bad = _with_recommendations(cfg)
+    bad.recommendations.loc[0, "population_gain"] += 5
+    check = results.recommendations_consistent(cfg, bad)
+    assert check.status == "fail" and "replay" in check.message
+    bad = _with_recommendations(cfg)
+    bad.recommendations["profile_id"] = "fast"  # not in recommend.profiles, catchment missing
+    assert results.recommendations_consistent(cfg, bad).status == "fail"
+    bad = _with_recommendations(cfg)
+    bad.recommendations["rank"] = 2
+    assert "ranks" in results.recommendations_consistent(cfg, bad).message

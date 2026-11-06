@@ -171,6 +171,48 @@ def test_catchment_point_and_validation(client: TestClient) -> None:
     )
 
 
+def test_catchment_of_a_recommended_zone(
+    client: TestClient, db: Any, rec: dict[str, Any], valhalla: respx.MockRouter
+) -> None:
+    db.recommendations = [
+        {
+            "properties": {
+                "category": "pharmacy",
+                "profile_id": "walking_339",
+                "rank": 1,
+                "candidate_id": "CRS3035RES100mN2823400E4251200",
+                "population_gain": 163.0,
+                "residents_gaining_access": 163,
+                "residents_to_sufficient": 163,
+                "point": [9.0568, 48.5204],
+            }
+        }
+    ]
+    req = {
+        "candidate_id": "CRS3035RES100mN2823400E4251200",
+        "category": "pharmacy",
+        "profile": "walking_339",
+    }
+    r = client.post("/api/catchment", json=req)
+    assert r.status_code == 200
+    body = r.json()
+    # the stored catchment of the recommender, no live matrix
+    assert body["source"] == "precomputed" and not valhalla["matrix"].called
+    assert body["cell_ids"] == [c["cell_id"] for c in rec["cells"]] and body["residents"] == 812
+    assert body["target"]["kind"] == "candidate" and body["target"]["rank"] == 1
+    assert body["residents_by_class"] == {"pharmacy": {"sufficient": 400}}
+    iso = json.loads(valhalla["isochrone"].calls.last.request.content)
+    assert iso["reverse"] is True
+    assert client.post("/api/catchment", json=req).json()["cached"] is True
+    for bad, status in [
+        ({**req, "category": "grocery"}, 404),  # not recommended for this category
+        ({**req, "category": "nope"}, 422),
+        ({"candidate_id": req["candidate_id"], "profile": "walking_339"}, 422),  # no category
+        ({**req, "facility_id": "n1"}, 422),  # two targets
+    ]:
+        assert client.post("/api/catchment", json=bad).status_code == status, bad
+
+
 def test_expansion(client: TestClient, valhalla: respx.MockRouter) -> None:
     body = client.post("/api/expansion", json=INSPECT).json()
     assert body["type"] == "FeatureCollection" and body["budget_min"] == 15.0

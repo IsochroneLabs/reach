@@ -1,5 +1,6 @@
 // MapLibre map: basemap, class map of cells, districts, inspector overlays (isochrone and route,
-// display only) and the recommendations layer (hidden until /api/recommendations has features).
+// display only), the recommendations layer (ranked zones; hidden while the run has none) and the
+// catchment of a selected zone (the cells that reach it, plus its reverse isochrone).
 import {
   AttributionControl,
   Map as MapLibreMap,
@@ -7,6 +8,7 @@ import {
   NavigationControl,
   ScaleControl,
   setWorkerUrl,
+  type ExpressionSpecification,
   type GeoJSONSource,
   type LngLatBoundsLike,
   type StyleSpecification,
@@ -18,8 +20,8 @@ import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url'
 import { useEffect, useRef, useState } from 'react'
 import type { FeatureCollection } from 'geojson'
 import { BASEMAP_ATTRIBUTION, DATA_ATTRIBUTION } from '../attribution'
-import { fillColourExpression } from '../palette'
-import type { Cells, Districts, Inspect, Recommendations } from '../types'
+import { fillColourExpression, RECOMMENDATION_COLOURS as REC } from '../palette'
+import type { CandidateCatchment, Cells, Districts, Inspect, Recommendations } from '../types'
 
 setWorkerUrl(workerUrl)
 
@@ -68,19 +70,46 @@ interface Props {
   pin: [number, number] | null
   routeCategory: string
   recommendations: Recommendations | null
+  selectedCandidate: string | null
+  catchment: CandidateCatchment | null
   onPick: (lon: number, lat: number) => void
+  onRecommendation: (candidateId: string) => void
+}
+
+/** True for the recommendation with this candidate id (selected marker). */
+const isCandidate = (id: string): ExpressionSpecification => ['==', ['get', 'candidate_id'], id]
+const pick = (id: string, yes: string, no: string): ExpressionSpecification => [
+  'case',
+  isCandidate(id),
+  yes,
+  no,
+]
+
+/** Zone centres as points (rank markers) from the zone polygons' `point` property. */
+function recommendationPoints(recs: Recommendations): FeatureCollection {
+  return {
+    type: 'FeatureCollection',
+    features: recs.features.map((f) => ({
+      type: 'Feature',
+      properties: { candidate_id: f.properties.candidate_id, rank: f.properties.rank },
+      geometry: { type: 'Point', coordinates: f.properties.point },
+    })),
+  }
 }
 
 export default function MapView(props: Props) {
   const { cells, classes, transit, districts, selectedDistrict, inspect, pin, routeCategory, recommendations } = props
+  const { selectedCandidate, catchment } = props
   const container = useRef<HTMLDivElement>(null)
   const mapRef = useRef<MapLibreMap | null>(null)
   const markerRef = useRef<Marker | null>(null)
   const [ready, setReady] = useState(false)
   const [basemapOk, setBasemapOk] = useState(true)
   const onPick = useRef(props.onPick)
+  const onRecommendation = useRef(props.onRecommendation)
   useEffect(() => {
     onPick.current = props.onPick
+    onRecommendation.current = props.onRecommendation
   })
 
   // Create the map once; districts are loaded before the map is mounted (initial bounds).
@@ -112,12 +141,20 @@ export default function MapView(props: Props) {
       )
       // Tile hiccups of the basemap must not end up as console errors or break the app.
       map.on('error', (e) => console.warn('map:', e.error?.message ?? e))
-      map.on('click', (e) => onPick.current(e.lngLat.lng, e.lngLat.lat))
+      // a click on a recommendation marker selects it; anywhere else drops the inspector pin
+      map.on('click', (e) => {
+        const hit = map?.getLayer('recommendations')
+          ? map.queryRenderedFeatures(e.point, { layers: ['recommendations'] })[0]
+          : undefined
+        if (hit) onRecommendation.current(String(hit.properties.candidate_id))
+        else onPick.current(e.lngLat.lng, e.lngLat.lat)
+      })
       map.on('load', () => {
         if (!map) return
         // data below the basemap labels, so street and place names stay readable
         const labels = map.getStyle().layers.find((l) => l.type === 'symbol')?.id
-        for (const id of ['cells', 'districts', 'isochrone', 'route', 'recommendations'])
+        const sources = ['cells', 'districts', 'isochrone', 'route', 'recommendations', 'recommendation-zones']
+        for (const id of [...sources, 'catchment', 'catchment-isochrone'])
           map.addSource(id, { type: 'geojson', data: EMPTY })
         map.addLayer(
           {
@@ -179,17 +216,57 @@ export default function MapView(props: Props) {
           paint: { 'line-color': '#111111', 'line-width': 3 },
         })
         map.addLayer({
+          id: 'catchment-line',
+          type: 'line',
+          source: 'catchment',
+          paint: { 'line-color': REC.catchment, 'line-width': 1.6, 'line-opacity': 0.9 },
+        })
+        map.addLayer({
+          id: 'catchment-isochrone',
+          type: 'line',
+          source: 'catchment-isochrone',
+          paint: {
+            'line-color': REC.catchment,
+            'line-width': ['match', ['get', 'contour_min'], 15, 2.4, 1.2],
+            'line-dasharray': [2, 1.5],
+          },
+        })
+        // the 100 m zone itself, visible when zoomed in
+        map.addLayer({
+          id: 'recommendation-zones',
+          type: 'line',
+          source: 'recommendation-zones',
+          minzoom: 13,
+          paint: { 'line-color': REC.ring, 'line-width': 2 },
+        })
+        map.addLayer({
           id: 'recommendations',
           type: 'circle',
           source: 'recommendations',
           layout: { visibility: 'none' },
           paint: {
-            'circle-radius': 7,
-            'circle-color': '#ffffff',
-            'circle-stroke-color': '#111111',
+            'circle-radius': 10,
+            'circle-color': pick('', REC.selected, REC.marker),
+            'circle-stroke-color': REC.ring,
             'circle-stroke-width': 2.5,
           },
         })
+        // rank numbers need the basemap's glyphs (not available in the offline fallback style)
+        if (map.getStyle().glyphs)
+          map.addLayer({
+            id: 'recommendations-rank',
+            type: 'symbol',
+            source: 'recommendations',
+            layout: {
+              visibility: 'none',
+              'text-field': ['to-string', ['get', 'rank']],
+              'text-size': 12,
+              'text-font': ['Noto Sans Bold'],
+              'text-allow-overlap': true,
+              'text-ignore-placement': true,
+            },
+            paint: { 'text-color': pick('', REC.selectedText, REC.ring) },
+          })
         setReady(true)
       })
     })
@@ -237,11 +314,41 @@ export default function MapView(props: Props) {
   }, [ready, inspect, routeCategory])
 
   useEffect(() => {
-    if (!ready) return
+    const map = mapRef.current
+    if (!ready || !map) return
     const show = Boolean(recommendations?.available && recommendations.features.length)
-    source('recommendations')?.setData(show && recommendations ? recommendations : EMPTY)
-    mapRef.current?.setLayoutProperty('recommendations', 'visibility', show ? 'visible' : 'none')
+    source('recommendations')?.setData(show && recommendations ? recommendationPoints(recommendations) : EMPTY)
+    source('recommendation-zones')?.setData(show && recommendations ? recommendations : EMPTY)
+    for (const id of ['recommendations', 'recommendations-rank'])
+      if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', show ? 'visible' : 'none')
   }, [ready, recommendations])
+
+  useEffect(() => {
+    const map = mapRef.current
+    if (!ready || !map) return
+    const id = selectedCandidate ?? ''
+    map.setPaintProperty('recommendations', 'circle-color', pick(id, REC.selected, REC.marker))
+    if (map.getLayer('recommendations-rank'))
+      map.setPaintProperty('recommendations-rank', 'text-color', pick(id, REC.selectedText, REC.ring))
+  }, [ready, selectedCandidate])
+
+  // Catchment of the selected zone: its cells (from the map's cells) and the reverse isochrone.
+  useEffect(() => {
+    if (!ready) return
+    const ids = new Set(catchment?.cell_ids ?? [])
+    const features = cells && ids.size ? cells.features.filter((f) => ids.has(f.properties.cell_id)) : []
+    source('catchment')?.setData({ type: 'FeatureCollection', features })
+    source('catchment-isochrone')?.setData(catchment?.isochrone ?? EMPTY)
+  }, [ready, catchment, cells])
+
+  const fittedCatchment = useRef<CandidateCatchment | null>(null)
+  useEffect(() => {
+    const map = mapRef.current
+    if (!ready || !map || !catchment || fittedCatchment.current === catchment) return
+    fittedCatchment.current = catchment
+    if (catchment.isochrone.features.length)
+      map.fitBounds(bboxOf(catchment.isochrone), { padding: 40, maxZoom: 15, duration: 600 })
+  }, [ready, catchment])
 
   useEffect(() => {
     const map = mapRef.current

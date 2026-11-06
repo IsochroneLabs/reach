@@ -43,6 +43,7 @@ class FakeDatabase:
         self.calls: list[str] = []
         self.run: str | None = RUN_ID
         self.allowed = True
+        self.recommendations: list[dict[str, Any]] | None = None
         self.scored = True
         self.scores = [
             {
@@ -199,6 +200,32 @@ class FakeDatabase:
 
     async def residents_by_class(self, cell_ids, category: str, profile_id: str):
         return {"sufficient": 400}
+
+    async def recommendations_geojson(self, run_id: str, category, profile_id):
+        self.calls.append("recommendations_geojson")
+        if self.recommendations is None:  # run published before the recommender
+            return None
+        features = [
+            f
+            for f in self.recommendations
+            if category in (None, f["properties"]["category"])
+            and profile_id in (None, f["properties"]["profile_id"])
+        ]
+        body = {"type": "FeatureCollection", "run_id": run_id, "available": True}
+        return json.dumps({**body, "features": features})
+
+    async def recommendation(self, candidate_id: str, category: str, profile_id: str):
+        for f in self.recommendations or []:
+            props = f["properties"]
+            if (props["candidate_id"], props["category"], props["profile_id"]) == (
+                candidate_id,
+                category,
+                profile_id,
+            ):
+                cells = [c["cell_id"] for c in self.rec["cells"]]
+                lon, lat = props["point"]
+                return {**props, "lon": lon, "lat": lat, "cell_ids": cells, "residents": 812}
+        return None
 
 
 def _make_deps(db: FakeDatabase, **api: Any) -> Deps:

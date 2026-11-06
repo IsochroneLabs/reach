@@ -1,7 +1,7 @@
 // Thin client for the reach API. Read endpoints send `Cache-Control: no-cache` and an ETag per
 // run, so the browser's HTTP cache revalidates them with `If-None-Match` and reuses the body on
 // 304; nothing is cached here on top of that.
-import type { Cells, DistrictScores, Districts, Inspect, Meta, Recommendations } from './types'
+import type { CandidateCatchment, Cells, DistrictScores, Districts, Inspect, Meta, Recommendations } from './types'
 
 const API_BASE: string = import.meta.env.VITE_API_BASE
 
@@ -49,6 +49,19 @@ export const getCells = (category: string, profile: string) =>
   request<Cells>(`/cells?${query({ category, profile })}`)
 export const getRecommendations = (category: string, profile: string) =>
   request<Recommendations>(`/recommendations?${query({ category, profile })}`)
+
+export const postCandidateCatchment = (
+  candidateId: string,
+  category: string,
+  profile: string,
+  signal?: AbortSignal,
+) =>
+  request<CandidateCatchment>('/catchment', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ candidate_id: candidateId, category, profile }),
+    signal,
+  })
 
 export const postInspect = (lon: number, lat: number, profile: string, signal?: AbortSignal) =>
   request<Inspect>('/inspect', {

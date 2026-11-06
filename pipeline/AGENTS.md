@@ -9,8 +9,8 @@ this file adds the stage pattern (note N2) and wins where it is more specific.
   `make pipeline STAGE=<stage>`; `run` executes all stages in `cli.STAGES` order.
   `--config` defaults to `$REACH_CONFIG`, else `config/config.yaml`; `--config` and `data_dir`
   are relative to the current directory, so run from the repository root. Run id: `--run-id`, else a new one for `run` and the first stage (`acquire`), else the latest
-  existing run. Stages that are not implemented yet are listed in `cli.PLANNED`: a single one
-  exits with code 2 and a clear message, `run` logs each as skipped.
+  existing run. Stages that are not implemented yet are listed in `cli.PLANNED` (empty since P7):
+  a single one exits with code 2 and a clear message, `run` logs each as skipped.
 - **Run id:** UTC `YYYYMMDDTHHMMSSZ` (`context.new_run_id`); DB schema `run_<id lowercased>`.
 - **One module per stage** in `src/reach_pipeline/stages/`, with `STAGE = "<name>"` and one
   public `run(ctx: RunContext) -> Manifest`. Register it in `cli.STAGES` in execution order.
@@ -57,8 +57,9 @@ this file adds the stage pattern (note N2) and wins where it is more specific.
 - **Tiles:** `tiles check` (flag file, no manifest) and `tiles verify` (manifest; also the step of
   `run`). Stages never call Docker; the build, swap and restart are `make refresh` (O19).
 - **Stages after count:** `score` (only `thresholds.parquet`; classes and deficits are SQL views),
-  `validate_results` (report part 2; a `fail` stops the run), `publish`, `cleanup`. `recommend`
-  (P7) goes between `score` and `validate_results`.
+  `recommend` (candidates, catchments in candidate groups, greedy per category × profile;
+  pure functions in `recommend.py`), `validate_results` (report part 2; a `fail` stops the
+  run), `publish`, `cleanup`.
 - **Database:** only through `db.py` (psycopg, autocommit connections, every write inside
   `conn.transaction()`). Only `publish` loads data and `cleanup` drops old run schemas (arch. §7);
   both connect as `pipeline_write` via `$DATABASE_URL_PIPELINE`. SQL lives in `infra/db/`

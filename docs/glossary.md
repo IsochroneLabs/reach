@@ -30,6 +30,8 @@ Project vocabulary used in code, docs, issues and prompts. People and roles ("yo
 | **k_c** | Sufficiency threshold of category *c* (`methodology.md` §2). |
 | **reachable** | Facilities a cell reaches within the time budget per profile, with matrix time (`reachable` table, written by `count`); the list behind `count (A)`, read by the inspector. |
 | **catchment** | Cells that reach a facility or candidate site within the time budget. |
+| **candidate (zone)** | 100 m Zensus grid cell inside the urban boundary, outside excluded land use, where the recommender may place one new facility; identified by its grid id (`candidate_id`); recommendations name zones, not exact sites (`methodology.md` §5). |
+| **gain (ΔW)** | Reduction of the deficit sum of a category and profile if one facility is added at a candidate: residents of its catchment weighted by the share of *k* the new facility fills (`methodology.md` §5). |
 | **grid cell (snapping)** | The 100 m Zensus grid cell under a clicked point, populated or not; its id is computed from EPSG:3035 and live endpoints start from its centre, so answers are cached per (run, cell, profile) (`architecture.md` §6.5 rule 8). |
 | **live endpoint** | API endpoint that calls Valhalla (`inspect`, `catchment`, `expansion`); boundary check first, cached, rate-limited. Read endpoints only read `current`. |
 | **trusted proxy** | Host whose `X-Forwarded-For` header the API believes (Caddy, `api.trusted_proxies`); for any other peer the client IP is the peer address. |

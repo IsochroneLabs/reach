@@ -107,14 +107,55 @@ def test_districts_and_scores(client: TestClient) -> None:
     assert client.get("/api/districts/nope/scores").status_code == 404
 
 
-def test_recommendations_empty_until_p7(client: TestClient) -> None:
-    body = client.get("/api/recommendations").json()
-    assert body == {
+def test_recommendations_unavailable_for_a_run_without_them(client: TestClient) -> None:
+    r = client.get("/api/recommendations")
+    assert r.json() == {
         "type": "FeatureCollection",
         "run_id": RUN_ID,
         "available": False,
         "features": [],
     }
+    assert r.headers["content-type"] == "application/geo+json"
+
+
+def _recommendation(category: str, profile: str, rank: int) -> dict:
+    return {
+        "type": "Feature",
+        "id": f"{profile}/{category}/{rank}",
+        "geometry": {"type": "Polygon", "coordinates": [[[9.05, 48.52], [9.06, 48.52]]]},
+        "properties": {
+            "category": category,
+            "profile_id": profile,
+            "rank": rank,
+            "candidate_id": f"CRS3035RES100mN2823{rank}00E4251200",
+            "population_gain": 300.0 / rank,
+            "residents_gaining_access": 250,
+            "residents_to_sufficient": 250,
+            "catchment_residents": 812,
+            "catchment_cells": 3,
+            "district_id": "r1",
+            "district_name": "Altstadt",
+            "point": [9.0568, 48.5204],
+        },
+    }
+
+
+def test_recommendations_filtered(client: TestClient, db: FakeDatabase) -> None:
+    db.recommendations = [
+        _recommendation("pharmacy", "walking_339", 1),
+        _recommendation("pharmacy", "walking_339", 2),
+        _recommendation("grocery", "walking_500", 1),
+    ]
+    body = client.get("/api/recommendations?category=pharmacy&profile=walking_339").json()
+    assert body["available"] is True
+    assert [f["properties"]["rank"] for f in body["features"]] == [1, 2]
+    assert len(client.get("/api/recommendations").json()["features"]) == 3
+    assert client.get("/api/recommendations?category=nope").status_code == 422
+    assert client.get("/api/recommendations?profile=nope").status_code == 422
+    # cached per run and filter: the second identical request does not query again
+    calls = db.calls.count("recommendations_geojson")
+    client.get("/api/recommendations")
+    assert db.calls.count("recommendations_geojson") == calls
 
 
 def test_no_published_run(client: TestClient, db: FakeDatabase) -> None:

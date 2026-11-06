@@ -40,7 +40,7 @@ from reach_pipeline.manifest import (
     write_manifest,
 )
 from reach_pipeline.metrics import measure
-from reach_pipeline.stages import acquire, count, score, validate, validate_results
+from reach_pipeline.stages import acquire, count, recommend, score, validate, validate_results
 from reach_pipeline.valhalla.client import costing_options
 
 STAGE = "publish"
@@ -69,6 +69,8 @@ def _paths(ctx: RunContext) -> dict[str, Path]:
         "reachable": c / count.REACHABLE,
         "transit_supply": c / count.TRANSIT,
         "thresholds": ctx.stage_dir(score.STAGE) / score.THRESHOLDS,
+        "recommendations": ctx.stage_dir(recommend.STAGE) / recommend.RECOMMENDATIONS,
+        "recommendation_catchments": ctx.stage_dir(recommend.STAGE) / recommend.REC_CATCHMENTS,
         "report_inputs": v / validate.REPORT_JSON,
         "report_results": ctx.stage_dir(validate_results.STAGE) / validate_results.REPORT_JSON,
         "data_sources": ctx.stage_dir(acquire.STAGE) / DATA_SOURCES,
@@ -106,6 +108,15 @@ def profiles_frame(cfg: Config) -> pd.DataFrame:
     )
 
 
+def recommendations_frame(path: Path) -> pd.DataFrame:
+    """`recommendations`: zone polygon (`geom`) and centre (`point_geom`) as hex EWKB."""
+    layer = gpd.read_parquet(path)
+    return pd.DataFrame(layer[recommend.REC_COLUMNS]).assign(
+        geom=db.ewkb(layer.geometry),
+        point_geom=db.ewkb(layer.set_geometry("point_geom").geometry),
+    )
+
+
 def report_frame(*reports: dict[str, Any]) -> pd.DataFrame:
     """`validation_report` rows from report parts 1 and 2."""
     rows = [c for r in reports for c in r["checks"]]
@@ -133,6 +144,8 @@ def tables(ctx: RunContext) -> dict[str, pd.DataFrame]:
         "reachable": pd.read_parquet(p["reachable"]),
         "transit_supply": pd.read_parquet(p["transit_supply"]),
         "thresholds": pd.read_parquet(p["thresholds"]),
+        "recommendations": recommendations_frame(p["recommendations"]),
+        "recommendation_catchments": pd.read_parquet(p["recommendation_catchments"]),
         "validation_report": report_frame(part1, part2),
     }
 

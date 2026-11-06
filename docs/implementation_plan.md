@@ -6,7 +6,7 @@
 > all profiles and categories; open decisions N4, N5, cycling factor). P4 merged (PR #22, 5 Nov
 > 2026; full depth; monotonicity with tolerance, N6). P5 merged (PR #24, 5 Nov 2026, full depth,
 > architecture v0.14); N8 follow-up: one matrix algorithm + `reachable` (architecture v0.15). P6 merged (PR #26,
-> 6 Nov 2026, squash; interim depth plus district panel; team review pending, after merge). Next: P7. This file is the **handoff between
+> 6 Nov 2026, squash; interim depth plus district panel; team review pending, after merge). P7 recommender in review (`feature/rico-recommender`, draft PR); validation report (V1–V11) next. This file is the **handoff between
 > agent sessions**: phase status, decisions, agreed deviations, measured numbers and next steps.
 > It is informative; `architecture.md` and `methodology.md` stay binding. Where this plan proposes
 > something that differs from them, it is listed in [Section 5](#5-conflicts-gaps-and-ambiguities)
@@ -26,7 +26,7 @@
 | P5 | API | `feature/rico-api` | [x] merged PR #24, 5 Nov (full depth; N7/N8 follow-up `fix/rico-matrix-algorithm`) | 21 Nov |
 | P6 | Web | `feature/rico-web` | [x] merged PR #26, 6 Nov (interim + district panel; ranking/polish after; team review pending) | 24 Nov |
 | — | **Interim demo (local), `v0.1.0`** | release PR `dev` → `main` on request | [ ] | 25 Nov |
-| P7 | Recommender + validation V1–V11 | `feature/rico-recommender`, `feature/rico-validation` | [ ] | 10 Jan |
+| P7 | Recommender + validation V1–V11 | `feature/rico-recommender` (draft PR), `feature/rico-validation-report` | [~] recommender in review; validation report next | recommender 20 Nov, report 10 Jan |
 | P8 | Production | `feature/rico-production` | [ ] | server from ~1 Dec, hardening until 15 Jan |
 
 The dates leave about four working days per phase until 25 Nov. To make the interim demo, P1–P6
@@ -177,6 +177,13 @@ views, polish.
 greedy with marginal gain ΔW, ranked zones), `recommendations` table; experiments V1–V11 as
 scripted analyses under `pipeline/src/reach_pipeline/experiments/` producing a Markdown/HTML
 report (`docs/validation_report.md` or the app page); V4 needs an MILP solver (dependency, ask).
+*Changed in P7 (Rico, 6 Nov 2026):* recommender before the interim (merge by 20 Nov, else left
+out of the demo); candidates = 100 m grid cells near deficits, land-use filter without
+industrial; catchments stored (`recommendation_catchments`, architecture §8 approved) and read
+by `/api/catchment` for a zone; profiles walking 3.39, walking 5.0, wheelchair (cycling off);
+pure objective (each zone once, no spacing); top 5, minimum gain 50, spacing 100 m. Methodology
+v0.6, architecture v0.18, data contract v0.10. Validation report as its own branch
+`feature/rico-validation-report`.
 
 ### P8 — Production
 
@@ -349,6 +356,12 @@ Confirmed by Rico (2 Nov 2026): C6–C12 as recommended in Section 5; Q4 also co
 | 2026-11-06 | N9 (Rico) | No counting error: the three examples take 932–984 s uphill at 3.39 km/h by block matrix, one-source matrix and /route alike; the reported 740–894 s were route length ÷ speed (slope effect N5). Valhalla config effective by construction (`config/` mounted, `valhalla.effective.json` copy served, `make valhalla-config`, `count` fails on a difference); new check `false_negatives` (20 pairs per profile × category, warn > 0, fail > 2 %); published run used `costmatrix` (recount bit-identical); squash-merge after green CI approved by Rico, team review pending |
 | 2026-11-06 | N5 decision (Rico) | Option (a): keep Valhalla's slope model for walking and wheelchair, no change to counts; architecture v0.16 (§6.1 per-profile table with evidence, O7), methodology v0.4 (§1 flat-ground speeds, conservative results; §6 G1 answered, V10 matrix vs. /route incl. new check `budget_flips`, V11 with vs. without slopes planned for P7; architecture §7 names the /route checks); wheelchair uses the same grade factor (881 s up / 700 s back / 666 s flat on Burgholzweg); `false_negatives` warn above 0.5 % (was 0), fail above 2 %. Branch `docs/rico-slope-walking` |
 | 2026-11-06 | N11 option (a) (Rico) | Wheelchair wording corrected: architecture v0.17 §6.1 (avoids steps, not steep sections; `max_grade` without effect), methodology v0.5 §1 known limitation, config comment; no change to counts or values; option (b) moves to V11 (P7). Branch `docs/rico-wheelchair-text`, squash-merge after green CI approved by Rico, team review pending |
+| 2026-11-06 | P7 answers (Rico) | (1) candidates (a): grid cells inside the urban boundary within the prefilter reach of a deficit cell; exclude `landuse=forest|farmland`, `natural=water|wood`, `boundary=protected_area`, `leisure=nature_reserve`, **not** `landuse=industrial` (supermarkets, doctors); 100 m / top 5 / min gain 50; (2) store `recommendation_catchments`, architecture §8 and data contract approved; (3) profiles walking 3.39, walking 5.0, wheelchair, cycling switchable and off; (4) pure objective, note in the app. Merge only after Rico's yes |
+| 2026-11-06 | P7 assumptions | Gain ΔW = reduction of the deficit sum (identical to methodology §5); candidates on the Zensus grid (id = lower-left corner, as the cells), spacing a multiple of 100 m; a candidate counts as outside excluded land use if its centre is; catchments per profile (category independent) in 500 m candidate groups (`recommend.group_size_m`), sources = cells within the prefilter reach of the group (§6.5 rule 7), `costmatrix` with the run's checked Valhalla config; a group Valhalla rejects (4xx) is retried per candidate and unsnappable candidates are dropped and reported; ties go to the lower grid id; `residents_gaining_access` = residents with count 0 before, `residents_to_sufficient` = count < k ≤ count + 1 (gains of later ranks assume the earlier zones are built); `recommend` is an input of `validate_results` (check `recommendations_consistent` replays the gains); `switch_current` drops `current` views of relations a run lacks; `/api/recommendations` is `application/geo+json` and adds the district containing the zone centre (read time); `/api/catchment` for a zone answers from the stored catchment (`source: precomputed`), the reverse isochrone stays live; web: ranked markers (rank numbers only with the basemap's glyphs), zone outline from zoom 13, catchment cells outlined; `Makefile` runs `recommend` in `refresh` and `pipeline` |
+| 2026-11-06 | P7 review (fresh agent) | No bugs in gain math, index mapping, CRS, grid ids (zones equal the Zensus cells), contract, publish/switch, API SQL or web state. Fixed: greedy stops at zero gain (with `min_gain: 0` it picked zones without effect); zone catchment query moved into the cached build (hits need no query, 404 not cached); a second click on the selected marker clears it (as in the list); grid ids vectorised; matrix size error names `recommend.group_size_m`. **Open (ask Rico):** `boundary=protected_area` also matches cultural heritage (`protect_class` 22: Altstadt ensemble, 51 cells / 5,429 residents never candidates), classes 14/97 and Naturpark Schönbuch (class 5, 17 cells) |
+| 2026-11-06 | Protected areas (Rico) | Option (a): exclude only `protect_class` 1–4 and 7 and `leisure=nature_reserve` (new key `recommend.exclude_protect_classes`, `{boundary: protected_area}` removed from `exclude_tags`); protected areas without a class stay allowed, count and area in log, manifest and `report_recommend.json`; methodology §5 / architecture §6.4 updated within v0.6 / v0.18 (same unmerged PR). PR #31 stays draft until Socke or Juju reviewed |
+| 2026-11-06 | P7 diagnostics | Port 8002 on the dev machine is Socke's `iso15` Valhalla 3.5.1 (rejects pedestrian matrices > 2,500 pairs); ours is 8003 via `.env`. Explains the N9 "Exceeded max locations" sighting; pipeline unaffected. Integration tests run against a temporary clip-tile container on 8004 (same image, existing clip tiles), so the demo stack keeps serving Tübingen |
+| 2026-11-06 | Valhalla URL (Rico) | No default: `valhalla.url: null`, `resolve_url` fails with a `ConfigError` (exit 2) without `VALHALLA_URL` (test); iso15 containers stopped (`docker compose down` in `~/Iso15-socke`, volumes kept). Merge of #31 after green CI approved by Rico ("Team review pending") |
 | 2026-11-06 | Inspector time (Rico) | The inspector shows travel times first: per reachable facility (matrix time, no longer greyed out) and for the route to the nearest (`nearest_route.properties.time_s` from /route, in minutes, bold), the route length as secondary text; Playwright smoke test checks both on the recorded fixture. Squash-merge after green CI approved by Rico, team review pending. Branch `fix/rico-inspector-time` |
 
 Measured numbers (runtime, peak memory, counts) are added here at the end of every phase.
@@ -414,6 +427,14 @@ Measured numbers (runtime, peak memory, counts) are added here at the end of eve
 | N9 | Recount of run `20261105T203945Z` inputs with the effective-config check (scratch, local stack busy with tests) | 524 s, 283 MB; 0 changed counts, classes or `reachable` rows |
 | N9 | New run `make refresh` (`20261106T100859Z`, new OSM 4 Nov, GTFS/Zensus unchanged): acquire / validate / tile build / count / validate_results / publish | 40 s / 15 s (2,673 MB) / 10 s / 480 s (296 MB) / 4.2 s (514 MB) / 9.5 s; checks: `false_negatives` warn 1/480, `matrix_vs_route` ok (max 5 s), monotonic warnings as before |
 | N9 | New vs. previous run (OSM change only): changed counts / classes over all cell × category × profile rows; headline shares | 0.63 % / 0.015 %; lack walking 3.39 grocery 32.80 % → 32.80 %, school 29.13 % → 29.41 % (wheelchair school 33.49 → 33.78 %); demo cells Burgholzweg 79 and Metzgergasse 6 unchanged |
+| P7 | `recommend` on run `20261106T114456Z` (3 profiles; Valhalla restarted before): runtime / peak RSS (osmium child) / Valhalla peak | 84 s / 954 MB / 1.21 GB (54 MB idle); catchments walking 3.39 19 s, walking 5.0 43 s, wheelchair 19 s; 124 requests per profile, max 292 / 513 sources; greedy < 0.1 s |
+| P7 | Candidates and results | 1,655 grid cells in the urban boundary, 172 excluded by land use, 1,483 kept, 0 not routable; 88 recommendations (5 per category × profile, parks walking 5.0: 3 above the minimum gain); 4,966 catchment rows; `recommendations_consistent` ok; `validate_results` 4.4 s; publish 9.4 s |
+| P7 | Rerun with the protected-area classes (same run): candidates / dropped by land use / excluded polygons; protected areas kept (class: count, km²) | 1,566 (was 1,483) / 89 (was 172) / 2,165; 5: 1 / 154.93 (Naturpark Schönbuch), 14: 2 / 1.59, 22: 2 / 0.71, 97: 1 / 0.02, "Flächenhaftes Naturdenkmal": 1 / 0.00, none: 2 / 0.56 |
+| P7 | Rerun: recommend / validate_results / publish; Valhalla peak; changed recommendations | 84 s (1,030 MB RSS, osmium) / 4.1 s / 9.4 s; 1.30 GB; 1 of 88 (walking 5.0 childcare #5 Kilchberg → Bebenhausen, gain 160 → 161); top 3 unchanged; 4,942 catchment rows |
+| P7 | Plausibility: pharmacies (OSM `amenity=pharmacy`; no `healthcare=pharmacy`-only objects) in city / routing area; directories | 17 / 30; ~18 public pharmacies in directories (Das Örtliche, Gelbe Seiten); missing in OSM: Keltern-Apotheke (Kelternstr. 2, status unverified); Universitätsapotheke = hospital pharmacy (not public) |
+| P7 | Top-1 zones, walking 3.39: nearest facility per catchment cell (one diagnostic matrix, no budget cap) | pharmacy (Universität): 78 cells / 4,725 residents; 66 cells count 0, nearest 22.7 min median (max 38.4); grocery (Lustnau-Zentrum): 110 cells / 6,722; 29 cells count 0 (17.3 min median, max 19.3), 81 count 1 (8.9 min); nearest is the same REWE (260 m from the zone) for all cells; count 0 ⇔ nearest > 15 min holds in every cell |
+| P7 | `uv run pytest -m integration` (clip tiles on a temporary container, port 8004) | 5 passed |
+| P7 | API through Caddy: `/api/recommendations` (category × profile) / catchment of a zone, miss / hit | 3 KB; 52 ms / 6 ms (4.8 KB) |
 | N9 | `false_negatives` on run `20261105T203945Z`: 480 / 4,800 sampled pairs | 0 / 1 false negatives; 2.6 / 19.4 s, ~500 MB RSS (process incl. tables) |
 
 ## 8. Next steps
@@ -457,6 +478,12 @@ Measured numbers (runtime, peak memory, counts) are added here at the end of eve
    in the inspector followed (branch `fix/rico-inspector-time`: time first, length secondary). ~~N5~~ — settled (branch `docs/rico-slope-walking`): slopes
    kept for walking and wheelchair, V11 planned for P7; V10 = matrix vs. /route
    (`budget_flips` added).
+
+10. P7 recommender — draft PR from `feature/rico-recommender` (merge only after Rico's yes, by
+    20 Nov; if at risk, tell Rico by 16 Nov and keep it out of the interim demo). Open: notes
+    N12 (cycling off, osmium peak, decision card, equity mode M4, data page limits). Next: the
+    validation report V1–V11 (`feature/rico-validation-report`; V4 needs `pulp`, V2 an official
+    list: ask first).
 
 ## 9. Working rules (copy from the start prompt)
 

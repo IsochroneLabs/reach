@@ -22,6 +22,7 @@ from reach_pipeline.stages import (
     cleanup,
     count,
     publish,
+    recommend,
     score,
     tiles,
     validate,
@@ -38,16 +39,14 @@ STAGES: dict[str, Callable[[RunContext], Manifest]] = {
     tiles.STAGE: tiles.run,  # `tiles verify`; `tiles check` is called on its own (make refresh)
     count.STAGE: count.run,
     score.STAGE: score.run,
+    recommend.STAGE: recommend.run,
     validate_results.STAGE: validate_results.run,
     publish.STAGE: publish.run,
     cleanup.STAGE: cleanup.run,
 }
 # Stages that follow (C11), with the phase that implements them: a single one fails with a
 # clear message, `run` logs each as skipped. Move a stage to STAGES when it is implemented.
-# recommend belongs between score and validate_results (arch. §7).
-PLANNED: dict[str, str] = {
-    "recommend": "P7",
-}
+PLANNED: dict[str, str] = {}
 # Commands that are not stages: no run id, no manifest.
 MIGRATE = "migrate"
 

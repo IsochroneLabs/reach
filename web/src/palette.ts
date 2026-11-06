@@ -75,3 +75,13 @@ export function fillColourExpression(classes: string[], transit: boolean): Expre
   // the tuple type needs at least one label/colour pair, which `classes` always provides
   return ['match', ['get', 'class'], ...pairs, NO_CLASS_COLOUR] as unknown as ExpressionSpecification
 }
+
+/** Recommendations layer: ranked markers (light fill, dark ring, readable rank) and the selected
+ * zone's catchment (outline in the isochrone blue, so it reads as "who reaches this site"). */
+export const RECOMMENDATION_COLOURS = {
+  marker: '#ffffff',
+  ring: '#111111',
+  selected: '#1f3b70',
+  selectedText: '#ffffff',
+  catchment: '#1f3b70',
+}

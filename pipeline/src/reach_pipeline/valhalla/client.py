@@ -25,8 +25,15 @@ SPEED_OPTION = {"pedestrian": "walking_speed", "bicycle": "cycling_speed"}
 
 
 def resolve_url(cfg: Valhalla) -> str:
-    """Base URL: $VALHALLA_URL if set, else `valhalla.url` from the config."""
-    return (os.environ.get(URL_ENV) or cfg.url).rstrip("/")
+    """Base URL: $VALHALLA_URL if set, else `valhalla.url` from the config; fails if neither is
+    set, instead of guessing a local port that may belong to another service (notes N9)."""
+    url = os.environ.get(URL_ENV) or cfg.url
+    if not url:
+        raise ConfigError(
+            f"{URL_ENV} is not set and valhalla.url is null: set it in .env (see .env.example; "
+            "`make` passes .env) or run with `uv run --env-file .env`"
+        )
+    return url.rstrip("/")
 
 
 def costing_options(profile: Profile) -> dict[str, Any]:
@@ -110,7 +117,8 @@ class ValhallaClient:
         if per_request < 1:
             raise ConfigError(
                 f"{n_src} sources exceed valhalla.max_matrix_pairs "
-                f"({self.cfg.max_matrix_pairs}); use smaller count.block_size_m"
+                f"({self.cfg.max_matrix_pairs}); use a smaller count.block_size_m or "
+                "recommend.group_size_m"
             )
         src = _locations(sources)
         chunks = [targets[i : i + per_request] for i in range(0, n_tgt, per_request)]

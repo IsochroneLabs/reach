@@ -1,6 +1,6 @@
 # Methodology — reach
 
-> **Status:** draft v0.5 (6 Nov 2026). Binding definition of **what** is measured, scored,
+> **Status:** draft v0.6 (6 Nov 2026). Binding definition of **what** is measured, scored,
 > recommended and validated. `architecture.md` describes **how** the system computes it. Every
 > change bumps the version and adds a line to the [Change log](#change-log). Items marked
 > **[M#]** are open methodology questions (Section 7).
@@ -103,17 +103,32 @@ $C(x)$ (cells reaching *x* within the budget):
 
 $$\Delta W(x, c) = \sum_{i \in C(x)} P_i \cdot \left[\min\left(1, \tfrac{A_{i,c}+1}{k_c}\right) - \min\left(1, \tfrac{A_{i,c}}{k_c}\right)\right]$$
 
-Population-weighted gain in saturating coverage. The objective is monotone and submodular in the
-set of added sites, so greedy selection has a $(1 - 1/e)$ approximation guarantee.
+Population-weighted gain in saturating coverage. It equals the reduction of the deficit sum
+$\sum_i U_{i,c}$ (§4) when $A_{i,c}$ grows by one in the catchment. The objective is monotone and
+submodular in the set of added sites, so greedy selection has a $(1 - 1/e)$ approximation
+guarantee.
 
 **Procedure**
 
-1. Candidates: cells in high-deficit areas inside the urban boundary (`architecture.md` O17),
-   filtered by OSM land use (no water, forest, farmland, industrial, protected areas).
-2. Catchment of each candidate via Valhalla matrix (cells as sources, candidate as target).
-3. Greedy: pick the candidate with the largest $\Delta W$, update $A_{i,c}$, recompute, repeat.
-4. Output: **ranked zones** with residents gaining sufficient access, class changes and an
-   uncertainty note — not exact coordinates.
+1. Candidates: 100 m Zensus grid cells (populated or not; spacing in `config/config.yaml`) whose
+   centre lies inside the urban boundary (`architecture.md` O17), filtered by OSM land use (no
+   water, forest, farmland, nature reserves, and protected areas of a nature-protection class:
+   `protect_class` 1–4 and 7). Industrial and commercial land stays allowed: supermarkets and
+   doctors are often located there. Other protected areas stay allowed: landscape protection and
+   nature parks (class 5, e.g. Naturpark Schönbuch around villages), cultural heritage (class
+   22, e.g. the Altstadt ensemble) and areas without a class; their number and area are reported. Only candidates within the prefilter reach
+   of a cell with a deficit for the profile are routed; the others cannot gain anything.
+2. Catchment of each candidate via Valhalla matrix (cells as sources, candidate centre as target,
+   in groups of candidates, `architecture.md` §6.4); it is the same for every category of a
+   profile.
+3. Greedy per category and profile: pick the candidate with the largest $\Delta W$, update
+   $A_{i,c}$, recompute, repeat until top-*N* zones are chosen or the best gain falls below a
+   minimum (both in config). Each zone is chosen at most once; where $k_c \ge 2$ a neighbouring
+   zone can still rank high, because a second facility helps the same residents (pure
+   objective, no minimum spacing).
+4. Output: **ranked zones** (the 100 m candidate cell, not an exact site) with the gain
+   $\Delta W$, residents gaining access (cells that had $A_{i,c} = 0$), residents reaching
+   "sufficient", the catchment (cells and residents) and an uncertainty note.
 5. Optional equity mode (prioritise the worst-served cells) **[M4]**.
 
 **Stated limits (shown in the app):** accessibility only; zoning, parcels, minimum catchment,
@@ -156,6 +171,7 @@ wheelchair as well as cycling (`architecture.md` §6.1, notes N5); its effect on
 
 | Version | Date | Change | Why |
 |---|---|---|---|
+| v0.6 | 2026-11-06 | §5: ΔW = reduction of the deficit sum; candidates = 100 m grid cells inside the urban boundary, land-use filter without industrial and with protected areas only of nature classes (1–4, 7), only candidates within reach of a deficit routed; catchment per profile; greedy with top-*N* and minimum gain, each zone once (no spacing); output fields | P7 recommender; decisions by Rico (6 Nov 2026): keep industrial land use (supermarkets, doctors), pure objective for k ≥ 2, protected areas only of nature classes (heritage protection excluded the Altstadt) |
 | v0.5 | 2026-11-06 | §1: known limitation of the wheelchair profile (steps avoided, steep sections not; counts optimistic on hillsides) | N11: `max_grade` has no effect in Valhalla 3.9.1; architecture v0.17; no change to counts |
 | v0.4 | 2026-11-06 | §1: speeds are flat-ground speeds, Valhalla's slope model reduces them, results conservative; §6: new experiments V10 (matrix vs. /route: `matrix_vs_route`, `false_negatives`, flip rate `budget_flips`) and V11 (with vs. without slopes, P7), G1 answered | N5 settled (decision by Rico: keep the slope model, no change to counts); the matrix-vs-/route checks of N8/N9 had no V-number; architecture v0.16 |
 | v0.3 | 2026-11-02 | §1 unit = populated cells inside the city boundary (was: urban boundary); §5 candidates restricted to the urban boundary | Architecture v0.12, O11 (notes N3) |

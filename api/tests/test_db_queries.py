@@ -178,3 +178,17 @@ async def test_reachable_lists_published_facilities(pg: PostgresDatabase) -> Non
     ]
     assert 8 < rows[0]["lon"] < 10 and 48 < rows[0]["lat"] < 49.5
     assert await pg.reachable("a", "walk", 500_050, 5_400_050) == []  # nothing within budget
+
+
+async def test_recommendations(pg: PostgresDatabase) -> None:
+    body = json.loads(await pg.recommendations_geojson(RUN_ID, None, None))
+    assert body["available"] is True and len(body["features"]) == 1
+    f = body["features"][0]
+    assert f["id"] == "walk/pharmacy/1" and f["geometry"]["type"] == "Polygon"
+    assert f["properties"]["population_gain"] == 20 and 8 < f["properties"]["point"][0] < 10
+    assert f["properties"]["district_name"] == "One"  # zone of cell a lies in district d1
+    empty = json.loads(await pg.recommendations_geojson(RUN_ID, "grocery", "walk"))
+    assert empty["features"] == []
+    r = await pg.recommendation("CRS3035RES100mN1E1", "pharmacy", "walk")
+    assert r["cell_ids"] == ["a", "b"] and r["residents"] == 30 and r["rank"] == 1
+    assert await pg.recommendation("CRS3035RES100mN1E1", "grocery", "walk") is None

@@ -29,6 +29,7 @@ from reach_pipeline.stages import (
     cleanup,
     count,
     publish,
+    recommend,
     score,
     tiles,
     validate,
@@ -36,7 +37,17 @@ from reach_pipeline.stages import (
 )
 
 REPO = Path(__file__).resolve().parents[2]
-STAGE_MODULES = (acquire, validate, tiles, count, score, validate_results, publish, cleanup)
+STAGE_MODULES = (
+    acquire,
+    validate,
+    tiles,
+    count,
+    score,
+    recommend,
+    validate_results,
+    publish,
+    cleanup,
+)
 
 
 @pytest.fixture
@@ -240,16 +251,24 @@ def test_stage_order() -> None:
     assert not set(cli.STAGES) & set(cli.PLANNED)
 
 
+@pytest.fixture
+def planned(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A stage that is planned but not implemented (every real stage exists since P7)."""
+    monkeypatch.setattr(cli, "PLANNED", {"later": "P9"})
+
+
+@pytest.mark.usefixtures("planned")
 def test_planned_stage_fails_clearly(config_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
-    assert cli.main(["recommend", "--config", str(config_path)]) == 2
-    assert "stage 'recommend' is not implemented yet (planned in P7)" in capsys.readouterr().err
+    assert cli.main(["later", "--config", str(config_path)]) == 2
+    assert "stage 'later' is not implemented yet (planned in P9)" in capsys.readouterr().err
 
 
+@pytest.mark.usefixtures("planned")
 def test_failure_posts_to_webhook(config_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     sent: list[str] = []
     monkeypatch.setattr(cli.notify, "failure", lambda text: sent.append(text) or True)
-    assert cli.main(["recommend", "--config", str(config_path)]) == 2
-    assert len(sent) == 1 and "stage recommend" in sent[0] and "planned in P7" in sent[0]
+    assert cli.main(["later", "--config", str(config_path)]) == 2
+    assert len(sent) == 1 and "stage later" in sent[0] and "planned in P9" in sent[0]
 
 
 def test_migrate_needs_admin_url(
@@ -277,6 +296,7 @@ def test_tiles_check_runs_without_manifest(
     assert called == ["20261102T120000Z"]
 
 
+@pytest.mark.usefixtures("planned")
 def test_run_logs_planned_stages_as_skipped(
     config_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -292,6 +312,7 @@ def test_run_logs_planned_stages_as_skipped(
         "tiles",
         "count",
         "score",
+        "recommend",
         "validate_results",
         "publish",
         "cleanup",

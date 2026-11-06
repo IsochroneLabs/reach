@@ -8,15 +8,16 @@ where new facilities would help the most people.
 Course project for **DS500 Data Science Project** (M.Sc. Data Science in Business and Economics,
 University of Tübingen, winter term 2026/27), Topic 9 "The 15-Minute City".
 
-> **Status: P6 (web) in review (6 Nov 2026).** The local stack
-> (PostGIS, Valhalla, API, web app behind Caddy), configuration, CI, the whole pipeline except
-> the recommender, the API and the web app exist: `acquire` downloads OSM, GTFS and Zensus data,
-> `validate` turns them into checked layers, `make refresh` builds the Valhalla routing graph,
-> `count` computes reachable facilities per cell, category and profile plus public transport
-> departures, `validate_results` checks the results, `publish` loads each validated run into
-> PostGIS and switches the `current` views to it, the API serves the results as GeoJSON plus
-> live isochrones and routes, and the web app shows the class map, a pin-drop inspector,
-> district statistics and the data & validation page. The recommender is next; progress:
+> **Status: P7 (recommender) in review (6 Nov 2026).** The local stack
+> (PostGIS, Valhalla, API, web app behind Caddy), configuration, CI, the whole pipeline, the API
+> and the web app exist: `acquire` downloads OSM, GTFS and Zensus data, `validate` turns them
+> into checked layers, `make refresh` builds the Valhalla routing graph, `count` computes
+> reachable facilities per cell, category and profile plus public transport departures,
+> `recommend` ranks 100 m zones for new facilities, `validate_results` checks the results,
+> `publish` loads each validated run into PostGIS and switches the `current` views to it, the
+> API serves the results as GeoJSON plus live isochrones and routes, and the web app shows the
+> class map, a pin-drop inspector, recommended sites with their catchments, district statistics
+> and the data & validation page. The validation report (V1–V11) is next; progress:
 > [`docs/implementation_plan.md`](docs/implementation_plan.md).
 
 ## What it does
@@ -26,8 +27,9 @@ University of Tübingen, winter term 2026/27), Topic 9 "The 15-Minute City".
 - **Public transport supply** — scheduled weekday departures at stops within a 10-minute walk.
 - **Pin-drop inspector** — click anywhere in the city: what is reachable, how long it takes, and
   which category is the weakest.
-- **Recommendations** — candidate zones for new facilities, ranked by the number of residents who
-  would gain 15-minute access.
+- **Recommendations** — 100 m zones for one new facility per category and profile (walking,
+  wheelchair), ranked by the reduction of unmet demand (greedy, methodology §5); a click shows
+  the residents who would reach it within 15 minutes.
 - **Automated and validated** — a weekly pipeline downloads open data, validates it and publishes
   new results only if all checks pass.
 
@@ -54,9 +56,9 @@ with Docker Compose on one small server. Details: [`docs/architecture.md`](docs/
 | `AGENTS.md`, `CLAUDE.md` | Rules for coding agents | ✅ |
 | `CONTRIBUTING.md` | Branches, commits, pull requests, releases | ✅ |
 | `CHANGELOG.md` | Change history | ✅ |
-| `pipeline/` | Data pipeline (Python, uv workspace member): stages `acquire`, `validate`, `tiles`, `count`, `score`, `validate_results`, `publish`, `cleanup`; `recommend` planned | partial |
+| `pipeline/` | Data pipeline (Python, uv workspace member): stages `acquire`, `validate`, `tiles`, `count`, `score`, `recommend`, `validate_results`, `publish`, `cleanup` | ✅ |
 | `api/` | FastAPI backend (Python, uv workspace member): read endpoints from `current`, live endpoints via Valhalla | ✅ |
-| `web/` | React + TypeScript + MapLibre frontend (npm): class map, inspector, districts, data & validation page; recommendations planned (P7) | ✅ |
+| `web/` | React + TypeScript + MapLibre frontend (npm): class map, inspector, recommended sites with catchments, districts, data & validation page | ✅ |
 | `config/` | Study area, profiles, categories, thresholds (`config.yaml`), test clip, Valhalla service config (`valhalla.json`) | ✅ |
 | `infra/` | Caddyfile; `api.Dockerfile`, `web.Dockerfile` (web build in the Caddy image); `db/`: roles, migrations, run schema template; pipeline image, scheduler planned | partial |
 | `Makefile`, `compose.yaml`, `.env.example` | Local stack (incl. Valhalla and its one-shot tile build) and command wrappers | ✅ |
@@ -86,16 +88,17 @@ make up                 # start PostGIS, API, Caddy with the web app (+ Valhalla
 make migrate            # once: DB roles (passwords from .env), meta schema, migrations
 make refresh            # new run: acquire (~350 MB) → validate → build Valhalla tiles if the
                         # clipped OSM changed → swap + restart Valhalla → tiles verify → count
-                        # → score → validate_results → publish → cleanup
+                        # → score → recommend → validate_results → publish → cleanup
 make pipeline STAGE=count     # one stage against the running Valhalla (latest run)
-make pipeline           # all implemented stages without a tile rebuild; recommend is skipped
+make pipeline           # all stages without a tile rebuild
 make valhalla-config    # recreate Valhalla if config/valhalla.json changed (up, refresh and
                         # pipeline do this; count fails if Valhalla runs another config)
 make down               # stop the stack
 ```
 
 **Open the app:** after `make up` and a published run (`make refresh`), open
-<http://localhost:8080> — map, selectors, inspector (click the map), district panel and the
+<http://localhost:8080> — map, selectors, inspector (click the map), recommended sites (click a
+ranked marker or list entry for its catchment), district panel and the
 *Data & validation* page. A link can preset the view, e.g.
 `http://localhost:8080/#/map?profile=walking_339&category=grocery`. Frontend development with hot
 reload (Node 24):
