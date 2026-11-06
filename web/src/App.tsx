@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from 'react'
 import { errorMessage, getCells, getDistricts, getMeta, getRecommendations, postInspect } from './api'
 import Controls from './components/Controls'
 import DataPage from './components/DataPage'
@@ -57,11 +57,8 @@ function Main({ meta, districts }: { meta: Meta; districts: Districts }) {
 
   const viewKey = `${category}|${profile.profile_id}`
   // Results carry the selection they belong to; the previous cells stay visible while loading.
-  const [cellsResult, setCellsResult] = useState<{ key: string; cells: Cells | null; error: string | null }>({
-    key: '',
-    cells: null,
-    error: null,
-  })
+  const [cellsResult, setCellsResult] = useState<{ key: string; cells: Cells | null }>({ key: '', cells: null })
+  const [cellsError, setCellsError] = useState<{ key: string; message: string } | null>(null)
   const [recommendations, setRecommendations] = useState<{ key: string; data: Recommendations } | null>(null)
   const [pin, setPin] = useState<[number, number] | null>(null)
   const [inspect, setInspect] = useState<InspectState>({ status: 'idle' })
@@ -77,9 +74,8 @@ function Main({ meta, districts }: { meta: Meta; districts: Districts }) {
   useEffect(() => {
     let cancelled = false
     getCells(category, profile.profile_id).then(
-      (data) => !cancelled && setCellsResult({ key: viewKey, cells: data, error: null }),
-      (err: unknown) =>
-        !cancelled && setCellsResult((prev) => ({ key: viewKey, cells: prev.cells, error: errorMessage(err) })),
+      (data) => !cancelled && setCellsResult({ key: viewKey, cells: data }),
+      (err: unknown) => !cancelled && setCellsError({ key: viewKey, message: errorMessage(err) }),
     )
     return () => {
       cancelled = true
@@ -103,9 +99,15 @@ function Main({ meta, districts }: { meta: Meta; districts: Districts }) {
     inspectAbort.current?.abort()
     const controller = new AbortController()
     inspectAbort.current = controller
-    setInspect({ status: 'loading', showSpinner: false })
+    // keep the previous answer (dimmed) until the new one arrives: no flicker for fast answers
+    setInspect((prev) => ({
+      status: 'loading',
+      showSpinner: false,
+      previous: prev.status === 'done' ? prev.data : prev.status === 'loading' ? prev.previous : null,
+    }))
     const timer = window.setTimeout(() => {
-      if (!controller.signal.aborted) setInspect({ status: 'loading', showSpinner: true })
+      if (!controller.signal.aborted)
+        setInspect((prev) => (prev.status === 'loading' ? { ...prev, showSpinner: true } : prev))
     }, SPINNER_DELAY_MS)
     postInspect(lon, lat, profileId, controller.signal)
       .then(
@@ -136,17 +138,29 @@ function Main({ meta, districts }: { meta: Meta; districts: Districts }) {
 
   const cells = cellsResult.cells
   const cellsCurrent = cellsResult.key === viewKey
+  const cellsFailed = cellsError?.key === viewKey && !cellsCurrent
   const closeInspector = () => {
     inspectAbort.current?.abort()
     setPin(null)
     setInspect({ status: 'idle' })
   }
 
+  // phones: the inspector sits below the map
+  const scrollToInspector = (e: MouseEvent) => {
+    e.preventDefault()
+    document.getElementById('inspector')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+
   const districtName = (id: string | null) =>
     id ? (districts.features.find((f) => f.properties.district_id === id)?.properties.name ?? null) : null
   // colours follow the cells on the map (the previous selection stays visible while loading)
   const transitCells = cells?.category === TRANSIT
-  const classes = transitCells ? meta.transit_classes.map((t) => t.class) : [...FACILITY_CLASSES]
+  const classes = useMemo(
+    () => (transitCells ? meta.transit_classes.map((t) => t.class) : [...FACILITY_CLASSES]),
+    [transitCells, meta.transit_classes],
+  )
+  const shownInspect =
+    inspect.status === 'done' ? inspect.data : inspect.status === 'loading' ? inspect.previous : null
 
   return (
     <div className="app">
@@ -159,7 +173,7 @@ function Main({ meta, districts }: { meta: Meta; districts: Districts }) {
           <a href={routeHash({ view: 'map', profile: profile.profile_id, category })} aria-current={route.view === 'map' ? 'page' : undefined}>
             Map
           </a>
-          <a href="#/data" aria-current={route.view === 'data' ? 'page' : undefined}>
+          <a href={routeHash({ view: 'data', profile: profile.profile_id, category })} aria-current={route.view === 'data' ? 'page' : undefined}>
             Data &amp; validation
           </a>
         </nav>
@@ -168,18 +182,17 @@ function Main({ meta, districts }: { meta: Meta; districts: Districts }) {
         </span>
       </header>
 
-      {route.view === 'data' ? (
-        <DataPage meta={meta} />
-      ) : (
-        <main className="layout">
+      {route.view === 'data' && <DataPage meta={meta} />}
+      {/* the map stays mounted on the data page, so its position survives a view switch */}
+      <main className="layout" hidden={route.view === 'data'}>
           <aside className="sidebar">
             <Controls
               meta={meta}
               profile={profile}
               category={category}
               cells={cellsCurrent ? cells : null}
-              loading={!cellsCurrent}
-              error={cellsCurrent ? cellsResult.error : null}
+              loading={!cellsCurrent && !cellsFailed}
+              error={cellsFailed ? cellsError.message : null}
               onProfile={(id) => select({ profile: id })}
               onCategory={(id) => select({ category: id })}
             />
@@ -207,14 +220,18 @@ function Main({ meta, districts }: { meta: Meta; districts: Districts }) {
             transit={transitCells}
             districts={districts}
             selectedDistrict={district}
-            inspect={inspect.status === 'done' ? inspect.data : null}
+            inspect={shownInspect}
             pin={pin}
             routeCategory={category}
             recommendations={recommendations?.key === viewKey ? recommendations.data : null}
             onPick={pick}
           />
+          {pin && (
+            <a className="details-hint" href="#inspector" onClick={scrollToInspector}>
+              Details below ↓
+            </a>
+          )}
         </main>
-      )}
     </div>
   )
 }

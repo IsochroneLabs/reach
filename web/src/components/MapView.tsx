@@ -262,6 +262,7 @@ export default function MapView(props: Props) {
         className="map"
         data-testid="map"
         data-ready={ready && cells ? 'true' : 'false'}
+        role="region"
         aria-label="Map: click to inspect a location"
       />
       {!basemapOk && <div className="map-notice">Basemap unavailable — data layers only.</div>}

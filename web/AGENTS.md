@@ -16,7 +16,8 @@ Rules for agents working in `web/` (React + TypeScript + Vite + MapLibre GL JS).
 - **Read the API, do not re-derive.** Categories, names, `k`, profiles, transit class bounds and
   run data come from `/api/meta`; classes, deficits and district shares from the API. Only
   display aggregates (e.g. residents per class in the legend) are summed here. No thresholds,
-  category names or URLs in code.
+  category names, API or basemap URLs in code; fixed UI text (attribution links, the transit
+  label, the known limitations on the data page with their doc links) is fine.
 - **Settings** are build-time Vite variables in `.env.development` and `.env.production`
   (committed, no secrets; keep both in sync): `VITE_API_BASE`, `VITE_BASEMAP_STYLE`,
   `VITE_BASEMAP_ATTRIBUTION`, `VITE_DOCS_URL`; `VITE_DEV_API_PROXY` for `npm run dev` only. Type
@@ -26,7 +27,8 @@ Rules for agents working in `web/` (React + TypeScript + Vite + MapLibre GL JS).
   deuteranopia/protanopia/tritanopia (min. ΔE stated in the file) and a screenshot.
 - **Caching:** read endpoints carry an ETag per run; rely on the browser cache (`fetch` default)
   instead of an extra in-memory cache. Live calls (`/api/inspect`) are aborted when a new pin
-  is dropped; the spinner shows only after 300 ms.
+  is dropped; the previous answer stays (dimmed) and the spinner shows only after 300 ms, so
+  fast answers do not flicker. The map stays mounted on the data page (position kept).
 - **Attribution** (OSM, Destatis, NVBW, basemap) stays visible on the map (`compact: false`)
   and on the data page.
 - **MapLibre 6:** named imports only; the worker is emitted via `?url` and `setWorkerUrl`.

@@ -1,4 +1,4 @@
-// View and selection live in the URL hash (`#/map?profile=…&category=…`, `#/data`), so a demo
+// View and selection live in the URL hash (`#/map?profile=…&category=…`, `#/data?…`), so a demo
 // link opens a given view; no router dependency.
 import { useCallback, useEffect, useState } from 'react'
 
@@ -18,13 +18,13 @@ function parse(hash: string): Route {
   }
 }
 
+/** The data page keeps the map selection in its hash, so "Map" returns to it. */
 export function routeHash(route: Route): string {
-  if (route.view === 'data') return '#/data'
   const params = new URLSearchParams()
   if (route.profile) params.set('profile', route.profile)
   if (route.category) params.set('category', route.category)
   const search = params.toString()
-  return `#/map${search ? `?${search}` : ''}`
+  return `#/${route.view}${search ? `?${search}` : ''}`
 }
 
 export function useRoute(): [Route, (next: Route) => void] {

@@ -19,7 +19,8 @@ export default defineConfig({
   webServer: live
     ? undefined
     : {
-        command: 'npm run build && npx vite preview --port 4173 --strictPort --host 127.0.0.1',
+        // CI builds in its own step before the test
+        command: `${process.env.CI ? '' : 'npm run build && '}npx vite preview --port 4173 --strictPort --host 127.0.0.1`,
         url: previewUrl,
         reuseExistingServer: !process.env.CI,
         timeout: 120_000,

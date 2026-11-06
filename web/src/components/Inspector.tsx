@@ -5,7 +5,7 @@ import type { Inspect, Meta } from '../types'
 
 export type InspectState =
   | { status: 'idle' }
-  | { status: 'loading'; showSpinner: boolean }
+  | { status: 'loading'; showSpinner: boolean; previous: Inspect | null }
   | { status: 'done'; data: Inspect }
   | { status: 'error'; message: string }
 
@@ -23,21 +23,26 @@ const fmtMin = (m: number | null | undefined) => (m === null || m === undefined 
 export default function Inspector({ meta, state, districtName, category, onCategory, onClose }: Props) {
   if (state.status === 'idle') return null
   return (
-    <section className="card inspector" aria-label="Inspector" aria-busy={state.status === 'loading'}>
+    <section id="inspector" className="card inspector" aria-label="Inspector" aria-busy={state.status === 'loading'}>
       <header className="card-head">
         <h2>Location</h2>
         <button type="button" className="icon-btn" onClick={onClose} aria-label="Close inspector">
           ×
         </button>
       </header>
-      {state.status === 'loading' &&
-        (state.showSpinner ? (
-          <p className="loading" role="status">
-            <span className="spinner" aria-hidden="true" /> Calculating reachable facilities…
-          </p>
-        ) : (
-          <p className="loading placeholder" aria-hidden="true">&nbsp;</p>
-        ))}
+      {state.status === 'loading' && state.showSpinner && (
+        <p className="loading" role="status">
+          <span className="spinner" aria-hidden="true" /> Calculating reachable facilities…
+        </p>
+      )}
+      {state.status === 'loading' && !state.showSpinner && !state.previous && (
+        <p className="loading" aria-hidden="true">&nbsp;</p>
+      )}
+      {state.status === 'loading' && state.previous && (
+        <div className="stale">
+          <InspectBody data={state.previous} meta={meta} districtName={districtName} category={category} onCategory={onCategory} />
+        </div>
+      )}
       {state.status === 'error' && (
         <p className="error" role="alert">
           {state.message}

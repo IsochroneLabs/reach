@@ -76,7 +76,8 @@ test('loads the class map and inspects a location', async ({ page }) => {
   await expect(page.getByTestId('map')).toHaveAttribute('data-ready', 'true', { timeout: 30_000 })
   await expect(page.getByTestId('cells-summary')).toContainText('scored 100 m cells')
   await expect(page.locator('.maplibregl-ctrl-attrib')).toContainText('OpenStreetMap contributors')
-  await expect(page.locator('.maplibregl-ctrl-attrib')).toContainText('Destatis')
+  for (const credit of ['Destatis', 'NVBW', 'OpenMapTiles'])
+    await expect(page.locator('.maplibregl-ctrl-attrib')).toContainText(credit)
 
   const { x, y } = await initialPixel(page, POINT)
   await page.mouse.click(x, y)
@@ -93,6 +94,10 @@ test('loads the class map and inspects a location', async ({ page }) => {
 
 test('labels slow answers and explains timeouts and rate limits', async ({ page }) => {
   test.skip(live, 'error answers are mocked')
+  const errors: string[] = []
+  // the browser itself logs the mocked 504/429 responses; anything else is an error of the app
+  page.on('console', (m) => m.type() === 'error' && !m.text().startsWith('Failed to load resource') && errors.push(m.text()))
+  page.on('pageerror', (e) => errors.push(e.message))
   await mockNetwork(page)
   const answers: { status: number; body: string; headers: Record<string, string> }[] = [
     { status: 504, body: '{"detail":"live matrix timed out"}', headers: {} },
@@ -116,4 +121,5 @@ test('labels slow answers and explains timeouts and rate limits', async ({ page 
 
   await page.mouse.click(centre.x + 10, centre.y)
   await expect(page.getByRole('alert')).toContainText('wait 7 seconds')
+  expect(errors).toEqual([])
 })
