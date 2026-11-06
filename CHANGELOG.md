@@ -9,8 +9,9 @@ adds a line under `Unreleased`.
 
 ### Added (recommender, P7)
 - Pipeline stage `recommend` (methodology v0.6 §5, architecture v0.18 §6.4): 100 m grid
-  candidates inside the urban boundary without forest, farmland, water and protected areas
-  (industrial allowed), catchments per profile in candidate groups (`costmatrix`, cells →
+  candidates inside the urban boundary without forest, farmland, water, nature reserves and
+  protected areas of nature classes (`protect_class` 1–4, 7; industrial, landscape, heritage and
+  unclassified protected areas allowed, the latter reported), catchments per profile in candidate groups (`costmatrix`, cells →
   zone centre), greedy per category × profile with gain = reduction of the deficit sum; top 5
   per category, minimum gain 50 residents, profiles `walking_339`, `walking_500`,
   `wheelchair_339` (cycling off for now); new config section `recommend`.

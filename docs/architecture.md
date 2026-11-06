@@ -240,8 +240,9 @@ For a candidate location *x*, the catchment is the set of cells that reach *x* w
 matrix with nearby cells as sources and *x* as target. The greedy recommender
 (`methodology.md` §5) uses these catchments to compute marginal gains. Candidates are 100 m
 Zensus grid cells inside the urban boundary near cells with a deficit, filtered by OSM land use
-(no water, forest, farmland, protected areas; tags in `config/config.yaml`, read with osmium from
-the run's clipped PBF). Catchments depend on the profile only, so one set of matrices per profile
+(no water, forest, farmland, nature reserves, protected areas with `protect_class` 1–4 or 7;
+tags and classes in `config/config.yaml`, read with osmium from the run's clipped PBF; other
+protected areas are only counted in `report_recommend.json`). Catchments depend on the profile only, so one set of matrices per profile
 serves all categories (rule 7). The catchments of the recommended zones are stored
 (`recommendation_catchments`), so `/api/catchment` shows exactly the cells the recommender used.
 
@@ -561,7 +562,7 @@ documented here in the same branch (see `AGENTS.md`).
 
 | Version | Date | Change | Why |
 |---|---|---|---|
-| v0.18 | 2026-11-06 | §6.4: candidates = grid cells near deficits, land-use filter without industrial, catchments per profile, stored catchments of the picks; §7 `recommend` row; §8 `recommendations` columns and new `recommendation_catchments`; §9 catchment of a recommended zone | P7 recommender; decisions by Rico (6 Nov 2026): store the catchments (numbers in the app match the recommendation), keep industrial land use; methodology v0.6 |
+| v0.18 | 2026-11-06 | §6.4: candidates = grid cells near deficits, land-use filter without industrial, protected areas of nature classes only, catchments per profile, stored catchments of the picks; §7 `recommend` row; §8 `recommendations` columns and new `recommendation_catchments`; §9 catchment of a recommended zone | P7 recommender; decisions by Rico (6 Nov 2026): store the catchments (numbers in the app match the recommendation), keep industrial land use; methodology v0.6 |
 | v0.17 | 2026-11-06 | §6.1: wheelchair profile avoids steps only; `max_grade` excludes no edges in Valhalla 3.9.1, steep sections stay in wheelchair routes (known limitation) | N11 evidence: four steep routes give the same route, time and length for every `max_grade` value; the old text ("avoids steps and steep sections") overstated the profile; no change to counts or config values |
 | v0.16 | 2026-11-06 | §6.1: Valhalla applies elevation to every profile (pedestrian grade factor for walking and wheelchair, bicycle costing for cycling), per-profile table with evidence; §12: slope-aware walking removed from out of scope; O7 changed (slope model kept, slope-free times only for V11); §7: `validate results` checks `reachable` and calls /route (`matrix_vs_route`, `false_negatives`, budget flips, methodology V10) | N5/N9: walking and wheelchair times already included slopes (e.g. 984 s instead of 740 s uphill), the old text said "ignored for now"; `use_hills` cannot switch it off; decision by Rico: keep it, no change to counts; the §7 stage table did not mention the /route checks (N8 review) |
 | v0.15 | 2026-11-05 | §6.5 rule 2: every matrix uses `costmatrix` (service config); rule 6: `count` also yields `reachable`; rule 8: inspector lists reachable facilities from `current.reachable`, live matrix only for grid cells without residents; §8: `reachable` table | N8: `select_optimal` mixed two algorithms (2.5 % of live/precomputed pairs differed; `timedistancematrix` misses wheelchair routes); N7 settled; confirmed by Rico (variant C) |

@@ -112,8 +112,11 @@ guarantee.
 
 1. Candidates: 100 m Zensus grid cells (populated or not; spacing in `config/config.yaml`) whose
    centre lies inside the urban boundary (`architecture.md` O17), filtered by OSM land use (no
-   water, forest, farmland, protected areas). Industrial and commercial land stays allowed:
-   supermarkets and doctors are often located there. Only candidates within the prefilter reach
+   water, forest, farmland, nature reserves, and protected areas of a nature-protection class:
+   `protect_class` 1–4 and 7). Industrial and commercial land stays allowed: supermarkets and
+   doctors are often located there. Other protected areas stay allowed: landscape protection and
+   nature parks (class 5, e.g. Naturpark Schönbuch around villages), cultural heritage (class
+   22, e.g. the Altstadt ensemble) and areas without a class; their number and area are reported. Only candidates within the prefilter reach
    of a cell with a deficit for the profile are routed; the others cannot gain anything.
 2. Catchment of each candidate via Valhalla matrix (cells as sources, candidate centre as target,
    in groups of candidates, `architecture.md` §6.4); it is the same for every category of a
@@ -168,7 +171,7 @@ wheelchair as well as cycling (`architecture.md` §6.1, notes N5); its effect on
 
 | Version | Date | Change | Why |
 |---|---|---|---|
-| v0.6 | 2026-11-06 | §5: ΔW = reduction of the deficit sum; candidates = 100 m grid cells inside the urban boundary, land-use filter without industrial, only candidates within reach of a deficit routed; catchment per profile; greedy with top-*N* and minimum gain, each zone once (no spacing); output fields | P7 recommender; decisions by Rico (6 Nov 2026): keep industrial land use (supermarkets, doctors), pure objective for k ≥ 2 |
+| v0.6 | 2026-11-06 | §5: ΔW = reduction of the deficit sum; candidates = 100 m grid cells inside the urban boundary, land-use filter without industrial and with protected areas only of nature classes (1–4, 7), only candidates within reach of a deficit routed; catchment per profile; greedy with top-*N* and minimum gain, each zone once (no spacing); output fields | P7 recommender; decisions by Rico (6 Nov 2026): keep industrial land use (supermarkets, doctors), pure objective for k ≥ 2, protected areas only of nature classes (heritage protection excluded the Altstadt) |
 | v0.5 | 2026-11-06 | §1: known limitation of the wheelchair profile (steps avoided, steep sections not; counts optimistic on hillsides) | N11: `max_grade` has no effect in Valhalla 3.9.1; architecture v0.17; no change to counts |
 | v0.4 | 2026-11-06 | §1: speeds are flat-ground speeds, Valhalla's slope model reduces them, results conservative; §6: new experiments V10 (matrix vs. /route: `matrix_vs_route`, `false_negatives`, flip rate `budget_flips`) and V11 (with vs. without slopes, P7), G1 answered | N5 settled (decision by Rico: keep the slope model, no change to counts); the matrix-vs-/route checks of N8/N9 had no V-number; architecture v0.16 |
 | v0.3 | 2026-11-02 | §1 unit = populated cells inside the city boundary (was: urban boundary); §5 candidates restricted to the urban boundary | Architecture v0.12, O11 (notes N3) |

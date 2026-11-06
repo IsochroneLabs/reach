@@ -303,9 +303,13 @@ old inode); a 25 × 101 pedestrian request was refused with error 150 "Exceeded 
   under the budget counts (matrix and /route differ by seconds, `matrix_vs_route`); the
   start-time copy assumes the Valhalla image runs as root (it writes into the tile bind mount)
   — check on the server in P8.
-- The "Exceeded max locations: 2500" error is not reproducible (25 × 101, 25 × 476 and
-  1 × 2,600 pass for pedestrian, wheelchair and bicycle); 2,500 is the limit of the `auto`
-  costing.
+- The "Exceeded max locations: 2500" error is not reproducible on our service (25 × 101, 25 ×
+  476 and 1 × 2,600 pass for pedestrian, wheelchair and bicycle). **Likely cause (6 Nov 2026):**
+  on this machine `localhost:8002` is another project's Valhalla (3.5.1, container
+  `iso15-socke-valhalla-1`), which rejects every pedestrian matrix above 2,500 pairs; our
+  service listens on `localhost:8003` (`VALHALLA_URL` in `.env`). A script that does not load
+  `.env` falls back to `valhalla.url` (`http://localhost:8002`) and asks the wrong service. The
+  pipeline (`make`, `uv run --env-file .env`) is not affected.
 
 **Open:** none. The inspector shows the route time first and its length second (6 Nov 2026,
 branch `fix/rico-inspector-time`). N5 settled (6 Nov 2026: slopes kept); `false_negatives` warns above 0.5 % since then (one hit in ~480
