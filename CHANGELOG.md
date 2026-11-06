@@ -134,7 +134,8 @@ adds a line under `Unreleased`.
   serves that copy. New `make valhalla-config` recreates the service if the copy differs (run
   by `make up`, `make refresh` and `make pipeline`); `count` fails if Valhalla runs another
   config and records the copy (input checksum, `report_count.json` `valhalla`, incl.
-  `thor.source_to_target_algorithm`).
+  `thor.source_to_target_algorithm`); `validate_results` fails if Valhalla's config changed
+  since `count`.
 - `make up` builds the Caddy image with the web app; `infra/web-placeholder/` removed.
 - `config/valhalla.json`: `thor.source_to_target_algorithm` `costmatrix` instead of
   `select_optimal`, so every matrix request uses one algorithm (notes N8 settled; architecture

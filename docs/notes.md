@@ -232,7 +232,8 @@ example above. Memory: the Valhalla peak during `count` comes from `costmatrix` 
 
 ## N9. Block matrices can miss facilities that a one-source matrix reaches within the budget
 
-**Status:** settled 6 Nov 2026 (no counting error; branch `fix/rico-count-missing`) · **Added:**
+**Status:** settled 6 Nov 2026 (the three examples are no counting error; rare block
+misses are now measured by `false_negatives`; branch `fix/rico-count-missing`) · **Added:**
 6 Nov 2026 · **Related:** `architecture.md` §6.5, N5, N8, `validate_results`
 (`matrix_vs_route`, `false_negatives`)
 
@@ -253,7 +254,7 @@ old inode); a 25 × 101 pedestrian request was refused with error 150 "Exceeded 
 
 **Resolution (6 Nov 2026):**
 
-- **No missed facilities.** With the running service, the count block, a one-source matrix, a
+- **The three examples are not missed.** With the running service, the count block, a one-source matrix, a
   39–365-source × 1-target matrix, `/api/catchment` and `/route` give the same time (±1 s) for
   all three examples: walking 3.39 984 s, 944 s, 932 s (not counted, correct); walking 5.0
   667 s, 640 s, 633 s (counted). The "one source" numbers above are route **length** ÷ 3.39 km/h
@@ -277,6 +278,20 @@ old inode); a 25 × 101 pedestrian request was refused with error 150 "Exceeded 
   within the prefilter reach that are not in `reachable`. Run `20261105T203945Z`: 0 of 480
   (2.6 s); a one-off sample of 4,800 pairs found 1 (cycling, /route 896.7 s, one-source matrix
   896 s, block matrix 906 s: `costmatrix` depends on the request, N8), i.e. ~0.02 %.
+  New run `20261106T100859Z` (OSM 4 Nov): 1 of 480 (warn; cycling `CRS3035RES100mN2826200E4254900`
+  → grocery `w217635610`: block matrix 954 s, one-source 859 s, /route 860 s) and 1 of 4,800 in
+  a one-off sample (walking 5.0, /route 883 s). So block `costmatrix` times can be longer than
+  one-source times (here by 95 s), but rarely (~0.02 % of the non-reachable pairs within reach,
+  i.e. on the order of 100 of ~430,000 pairs over all profiles); `fail_above` 2 % stays far
+  above that. Removing it (e.g. a one-source second pass for pairs within reach that are not
+  reachable, or smaller blocks) changes counts → ask first.
+- **Limits of the checks (review):** `count` checks the copy in its `data_dir`, not the service
+  behind `VALHALLA_URL` (another Valhalla with a stale matching copy would pass);
+  `validate_results` fails if the copy changed since `count` (checksum in
+  `report_count.json`); `false_negatives` has no tolerance, so a /route time a few seconds
+  under the budget counts (matrix and /route differ by seconds, `matrix_vs_route`); the
+  start-time copy assumes the Valhalla image runs as root (it writes into the tile bind mount)
+  — check on the server in P8.
 - The "Exceeded max locations: 2500" error is not reproducible (25 × 101, 25 × 476 and
   1 × 2,600 pass for pedestrian, wheelchair and bicycle); 2,500 is the limit of the `auto`
   costing.
