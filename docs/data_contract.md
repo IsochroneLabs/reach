@@ -194,7 +194,9 @@ The Markdown file renders the same content. Part 2: see `validate_results/` belo
 
 Outside the run directory, `<data_dir>/valhalla/` holds `valhalla_tiles.tar` (served),
 `valhalla_tiles.prev.tar` (rollback), `tiles_source.sha256` (fingerprint of the last build),
-`elevation/` (cached elevation tiles) and `build/` (scratch space of `valhalla-build`).
+`valhalla.effective.json` (copy of `config/valhalla.json` written by the `valhalla` service at
+every start; the service runs with exactly this copy), `elevation/` (cached elevation tiles) and
+`build/` (scratch space of `valhalla-build`).
 
 ### `count/` *(implemented, P3)*
 
@@ -206,7 +208,7 @@ Plain Parquet (no geometry), columns and types as in the run schema above:
 | `reachable.parquet` | cell × profile × facility within the budget | `cell_id`, `profile_id`, `facility_id`, `time_s` (int16) |
 | `transit_supply.parquet` | cell × profile with `transit: true` | `cell_id`, `profile_id`, `departures` (int32, sum over stops reachable within the transit budget), `stops_count` (int32), `nearest_stop_min` (double, null if none within the budget) |
 | `stops.parquet` | GTFS stop (GeoParquet) | validate's `stops` + `weekday_departures` (int64: stop events of trips active on the reference weekday, without `pickup_type` 1) |
-| `report_count.json` | run | `reference_weekday`, `cells`, `profiles` {profile: `blocks`, `requests`, `runtime_s`, `max_sources`, `targets_max`, `targets_median`, `pairs`, `facility_reach_m`, `transit_reach_m`}, `evidence` (`sample_blocks`, per profile `facilities` / `stops`: `pairs`, `reachable_pairs`, `nominal_reach_m`, `prefilter_reach_m`, `max_reachable_distance_m`, `required_factor`, `max_speed_ratio_by_band`, `beyond_nominal`, `beyond_prefilter`; `beyond_prefilter_examples`), `runtime_s`, `peak_rss_mb` |
+| `report_count.json` | run | `reference_weekday`, `cells`, `valhalla` (`effective_config` path, `sha256`, `source_to_target_algorithm` of the config Valhalla runs with; `count` fails if it differs from `config/valhalla.json`), `profiles` {profile: `blocks`, `requests`, `runtime_s`, `max_sources`, `targets_max`, `targets_median`, `pairs`, `facility_reach_m`, `transit_reach_m`}, `evidence` (`sample_blocks`, per profile `facilities` / `stops`: `pairs`, `reachable_pairs`, `nominal_reach_m`, `prefilter_reach_m`, `max_reachable_distance_m`, `required_factor`, `max_speed_ratio_by_band`, `beyond_nominal`, `beyond_prefilter`; `beyond_prefilter_examples`), `runtime_s`, `peak_rss_mb` |
 
 `nearest_min` is only stored up to the budget: beyond it the straight-line prefilter does not
 guarantee that the nearest facility was among the matrix targets.

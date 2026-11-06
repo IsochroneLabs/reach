@@ -8,7 +8,13 @@ transit prefilter reach for transit profiles). Outputs, all EPSG:25832 / plain P
 - `transit_supply.parquet`: `cell_id`, `profile_id`, `departures`, `stops_count`,
   `nearest_stop_min` (profiles with `transit: true`)
 - `stops.parquet`: validate's stops plus `weekday_departures` on the reference weekday
-- `report_count.json`: per-profile statistics and the prefilter evidence (O20)
+- `report_count.json`: per-profile statistics, the prefilter evidence (O20) and the effective
+  Valhalla config
+
+Before any matrix call the stage checks that Valhalla runs with `config/valhalla.json`: the
+service copies the file at every start and serves that copy (`compose.yaml`); a missing or
+different copy fails the stage (notes N9). The copy is an input, so a Valhalla restart with
+another config invalidates the counts.
 """
 
 from __future__ import annotations
@@ -39,6 +45,7 @@ from reach_pipeline.manifest import (
     is_up_to_date,
     read_manifest,
     require_ok,
+    sha256_file,
     write_manifest,
 )
 from reach_pipeline.metrics import measure
@@ -362,12 +369,40 @@ def reference_day(vdir: Path) -> date:
     return date.fromisoformat(day)
 
 
+def check_valhalla_config(ctx: RunContext) -> dict[str, Any]:
+    """Effective Valhalla config (the copy the service started with) vs. `config/valhalla.json`.
+
+    Fails if the copy is missing or differs (compared as JSON); returns what the report and the
+    manifest record about it.
+    """
+    effective, expected = tiles.effective_config(ctx), tiles.valhalla_config(ctx)
+    if not effective.exists():
+        raise StageValidationError(
+            f"{effective} not found: Valhalla was not started by compose.yaml for this data_dir; "
+            "run `make valhalla-config` (recreates the service)"
+        )
+    got = json.loads(effective.read_text(encoding="utf-8"))
+    want = json.loads(expected.read_text(encoding="utf-8"))
+    if got != want:
+        sections = sorted(k for k in set(got) | set(want) if got.get(k) != want.get(k))
+        raise StageValidationError(
+            f"Valhalla runs with a config that differs from {expected} in {sections}; "
+            "run `make valhalla-config` (recreates the service)"
+        )
+    return {
+        "effective_config": str(effective),
+        "sha256": sha256_file(effective),
+        "source_to_target_algorithm": got.get("thor", {}).get("source_to_target_algorithm"),
+    }
+
+
 def _input_paths(ctx: RunContext) -> list[Path]:
     vdir = ctx.stage_dir(validate.STAGE)
     gtfs_dir = ctx.raw_dir / "gtfs"
     gtfs_files = [gtfs_dir / f for f in GTFS_FILES if (gtfs_dir / f).exists()]
     return [
         tiles.valhalla_config(ctx),
+        tiles.effective_config(ctx),
         vdir / validate.ROUTING_PBF,
         *(vdir / f"{name}.parquet" for name in LAYERS),
         vdir / validate.REPORT_JSON,
@@ -378,6 +413,8 @@ def _input_paths(ctx: RunContext) -> list[Path]:
 def run(ctx: RunContext) -> Manifest:
     """Count every cell × category × profile and the transit supply; write outputs + report."""
     require_ok(ctx.stage_dir(PREVIOUS), PREVIOUS, ctx.config)
+    valhalla = check_valhalla_config(ctx)
+    log.info("Valhalla config: %s", valhalla)
     stage_dir = ctx.stage_dir(STAGE)
     vdir = ctx.stage_dir(validate.STAGE)
     inputs = [config_input(ctx.config, CONFIG_SECTIONS), *file_inputs(_input_paths(ctx))]
@@ -416,6 +453,7 @@ def run(ctx: RunContext) -> Manifest:
         "generated_at": datetime.now(UTC).isoformat(timespec="seconds"),
         "reference_weekday": day.isoformat(),
         "cells": len(data.cell_ids),
+        "valhalla": valhalla,
         "profiles": stats,
         "evidence": evidence,
         "runtime_s": m.runtime_s,
@@ -443,7 +481,8 @@ def run(ctx: RunContext) -> Manifest:
             f"{len(access)} counts ({len(data.cell_ids)} cells × "
             f"{access['category'].nunique()} categories × {len(stats)} profiles), "
             f"{len(reachable)} reachable pairs, {len(supply)} transit rows, "
-            f"{sum(s['requests'] for s in stats.values())} matrix requests; "
+            f"{sum(s['requests'] for s in stats.values())} matrix requests "
+            f"({valhalla['source_to_target_algorithm']}); "
             f"beyond prefilter: {beyond}"
         ),
     )
