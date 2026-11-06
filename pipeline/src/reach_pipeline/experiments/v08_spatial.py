@@ -75,7 +75,7 @@ def global_moran(
         "I": round(observed, 4),
         "expected": round(-1 / (n - 1), 4),
         "p": round((larger + 1) / (permutations + 1), 4),
-        "z": round(float((observed - sims.mean()) / sims.std()), 2),
+        "z": round(float((observed - sims.mean()) / sims.std()), 2) if sims.std() else None,
         "n": n,
     }
 
@@ -163,7 +163,10 @@ def run(e: Experiment) -> dict[str, Any]:
     d = common.district_deficits(acc, cells, k)
     districts = e.districts.reset_index(drop=True)
     di, dj = touching_neighbours(districts.geometry.values)
-    d_has = np.bincount(di, minlength=len(districts)) > 0
+    scored = districts["district_id"].isin(d["district_id"]).to_numpy()
+    d_has = (np.bincount(di, minlength=len(districts)) > 0) & scored
+    pair_ok = d_has[di] & d_has[dj]
+    di, dj = di[pair_ok], dj[pair_ok]
     d_keep = np.flatnonzero(d_has)
     d_map = np.full(len(districts), -1)
     d_map[d_keep] = np.arange(len(d_keep))
@@ -171,10 +174,7 @@ def run(e: Experiment) -> dict[str, Any]:
     district_global = {}
     for cat, g in d.groupby("category"):
         share = (
-            g.set_index("district_id")["share_lack"]
-            .reindex(districts["district_id"])
-            .fillna(0)
-            .to_numpy()
+            g.set_index("district_id")["share_lack"].reindex(districts["district_id"]).to_numpy()
         )
         district_global[cat] = global_moran(share[d_keep], di, dj, s.permutations, rng)
     e.notes.append(

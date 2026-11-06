@@ -6,7 +6,10 @@ boundary is removed; counts drop by the removed facilities each cell reaches (`r
 Greedy (methodology §5) then picks as many zones as were removed, on the stored candidate
 catchments of the run. Measured: share of picks within r of a removed facility, share of
 removed facilities with a pick within r, and how much of the deficit the removal created the
-picks win back. Baseline: the same number of random routed candidates.
+picks win back. Two modes: `all_deficits` (the recommender as it runs: every remaining deficit
+counts) and `created_only` (each cell's counts are set so that its deficit is exactly the part
+the removal created; older deficits cannot be won back). Baseline: the same number of random
+routed candidates.
 Existing sites are not optimal, so a low hit rate does not mean the recommender is wrong.
 """
 
@@ -38,6 +41,12 @@ def hit_rates(pick_xy: np.ndarray, removed_xy: np.ndarray, radius_m: float) -> t
     )
     close = d <= radius_m
     return float(close.any(axis=1).mean()), float(close.any(axis=0).mean())
+
+
+def created_only_counts(counts0: np.ndarray, counts: np.ndarray, k: int) -> np.ndarray:
+    """Counts whose deficit P·max(0, 1 − A/k) is exactly the part the removal created,
+    P·(min(A0, k) − min(A, k)) / k; deficits that existed before cannot be won back."""
+    return k - (np.minimum(counts0, k) - np.minimum(counts, k))
 
 
 def _share(value: float, created: float) -> float | None:
@@ -88,11 +97,10 @@ def run(e: Experiment) -> dict[str, Any]:
             d_orig = float(scoring.deficit(pop, counts0, k).sum())
             d_removed = float(scoring.deficit(pop, counts, k).sum())
             created = d_removed - d_orig
-            random_idx = list(rng.choice(routed, size=n_remove, replace=False))
+            random_idx = list(rng.choice(routed, size=min(n_remove, len(routed)), replace=False))
             r_xy = common.xy(removed.geometry)
             for mode in MODES:
-                # created_only: cells with a deficit before the removal cannot gain.
-                a = counts if mode == "all_deficits" else np.where(counts0 < k, k, counts)
+                a = counts if mode == "all_deficits" else created_only_counts(counts0, counts, k)
                 idx = [p.candidate for p in rec.greedy(cover, pop, a, k, n_remove, 0.0)]
                 d_start = float(scoring.deficit(pop, a, k).sum())
                 row = {
@@ -132,10 +140,11 @@ def run(e: Experiment) -> dict[str, Any]:
     nearest = shapely.STRtree(shapely.points(cand_xy[routed]))
     f_all = fac[fac["category"].isin(s.categories) & shapely.within(fac.geometry.values, urban)]
     _, dist = nearest.query_nearest(f_all.geometry.values, return_distance=True)
+    near = e.cfg.recommend.candidate_spacing_m
     e.notes.append(
         "Candidates are the run's routed candidates (within reach of a deficit cell); "
-        f"{(dist <= 100).mean():.1%} of the facilities inside the urban boundary have one "
-        "within 100 m, so a removed site can usually be picked again."
+        f"{(dist <= near).mean():.1%} of the facilities inside the urban boundary have one "
+        f"within {near:g} m, so a removed site can usually be picked again."
     )
     return {
         "status": "done",

@@ -4,9 +4,9 @@ Building origin per scored cell (N1 steps 1–5): OSM residential buildings whos
 the cell (`v06.residential_buildings`; `building=yes` only inside `landuse=residential`),
 weighted by footprint area; the origin is a point inside the building whose centroid is closest
 to the weighted centroid (medoid), so it lies on a real residential building. Cells without such
-a building keep the centroid. The counts are recomputed exactly as `count` does (same blocks,
-targets and matrix; the recount with unchanged origins reproduces the run bit for bit) and
-compared with the run's counts.
+a building keep the centroid. The counts are recomputed as `count` does (targets, prefilter and
+matrix; the blocks are formed from the new origins, and a recount with unchanged origins
+reproduces the run bit for bit, checked in V5) and compared with the run's counts.
 """
 
 from __future__ import annotations

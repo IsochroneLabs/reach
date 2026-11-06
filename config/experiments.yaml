@@ -16,10 +16,8 @@ v01:
   profiles: [walking_339, wheelchair_339]
   # Random scored cells per profile; the same cells for every profile.
   sample_cells: 150
-  # Isochrone options as the app shows them (config.yaml api.isochrone): polygon simplification
-  # in metres and Valhalla's denoise (0..1). The contour is the facility budget.
-  generalize_m: 20
-  denoise: 0.5
+  # Isochrones use the app's simplification (config.yaml api.isochrone: generalize_m,
+  # denoise); the contour is the facility budget.
   # OSM line features used to explain differences: a straight line cell → facility crossing one
   # of them marks a pair "across a barrier" (Neckar, Ammer, rail lines, motorways).
   barrier_tags:

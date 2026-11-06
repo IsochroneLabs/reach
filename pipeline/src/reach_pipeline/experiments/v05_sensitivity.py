@@ -118,10 +118,19 @@ def run(e: Experiment) -> dict[str, Any]:
         rankings[f"budget_{b:g}"] = common.ranking_agreement(
             base_d, common.district_deficits(alt, cells, k), s.top_districts
         )
-    recount_stats = {}
+    recount_stats: dict[str, Any] = {}
+    reproduced = None
     if s.budgets_recount:
         count_stage.check_valhalla_config(e.ctx)
         data = common.load_count_data(e.ctx)
+        # The recount at the run's own budget must give the run's counts (method check).
+        same, _, _ = asyncio.run(common.recount(cfg, data, [base_pid], budget))
+        keys = ["cell_id", "category", "profile_id"]
+        m = base.merge(same, on=keys, suffixes=("", "_recount"), validate="one_to_one")
+        reproduced = {
+            "rows": int(len(m)),
+            "rows_differing": int((m["count"] != m["count_recount"]).sum()),
+        }
         for b in s.budgets_recount:
             alt, _, st = asyncio.run(common.recount(cfg, data, [base_pid], b))
             recount_stats[f"{b:g}"] = st[base_pid]
@@ -206,4 +215,5 @@ def run(e: Experiment) -> dict[str, Any]:
             .reset_index()
         ),
         "recount": recount_stats,
+        "recount_reproduces_run": reproduced,
     }

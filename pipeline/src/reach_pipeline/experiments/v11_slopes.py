@@ -219,41 +219,42 @@ def run(e: Experiment) -> dict[str, Any]:
     shutil.rmtree(vdir, ignore_errors=True)
     vdir.mkdir(parents=True)
     pbf = e.ctx.stage_dir(validate.STAGE) / validate.ROUTING_PBF
-    shutil.copyfile(pbf, vdir / "routing.osm.pbf")
     mounts = ["-v", f"{config_dir}:/valhalla/config:ro", "-v", f"{vdir}:/data/valhalla"]
-    _docker("rm", "-f", s.container_name, f"{s.container_name}-build", check=False)
-
-    started = time.perf_counter()
-    log = _docker(
-        "run",
-        "--rm",
-        "--name",
-        f"{s.container_name}-build",
-        *mounts,
-        "--entrypoint",
-        "sh",
-        image,
-        "-euc",
-        BUILD_SCRIPT,
-    )
-    build_s = round(time.perf_counter() - started, 1)
-    (e.out / "build.log").write_text(log[-20000:], encoding="utf-8")
-    peak = re.search(r"build peak memory: (\d+) MB", log)
-    tar = vdir / "valhalla_tiles.tar"
-    if not tar.exists():
-        raise ExternalError(f"tile build wrote no {tar}; see {e.out / 'build.log'}")
-    build = {
-        "runtime_s": build_s,
-        "peak_mb": int(peak.group(1)) if peak else None,
-        "tiles_mb": round(tar.stat().st_size / 1024**2, 1),
-        "image": image,
-        "pbf_sha256": sha256_file(pbf),
-    }
-    (vdir / "routing.osm.pbf").unlink()
-
     url = f"http://127.0.0.1:{s.port}"
     sampler = MemorySampler(s.container_name, s.memory_sample_s)
+    # Everything from the PBF copy on is cleaned up in `finally`, also after a failed build.
     try:
+        shutil.copyfile(pbf, vdir / "routing.osm.pbf")
+        _docker("rm", "-f", s.container_name, f"{s.container_name}-build", check=False)
+
+        started = time.perf_counter()
+        log = _docker(
+            "run",
+            "--rm",
+            "--name",
+            f"{s.container_name}-build",
+            *mounts,
+            "--entrypoint",
+            "sh",
+            image,
+            "-euc",
+            BUILD_SCRIPT,
+        )
+        build_s = round(time.perf_counter() - started, 1)
+        (e.out / "build.log").write_text(log[-20000:], encoding="utf-8")
+        peak = re.search(r"build peak memory: (\d+) MB", log)
+        tar = vdir / "valhalla_tiles.tar"
+        if not tar.exists():
+            raise ExternalError(f"tile build wrote no {tar}; see {e.out / 'build.log'}")
+        build = {
+            "runtime_s": build_s,
+            "peak_mb": int(peak.group(1)) if peak else None,
+            "tiles_mb": round(tar.stat().st_size / 1024**2, 1),
+            "image": image,
+            "pbf_sha256": sha256_file(pbf),
+        }
+        (vdir / "routing.osm.pbf").unlink()
+
         _docker(
             "run",
             "-d",
@@ -278,7 +279,7 @@ def run(e: Experiment) -> dict[str, Any]:
     finally:
         if sampler.is_alive():
             sampler.stop()
-        _docker("rm", "-f", s.container_name, check=False)
+        _docker("rm", "-f", s.container_name, f"{s.container_name}-build", check=False)
         shutil.rmtree(vdir, ignore_errors=True)
     removed = not _docker(
         "ps", "-a", "-q", "--filter", f"name=^{s.container_name}$", check=False

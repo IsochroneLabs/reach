@@ -19,7 +19,7 @@ counts a resident once per category whose class changes.
 |---|---|---|---|
 | V1 | Matrix vs. isochrone polygon counts | done | Polygons add 18–20 % false pairs, 47 % of them across the Neckar, rail lines or main roads; 5–6 % of cell × category classes would differ |
 | V2 | OSM completeness vs. the city's lists | done | Childcare recall 87.5 %, precision 98 %; schools recall 95 %, precision 95 % |
-| V3 | Recommender back-test | done | With only the removed deficit to win back, 68–98 % of picks lie within 500 m of a removed facility (random: 7–34 %) |
+| V3 | Recommender back-test | done | With only the removed deficit to win back, greedy recovers all of it; 80–98 % of picks lie within 500 m of a removed facility (random: 8–36 %) |
 | V4 | Greedy vs. exact MILP | done | 90 full-city instances solved to optimality; greedy at most 2.8 % below the optimum (mean 0.17 %) |
 | V5 | Sensitivity (k, speed, budget) | done | Lack shares move strongly with budget and speed; district rankings stay similar (median Spearman 0.78–0.95) |
 | V6 | Cell centroid vs. building origin | done | 1.9 % (walking) / 2.8 % (wheelchair) of residents × categories change class; centroid is robust |
@@ -52,7 +52,7 @@ motorways and trunk roads.
 | Only by polygon (over-count) | 585 (18.3 % of matrix pairs) | 570 (20.2 %) |
 | Only by matrix (under-count) | 2 (0.06 %) | 4 (0.14 %) |
 | Polygon-only pairs across a barrier | 47.5 % | 42.1 % |
-| Matrix pairs across a barrier | 29.4 % | 29.4 % |
+| Pairs found by both across a barrier | 29.4 % | 29.4 % |
 | Cell × category pairs with a different count | 27.1 % | 26.1 % |
 | … with a different class | 5.1 % | 6.3 % |
 | Residents × categories with a different class | 4.7 % | 5.3 % |
@@ -63,7 +63,7 @@ cells), because a second supermarket decides between insufficient and sufficient
 
 **Interpretation.** Polygon counting is biased in one direction: it almost never misses a
 facility but adds many that are not reachable within 15 minutes. These pairs cross the Neckar,
-the rail lines or main roads far more often than the true pairs (47 % vs. 29 %): the polygon
+the rail lines or main roads far more often than the pairs both methods find (47 % vs. 29 %): the polygon
 bridges gaps between network branches that are only connected via a distant bridge or
 underpass, and simplification smooths the outline over unreachable blocks. This confirms
 decision D2 (architecture §6.3): isochrones are display only.
@@ -133,27 +133,31 @@ before the removal count as saturated, so only the deficit the removal created c
 back). Baseline: as many random routed candidates.
 
 **Result** (mean over 10 repetitions; "picks near" = share of picks within 500 m of a removed
-facility, "recovered" = share of removed facilities with a pick within 500 m):
+facility, "recovered" = share of removed facilities with a pick within 500 m, "deficit won
+back" = deficit reduction of the picks ÷ deficit the removal created):
 
 | Category (removed) | Mode | Picks near | Random near | Removed recovered | Deficit won back | Random |
 |---|---|---|---|---|---|---|
-| Grocery (6 of 28) | created only | 68 % | 7 % | 45 % | 46 % | 0 % |
-| Pharmacy (3 of 17) | created only | 87 % | 8 % | 87 % | 100 % | 10 % |
-| Doctors (23 of 117) | created only | 77 % | 34 % | 40 % | 53 % | 13 % |
-| Childcare (17 of 85) | created only | 87 % | 33 % | 56 % | 83 % | 17 % |
+| Grocery (6 of 28) | created only | 86 % | 9 % | 75 % | 99.8 % | 12 % |
+| Pharmacy (3 of 17) | created only | 87 % | 8 % | 87 % | 99.6 % | 10 % |
+| Doctors (23 of 117) | created only | 80 % | 36 % | 45 % | 100 % | 38 % |
+| Childcare (17 of 85) | created only | 90 % | 34 % | 59 % | 100 % | 24 % |
 | School (6 of 32) | created only | 98 % | 21 % | 70 % | 100 % | 10 % |
 | All five | all deficits | 13–39 % | 10–41 % | 13–39 % | 264–733 % | 89–315 % |
 
-In *created only* greedy picks fewer zones than were removed (2.8–9.1 on average): many removed
-facilities were redundant because their cells still reach k others.
+In *created only* greedy needs fewer zones than were removed (2.8–10.1 on average): one new zone
+often covers the catchments of two removed facilities, and some removed facilities were
+redundant (their cells still reach k others).
 
 **Interpretation.** When the recommender has to repair exactly what was removed, it goes back
-to the right places: two thirds to almost all of its picks lie near a removed site, 2–11 times
-the random rate, and the picks win back half to all of the created deficit. In normal mode it
-does **not** reproduce the existing sites, and it should not: it wins back 2.6–7.3 times the
-created deficit because it also targets the much larger deficits that existed before (for
-example the Universität and Lustnau pharmacy gaps). Existing sites are not optimal; the
-back-test shows that the objective and the catchments locate needs correctly.
+to the right places: 80–98 % of its picks lie near a removed site, about 5–10 times the random rate
+for grocery, pharmacy and schools (doctors and childcare are dense, so random zones are often
+near one too), and the picks win back the whole created deficit with fewer zones than were
+removed. In normal mode it does **not** reproduce the existing sites, and it should not: it
+wins back 2.6–7.3 times the created deficit because it also targets the much larger deficits
+that existed before (for example the Universität and Lustnau pharmacy gaps). Existing sites
+are not optimal; the back-test shows that the objective and the catchments locate needs
+correctly.
 
 **Limitations.** Removing random facilities is not the same as a facility closing (closures
 are not random); candidates are the run's routed candidates; only the walking profile.
@@ -191,7 +195,8 @@ larger N not tested (the app shows 5).
 **Method.** Base: `walking_339`, 15 min, k as configured. Scenarios: k − 1 and k + 1 for every
 category (k ≥ 1); walking at 5.0 km/h (the stored `walking_500` profile, same costing); budgets
 of 10 and 12.5 min derived from the stored matrix times, and 20 min by a recount of the profile
-(same blocks and matrix; the recount at 15 min reproduces the stored counts exactly). Measured:
+(same blocks and matrix; every V5 run also recounts at 15 min and checks that the stored counts
+come out: 0 of 10,194 rows differ, `recount_reproduces_run` in `result.json`). Measured:
 residents × categories changing class, Spearman correlation of the district ranking by deficit
 sum (31 districts) per category, overlap of the top-5 districts, and the recommended zones
 (greedy on the stored catchments for k ± 1; the stored zones of both speed profiles).
@@ -301,8 +306,8 @@ pharmacy 0.86, school 0.79, childcare 0.77, parks 0.72; number of categories in 
 LISA: 362 cells (12,917 residents) in high-high clusters (many categories in lack, neighbours
 too), 520 cells (42,478 residents) low-low, 12 outliers, 763 not significant. Largest high-high
 populations: Schönblick/Winkelwiese 3,277, Universität 1,849, Weststadt 1,730, Österberg 964,
-Unterjesingen 950, Kilchberg 856. District level: no significant autocorrelation for any
-category (I between −0.13 and −0.03; parks −0.11, p = 0.03).
+Unterjesingen 950, Kilchberg 856. District level: no significant autocorrelation except a
+weak negative one for parks (I between −0.13 and −0.03; parks −0.11, p = 0.03; 31 districts).
 
 ![LISA clusters](figures/v08_lisa.png)
 
@@ -386,9 +391,9 @@ walking 3.39, walking 5.0 and wheelchair there, compared with the run (with slop
 Marktplatz → Schloss on both, and the wheelchair route with `max_grade` unset, 1, 6, 12 and 30
 (notes N11 option b).
 
-**Result.** Build 8.7 s, peak 187 MB, 11.4 MB of tiles (an earlier run: 8.3 s, 226 MB); the
-temporary Valhalla peaked at 1.44 GB during the recount (85 s for three profiles; earlier run
-1.41 GB); container and tiles removed.
+**Result.** Build 8.3–8.7 s, peak 187–226 MB, 11.4 MB of tiles (three runs); the temporary
+Valhalla peaked at 1.41–1.44 GB during the recount (75–85 s for three profiles); container and
+tiles removed.
 
 | | walking 3.39 | walking 5.0 | wheelchair |
 |---|---|---|---|
@@ -422,23 +427,29 @@ times); flat tiles only remove elevation, the graph is identical.
 
 | # | Runtime (s) | Peak RSS (MB) | Main cost |
 |---|---|---|---|
-| V1 | 3 | 928 | osmium (barrier lines), 300 isochrones |
-| V2 | 8 (first run: + 168 s for 159 page requests) | 1,350 | osmium (address points) |
-| V3 | 1 | 341 | – |
-| V4 | 31 | 625 | 90 MILP solves (HiGHS) |
-| V5 | 38 | 271 | 20-minute recount |
-| V6 | 52 | 937 | osmium (buildings), two recounts |
-| V8 | 1 | 495 | 999 permutations |
-| V10 | 7 | 314 | 1,500 /route calls |
-| V11 | 96 | 174 (Valhalla container: 1,443) | tile build, three recounts |
-| **Total** | **255** | | `make experiments`, incl. summary and figures |
+| V1 | 3 | 847 | osmium (barrier lines), 300 isochrones |
+| V2 | 8 (first run: + 168 s for 159 page requests) | 1,078 | osmium (address points) |
+| V3 | 1 | 345 | – |
+| V4 | 30 | 575 | 90 MILP solves (HiGHS) |
+| V5 | 58 | 274 | 15-minute check recount, 20-minute recount |
+| V6 | 47 | 861 | osmium (buildings), two recounts |
+| V8 | 1 | 479 | 999 permutations |
+| V10 | 7 | 323 | 1,500 /route calls |
+| V11 | 87 | 183 (Valhalla container: 1,424) | tile build, three recounts |
+| **Total** | **about 255** | | `make experiments`, incl. summary and figures |
 
-The peaks above 900 MB come from osmium children (`tags-filter` on the clipped PBF; arch.
+The peaks above 800 MB come from osmium children (`tags-filter` on the clipped PBF; arch.
 §11, notes N12), not from the experiments themselves.
 
-## Changes to the methodology
+## Deviations from methodology §6 (not yet in `methodology.md`)
 
-None. V4 uses full-city instances instead of only small ones (methodology §6 asks for "small
-instances"; the full instances solved in seconds, which is the stronger test). V2 uses the
-city's lists instead of an "official list" from the state, because no machine-readable state
-list is available (see V2).
+`methodology.md` is unchanged; updating §6 needs Rico's confirmation (AGENTS.md). Differences
+between §6 and what was run:
+
+- **V4:** full-city instances instead of only "small instances" (they solved in seconds, the
+  stronger test), solver HiGHS instead of CBC (§6: "e.g. PuLP/CBC"; PuLP's bundled CBC does not
+  run on arm64 macOS).
+- **V2:** the city's Kita and school pages instead of an "official list" from the state (no
+  machine-readable state list is available, see V2).
+- **V11:** §6 still calls it "planned, P7"; it is done.
+- **V3:** an additional mode `created_only` next to the plain back-test.

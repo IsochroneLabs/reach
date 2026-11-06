@@ -1,8 +1,9 @@
 """V1 matrix counts vs. isochrone point-in-polygon counts (architecture §6.3, decision D2).
 
 For a random sample of scored cells, one Valhalla isochrone (facility budget, the app's
-simplification) per profile is requested from the cell origin; a facility counts "by polygon"
-if any of its routing points lies inside it. Compared with the matrix (`reachable`): counts and
+simplification from `config.yaml` `api.isochrone`) per profile is requested from the cell
+origin; a facility counts "by polygon" if any of its routing points lies inside it. Cells
+without an isochrone are left out of both counts. Compared with the matrix (`reachable`): counts and
 classes per cell × category, and the pairs only one method finds. A pair "crosses a barrier"
 if the straight line from the origin to the facility point crosses a river, canal, rail line
 or motorway (`v01.barrier_tags`, OSM lines of the run's clipped PBF).
@@ -50,7 +51,7 @@ def polygon_pairs(
 async def isochrones(
     e: Experiment, lonlat: np.ndarray, profile_id: str
 ) -> list[shapely.Geometry | None]:
-    s = e.settings.v01
+    iso_cfg = e.cfg.api["isochrone"]  # the app's simplification (config.yaml api.isochrone)
     profile = e.cfg.profiles[profile_id]
     budget = e.cfg.time_budgets_min.facilities
     async with ValhallaClient(e.cfg.valhalla) as client:
@@ -64,8 +65,8 @@ async def isochrones(
                     "costing_options": costing_options(profile),
                     "contours": [{"time": budget}],
                     "polygons": True,
-                    "generalize": s.generalize_m,
-                    "denoise": s.denoise,
+                    "generalize": iso_cfg["generalize_m"],
+                    "denoise": iso_cfg["denoise"],
                 },
             )
             geoms = [shapely.geometry.shape(f["geometry"]) for f in body.get("features", [])]
@@ -131,11 +132,16 @@ def run(e: Experiment) -> dict[str, Any]:
             ids = set(fp["facility_id"].to_numpy()[hit])
             sub = fp_cat[fp_cat["facility_id"].isin(ids)][["facility_id", "category"]]
             iso_rows.append(sub.drop_duplicates().assign(cell_id=cell_id))
-        iso = pd.concat(iso_rows, ignore_index=True)
+        with_iso = sample["cell_id"].to_numpy()[[p is not None for p in polys]]
+        iso = (
+            pd.concat(iso_rows, ignore_index=True)
+            if iso_rows
+            else pd.DataFrame(columns=["facility_id", "category", "cell_id"])
+        )
         reach = e.reachable[
-            (e.reachable["profile_id"] == pid) & e.reachable["cell_id"].isin(sample["cell_id"])
+            (e.reachable["profile_id"] == pid) & e.reachable["cell_id"].isin(with_iso)
         ].merge(e.facilities[["facility_id", "category"]], on="facility_id")
-        pairs, counts = compare_pairs(iso, reach, sample, k)
+        pairs, counts = compare_pairs(iso, reach, sample[sample["cell_id"].isin(with_iso)], k)
         # Barrier test for every pair: straight line origin → nearest routing point.
         origin = dict(zip(sample["cell_id"], shapely.points(o_xy), strict=True))
         nearest = fp.groupby("facility_id").geometry.apply(lambda g: g.values)

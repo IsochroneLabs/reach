@@ -143,6 +143,16 @@ def test_hit_rates() -> None:
     assert v03.hit_rates(picks[:0], removed, 250) == (0.0, 0.0)
 
 
+def test_created_only_counts_keep_exactly_the_created_deficit() -> None:
+    from reach_pipeline import scoring
+
+    k, pop = 2, np.array([10.0, 10.0, 10.0, 10.0])
+    before, after = np.array([3, 2, 1, 1]), np.array([1, 2, 0, 1])
+    a = v03.created_only_counts(before, after, k)
+    created = scoring.deficit(pop, after, k) - scoring.deficit(pop, before, k)
+    assert scoring.deficit(pop, a, k).tolist() == created.tolist() == [5.0, 0.0, 5.0, 0.0]
+
+
 def test_exact_beats_greedy_on_a_trap_instance() -> None:
     # Candidate 0 covers the middle (largest single gain), candidates 1 and 2 the two halves:
     # greedy takes 0 first and then one half; the optimum for N = 2 is both halves.

@@ -19,8 +19,6 @@ class _Model(BaseModel):
 class V01(_Model):
     profiles: list[str] = Field(min_length=1)
     sample_cells: int = Field(ge=1)
-    generalize_m: float = Field(ge=0)
-    denoise: float = Field(ge=0, le=1)
     barrier_tags: list[dict[str, str]]
 
 
