@@ -8,6 +8,9 @@ adds a line under `Unreleased`.
 ## [Unreleased]
 
 ### Changed
+- Web inspector shows the travel time first: the route to the nearest facility reads
+  "Route to the nearest: 16.4 min · 697 m" (time from /route, length secondary) instead of only
+  its length, and the times of the reachable facilities are no longer greyed out (notes N9).
 - Documented that walking and wheelchair times include Valhalla's slope model (notes N5
   settled, decision: keep it, counts unchanged): `architecture.md` v0.16 §6.1 and O7 (what
   Valhalla does with elevation per profile, with evidence), `methodology.md` v0.4 (speeds are

@@ -348,6 +348,7 @@ Confirmed by Rico (2 Nov 2026): C6–C12 as recommended in Section 5; Q4 also co
 | 2026-11-06 | P6 follow-up (Rico) | `@types/geojson` 7946.0.16 as a direct dev dependency; `GET /api/meta` `profiles[].transit_budget_min` from `time_budgets_min.transit` (config, part of the meta ETag; data contract v0.8, test), transit legend shows the minutes; minimatch: no non-breaking fix (11.x is a major outside eslint's `^10.2`), no override, recorded as notes N10; demo addresses checked against one-source matrices: Burgholzweg 127 lacks parks because forest is not a park (forest edge 55 m) and the nearest playground is 509 m by line but 1.37 km / 24 min on foot, but its childcare lack is a block-matrix artefact (notes N9) → demo uses Burgholzweg 79 (nearest facility 18–25 min in every category); merge to `dev` approved by Rico before team review |
 | 2026-11-06 | N9 (Rico) | No counting error: the three examples take 932–984 s uphill at 3.39 km/h by block matrix, one-source matrix and /route alike; the reported 740–894 s were route length ÷ speed (slope effect N5). Valhalla config effective by construction (`config/` mounted, `valhalla.effective.json` copy served, `make valhalla-config`, `count` fails on a difference); new check `false_negatives` (20 pairs per profile × category, warn > 0, fail > 2 %); published run used `costmatrix` (recount bit-identical); squash-merge after green CI approved by Rico, team review pending |
 | 2026-11-06 | N5 decision (Rico) | Option (a): keep Valhalla's slope model for walking and wheelchair, no change to counts; architecture v0.16 (§6.1 per-profile table with evidence, O7), methodology v0.4 (§1 flat-ground speeds, conservative results; §6 G1 answered, V10 matrix vs. /route incl. new check `budget_flips`, V11 with vs. without slopes planned for P7; architecture §7 names the /route checks); wheelchair uses the same grade factor (881 s up / 700 s back / 666 s flat on Burgholzweg); `false_negatives` warn above 0.5 % (was 0), fail above 2 %. Branch `docs/rico-slope-walking` |
+| 2026-11-06 | Inspector time (Rico) | The inspector shows travel times first: per reachable facility (matrix time, no longer greyed out) and for the route to the nearest (`nearest_route.properties.time_s` from /route, in minutes, bold), the route length as secondary text; Playwright smoke test checks both on the recorded fixture. Squash-merge after green CI approved by Rico, team review pending. Branch `fix/rico-inspector-time` |
 
 Measured numbers (runtime, peak memory, counts) are added here at the end of every phase.
 
@@ -451,8 +452,8 @@ Measured numbers (runtime, peak memory, counts) are added here at the end of eve
    fills `/api/recommendations`), keyboard path for the inspector, N10
    (dev-only minimatch audit finding), production Caddyfile with HTTPS and the GHCR web image
    (P8). Next: P7.
-9. ~~N9~~ — settled (branch `fix/rico-count-missing`): no missed facilities; open from it:
-   the route time in the inspector. ~~N5~~ — settled (branch `docs/rico-slope-walking`): slopes
+9. ~~N9~~ — settled (branch `fix/rico-count-missing`): no missed facilities; the route time
+   in the inspector followed (branch `fix/rico-inspector-time`: time first, length secondary). ~~N5~~ — settled (branch `docs/rico-slope-walking`): slopes
    kept for walking and wheelchair, V11 planned for P7; V10 = matrix vs. /route
    (`budget_flips` added).
 

@@ -85,6 +85,19 @@ test('loads the class map and inspects a location', async ({ page }) => {
   await expect(result).toBeVisible({ timeout: 30_000 })
   await expect(result).toContainText('residents in this 100 m cell')
   await expect(result).toContainText('Grocery')
+  // travel time first, length secondary: per facility and for the route to the nearest one
+  await result.locator('li.selected .cat-count').click()
+  const grocery = result.locator('li.selected details')
+  await expect(grocery).toHaveAttribute('open', '')
+  if (!live) {
+    await expect(grocery.locator('.reach-list li').first()).toContainText('1.0 min')
+    const route = result.getByTestId('route-grocery')
+    await expect(route.locator('strong')).toHaveText('1.0 min')
+    await expect(route).toContainText('57 m')
+    await expect(route.locator('.muted')).toContainText('57 m')
+  } else {
+    await expect(grocery.locator('.reach-list .reach-time').first()).toContainText('min')
+  }
 
   await page.getByRole('link', { name: 'Data & validation' }).click()
   await expect(page.getByTestId('data-page')).toContainText('Known limitations')
