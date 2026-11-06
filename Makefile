@@ -17,8 +17,12 @@ VALHALLA_DIR = $(abspath $(DATA_DIR)/valhalla)
 COMPOSE = VALHALLA_DIR=$(VALHALLA_DIR) docker compose
 # Stages that call Valhalla: `make pipeline` first makes sure it runs with config/valhalla.json.
 VALHALLA_STAGES = run tiles count recommend validate_results
+# Validation experiments (methodology §6, config/experiments.yaml); RUN_ID defaults to the
+# latest run. One process per experiment, so each result.json reports its own peak RSS.
+EXPERIMENTS ?= v01 v02 v03 v04 v05 v06 v07 v08 v09 v10 v11
+EXPERIMENT = uv run $(if $(wildcard .env),--env-file .env) python -m reach_pipeline.experiments
 
-.PHONY: help up down logs pipeline migrate refresh tiles-build valhalla-config test lint format
+.PHONY: help up down logs pipeline migrate refresh tiles-build valhalla-config experiments test lint format
 
 help: ## list targets
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-10s %s\n", $$1, $$2}'
@@ -84,6 +88,10 @@ valhalla-config: ## recreate valhalla if config/valhalla.json changed (count fai
 	  $(COMPOSE) up -d --wait valhalla; \
 	else echo "config/valhalla.json differs from the config valhalla runs with: recreating it"; \
 	  $(COMPOSE) up -d --wait --force-recreate valhalla; fi
+
+experiments: valhalla-config ## validation experiments V1–V11 on RUN_ID (default latest), summary, figures
+	@for e in $(EXPERIMENTS); do $(EXPERIMENT) $$e $(if $(RUN_ID),--run-id $(RUN_ID)) || exit $$?; done
+	$(EXPERIMENT) summary figures $(if $(RUN_ID),--run-id $(RUN_ID))
 
 test: ## run all Python tests
 	uv run pytest
