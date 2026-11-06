@@ -124,11 +124,13 @@ services:
     restart: unless-stopped
 
   caddy:
-    image: caddy:2.11.7-alpine
+    # Image from infra/web.Dockerfile: Caddy with infra/Caddyfile and the web build (P6);
+    # `make up` rebuilds it. For hot reload run `npm run dev` in web/ (proxies /api to this port).
+    build:
+      context: .
+      dockerfile: infra/web.Dockerfile
+    image: reach-web:dev
     volumes:
-      - ./infra/Caddyfile:/etc/caddy/Caddyfile:ro
-      # Placeholder page until P6 serves web/dist.
-      - ./infra/web-placeholder:/srv:ro
       - caddy-data:/data
     ports:
       - "127.0.0.1:${WEB_PORT:-8080}:80"
