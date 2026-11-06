@@ -293,10 +293,18 @@ validation:
     # facility pairs within the prefilter reach that are not in `reachable`, checked with
     # /route; a route within the budget is a false negative. Warns above warn_above, fails
     # above fail_above (share of the whole sample). Needs the running Valhalla.
+    # Block costmatrix times are rarely longer than one-source times (~0.02 % of these pairs,
+    # notes N9), so one hit in a sample of ~480 (0.2 %) stays ok; warn above 0.5 %, fail above 2 %.
     false_negatives:
       pairs_per_category: 20
-      warn_above: 0
+      warn_above: 0.005
       fail_above: 0.02
+    # Budget flips (meth. V10): per profile and direction the share of routed pairs on which the
+    # matrix and /route lie on different sides of the budget, from the two samples above
+    # (matrix within / route beyond: route_check, near the budget; matrix beyond / route within:
+    # false_negatives). Known limitation, never fails; warns above warn_above (> 1 of 25).
+    budget_flips:
+      warn_above: 0.05
 
 # PostGIS (arch. §8). Connection strings and passwords come from .env (DATABASE_URL_PIPELINE,
 # DATABASE_URL_ADMIN, *_PASSWORD), never from this file.

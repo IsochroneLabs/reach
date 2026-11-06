@@ -1,6 +1,6 @@
 # Data contract — reach
 
-> **Status:** draft v0.8 (6 Nov 2026), from `implementation_plan.md` §3. Binding for the tables
+> **Status:** draft v0.9 (6 Nov 2026), from `implementation_plan.md` §3. Binding for the tables
 > and files exchanged between pipeline and API once a phase implements them; every change needs
 > confirmation (AGENTS.md) and a data-contract test. Tables marked *(planned, Pn)* do not exist yet.
 
@@ -223,11 +223,12 @@ guarantee that the nearest facility was among the matrix targets.
 | Key | Content |
 |---|---|
 | `run_id`, `stage`, `status` (`ok`/`fail`), `generated_at`, `runtime_s`, `peak_rss_mb` | |
-| `checks` | rows of `validation_report`: `access_counts_complete`, `transit_supply_complete`, `value_ranges`, `thresholds_cover_categories`, `class_totals`, `reachable_matches_counts`, `monotonic_<higher>_ge_<lower>` (value = share of violating cells), `matrix_vs_route` (value = max abs. deviation in s; warn only), `false_negatives` (value = share of sampled non-reachable pairs that /route reaches within the budget), `sample_cells` |
+| `checks` | rows of `validation_report`: `access_counts_complete`, `transit_supply_complete`, `value_ranges`, `thresholds_cover_categories`, `class_totals`, `reachable_matches_counts`, `monotonic_<higher>_ge_<lower>` (value = share of violating cells), `matrix_vs_route` (value = max abs. deviation in s; warn only), `false_negatives` (value = share of sampled non-reachable pairs that /route reaches within the budget), `budget_flips` (value = highest flip rate over profiles and directions; warn only), `sample_cells` |
 | `summary` | `residents_scored`; `access` {profile: {category: `share_lack`, `share_insufficient`, `share_sufficient`, `residents_lack`, `deficit_sum`}}; `transit` {profile: {class: share of residents}} |
 | `samples` | per `count.evidence.sample_points` point: nearest `cell_id`, `district_id`, `population`, `values` {`profile/category`: `count`, `class`, `deficit`} |
 | `route_check` | `budget_s`, `profiles` {profile: `pairs`, `no_route`, `mean_abs_s`, `max_abs_s`, `flips` (matrix within the budget, /route beyond)}: sample of `reachable` pairs vs. Valhalla /route (`validation.results.route_check`) |
 | `false_negatives` | `budget_s`, `pairs`, `false_negatives`, `rate`, `profiles` {profile: {category: `pairs`, `no_route`, `false_negatives`, `rate`}}, `examples` (up to 20: `profile_id`, `category`, `cell_id`, `facility_id`, `distance_m`, `route_s`): random cell × facility pairs within the prefilter reach that are not in `reachable`, checked with /route (`validation.results.false_negatives`) |
+| `budget_flips` | `warn_above`, `profiles` {profile: {`within_to_beyond`, `beyond_to_within`}: {`routed`, `flips`, `rate`}}: pairs on which matrix and /route lie on different sides of the budget, from the `route_check` and `false_negatives` samples (methodology V10, `validation.results.budget_flips`) |
 
 Any `fail` stops the pipeline before `publish`.
 
@@ -248,3 +249,4 @@ their row counts.
 | v0.6 | 2026-11-05 | API responses (read and live endpoints, errors, ETag, snapping, HEAD, inspect `count`/`count_source`); manifest config input per stage; `config_hash` without `api` | P5 API |
 | v0.7 | 2026-11-05 | `reachable` table and `count/reachable.parquet`; report part 2 checks `reachable_matches_counts`, `matrix_vs_route` and key `route_check`; inspect `source`; error 504 | Notes N7/N8, architecture v0.15 (variant C) |
 | v0.8 | 2026-11-06 | `GET /api/meta`: `profiles[].transit_budget_min` (from the config like category names; part of the meta ETag) | Transit legend in the web app (P6) |
+| v0.9 | 2026-11-06 | Report part 2: check and key `budget_flips` (flip rate per profile and direction) | Methodology V10 (matrix vs. /route) |

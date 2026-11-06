@@ -280,10 +280,19 @@ class FalseNegativeCheck(_Model):
         return self
 
 
+class BudgetFlips(_Model):
+    """Pairs on which matrix and /route lie on different sides of the budget (methodology V10),
+    from the samples of `route_check` and `false_negatives`; warns only."""
+
+    # Share of routed pairs (0..1) per profile and direction above which the check warns.
+    warn_above: float = Field(ge=0, le=1)
+
+
 class ResultsValidation(_Model):
     monotonic: list[Monotonic] = Field(default_factory=list)
     route_check: RouteCheck
     false_negatives: FalseNegativeCheck
+    budget_flips: BudgetFlips
 
 
 class Validation(_Model):
