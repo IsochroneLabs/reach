@@ -351,3 +351,17 @@ def test_count_stage_fails_if_valhalla_runs_another_config(stage_ctx: RunContext
         with pytest.raises(StageValidationError, match=r"differs .* in \['thor'\]"):
             count_stage.run(stage_ctx)
     assert not matrix.called
+
+
+def test_validate_results_requires_the_valhalla_config_count_used(stage_ctx: RunContext) -> None:
+    from reach_pipeline.stages import validate_results
+
+    with respx.mock(base_url="http://valhalla.test") as router:
+        router.post("/sources_to_targets").mock(side_effect=_fake_matrix)
+        count_stage.run(stage_ctx)
+    validate_results.require_count_valhalla(stage_ctx)  # same config: ok
+    other = {"thor": {"source_to_target_algorithm": "costmatrix"}, "loki": {}}
+    for path in (tiles.valhalla_config(stage_ctx), tiles.effective_config(stage_ctx)):
+        path.write_text(json.dumps(other), encoding="utf-8")  # Valhalla recreated with it
+    with pytest.raises(StageValidationError, match="rerun count"):
+        validate_results.require_count_valhalla(stage_ctx)

@@ -129,6 +129,19 @@ async def route_times(
         )
 
 
+def require_count_valhalla(ctx: RunContext) -> None:
+    """The /route checks must use the Valhalla config `count` used: the copy the service runs
+    with (`count.check_valhalla_config`) must have the checksum `report_count.json` recorded."""
+    report = json.loads((ctx.stage_dir(count.STAGE) / count.REPORT).read_text(encoding="utf-8"))
+    recorded = (report.get("valhalla") or {}).get("sha256")
+    current = count.check_valhalla_config(ctx)["sha256"]
+    if recorded != current:
+        raise StageValidationError(
+            f"Valhalla now runs with another config than count used ({current[:12]} vs. "
+            f"{str(recorded)[:12]}); rerun count"
+        )
+
+
 def _seed(run_id: str) -> int:
     return int("".join(ch for ch in run_id if ch.isdigit()))
 
@@ -352,6 +365,7 @@ def run(ctx: RunContext) -> Manifest:
     """Check the results of count and score; write report part 2; fail on any failed check."""
     require_ok(ctx.stage_dir(PREVIOUS), PREVIOUS, ctx.config)
     require_ok(ctx.stage_dir(count.STAGE), count.STAGE, ctx.config)
+    require_count_valhalla(ctx)
     stage_dir = ctx.stage_dir(STAGE)
     inputs = [config_input(ctx.config, CONFIG_SECTIONS), *file_inputs(list(_paths(ctx).values()))]
     previous = read_manifest(stage_dir)

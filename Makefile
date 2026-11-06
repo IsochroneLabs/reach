@@ -27,9 +27,7 @@ help: ## list targets
 	@echo "Missing .env: copy .env.example to .env and set the passwords." >&2; exit 1
 
 up: .env ## start db, api, caddy and valhalla (once tiles exist) and wait until they are healthy
-	@if [ -f "$(VALHALLA_DIR)/valhalla_tiles.tar" ]; then $(COMPOSE) up -d --build --wait; \
-	else echo "No tiles in $(VALHALLA_DIR) yet: starting without valhalla (run make refresh)" >&2; \
-	$(COMPOSE) up -d --build --wait db api caddy; fi
+	@$(COMPOSE) up -d --build --wait db api caddy
 	@$(MAKE) --no-print-directory valhalla-config
 
 down: ## stop the local stack (volumes are kept)
@@ -79,7 +77,7 @@ tiles-build:
 # Valhalla reads its config only at start and serves the copy valhalla.effective.json written
 # then (compose.yaml): recreate the service if that copy differs from config/valhalla.json,
 # otherwise only make sure it runs. `count` fails if they still differ (notes N9).
-valhalla-config:
+valhalla-config: ## recreate valhalla if config/valhalla.json changed (count fails otherwise)
 	@if [ ! -f "$(VALHALLA_DIR)/valhalla_tiles.tar" ]; then \
 	  echo "No tiles in $(VALHALLA_DIR) yet: valhalla not started (run make refresh)" >&2; \
 	elif cmp -s config/valhalla.json "$(VALHALLA_DIR)/valhalla.effective.json"; then \
