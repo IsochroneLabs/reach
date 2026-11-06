@@ -7,6 +7,12 @@ adds a line under `Unreleased`.
 
 ## [Unreleased]
 
+### Fixed (documentation)
+- README and `.env.example` setup gaps found by a clean-checkout test: changed ports must also
+  be changed in `DATABASE_URL_*` / `VALHALLA_URL`, a second checkout needs its own
+  `COMPOSE_PROJECT_NAME`, `make pipeline` needs a first `make refresh`, and integration tests
+  run with `uv run --env-file .env`.
+
 ### Changed (configuration)
 - `valhalla.url` is null: the pipeline takes the Valhalla URL only from `VALHALLA_URL` (.env)
   and stops with a clear configuration error if it is missing, instead of falling back to

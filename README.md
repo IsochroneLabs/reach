@@ -83,14 +83,14 @@ uv sync                 # Python 3.12 environment (.venv) for pipeline and api
 make test               # unit tests (uv run pytest; integration tests are deselected)
 make lint               # ruff check + format check
 
-cp .env.example .env    # then replace every "change-me"
+cp .env.example .env    # then replace every "change-me" (also inside the DATABASE_URL_* lines)
 make up                 # start PostGIS, API, Caddy with the web app (+ Valhalla once tiles exist)
 make migrate            # once: DB roles (passwords from .env), meta schema, migrations
 make refresh            # new run: acquire (~350 MB) → validate → build Valhalla tiles if the
                         # clipped OSM changed → swap + restart Valhalla → tiles verify → count
                         # → score → recommend → validate_results → publish → cleanup
 make pipeline STAGE=count     # one stage against the running Valhalla (latest run)
-make pipeline           # all stages without a tile rebuild
+make pipeline           # all stages without a tile rebuild (needs the tiles of a first refresh)
 make valhalla-config    # recreate Valhalla if config/valhalla.json changed (up, refresh and
                         # pipeline do this; count fails if Valhalla runs another config)
 make down               # stop the stack
@@ -150,12 +150,18 @@ The API image is built from `infra/api.Dockerfile` by `make up`; locally `api/sr
 sizes, rate limit, isochrone contours) live in the `api` section of `config/config.yaml`.
 
 Test clip: `make refresh REACH_CONFIG=config/test_clip.yaml` (own data and tile directory under
-`data/test_clip/`, tiles without elevation), then `uv run pytest -m integration` runs the golden
-travel-time tests against it. The test clip publishes into the same local database and replaces
-`current`. Database contract tests: `REACH_TEST_DATABASE_URL=postgresql://postgres:<password>@localhost:5432/postgres
+`data/test_clip/`, tiles without elevation), then `uv run --env-file .env pytest -m integration`
+runs the golden travel-time tests against it (the pipeline has no default Valhalla URL, so
+`VALHALLA_URL` must come from `.env`). The test clip publishes into the same local database and replaces
+`current`. Database contract tests: `REACH_TEST_DATABASE_URL=postgresql://postgres:<password>@localhost:<DB_PORT>/postgres
 uv run pytest -m db` (creates and drops its own database; CI runs it in the `db-contract` job). Switching back: `make up` (or `make refresh`) with the default
 config. If port 5432, 8002 or 8080 is taken on your machine, change `DB_PORT`, `VALHALLA_PORT` or
-`WEB_PORT` in `.env`.
+`WEB_PORT` in `.env`, and the same port in `DATABASE_URL_PIPELINE`, `DATABASE_URL_ADMIN` (for
+`DB_PORT`) and `VALHALLA_URL` (for `VALHALLA_PORT`); the app is then at
+`http://localhost:<WEB_PORT>`. A **second checkout** on the same machine also needs its own
+`COMPOSE_PROJECT_NAME` in `.env`: `compose.yaml` names the project `reach`, so without it the
+second `make up` replaces the containers of the first (images `reach-api:dev` and
+`reach-web:dev` are shared either way).
 
 ## Data sources
 
