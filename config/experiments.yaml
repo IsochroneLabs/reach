@@ -1,0 +1,122 @@
+# Validation experiments V1–V11 (methodology §6), run by `make experiments`
+# (`python -m reach_pipeline.experiments`). Not part of the pipeline: no stage reads this file,
+# so it never changes a run's manifests or `config_hash`. Results go to
+# <data_dir>/experiments/<run_id>/vNN/ (git-ignored); docs/validation_report.md interprets them.
+
+# Seed of every random sample (cells, removed facilities, permutations).
+seed: 20261106
+# Subfolders of data_dir (config/config.yaml): results per run and one-off reference lists (V2).
+results_dir: experiments
+reference_dir: reference
+# Cycling is left out of every recount and sample (decision by Rico, 6 Nov 2026: N4 memory,
+# hardly any cycling deficit); the profiles each experiment uses are listed below.
+
+# V1: matrix counts vs. isochrone point-in-polygon counts.
+v01:
+  profiles: [walking_339, wheelchair_339]
+  # Random scored cells per profile; the same cells for every profile.
+  sample_cells: 150
+  # Isochrone options as the app shows them (config.yaml api.isochrone): polygon simplification
+  # in metres and Valhalla's denoise (0..1). The contour is the facility budget.
+  generalize_m: 20
+  denoise: 0.5
+  # OSM line features used to explain differences: a straight line cell → facility crossing one
+  # of them marks a pair "across a barrier" (Neckar, Ammer, rail lines, motorways).
+  barrier_tags:
+    - {waterway: river}
+    - {waterway: canal}
+    - {railway: rail}
+    - {highway: motorway}
+    - {highway: trunk}
+
+# V2: OSM completeness vs. the city's own lists (one-off download, cached; decision by Rico,
+# 6 Nov 2026). The city publishes HTML pages only (no licence stated, no download); only name,
+# address and operator are kept, in data/reference/ (git-ignored, not redistributed).
+v02:
+  base_url: https://www.tuebingen.de
+  # Kita list: links to detail pages /kindertageseinrichtungen/<id>.
+  childcare_list: /kindertageseinrichtungen
+  # School category pages (primary, secondary, special needs, other); links to detail pages.
+  school_lists: [/26689.html, /26690.html, /26691.html, /26688.html]
+  # Seconds between two requests to the city's web server.
+  request_interval_s: 1.0
+  timeout_s: 30
+  user_agent: "reach-validation/0.1 (DS500 course project, University of Tuebingen)"
+  # A reference entry and an OSM facility match if they lie within this distance (address
+  # point of the entry vs. facility point) or share the address.
+  match_radius_m: 100
+  # Name similarity (token Jaccard) that counts as a match when the address is not found.
+  name_min_jaccard: 0.5
+
+# V3: recommender back-test.
+v03:
+  profile: walking_339
+  categories: [grocery, pharmacy, doctors, childcare, school]
+  # Share of a category's facilities inside the urban boundary removed per repetition.
+  remove_share: 0.2
+  repetitions: 10
+  # A pick "recovers" a removed facility within these distances (zone centre → facility).
+  hit_radius_m: [250, 500]
+
+# V4: greedy vs. exact (MILP, PuLP + HiGHS) on the stored catchments.
+v04:
+  profiles: [walking_339, walking_500, wheelchair_339]
+  # Number of new facilities N per instance.
+  n_sites: [1, 2, 3, 5, 10]
+  # Solver time limit per instance (seconds); a hit limit is reported with its MIP gap.
+  time_limit_s: 60
+
+# V5: sensitivity (k_c, speed, time budget).
+v05:
+  base_profile: walking_339
+  # Shifts of k_c (k = max(1, k_c + shift)).
+  k_shifts: [-1, 1]
+  # Budgets (minutes) derived from the stored matrix times (≤ the facility budget) …
+  budgets_from_reachable: [10, 12.5]
+  # … and budgets above it, which need a recount of base_profile.
+  budgets_recount: [20]
+  # Districts compared in the "top districts" overlap.
+  top_districts: 5
+  # A recommended zone counts as "near" if the other scenario has a zone within this distance.
+  near_radius_m: 500
+
+# V6: building-based origin (notes N1) vs. cell centroid.
+v06:
+  profiles: [walking_339, wheelchair_339]
+  # Residential building types (N1 step 2); building=yes counts only inside landuse=residential.
+  residential_buildings:
+    [residential, house, apartments, detached, semidetached_house, terrace, bungalow, farm]
+
+# V8: spatial autocorrelation (global and local Moran's I).
+v08:
+  profile: walking_339
+  # Cells are neighbours if their centres are at most this far apart (150 m = queen contiguity
+  # on the 100 m grid).
+  neighbour_distance_m: 150
+  permutations: 999
+  significance: 0.05
+
+# V10: matrix vs. /route with larger samples than validate_results.
+v10:
+  profiles: [walking_339, walking_500, wheelchair_339]
+  pairs_per_profile: 200
+  near_budget_share: 0.8
+  false_negative_pairs_per_category: 50
+
+# V11: with vs. without slopes: a one-off elevation-free tile set built from the run's clipped
+# PBF, served by a temporary Valhalla container next to the demo stack and removed afterwards.
+v11:
+  profiles: [walking_339, walking_500, wheelchair_339]
+  # Host port of the temporary container (127.0.0.1 only); must be free (8002: other projects,
+  # 8003: demo stack, 8004: integration tests).
+  port: 8005
+  container_name: reach-exp-v11
+  # Worker threads of the temporary valhalla_service (as the demo stack).
+  threads: 2
+  # Seconds to wait for /status after the start.
+  start_timeout_s: 120
+  # Seconds between two memory samples (`docker stats`) during the recount.
+  memory_sample_s: 2
+  # N11 (b): wheelchair /route on the golden pair (config.yaml tiles.verify.route) with these
+  # max_grade values; null = option not sent.
+  max_grade_values: [null, 1, 6, 12, 30]

@@ -73,6 +73,25 @@ this file adds the stage pattern (note N2) and wins where it is more specific.
 - **Environment:** `make` passes `.env` to the pipeline (`uv run --env-file .env`); a failed
   stage posts to `$FAILURE_WEBHOOK_URL` if set (`notify.py`, never raises).
 
+## Validation experiments
+
+- **Not stages:** `src/reach_pipeline/experiments/` (V1–V11, methodology §6) reads a finished
+  run and writes only to `<data_dir>/experiments/<run_id>/vNN/` (`result.json` + tables); it never
+  changes a run's files, manifests or the database. One module per experiment (`NAME`, `TITLE`,
+  `run(e: Experiment) -> dict`), registered in `experiments/cli.py` (`AUTOMATED`, `MANUAL`).
+- **Command:** `make experiments [RUN_ID=…]` (one process per experiment, then `summary` and
+  `figures` → `docs/figures/`); a single one: `uv run --env-file .env python -m
+  reach_pipeline.experiments v05`.
+- **Settings** live in `config/experiments.yaml` (`experiments/settings.py`), not in
+  `config.yaml`, so they never change a stage's config digest or `config_hash`.
+- **Recounts** use `experiments.common.recount` (count's blocks, prefilter and matrix incl. the
+  stops; with unchanged inputs it reproduces `access_counts` exactly) — never a second counting
+  method. Cycling stays out of every recount (N4).
+- **Exceptions to the stage rules, for experiments only:** V11 calls the Docker CLI to build and
+  serve a temporary elevation-free tile set (127.0.0.1, removed afterwards); V2 fetches the
+  city's reference lists once into `<data_dir>/reference/` (cached, polite interval). PuLP,
+  HiGHS and matplotlib are dev dependencies, imported only inside V4 and `figures.py`.
+
 ## Tests
 
 - `pipeline/tests/test_<module>.py`, small fixtures in `pipeline/tests/fixtures/` (< 1 MB each).
