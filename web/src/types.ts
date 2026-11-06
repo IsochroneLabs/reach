@@ -1,0 +1,163 @@
+// Response shapes of the reach API (docs/data_contract.md, "API responses").
+import type { Feature, FeatureCollection, LineString, MultiPolygon, Polygon } from 'geojson'
+
+export interface Run {
+  run_id: string
+  started_at: string
+  finished_at: string | null
+  status: string
+  osm_snapshot: string | null
+  gtfs_valid_from: string | null
+  gtfs_valid_to: string | null
+  reference_weekday: string | null
+  config_hash: string
+}
+
+export interface DataSource {
+  source: string
+  url: string
+  retrieved_at: string
+  checksum: string
+  licence: string
+}
+
+export interface ValidationIssue {
+  check: string
+  stage: string
+  status: string
+  value: number | null
+  message: string
+}
+
+export interface Profile {
+  profile_id: string
+  costing: string
+  speed_kmh: number
+  time_budget_min: number
+  transit: boolean
+}
+
+export interface Category {
+  id: string
+  name: string
+  k: number
+}
+
+export interface TransitClass {
+  class: string
+  lower: number
+  upper: number | null
+}
+
+export interface Meta {
+  run: Run
+  data_sources: DataSource[]
+  validation: { ok: number; warn: number; fail: number; issues: ValidationIssue[] }
+  profiles: Profile[]
+  categories: Category[]
+  transit_classes: TransitClass[]
+}
+
+export interface DistrictProps {
+  district_id: string
+  name: string
+  admin_level: number
+  residents: number
+  cells: number
+}
+
+export type Districts = FeatureCollection<Polygon | MultiPolygon, DistrictProps> & { run_id: string }
+
+export interface DistrictScore {
+  category: string
+  profile_id: string
+  share_lack: number | null
+  share_insufficient: number | null
+  share_sufficient: number | null
+  deficit_sum: number | null
+  residents_lack: number | null
+  rank_deficit: number | null
+  rank_share_lack: number | null
+  districts_ranked: number | null
+}
+
+export interface DistrictScores {
+  run_id: string
+  district_id: string
+  name: string
+  admin_level: number
+  scores: DistrictScore[]
+}
+
+/** Properties of a cell feature: count columns for facility categories, supply for transit. */
+export interface CellProps {
+  cell_id: string
+  population: number
+  district_id: string | null
+  class: string
+  count?: number
+  nearest_min?: number | null
+  deficit?: number
+  departures?: number
+  stops_count?: number
+  nearest_stop_min?: number | null
+}
+
+export type Cells = FeatureCollection<Polygon, CellProps> & {
+  run_id: string
+  category: string
+  profile_id: string
+}
+
+export type Recommendations = FeatureCollection & { run_id: string; available: boolean }
+
+export interface InspectCell {
+  cell_id: string
+  scored: boolean
+  population: number | null
+  district_id: string | null
+  origin: [number, number]
+}
+
+export interface PrecomputedCategory {
+  category: string
+  count: number
+  nearest_min: number | null
+  class: string
+  deficit: number
+}
+
+export interface PrecomputedTransit {
+  departures: number
+  stops_count: number
+  nearest_stop_min: number | null
+  class: string
+}
+
+export interface ReachableFacility {
+  facility_id: string
+  name: string | null
+  time_s: number
+  time_min: number
+}
+
+export interface InspectCategory {
+  category: string
+  name: string
+  count: number
+  count_source: 'precomputed' | 'live'
+  reachable: ReachableFacility[]
+  nearest_route: Feature<LineString, { time_s: number; length_m: number }> | null
+}
+
+export interface Inspect {
+  run_id: string
+  profile_id: string
+  cell: InspectCell
+  source: 'precomputed' | 'live'
+  precomputed: { categories: PrecomputedCategory[]; transit: PrecomputedTransit | null } | null
+  weakest_category: string | null
+  isochrone: FeatureCollection<Polygon, { contour_min: number }>
+  categories: InspectCategory[]
+  cached: boolean
+}
