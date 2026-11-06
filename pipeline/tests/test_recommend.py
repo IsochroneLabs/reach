@@ -66,6 +66,34 @@ def test_outside_and_near_any() -> None:
     assert not rec.near_any(xy, np.empty((0, 2)), 50).any()
 
 
+def test_exclusions_by_tag_and_protect_class() -> None:
+    box = [shapely.box(i * 1000, 0, i * 1000 + 500, 2000) for i in range(6)]  # 1 km² each
+    polygons = gpd.GeoDataFrame(
+        {
+            "landuse": ["forest", None, None, None, None, None],
+            "leisure": [None, "nature_reserve", None, None, None, None],
+            "boundary": [None, "protected_area", *["protected_area"] * 4],
+            "protect_class": [None, "4", "4", "22", " 7", None],
+        },
+        geometry=box,
+        crs=CRS,
+    )
+    excluded, stats = rec.exclusions(
+        polygons, [{"landuse": "forest"}, {"leisure": "nature_reserve"}], ["4", "7"]
+    )
+    # forest, nature reserve, class 4, class 7 (whitespace tolerated); not 22 or without class
+    assert list(excluded.index) == [0, 1, 2, 4]
+    assert stats == {
+        "protected_area_not_excluded": {
+            "22": {"count": 1, "area_km2": 1.0},
+            "none": {"count": 1, "area_km2": 1.0},
+        }
+    }
+    # columns missing in the export (no feature has the tag): nothing matches, no error
+    excluded, _ = rec.exclusions(polygons[["geometry"]], [{"natural": "water"}], ["4"])
+    assert excluded.empty
+
+
 def test_catchment_pairs_keeps_times_within_budget() -> None:
     times = np.array([[100.0, np.nan], [900.0, 901.0]])
     pairs = rec.catchment_pairs(times, 900)
@@ -272,6 +300,8 @@ def test_recommend_stage_end_to_end(stage_ctx: RunContext) -> None:
     report = json.loads((out / stage.REPORT).read_text(encoding="utf-8"))
     # land use: candidates in the forest corner are dropped, the park is not excluded
     assert report["candidates"]["excluded_landuse"] > 0
+    assert report["candidates"]["protected_area_not_excluded"] == {}  # none in the fixture
+    assert "protected areas not excluded" in manifest.message
     forest = shapely.box(X0 - 10, Y0 - 10, X0 + 300, Y0 + 300)
     assert not shapely.contains_xy(forest, cand.geometry.x, cand.geometry.y).any()
 

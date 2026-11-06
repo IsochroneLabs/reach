@@ -67,6 +67,43 @@ def no_candidates() -> gpd.GeoDataFrame:
     )
 
 
+PROTECTED = ("boundary", "protected_area")
+
+
+def exclusions(
+    polygons: gpd.GeoDataFrame, tags: list[dict[str, str]], protect_classes: list[str]
+) -> tuple[gpd.GeoSeries, dict[str, object]]:
+    """Excluded polygons from an osmium export (tag columns): every polygon matching one of
+    `tags`, plus `boundary=protected_area` polygons whose `protect_class` is listed. Returns
+    them and statistics of the protected areas that stay allowed (by class, `none` = no class):
+    count and area in km²."""
+
+    def col(name: str) -> pd.Series:
+        if name in polygons:
+            return polygons[name].astype("string")
+        return pd.Series(pd.NA, index=polygons.index, dtype="string")
+
+    by_tag = np.zeros(len(polygons), dtype=bool)
+    for tag in tags:
+        ((key, value),) = tag.items()
+        by_tag |= (col(key) == value).fillna(False).to_numpy()
+    protected = (col(PROTECTED[0]) == PROTECTED[1]).fillna(False).to_numpy()
+    cls = col("protect_class").str.strip()
+    listed = cls.isin(protect_classes).fillna(False).to_numpy()
+    excluded = by_tag | (protected & listed)
+    kept = polygons[protected & ~excluded]
+    kept_cls = cls[protected & ~excluded].fillna("none")
+    area = kept.geometry.area / 1e6
+    stats = {
+        str(c): {
+            "count": int((kept_cls == c).sum()),
+            "area_km2": round(float(area[kept_cls == c].sum()), 2),
+        }
+        for c in sorted(set(kept_cls))
+    }
+    return polygons.geometry[excluded], {"protected_area_not_excluded": stats}
+
+
 def outside(points: gpd.GeoSeries, polygons: gpd.GeoSeries) -> np.ndarray:
     """True for points not inside any of the polygons (vectorised, spatial index)."""
     keep = np.ones(len(points), dtype=bool)

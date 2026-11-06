@@ -286,8 +286,14 @@ recommend:
     - {landuse: farmland}
     - {natural: water}
     - {natural: wood}
-    - {boundary: protected_area}
     - {leisure: nature_reserve}
+  # boundary=protected_area is excluded only for these protect_class values (nature protection:
+  # 1-4 strict reserves, wilderness, national parks, monuments/biotopes; 7 = other nature
+  # protection, in BW e.g. Bannwald and protected biotopes). Not excluded: landscape protection
+  # and nature parks (5, e.g. Naturpark Schönbuch covers villages), cultural heritage (22, e.g.
+  # the Altstadt ensemble), resource and other classes (14, 97, …) and areas without
+  # protect_class; recommend reports their count and area (decision by Rico, 6 Nov 2026).
+  exclude_protect_classes: ["1", "2", "3", "4", "7"]
 
 # Validation thresholds (arch. §7 "validate inputs").
 validation:

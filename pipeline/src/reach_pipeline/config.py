@@ -246,6 +246,8 @@ class Recommend(_Model):
     candidate_spacing_m: int = Field(ge=100)
     group_size_m: float = Field(gt=0)
     exclude_tags: list[dict[str, str]]
+    # boundary=protected_area polygons excluded only with one of these protect_class values.
+    exclude_protect_classes: list[str]
 
     @field_validator("candidate_spacing_m")
     @classmethod

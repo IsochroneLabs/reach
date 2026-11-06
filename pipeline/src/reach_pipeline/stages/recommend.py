@@ -1,7 +1,8 @@
 """recommend: ranked candidate zones for new facilities (methodology §5, arch. §6.4, §7).
 
 1. Candidates: 100 m grid cells inside the urban boundary (`recommend.candidate_spacing_m`),
-   without excluded OSM land use (`recommend.exclude_tags`, osmium on validate's clipped PBF).
+   without excluded OSM land use (`recommend.exclude_tags`, protected areas of
+   `recommend.exclude_protect_classes`; osmium on validate's clipped PBF).
 2. Per profile in `recommend.profiles`: candidates within the prefilter reach of a cell with a
    deficit (any category) are routed in groups (§6.5 rule 7): sources = scored cells within the
    prefilter reach of the group, targets = the group's candidates, `costmatrix` as in `count`.
@@ -70,26 +71,41 @@ REC_COLUMNS = [
 log = logging.getLogger(__name__)
 
 
-def excluded_landuse(ctx: RunContext) -> gpd.GeoSeries:
-    """Polygons of `recommend.exclude_tags` from validate's clipped PBF (EPSG:25832)."""
-    tags = ctx.config.recommend.exclude_tags
-    if not tags:
-        return gpd.GeoSeries([], crs=validate.METRIC_CRS)
+def excluded_landuse(ctx: RunContext) -> tuple[gpd.GeoSeries, dict[str, Any]]:
+    """Polygons of `recommend.exclude_tags` and of protected areas with a listed
+    `protect_class` (`recommend.exclude_protect_classes`) from validate's clipped PBF
+    (EPSG:25832), plus statistics of the protected areas that stay allowed."""
+    r = ctx.config.recommend
+    exprs = osm.tag_expressions(r.exclude_tags, "wr")
+    if r.exclude_protect_classes:
+        exprs.append(f"wr/{rec.PROTECTED[0]}={rec.PROTECTED[1]}")
+    if not exprs:
+        return gpd.GeoSeries([], crs=validate.METRIC_CRS), {}
     work = ctx.stage_dir(STAGE) / "osm"
     work.mkdir(parents=True, exist_ok=True)
     pbf = ctx.stage_dir(validate.STAGE) / validate.ROUTING_PBF
-    filtered = osm.tags_filter(pbf, work / "exclude.osm.pbf", osm.tag_expressions(tags, "wr"))
+    filtered = osm.tags_filter(pbf, work / "exclude.osm.pbf", exprs)
     exported = osm.export(filtered, work / "exclude.geojsonseq", ["polygon"])
-    return osm.read_export(exported).geometry
+    polygons, stats = rec.exclusions(
+        osm.read_export(exported), r.exclude_tags, r.exclude_protect_classes
+    )
+    log.info("protected areas not excluded (by protect_class): %s", stats)
+    return polygons, stats
 
 
-def candidates(ctx: RunContext) -> tuple[gpd.GeoDataFrame, dict[str, int]]:
+def candidates(ctx: RunContext) -> tuple[gpd.GeoDataFrame, dict[str, Any]]:
     """Grid candidates inside the urban boundary minus excluded land use, sorted by id."""
     urban = gpd.read_parquet(ctx.stage_dir(validate.STAGE) / "urban_boundary.parquet")
     grid = rec.candidate_grid(urban.geometry.union_all(), ctx.config.recommend.candidate_spacing_m)
-    keep = rec.outside(grid.geometry, excluded_landuse(ctx))
+    polygons, stats = excluded_landuse(ctx)
+    keep = rec.outside(grid.geometry, polygons)
     out = grid[keep].sort_values("candidate_id").reset_index(drop=True)
-    return out, {"grid_in_urban_boundary": len(grid), "excluded_landuse": int((~keep).sum())}
+    return out, {
+        "grid_in_urban_boundary": len(grid),
+        "excluded_landuse": int((~keep).sum()),
+        "excluded_polygons": len(polygons),
+        **stats,
+    }
 
 
 def deficit_cells(access: pd.DataFrame, cfg: Config, profile_id: str) -> np.ndarray:
@@ -372,7 +388,8 @@ def run(ctx: RunContext) -> Manifest:
         outputs=outputs,
         message=(
             f"{len(cand)} candidates, {len(recs)} recommendations for profiles "
-            f"{list(cfg.recommend.profiles)}; "
+            f"{list(cfg.recommend.profiles)}; protected areas not excluded: "
+            f"{cand_stats.get('protected_area_not_excluded', {})}; "
             f"{sum(s['requests'] for s in stats.values())} matrix requests"
         ),
     )
