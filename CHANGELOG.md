@@ -18,6 +18,9 @@ adds a line under `Unreleased`.
   limitations, attribution always visible; recommendations layer hidden until P7. Basemap:
   OpenFreeMap Positron (no key). CI job `web`: lint, type check, build, bundle sizes, Playwright
   smoke test against recorded API responses.
+- `GET /api/meta`: `profiles[].transit_budget_min` (walking time to stops, from
+  `time_budgets_min.transit`; null without transit; data contract v0.8); the transit legend
+  shows it.
 - `reachable` table (`count/reachable.parquet`, run schema, data contract v0.7): every
   facility a cell reaches within the budget per profile with its matrix time; the pin-drop
   inspector lists reachable facilities from it, so list and count match the map by construction

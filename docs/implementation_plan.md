@@ -5,8 +5,8 @@
 > decision → architecture v0.12, methodology v0.3). P3 merged (PR #21, 5 Nov 2026; full depth:
 > all profiles and categories; open decisions N4, N5, cycling factor). P4 merged (PR #22, 5 Nov
 > 2026; full depth; monotonicity with tolerance, N6). P5 merged (PR #24, 5 Nov 2026, full depth,
-> architecture v0.14); N8 follow-up: one matrix algorithm + `reachable` (architecture v0.15). P6 implemented on
-> `feature/rico-web` (6 Nov 2026, draft PR, interim depth plus district panel). Next: P7. This file is the **handoff between
+> architecture v0.14); N8 follow-up: one matrix algorithm + `reachable` (architecture v0.15). P6 merged (PR #26,
+> 6 Nov 2026, squash; interim depth plus district panel; team review pending, after merge). Next: P7. This file is the **handoff between
 > agent sessions**: phase status, decisions, agreed deviations, measured numbers and next steps.
 > It is informative; `architecture.md` and `methodology.md` stay binding. Where this plan proposes
 > something that differs from them, it is listed in [Section 5](#5-conflicts-gaps-and-ambiguities)
@@ -24,7 +24,7 @@
 | P3 | tiles + count | `feature/juju-tiles-count` | [x] merged PR #21, 5 Nov (full depth) | 16 Nov |
 | P4 | score + publish + cleanup | `feature/juju-score-publish` | [x] merged PR #22, 5 Nov (full depth) | 19 Nov |
 | P5 | API | `feature/rico-api` | [x] merged PR #24, 5 Nov (full depth; N7/N8 follow-up `fix/rico-matrix-algorithm`) | 21 Nov |
-| P6 | Web | `feature/rico-web` | [~] draft PR, 6 Nov (interim + district panel; ranking/polish after) | 24 Nov |
+| P6 | Web | `feature/rico-web` | [x] merged PR #26, 6 Nov (interim + district panel; ranking/polish after; team review pending) | 24 Nov |
 | — | **Interim demo (local), `v0.1.0`** | release PR `dev` → `main` on request | [ ] | 25 Nov |
 | P7 | Recommender + validation V1–V9 | `feature/rico-recommender`, `feature/rico-validation` | [ ] | 10 Jan |
 | P8 | Production | `feature/rico-production` | [ ] | server from ~1 Dec, hardening until 15 Jan |
@@ -345,6 +345,7 @@ Confirmed by Rico (2 Nov 2026): C6–C12 as recommended in Section 5; Q4 also co
 | 2026-11-05 | P5 review (fresh agent) | Fixed: live caches held Python dicts (~10× the JSON size; 2,000 cycling inspects ≈ 1 GB) → caches hold serialized JSON bytes, defaults lowered (`live_entries` 500, `expansion_entries` 10; worst case ~60 MB) and size comments corrected; rate-limit dependency was sync (threadpool, unlocked limiter state) → async; concurrent misses of one key now share one Valhalla computation (rule 10); `rank_share_lack` ranked districts without residents first → `NULLS LAST`; Valhalla retries now wait `api.valhalla.backoff_s * 2**attempt` (new key); matrix larger than the limit on both axes raises; meta ETag includes the config category names; unit tests no longer resolve DNS; db test covers a scored cell with a real grid id outside the urban boundary (K1) and snapping; contract lists 500/502 causes; commits reordered (code with its contract, `chore` types). Left: none |
 | 2026-11-06 | P6 answers + assumptions (Rico) | Basemap OpenFreeMap Positron via `VITE_BASEMAP_STYLE`, attribution "© OpenMapTiles © OpenStreetMap contributors" always visible (plus the TileJSON credit OpenFreeMap adds); Node 24 LTS (`web/.nvmrc` 24.22.2, `engines`, `setup-node` in CI, `node:24.22.2-alpine3.24`); `infra/web.Dockerfile` + caddy service built from it, placeholder removed, CI job `web` (approved); Playwright in CI with `page.route` on fixtures, basemap blocked, `E2E_LIVE=1` against :8080. npm (exact): react/react-dom 19.3.1, maplibre-gl 6.15.0; dev: vite 8.3.5, @vitejs/plugin-react 6.1.2, typescript 6.0.3 (7.x unsupported by typescript-eslint), @types/react(-dom) 19.3.0, eslint 10.13.0, @eslint/js 10.0.1, typescript-eslint 8.72.0, eslint-plugin-react-hooks 7.1.1, eslint-plugin-react-refresh 0.5.7, globals 17.13.0, @playwright/test 1.64.1 (no @types/node: one ambient `process` declaration). Palette: Rico rejected two oranges; ordered lightness instead (facility L* 23/51/79, transit 23/44/70/81; min. ΔE76 under simulated CVD 39 / 25). UI English; view + selection in the URL hash (no router); legend sums residents per class from `/api/cells` (display only); browser HTTP cache handles ETag/304 (third `/api/cells` request: 300 bytes); spinner after 300 ms; inspect aborted on a new pin; maplibre-gl 6 worker emitted via `?url` + `setWorkerUrl`; known limitations on the data page are static text with doc links |
 | 2026-11-06 | P6 review (fresh agent) | Fixed: cells re-sent to MapLibre on every render (class list memoised); a failed `/api/cells` showed the previous category as the new one (error keyed by selection); transit legend claimed the 15 min profile budget (transit budget is not in `/api/meta`: label without minutes); inspector/overlays collapsed for fast answers (previous answer stays dimmed until the new one arrives); data page dropped the map selection and remounted the map (selection kept in the hash, map stays mounted); `.env.production` comments; root AGENTS.md folder-rules wording; smoke test checks NVBW/OpenMapTiles attribution and console errors of the error test; CI builds once; mobile: one-line top bar, "Details below" hint, map region role. Open (ask first): `@types/geojson` as a direct dev dependency (now transitive via maplibre-gl), transit budget in `/api/meta` (API + contract). Accepted: a profile change typed into the hash does not re-run a pinned inspect; static UI text (attribution links, limitations) in code (rule worded in `web/AGENTS.md`); no keyboard path to drop a pin yet |
+| 2026-11-06 | P6 follow-up (Rico) | `@types/geojson` 7946.0.16 as a direct dev dependency; `GET /api/meta` `profiles[].transit_budget_min` from `time_budgets_min.transit` (config, part of the meta ETag; data contract v0.8, test), transit legend shows the minutes; minimatch: no non-breaking fix (11.x is a major outside eslint's `^10.2`), no override, recorded as notes N10; demo addresses checked against one-source matrices: Burgholzweg 127 lacks parks because forest is not a park (forest edge 55 m) and the nearest playground is 509 m by line but 1.37 km / 24 min on foot, but its childcare lack is a block-matrix artefact (notes N9) → demo uses Burgholzweg 79 (nearest facility 18–25 min in every category); merge to `dev` approved by Rico before team review |
 
 Measured numbers (runtime, peak memory, counts) are added here at the end of every phase.
 
@@ -439,11 +440,12 @@ Measured numbers (runtime, peak memory, counts) are added here at the end of eve
    N4 (Valhalla memory comes from `costmatrix`); `catchment` for recommender candidates gets
    its candidates in P7; production command, HTTPS and no published ports in `compose.prod.yaml` (P8); measure API memory and
    inspect latency on the CX23 (VF3).
-8. P6 — draft PR from `feature/rico-web` (review by Socke or Juju, no self-merge). Open: sortable
-   district ranking, catchment/expansion and recommendation views (P7 fills
-   `/api/recommendations`), dev-only npm audit finding (moderate `minimatch` ReDoS in eslint /
-   typescript-eslint, not in the bundle; update when fixed upstream), production Caddyfile with
-   HTTPS and the GHCR web image (P8). Next: P7.
+8. P6 — merged (PR #26, squash, approved by Rico; team review by Socke or Juju pending, after
+   merge). Open: sortable district ranking, catchment/expansion and recommendation views (P7
+   fills `/api/recommendations`), keyboard path for the inspector, notes N9 (block matrices can
+   miss facilities near the budget; restart Valhalla and recheck before the next run), N10
+   (dev-only minimatch audit finding), production Caddyfile with HTTPS and the GHCR web image
+   (P8). Next: P7.
 
 ## 9. Working rules (copy from the start prompt)
 
