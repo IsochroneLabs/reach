@@ -346,6 +346,7 @@ Confirmed by Rico (2 Nov 2026): C6–C12 as recommended in Section 5; Q4 also co
 | 2026-11-06 | P6 answers + assumptions (Rico) | Basemap OpenFreeMap Positron via `VITE_BASEMAP_STYLE`, attribution "© OpenMapTiles © OpenStreetMap contributors" always visible (plus the TileJSON credit OpenFreeMap adds); Node 24 LTS (`web/.nvmrc` 24.22.2, `engines`, `setup-node` in CI, `node:24.22.2-alpine3.24`); `infra/web.Dockerfile` + caddy service built from it, placeholder removed, CI job `web` (approved); Playwright in CI with `page.route` on fixtures, basemap blocked, `E2E_LIVE=1` against :8080. npm (exact): react/react-dom 19.3.1, maplibre-gl 6.15.0; dev: vite 8.3.5, @vitejs/plugin-react 6.1.2, typescript 6.0.3 (7.x unsupported by typescript-eslint), @types/react(-dom) 19.3.0, eslint 10.13.0, @eslint/js 10.0.1, typescript-eslint 8.72.0, eslint-plugin-react-hooks 7.1.1, eslint-plugin-react-refresh 0.5.7, globals 17.13.0, @playwright/test 1.64.1 (no @types/node: one ambient `process` declaration). Palette: Rico rejected two oranges; ordered lightness instead (facility L* 23/51/79, transit 23/44/70/81; min. ΔE76 under simulated CVD 39 / 25). UI English; view + selection in the URL hash (no router); legend sums residents per class from `/api/cells` (display only); browser HTTP cache handles ETag/304 (third `/api/cells` request: 300 bytes); spinner after 300 ms; inspect aborted on a new pin; maplibre-gl 6 worker emitted via `?url` + `setWorkerUrl`; known limitations on the data page are static text with doc links |
 | 2026-11-06 | P6 review (fresh agent) | Fixed: cells re-sent to MapLibre on every render (class list memoised); a failed `/api/cells` showed the previous category as the new one (error keyed by selection); transit legend claimed the 15 min profile budget (transit budget is not in `/api/meta`: label without minutes); inspector/overlays collapsed for fast answers (previous answer stays dimmed until the new one arrives); data page dropped the map selection and remounted the map (selection kept in the hash, map stays mounted); `.env.production` comments; root AGENTS.md folder-rules wording; smoke test checks NVBW/OpenMapTiles attribution and console errors of the error test; CI builds once; mobile: one-line top bar, "Details below" hint, map region role. Open (ask first): `@types/geojson` as a direct dev dependency (now transitive via maplibre-gl), transit budget in `/api/meta` (API + contract). Accepted: a profile change typed into the hash does not re-run a pinned inspect; static UI text (attribution links, limitations) in code (rule worded in `web/AGENTS.md`); no keyboard path to drop a pin yet |
 | 2026-11-06 | P6 follow-up (Rico) | `@types/geojson` 7946.0.16 as a direct dev dependency; `GET /api/meta` `profiles[].transit_budget_min` from `time_budgets_min.transit` (config, part of the meta ETag; data contract v0.8, test), transit legend shows the minutes; minimatch: no non-breaking fix (11.x is a major outside eslint's `^10.2`), no override, recorded as notes N10; demo addresses checked against one-source matrices: Burgholzweg 127 lacks parks because forest is not a park (forest edge 55 m) and the nearest playground is 509 m by line but 1.37 km / 24 min on foot, but its childcare lack is a block-matrix artefact (notes N9) → demo uses Burgholzweg 79 (nearest facility 18–25 min in every category); merge to `dev` approved by Rico before team review |
+| 2026-11-06 | N9 (Rico) | No counting error: the three examples take 932–984 s uphill at 3.39 km/h by block matrix, one-source matrix and /route alike; the reported 740–894 s were route length ÷ speed (slope effect N5). Valhalla config effective by construction (`config/` mounted, `valhalla.effective.json` copy served, `make valhalla-config`, `count` fails on a difference); new check `false_negatives` (20 pairs per profile × category, warn > 0, fail > 2 %); published run used `costmatrix` (recount bit-identical); squash-merge after green CI approved by Rico, team review pending |
 
 Measured numbers (runtime, peak memory, counts) are added here at the end of every phase.
 
@@ -407,6 +408,10 @@ Measured numbers (runtime, peak memory, counts) are added here at the end of eve
 | P6 | Warm reload (ETag/304, immutable assets) until cells ready | ~0.9 s |
 | P6 | `POST /api/inspect`: scored cell / live grid cell (cycling) | 40–140 ms / 2.0–2.8 s |
 | P6 | Playwright smoke test: mocked (preview build) / live (:8080) | 1.1 s / 2.8 s |
+| N9 | Recount of run `20261105T203945Z` inputs with the effective-config check (scratch, local stack busy with tests) | 524 s, 283 MB; 0 changed counts, classes or `reachable` rows |
+| N9 | New run `make refresh` (`20261106T100859Z`, new OSM 4 Nov, GTFS/Zensus unchanged): acquire / validate / tile build / count / validate_results / publish | 40 s / 15 s (2,673 MB) / 10 s / 480 s (296 MB) / 4.2 s (514 MB) / 9.5 s; checks: `false_negatives` warn 1/480, `matrix_vs_route` ok (max 5 s), monotonic warnings as before |
+| N9 | New vs. previous run (OSM change only): changed counts / classes over all cell × category × profile rows; headline shares | 0.63 % / 0.015 %; lack walking 3.39 grocery 32.80 % → 32.80 %, school 29.13 % → 29.41 % (wheelchair school 33.49 → 33.78 %); demo cells Burgholzweg 79 and Metzgergasse 6 unchanged |
+| N9 | `false_negatives` on run `20261105T203945Z`: 480 / 4,800 sampled pairs | 0 / 1 false negatives; 2.6 / 19.4 s, ~500 MB RSS (process incl. tables) |
 
 ## 8. Next steps
 
@@ -442,10 +447,11 @@ Measured numbers (runtime, peak memory, counts) are added here at the end of eve
    inspect latency on the CX23 (VF3).
 8. P6 — merged (PR #26, squash, approved by Rico; team review by Socke or Juju pending, after
    merge). Open: sortable district ranking, catchment/expansion and recommendation views (P7
-   fills `/api/recommendations`), keyboard path for the inspector, notes N9 (block matrices can
-   miss facilities near the budget; restart Valhalla and recheck before the next run), N10
+   fills `/api/recommendations`), keyboard path for the inspector, N10
    (dev-only minimatch audit finding), production Caddyfile with HTTPS and the GHCR web image
    (P8). Next: P7.
+9. ~~N9~~ — settled (branch `fix/rico-count-missing`): no missed facilities; open from it: N5
+   decision (slopes in walking times) and the route time in the inspector.
 
 ## 9. Working rules (copy from the start prompt)
 

@@ -20,6 +20,7 @@ from pyproj import Transformer
 from reach_pipeline import count
 from reach_pipeline.config import load_config
 from reach_pipeline.context import RunContext
+from reach_pipeline.errors import StageValidationError
 from reach_pipeline.manifest import Manifest, read_manifest, write_manifest
 from reach_pipeline.stages import count as count_stage
 from reach_pipeline.stages import tiles, validate
@@ -157,8 +158,12 @@ def stage_ctx(tmp_path: Path) -> RunContext:
     data["valhalla"].update(url="http://valhalla.test", backoff_s=0, max_matrix_pairs=500)
     cfg_path = tmp_path / "config.yaml"
     cfg_path.write_text(yaml.safe_dump(data, allow_unicode=True), encoding="utf-8")
-    (tmp_path / "valhalla.json").write_text("{}", encoding="utf-8")
+    vjson = json.dumps({"thor": {"source_to_target_algorithm": "costmatrix"}})
+    (tmp_path / "valhalla.json").write_text(vjson, encoding="utf-8")
     ctx = RunContext(config=load_config(cfg_path), config_path=cfg_path, run_id=RUN_ID)
+    # the copy the Valhalla service started with (compose.yaml)
+    tiles.effective_config(ctx).parent.mkdir(parents=True)
+    tiles.effective_config(ctx).write_text(vjson, encoding="utf-8")
 
     rng = np.random.default_rng(7)
     vdir = ctx.stage_dir(validate.STAGE)
@@ -321,7 +326,42 @@ def test_count_stage_matches_brute_force(stage_ctx: RunContext) -> None:
         "s5": 0,
     }
     report = json.loads((out / count_stage.REPORT).read_text(encoding="utf-8"))
+    assert report["valhalla"]["source_to_target_algorithm"] == "costmatrix"
+    assert str(tiles.effective_config(stage_ctx)) in [i.path for i in manifest.inputs]
+    assert "(costmatrix)" in manifest.message
     ev = report["evidence"]["profiles"]["cycling_15"]["facilities"]
     assert ev["beyond_prefilter"] == 0 and ev["required_factor"] <= 1.0
     # unchanged inputs: the second run is a no-op
     assert count_stage.run(stage_ctx).finished_at == read_manifest(out).finished_at
+
+
+def test_count_stage_fails_without_effective_valhalla_config(stage_ctx: RunContext) -> None:
+    tiles.effective_config(stage_ctx).unlink()
+    with pytest.raises(StageValidationError, match="not found"):
+        count_stage.run(stage_ctx)
+
+
+def test_count_stage_fails_if_valhalla_runs_another_config(stage_ctx: RunContext) -> None:
+    """N9: a running Valhalla that kept an old config (e.g. select_optimal) stops the stage
+    before any matrix call."""
+    old = {"thor": {"source_to_target_algorithm": "select_optimal"}}
+    tiles.effective_config(stage_ctx).write_text(json.dumps(old), encoding="utf-8")
+    with respx.mock(base_url="http://valhalla.test", assert_all_called=False) as router:
+        matrix = router.post("/sources_to_targets").mock(side_effect=_fake_matrix)
+        with pytest.raises(StageValidationError, match=r"differs .* in \['thor'\]"):
+            count_stage.run(stage_ctx)
+    assert not matrix.called
+
+
+def test_validate_results_requires_the_valhalla_config_count_used(stage_ctx: RunContext) -> None:
+    from reach_pipeline.stages import validate_results
+
+    with respx.mock(base_url="http://valhalla.test") as router:
+        router.post("/sources_to_targets").mock(side_effect=_fake_matrix)
+        count_stage.run(stage_ctx)
+    validate_results.require_count_valhalla(stage_ctx)  # same config: ok
+    other = {"thor": {"source_to_target_algorithm": "costmatrix"}, "loki": {}}
+    for path in (tiles.valhalla_config(stage_ctx), tiles.effective_config(stage_ctx)):
+        path.write_text(json.dumps(other), encoding="utf-8")  # Valhalla recreated with it
+    with pytest.raises(StageValidationError, match="rerun count"):
+        validate_results.require_count_valhalla(stage_ctx)

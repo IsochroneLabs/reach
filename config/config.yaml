@@ -289,6 +289,14 @@ validation:
       pairs_per_profile: 25
       near_budget_share: 0.8
       warn_max_abs_s: 60
+    # Missed facilities (notes N9): per profile and category pairs_per_category random cell ×
+    # facility pairs within the prefilter reach that are not in `reachable`, checked with
+    # /route; a route within the budget is a false negative. Warns above warn_above, fails
+    # above fail_above (share of the whole sample). Needs the running Valhalla.
+    false_negatives:
+      pairs_per_category: 20
+      warn_above: 0
+      fail_above: 0.02
 
 # PostGIS (arch. §8). Connection strings and passwords come from .env (DATABASE_URL_PIPELINE,
 # DATABASE_URL_ADMIN, *_PASSWORD), never from this file.

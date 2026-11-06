@@ -51,6 +51,7 @@ PREVIOUS = validate.STAGE
 FLAG = "rebuild_needed"
 SOURCE_FILE = "tiles_source.sha256"
 TILES_TAR = "valhalla_tiles.tar"
+EFFECTIVE_CONFIG = "valhalla.effective.json"
 VERIFY_JSON = "verify.json"
 GRADE_ATTRIBUTES = ["edge.weighted_grade", "edge.max_upward_grade", "edge.max_downward_grade"]
 
@@ -66,6 +67,12 @@ def valhalla_dir(ctx: RunContext) -> Path:
 def valhalla_config(ctx: RunContext) -> Path:
     """`config/valhalla.json`, next to the pipeline config (mounted by compose.yaml)."""
     return ctx.config_path.parent / "valhalla.json"
+
+
+def effective_config(ctx: RunContext) -> Path:
+    """Copy of `config/valhalla.json` the running service started with (written by the
+    `valhalla` service in compose.yaml at every start)."""
+    return valhalla_dir(ctx) / EFFECTIVE_CONFIG
 
 
 def _routing_pbf(ctx: RunContext) -> Path:

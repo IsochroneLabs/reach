@@ -41,11 +41,19 @@ services:
 
   valhalla:
     image: ghcr.io/valhalla/valhalla:3.9.1
-    # Serves $VALHALLA_DIR/valhalla_tiles.tar (built by `make refresh`); the last argument is the
-    # number of worker threads (= vCPUs of the server, arch. §6.5 rule 15).
-    command: ["valhalla_service", "/valhalla/config/valhalla.json", "2"]
+    # Serves $VALHALLA_DIR/valhalla_tiles.tar (built by `make refresh`); the last argument of
+    # valhalla_service is the number of worker threads (= vCPUs of the server, arch. §6.5 rule 15).
+    # Valhalla reads its config only at start: every start copies config/valhalla.json to
+    # $VALHALLA_DIR/valhalla.effective.json and serves exactly that copy, so `count` can check
+    # the effective config against the repository file (notes N9). The config directory is
+    # mounted, not the file: a single-file bind mount keeps the old inode after a git checkout.
+    entrypoint: ["sh", "-euc"]
+    command:
+      - |
+        cp /valhalla/config/valhalla.json /data/valhalla/valhalla.effective.json
+        exec valhalla_service /data/valhalla/valhalla.effective.json 2
     volumes:
-      - ./config/valhalla.json:/valhalla/config/valhalla.json:ro
+      - ./config:/valhalla/config:ro
       # Host bind mount (not a named volume), so `make refresh` swaps tiles with two `mv`.
       - ${VALHALLA_DIR:-./data/valhalla}:/data/valhalla
     ports:
@@ -87,7 +95,7 @@ services:
       ELEVATION: ${ELEVATION:-true}
       BBOX: ${BBOX:-}
     volumes:
-      - ./config/valhalla.json:/valhalla/config/valhalla.json:ro
+      - ./config:/valhalla/config:ro
       - ${VALHALLA_DIR:-./data/valhalla}/build:/data/valhalla
       - ${VALHALLA_DIR:-./data/valhalla}/elevation:/data/valhalla/elevation
 

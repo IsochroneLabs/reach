@@ -89,6 +89,8 @@ make refresh            # new run: acquire (~350 MB) → validate → build Valh
                         # → score → validate_results → publish → cleanup
 make pipeline STAGE=count     # one stage against the running Valhalla (latest run)
 make pipeline           # all implemented stages without a tile rebuild; recommend is skipped
+make valhalla-config    # recreate Valhalla if config/valhalla.json changed (up, refresh and
+                        # pipeline do this; count fails if Valhalla runs another config)
 make down               # stop the stack
 ```
 

@@ -236,3 +236,81 @@ def test_route_check_reports_deviation_and_flips(cfg: Config) -> None:
     assert per_profile["fast"]["no_route"] == 1
     pairs.loc[0, "route_s"] = 700.0
     assert results.route_check(pairs, 900, rc)[0].status == "warn"
+
+
+def test_false_negative_candidates_are_within_reach_and_not_reachable() -> None:
+    import numpy as np
+
+    origins = np.array([[0.0, 0.0], [1000.0, 0.0]])
+    # f1 has two routing points (one near each cell), f2 is a shop and a pharmacy, f3 is far
+    points = np.array([[100.0, 0.0], [1100.0, 0.0], [0.0, 500.0], [5000.0, 0.0]])
+    facilities = pd.DataFrame(
+        {
+            "facility_id": ["f1", "f2", "f2", "f3"],
+            "category": ["parks", "grocery", "pharmacy", "grocery"],
+        }
+    )
+    reachable = pd.DataFrame({"cell_id": ["a"], "facility_id": ["f1"]})
+    got = results.false_negative_candidates(
+        origins,
+        np.array(["a", "b"]),
+        points,
+        np.array(["f1", "f1", "f2", "f3"]),
+        facilities,
+        reachable,
+        reach_m=850,
+    )
+    got = got.sort_values(["cell_id", "facility_id", "category"]).reset_index(drop=True)
+    assert got[["cell_id", "facility_id", "category"]].values.tolist() == [
+        ["a", "f2", "grocery"],
+        ["a", "f2", "pharmacy"],
+        ["b", "f1", "parks"],  # (a, f1) is reachable; f2 is 1,118 m from b; f3 beyond reach
+    ]
+    assert got["distance_m"].round(1).tolist() == [500.0, 500.0, 100.0]  # nearest point
+
+
+def test_false_negative_sample_is_deterministic_per_category() -> None:
+    import numpy as np
+
+    candidates = pd.DataFrame(
+        {
+            "cell_id": [f"c{i}" for i in range(30)],
+            "facility_id": "f",
+            "category": ["grocery"] * 25 + ["parks"] * 5,
+            "distance_m": 100.0,
+        }
+    )
+    a = results.false_negative_sample(candidates, 10, np.random.default_rng(3))
+    b = results.false_negative_sample(candidates, 10, np.random.default_rng(3))
+    assert a.equals(b)
+    assert a["category"].value_counts().to_dict() == {"grocery": 10, "parks": 5}
+
+
+def test_false_negative_check_warns_then_fails_above_threshold(cfg: Config) -> None:
+    fc = cfg.validation.results.false_negatives.model_copy(
+        update={"warn_above": 0.0, "fail_above": 0.3}
+    )
+    pairs = pd.DataFrame(
+        {
+            "profile_id": ["walk"] * 4,
+            "category": ["grocery", "grocery", "parks", "parks"],
+            "cell_id": ["a", "b", "c", "d"],
+            "facility_id": ["f1", "f2", "f3", "f4"],
+            "distance_m": [500.0, 700.0, 600.0, 650.0],
+            "route_s": [984.0, 901.0, float("nan"), 1200.0],
+        }
+    )
+    check, detail = results.false_negative_check(pairs, 900, fc)
+    assert check.check == "false_negatives" and check.status == "ok" and check.value == 0
+    assert detail["profiles"]["walk"]["parks"] == {
+        "pairs": 2,
+        "no_route": 1,
+        "false_negatives": 0,
+        "rate": 0.0,
+    }
+    pairs.loc[1, "route_s"] = 900.0  # within the budget (≤) by /route: missed
+    check, detail = results.false_negative_check(pairs, 900, fc)
+    assert check.status == "warn" and check.value == 0.25
+    assert detail["examples"][0]["facility_id"] == "f2"
+    pairs.loc[3, "route_s"] = 800.0
+    assert results.false_negative_check(pairs, 900, fc)[0].status == "fail"  # 50 % > 30 %

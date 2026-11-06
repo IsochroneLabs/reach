@@ -11,9 +11,10 @@ from typing import Any
 
 import numpy as np
 import pandas as pd
+import shapely
 
 from reach_pipeline import scoring
-from reach_pipeline.config import Config, Monotonic, RouteCheck
+from reach_pipeline.config import Config, FalseNegativeCheck, Monotonic, RouteCheck
 
 STAGE = "validate_results"
 # nearest_min is rounded to 0.01 min by count.
@@ -210,6 +211,120 @@ def route_check(pairs: pd.DataFrame, budget_s: float, rc: RouteCheck) -> tuple[C
         "(known limitation, see report)"
     )
     return Check("matrix_vs_route", status, round(max_abs, 1), message), per_profile
+
+
+def false_negative_candidates(
+    origins_xy: np.ndarray,
+    cell_ids: np.ndarray,
+    points_xy: np.ndarray,
+    point_facility: np.ndarray,
+    facilities: pd.DataFrame,
+    reachable: pd.DataFrame,
+    reach_m: float,
+) -> pd.DataFrame:
+    """Cell × facility pairs of one profile that the count matrix had as targets but did not
+    find within the budget: a routing point lies within `reach_m` (straight line, the count
+    prefilter) of the cell origin and the pair is not in `reachable` (rows of this profile).
+
+    Returns `cell_id`, `facility_id`, `category` (one row per category of the facility) and
+    `distance_m` (straight line to the nearest routing point), all in EPSG:25832.
+    """
+    cols = ["cell_id", "facility_id", "category", "distance_m"]
+    if len(origins_xy) == 0 or len(points_xy) == 0:
+        return pd.DataFrame(columns=cols)
+    tree = shapely.STRtree(shapely.points(points_xy))
+    o_idx, p_idx = tree.query(shapely.points(origins_xy), predicate="dwithin", distance=reach_m)
+    fac_codes, uniques = pd.factorize(point_facility)
+    fac_ids = pd.Index(uniques)
+    pairs = pd.DataFrame(
+        {
+            "cell": o_idx.astype(np.int32),
+            "fac": fac_codes[p_idx].astype(np.int32),
+            "distance_m": np.hypot(*(origins_xy[o_idx] - points_xy[p_idx]).T),
+        }
+    )
+    pairs = pairs.groupby(["cell", "fac"], sort=False, as_index=False)["distance_m"].min()
+    cell_pos = pd.Series(np.arange(len(cell_ids)), index=cell_ids)
+    found = pd.DataFrame(
+        {
+            "cell": cell_pos.reindex(reachable["cell_id"]).to_numpy(),
+            "fac": fac_ids.get_indexer(reachable["facility_id"]),
+            "hit": True,
+        }
+    ).dropna()
+    found = found.astype({"cell": np.int32, "fac": np.int32})
+    pairs = pairs.merge(found, on=["cell", "fac"], how="left")
+    pairs = pairs[pairs["hit"].isna()]
+    out = pd.DataFrame(
+        {
+            "cell_id": cell_ids[pairs["cell"].to_numpy()],
+            "facility_id": np.asarray(fac_ids)[pairs["fac"].to_numpy()],
+            "distance_m": pairs["distance_m"].to_numpy(),
+        }
+    )
+    return out.merge(facilities[["facility_id", "category"]], on="facility_id")[cols]
+
+
+def false_negative_sample(
+    candidates: pd.DataFrame, per_category: int, rng: np.random.Generator
+) -> pd.DataFrame:
+    """Up to `per_category` random candidate pairs per category (sorted, deterministic for a
+    given generator state)."""
+    parts = []
+    for _, group in candidates.groupby("category", sort=True):
+        if per_category and len(group):
+            idx = rng.choice(len(group), size=min(per_category, len(group)), replace=False)
+            parts.append(group.iloc[np.sort(idx)])
+    return pd.concat(parts, ignore_index=True) if parts else candidates.iloc[:0]
+
+
+def false_negative_check(
+    pairs: pd.DataFrame, budget_s: float, fc: FalseNegativeCheck
+) -> tuple[Check, dict[str, Any]]:
+    """Share of sampled non-reachable pairs that /route reaches within the budget (`route_s`,
+    NaN = no route; columns `profile_id`, `category`, `cell_id`, `facility_id`, `distance_m`).
+
+    Warns above `fc.warn_above`, fails above `fc.fail_above` (share of the whole sample);
+    per profile and category the sample size, routes and false negatives are reported.
+    """
+    missed = pairs["route_s"].le(budget_s)  # NaN (no route) compares False
+    per_profile: dict[str, Any] = {}
+    for (pid, cat), g in pairs.groupby(["profile_id", "category"], sort=True):
+        m = missed.loc[g.index]
+        per_profile.setdefault(pid, {})[cat] = {
+            "pairs": int(len(g)),
+            "no_route": int(g["route_s"].isna().sum()),
+            "false_negatives": int(m.sum()),
+            "rate": round(float(m.mean()), 4) if len(g) else 0.0,
+        }
+    n, k = len(pairs), int(missed.sum())
+    rate = k / n if n else 0.0
+    status = "fail" if rate > fc.fail_above else "warn" if rate > fc.warn_above else "ok"
+    examples = pairs[missed].sort_values("route_s").head(20)
+    message = (
+        f"{n} sampled pairs within the prefilter reach not in reachable: {k} reach the "
+        f"facility within the budget by /route ({rate:.1%}; warn > {fc.warn_above:.1%}, "
+        f"fail > {fc.fail_above:.1%})"
+    )
+    detail = {
+        "budget_s": budget_s,
+        "pairs": n,
+        "false_negatives": k,
+        "rate": round(rate, 4),
+        "profiles": per_profile,
+        "examples": [
+            {
+                "profile_id": r.profile_id,
+                "category": r.category,
+                "cell_id": r.cell_id,
+                "facility_id": r.facility_id,
+                "distance_m": round(float(r.distance_m), 1),
+                "route_s": round(float(r.route_s), 1),
+            }
+            for r in examples.itertuples()
+        ],
+    }
+    return Check("false_negatives", status, round(rate, 4), message), detail
 
 
 def class_rows(t: Tables) -> pd.DataFrame:

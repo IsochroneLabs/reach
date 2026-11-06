@@ -232,37 +232,72 @@ example above. Memory: the Valhalla peak during `count` comes from `costmatrix` 
 
 ## N9. Block matrices can miss facilities that a one-source matrix reaches within the budget
 
-**Status:** open, needs a check in the pipeline · **Added:** 6 Nov 2026 · **Related:**
-`architecture.md` §6.5, N8, `validate_results` (`matrix_vs_route`)
+**Status:** settled 6 Nov 2026 (the three examples are no counting error; rare block
+misses are now measured by `false_negatives`; branch `fix/rico-count-missing`) · **Added:**
+6 Nov 2026 · **Related:** `architecture.md` §6.5, N5, N8, `validate_results`
+(`matrix_vs_route`, `false_negatives`)
 
 **Finding (P6, run `20261105T203945Z`, Valhalla 3.9.1, `costmatrix`):** for some cells, the
-`count` block matrix gives a much longer time than a one-source `sources_to_targets` request with
-the same origin, target and costing options, and the count drops to 0 near the budget:
+`count` block matrix seemed to give a much longer time than a one-source request, and the count
+dropped to 0 near the budget:
 
-| Cell | Facility | Run (block) | One source now |
+| Cell | Facility | Run (block) | One source (reported) |
 |---|---|---|---|
 | `CRS3035RES100mN2822800E4249500` (Burgholzweg 127) | childcare `w644434788` | not within 900 s (walking 3.39); 667 s at walking 5.0 (≈ 927 m) | 740 s, 697 m |
 | `CRS3035RES100mN2823600E4252700` (Österberg) | parks `w5541667` | lack | 834 s, 782 m |
 | `CRS3035RES100mN2824700E4250800` (Schönblick) | parks `w222111961` | lack | 894 s, 837 m |
 
-A random sample of 40 cells (grocery, walking 3.39) differs in 2 cells by ±1, so most counts
-agree; the examples above deviate by 60–240 s, more than `matrix_vs_route` samples (it only
-checks pairs the run found reachable, so it cannot see these false lacks). A 66-source ×
-1-target request still gives 740 s for the first example; the effect of the full block
-(25 sources × up to 476 targets) is not reproduced yet.
+Also seen: the running Valhalla container still used the `config/valhalla.json` it loaded at
+start (the file was replaced on disk by a git checkout; the single-file bind mount keeps the
+old inode); a 25 × 101 pedestrian request was refused with error 150 "Exceeded max locations:
+2500".
 
-**Also seen:** the running Valhalla container still uses the `config/valhalla.json` it loaded
-at start (the file was replaced on disk by a git checkout; the single-file bind mount keeps the
-old inode, `cat` inside the container fails); a 25 × 101 pedestrian request was refused with
-error 150 "Exceeded max locations: 2500" although `max_matrix_location_pairs` is 25,000 (not
-investigated).
+**Resolution (6 Nov 2026):**
 
-**To do:** restart Valhalla (`docker compose restart valhalla`), rerun `count` on the clip and
-in Tübingen, and compare every `nearest_min` null / count with one-source matrices for a sample
-of near-budget pairs; if block matrices are biased, options are smaller blocks, a second pass
-for pairs that are within the budget by straight line but unreachable, or `timedistancematrix`
-for walking (N8: misses wheelchair routes). Changing the algorithm or blocks changes counts →
-ask first.
+- **The three examples are not missed.** With the running service, the count block, a one-source matrix, a
+  39–365-source × 1-target matrix, `/api/catchment` and `/route` give the same time (±1 s) for
+  all three examples: walking 3.39 984 s, 944 s, 932 s (not counted, correct); walking 5.0
+  667 s, 640 s, 633 s (counted). The "one source" numbers above are route **length** ÷ 3.39 km/h
+  (697 m → 740 s, 782 m → 834 s, 837 m → 894 s), i.e. flat-ground times, and "≈ 927 m" was
+  time × speed. All three routes go uphill; Valhalla's pedestrian costing slows grades (2.3–2.6
+  km/h on Burgholzweg; the way back takes 769 s) — the slope effect of N5, still open. The
+  inspector shows the route length (697 m), not its time, which invites this reading.
+  Prefilter (544–665 m < 848 m reach), snapping (on paths, < 10 m), block sizes (≤ 25 × 504,
+  no split) and the budget comparison (`<=`) were checked and are not involved. Golden tests:
+  `pipeline/tests/test_count_golden.py` (recorded blocks).
+- **Published run used `costmatrix`.** The deleted inode in the container (born 20:24:39Z,
+  9,548 bytes = the `costmatrix` file; `select_optimal` has 9,552) predates the container start
+  (20:31:11Z) and the run's `count` (20:39:56Z); a recount of the run's inputs against a freshly
+  started service with the effective config checked gives bit-identical outputs (552,917
+  `reachable` rows, all times equal), whereas `select_optimal` changes ~28 rows (N8).
+- **Config effective by construction:** `compose.yaml` mounts `config/`, the service copies
+  `valhalla.json` to `<data_dir>/valhalla/valhalla.effective.json` at every start and serves
+  that copy; `make valhalla-config` recreates the service when the copy differs (`make up`,
+  `refresh`, `pipeline` run it); `count` fails if it differs and records it.
+- **Validation gap closed:** `validate_results` check `false_negatives` routes random pairs
+  within the prefilter reach that are not in `reachable`. Run `20261105T203945Z`: 0 of 480
+  (2.6 s); a one-off sample of 4,800 pairs found 1 (cycling, /route 896.7 s, one-source matrix
+  896 s, block matrix 906 s: `costmatrix` depends on the request, N8), i.e. ~0.02 %.
+  New run `20261106T100859Z` (OSM 4 Nov): 1 of 480 (warn; cycling `CRS3035RES100mN2826200E4254900`
+  → grocery `w217635610`: block matrix 954 s, one-source 859 s, /route 860 s) and 1 of 4,800 in
+  a one-off sample (walking 5.0, /route 883 s). So block `costmatrix` times can be longer than
+  one-source times (here by 95 s), but rarely (~0.02 % of the non-reachable pairs within reach,
+  i.e. on the order of 100 of ~430,000 pairs over all profiles); `fail_above` 2 % stays far
+  above that. Removing it (e.g. a one-source second pass for pairs within reach that are not
+  reachable, or smaller blocks) changes counts → ask first.
+- **Limits of the checks (review):** `count` checks the copy in its `data_dir`, not the service
+  behind `VALHALLA_URL` (another Valhalla with a stale matching copy would pass);
+  `validate_results` fails if the copy changed since `count` (checksum in
+  `report_count.json`); `false_negatives` has no tolerance, so a /route time a few seconds
+  under the budget counts (matrix and /route differ by seconds, `matrix_vs_route`); the
+  start-time copy assumes the Valhalla image runs as root (it writes into the tile bind mount)
+  — check on the server in P8.
+- The "Exceeded max locations: 2500" error is not reproducible (25 × 101, 25 × 476 and
+  1 × 2,600 pass for pedestrian, wheelchair and bicycle); 2,500 is the limit of the `auto`
+  costing.
+
+**Open:** N5 (slopes in walking times: document or remove; architecture §6.1/O7 still say
+"ignored for now"); show the route time next to its length in the inspector (web).
 
 ## N10. `npm audit`: minimatch ReDoS in the lint toolchain (dev only)
 

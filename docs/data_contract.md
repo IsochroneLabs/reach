@@ -194,7 +194,9 @@ The Markdown file renders the same content. Part 2: see `validate_results/` belo
 
 Outside the run directory, `<data_dir>/valhalla/` holds `valhalla_tiles.tar` (served),
 `valhalla_tiles.prev.tar` (rollback), `tiles_source.sha256` (fingerprint of the last build),
-`elevation/` (cached elevation tiles) and `build/` (scratch space of `valhalla-build`).
+`valhalla.effective.json` (copy of `config/valhalla.json` written by the `valhalla` service at
+every start; the service runs with exactly this copy), `elevation/` (cached elevation tiles) and
+`build/` (scratch space of `valhalla-build`).
 
 ### `count/` *(implemented, P3)*
 
@@ -206,7 +208,7 @@ Plain Parquet (no geometry), columns and types as in the run schema above:
 | `reachable.parquet` | cell × profile × facility within the budget | `cell_id`, `profile_id`, `facility_id`, `time_s` (int16) |
 | `transit_supply.parquet` | cell × profile with `transit: true` | `cell_id`, `profile_id`, `departures` (int32, sum over stops reachable within the transit budget), `stops_count` (int32), `nearest_stop_min` (double, null if none within the budget) |
 | `stops.parquet` | GTFS stop (GeoParquet) | validate's `stops` + `weekday_departures` (int64: stop events of trips active on the reference weekday, without `pickup_type` 1) |
-| `report_count.json` | run | `reference_weekday`, `cells`, `profiles` {profile: `blocks`, `requests`, `runtime_s`, `max_sources`, `targets_max`, `targets_median`, `pairs`, `facility_reach_m`, `transit_reach_m`}, `evidence` (`sample_blocks`, per profile `facilities` / `stops`: `pairs`, `reachable_pairs`, `nominal_reach_m`, `prefilter_reach_m`, `max_reachable_distance_m`, `required_factor`, `max_speed_ratio_by_band`, `beyond_nominal`, `beyond_prefilter`; `beyond_prefilter_examples`), `runtime_s`, `peak_rss_mb` |
+| `report_count.json` | run | `reference_weekday`, `cells`, `valhalla` (`effective_config` path, `sha256`, `source_to_target_algorithm` of the config Valhalla runs with; `count` fails if it differs from `config/valhalla.json`), `profiles` {profile: `blocks`, `requests`, `runtime_s`, `max_sources`, `targets_max`, `targets_median`, `pairs`, `facility_reach_m`, `transit_reach_m`}, `evidence` (`sample_blocks`, per profile `facilities` / `stops`: `pairs`, `reachable_pairs`, `nominal_reach_m`, `prefilter_reach_m`, `max_reachable_distance_m`, `required_factor`, `max_speed_ratio_by_band`, `beyond_nominal`, `beyond_prefilter`; `beyond_prefilter_examples`), `runtime_s`, `peak_rss_mb` |
 
 `nearest_min` is only stored up to the budget: beyond it the straight-line prefilter does not
 guarantee that the nearest facility was among the matrix targets.
@@ -221,10 +223,11 @@ guarantee that the nearest facility was among the matrix targets.
 | Key | Content |
 |---|---|
 | `run_id`, `stage`, `status` (`ok`/`fail`), `generated_at`, `runtime_s`, `peak_rss_mb` | |
-| `checks` | rows of `validation_report`: `access_counts_complete`, `transit_supply_complete`, `value_ranges`, `thresholds_cover_categories`, `class_totals`, `reachable_matches_counts`, `monotonic_<higher>_ge_<lower>` (value = share of violating cells), `matrix_vs_route` (value = max abs. deviation in s; warn only), `sample_cells` |
+| `checks` | rows of `validation_report`: `access_counts_complete`, `transit_supply_complete`, `value_ranges`, `thresholds_cover_categories`, `class_totals`, `reachable_matches_counts`, `monotonic_<higher>_ge_<lower>` (value = share of violating cells), `matrix_vs_route` (value = max abs. deviation in s; warn only), `false_negatives` (value = share of sampled non-reachable pairs that /route reaches within the budget), `sample_cells` |
 | `summary` | `residents_scored`; `access` {profile: {category: `share_lack`, `share_insufficient`, `share_sufficient`, `residents_lack`, `deficit_sum`}}; `transit` {profile: {class: share of residents}} |
 | `samples` | per `count.evidence.sample_points` point: nearest `cell_id`, `district_id`, `population`, `values` {`profile/category`: `count`, `class`, `deficit`} |
 | `route_check` | `budget_s`, `profiles` {profile: `pairs`, `no_route`, `mean_abs_s`, `max_abs_s`, `flips` (matrix within the budget, /route beyond)}: sample of `reachable` pairs vs. Valhalla /route (`validation.results.route_check`) |
+| `false_negatives` | `budget_s`, `pairs`, `false_negatives`, `rate`, `profiles` {profile: {category: `pairs`, `no_route`, `false_negatives`, `rate`}}, `examples` (up to 20: `profile_id`, `category`, `cell_id`, `facility_id`, `distance_m`, `route_s`): random cell × facility pairs within the prefilter reach that are not in `reachable`, checked with /route (`validation.results.false_negatives`) |
 
 Any `fail` stops the pipeline before `publish`.
 

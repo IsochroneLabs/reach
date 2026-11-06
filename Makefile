@@ -15,8 +15,10 @@ REFRESH_STAGES = count score validate_results publish cleanup
 DATA_DIR = $(shell uv run --quiet python -c "from reach_pipeline.config import load_config; print(load_config('$(REACH_CONFIG)').data_dir)")
 VALHALLA_DIR = $(abspath $(DATA_DIR)/valhalla)
 COMPOSE = VALHALLA_DIR=$(VALHALLA_DIR) docker compose
+# Stages that call Valhalla: `make pipeline` first makes sure it runs with config/valhalla.json.
+VALHALLA_STAGES = run tiles count validate_results
 
-.PHONY: help up down logs pipeline migrate refresh tiles-build test lint format
+.PHONY: help up down logs pipeline migrate refresh tiles-build valhalla-config test lint format
 
 help: ## list targets
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-10s %s\n", $$1, $$2}'
@@ -25,9 +27,8 @@ help: ## list targets
 	@echo "Missing .env: copy .env.example to .env and set the passwords." >&2; exit 1
 
 up: .env ## start db, api, caddy and valhalla (once tiles exist) and wait until they are healthy
-	@if [ -f "$(VALHALLA_DIR)/valhalla_tiles.tar" ]; then $(COMPOSE) up -d --build --wait; \
-	else echo "No tiles in $(VALHALLA_DIR) yet: starting without valhalla (run make refresh)" >&2; \
-	$(COMPOSE) up -d --build --wait db api caddy; fi
+	@$(COMPOSE) up -d --build --wait db api caddy
+	@$(MAKE) --no-print-directory valhalla-config
 
 down: ## stop the local stack (volumes are kept)
 	docker compose down
@@ -35,7 +36,7 @@ down: ## stop the local stack (volumes are kept)
 logs: ## follow the logs of all services
 	docker compose logs -f
 
-pipeline: ## run all pipeline stages, or one with STAGE=<name>
+pipeline: $(if $(filter $(firstword $(STAGE)),$(VALHALLA_STAGES)),valhalla-config) ## run all pipeline stages, or one with STAGE=<name>
 	$(PIPELINE) $(STAGE)
 
 migrate: .env ## create/update DB roles, meta schema and migrations (needs DATABASE_URL_ADMIN)
@@ -50,7 +51,7 @@ refresh: .env ## acquire, validate, rebuild + swap tiles if needed, restart valh
 	$(PIPELINE) tiles check
 	@flag="$(DATA_DIR)/runs/$$(ls $(DATA_DIR)/runs | tail -n 1)/tiles/rebuild_needed"; \
 	if [ -f "$$flag" ]; then $(MAKE) --no-print-directory tiles-build FLAG="$$flag"; \
-	else echo "tiles up to date, no rebuild"; $(COMPOSE) up -d --wait valhalla; fi
+	else echo "tiles up to date, no rebuild"; $(MAKE) --no-print-directory valhalla-config; fi
 	$(PIPELINE) tiles verify
 	@for stage in $(REFRESH_STAGES); do $(PIPELINE) $$stage || exit $$?; done
 
@@ -72,6 +73,17 @@ tiles-build:
 	$(COMPOSE) up -d --wait --force-recreate valhalla; \
 	echo "$$SHA256" > "$(VALHALLA_DIR)/tiles_source.sha256"; \
 	echo "tiles swapped in and valhalla restarted ($(VALHALLA_DIR))"
+
+# Valhalla reads its config only at start and serves the copy valhalla.effective.json written
+# then (compose.yaml): recreate the service if that copy differs from config/valhalla.json,
+# otherwise only make sure it runs. `count` fails if they still differ (notes N9).
+valhalla-config: ## recreate valhalla if config/valhalla.json changed (count fails otherwise)
+	@if [ ! -f "$(VALHALLA_DIR)/valhalla_tiles.tar" ]; then \
+	  echo "No tiles in $(VALHALLA_DIR) yet: valhalla not started (run make refresh)" >&2; \
+	elif cmp -s config/valhalla.json "$(VALHALLA_DIR)/valhalla.effective.json"; then \
+	  $(COMPOSE) up -d --wait valhalla; \
+	else echo "config/valhalla.json differs from the config valhalla runs with: recreating it"; \
+	  $(COMPOSE) up -d --wait --force-recreate valhalla; fi
 
 test: ## run all Python tests
 	uv run pytest

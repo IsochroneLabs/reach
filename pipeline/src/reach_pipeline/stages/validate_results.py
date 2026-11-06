@@ -3,8 +3,10 @@
 Checks completeness, value ranges, thresholds, class totals (residents in classes = scored
 residents), that `reachable` gives exactly the counts, monotonicity between profiles
 (`validation.results.monotonic`), and compares a sample of matrix times with /route
-(`validation.results.route_check`, a known limitation, never fails); lists the values of sample
-cells for a manual check. Writes `report_results.json` + `.md`; any failed
+(`validation.results.route_check`, a known limitation, never fails), checks a sample of pairs
+within the prefilter reach that are not in `reachable` with /route for missed facilities
+(`validation.results.false_negatives`, notes N9); lists the values of sample cells for a manual
+check. Writes `report_results.json` + `.md`; any failed
 check fails the stage after the report is written, so `publish` does not run.
 """
 
@@ -127,23 +129,75 @@ async def route_times(
         )
 
 
-def check_routes(ctx: RunContext, t: results.Tables, origins: gpd.GeoDataFrame) -> tuple:
-    """Sample matrix times of `reachable` and compare them with /route (known limitation)."""
-    cfg = ctx.config
-    rc = cfg.validation.results.route_check
-    budget_s = cfg.time_budgets_min.facilities * 60
-    seed = int("".join(ch for ch in ctx.run_id if ch.isdigit()))
-    pairs = results.route_sample(t.reachable, budget_s, rc, seed)
+def require_count_valhalla(ctx: RunContext) -> None:
+    """The /route checks must use the Valhalla config `count` used: the copy the service runs
+    with (`count.check_valhalla_config`) must have the checksum `report_count.json` recorded."""
+    report = json.loads((ctx.stage_dir(count.STAGE) / count.REPORT).read_text(encoding="utf-8"))
+    recorded = (report.get("valhalla") or {}).get("sha256")
+    current = count.check_valhalla_config(ctx)["sha256"]
+    if recorded != current:
+        raise StageValidationError(
+            f"Valhalla now runs with another config than count used ({current[:12]} vs. "
+            f"{str(recorded)[:12]}); rerun count"
+        )
+
+
+def _seed(run_id: str) -> int:
+    return int("".join(ch for ch in run_id if ch.isdigit()))
+
+
+def _with_routes(ctx: RunContext, pairs: pd.DataFrame, origins: gpd.GeoDataFrame) -> pd.DataFrame:
+    """`pairs` (`cell_id`, `profile_id`, `facility_id`) plus `route_s` from /route (NaN = no
+    route), fastest over the facility's routing points."""
     o = dict(zip(origins["cell_id"], map(tuple, _lonlat(origins.geometry)), strict=True))
     fp = gpd.read_parquet(_paths(ctx)["facility_points"])
     fp = fp[fp["facility_id"].isin(set(pairs["facility_id"]))]
     pts: dict[str, list[tuple[float, float]]] = {}
     for fid, xy in zip(fp["facility_id"], _lonlat(fp.geometry), strict=True):
         pts.setdefault(fid, []).append(tuple(xy))
-    times = asyncio.run(route_times(cfg, pairs, o, pts)) if len(pairs) else []
-    pairs = pairs.assign(route_s=pd.array(times, dtype="Float64").astype(float))
+    times = asyncio.run(route_times(ctx.config, pairs, o, pts)) if len(pairs) else []
+    return pairs.assign(route_s=pd.array(times, dtype="Float64").astype(float))
+
+
+def check_routes(ctx: RunContext, t: results.Tables, origins: gpd.GeoDataFrame) -> tuple:
+    """Sample matrix times of `reachable` and compare them with /route (known limitation)."""
+    cfg = ctx.config
+    rc = cfg.validation.results.route_check
+    budget_s = cfg.time_budgets_min.facilities * 60
+    pairs = results.route_sample(t.reachable, budget_s, rc, _seed(ctx.run_id))
+    pairs = _with_routes(ctx, pairs, origins)
     check, per_profile = results.route_check(pairs, budget_s, rc)
     return check, {"budget_s": budget_s, "profiles": per_profile}
+
+
+def check_false_negatives(
+    ctx: RunContext, t: results.Tables, origins: gpd.GeoDataFrame
+) -> tuple[results.Check, dict[str, Any]]:
+    """Sample pairs within the prefilter reach that are not in `reachable` and check them with
+    /route (notes N9): per profile and category `pairs_per_category` random pairs."""
+    cfg = ctx.config
+    fc = cfg.validation.results.false_negatives
+    budget_min = cfg.time_budgets_min.facilities
+    rng = np.random.default_rng(_seed(ctx.run_id) + 1)
+    o_xy = np.column_stack([origins.geometry.x.to_numpy(), origins.geometry.y.to_numpy()])
+    fp = gpd.read_parquet(_paths(ctx)["facility_points"])
+    p_xy = np.column_stack([fp.geometry.x.to_numpy(), fp.geometry.y.to_numpy()])
+    parts = []
+    for pid, profile in cfg.profiles.items():
+        candidates = results.false_negative_candidates(
+            o_xy,
+            origins["cell_id"].to_numpy(),
+            p_xy,
+            fp["facility_id"].to_numpy(),
+            t.facilities,
+            t.reachable[t.reachable["profile_id"] == pid],
+            profile.prefilter_reach_m(budget_min),
+        )
+        sample = results.false_negative_sample(candidates, fc.pairs_per_category, rng)
+        parts.append(sample.assign(profile_id=pid))
+        log.info("false negatives %s: %d candidates, %d sampled", pid, len(candidates), len(sample))
+    pairs = _with_routes(ctx, pd.concat(parts, ignore_index=True), origins)
+    return results.false_negative_check(pairs, budget_min * 60, fc)
 
 
 def build_report(ctx: RunContext, t: results.Tables, origins: gpd.GeoDataFrame) -> dict[str, Any]:
@@ -151,7 +205,12 @@ def build_report(ctx: RunContext, t: results.Tables, origins: gpd.GeoDataFrame) 
     cfg = ctx.config
     part1 = json.loads(_paths(ctx)["report_inputs"].read_text(encoding="utf-8"))
     checks = results.completeness(cfg, t)
-    out: dict[str, Any] = {"summary": None, "samples": [], "route_check": None}
+    out: dict[str, Any] = {
+        "summary": None,
+        "samples": [],
+        "route_check": None,
+        "false_negatives": None,
+    }
     if all(c.status != "fail" for c in checks):
         rows = results.class_rows(t)
         checks += results.value_ranges(cfg, t)
@@ -159,6 +218,8 @@ def build_report(ctx: RunContext, t: results.Tables, origins: gpd.GeoDataFrame) 
         checks += results.reachable_matches_counts(t)
         route, out["route_check"] = check_routes(ctx, t, origins)
         checks.append(route)
+        missed, out["false_negatives"] = check_false_negatives(ctx, t, origins)
+        checks.append(missed)
         checks += results.totals(t, rows, part1["summary"].get("residents_scored"))
         checks += [results.monotonic(pair, t) for pair in cfg.validation.results.monotonic]
         out["summary"] = results.summary(t, rows)
@@ -250,6 +311,34 @@ def _markdown(report: dict[str, Any]) -> str:
             f"| {v['flips']} |"
             for p, v in rc["profiles"].items()
         ]
+    fn = report.get("false_negatives")
+    if fn:
+        lines += [
+            "",
+            "## Missed facilities: pairs within the prefilter reach not counted",
+            "",
+            f"Random cell × facility pairs whose routing point lies within the prefilter reach "
+            f"but which are not in `reachable`, checked with /route: {fn['false_negatives']} of "
+            f"{fn['pairs']} reach the facility within {fn['budget_s'] / 60:.0f} minutes "
+            f"({fn['rate']:.1%}).",
+            "",
+            "| Profile | Category | Pairs | No route | False negatives | Rate |",
+            "|---|---|---|---|---|---|",
+        ]
+        lines += [
+            f"| {p} | {c} | {v['pairs']} | {v['no_route']} | {v['false_negatives']} "
+            f"| {v['rate']:.1%} |"
+            for p, cats in fn["profiles"].items()
+            for c, v in cats.items()
+        ]
+        if fn["examples"]:
+            lines += ["", "| Profile | Cell | Facility | Straight line (m) | /route (s) |"]
+            lines += ["|---|---|---|---|---|"]
+            lines += [
+                f"| {e['profile_id']} | {e['cell_id']} | {e['facility_id']} "
+                f"| {e['distance_m']} | {e['route_s']} |"
+                for e in fn["examples"]
+            ]
     for sample in report["samples"]:
         lines += [
             "",
@@ -276,6 +365,7 @@ def run(ctx: RunContext) -> Manifest:
     """Check the results of count and score; write report part 2; fail on any failed check."""
     require_ok(ctx.stage_dir(PREVIOUS), PREVIOUS, ctx.config)
     require_ok(ctx.stage_dir(count.STAGE), count.STAGE, ctx.config)
+    require_count_valhalla(ctx)
     stage_dir = ctx.stage_dir(STAGE)
     inputs = [config_input(ctx.config, CONFIG_SECTIONS), *file_inputs(list(_paths(ctx).values()))]
     previous = read_manifest(stage_dir)
@@ -298,6 +388,7 @@ def run(ctx: RunContext) -> Manifest:
         "summary": built["summary"],
         "samples": built["samples"],
         "route_check": built["route_check"],
+        "false_negatives": built["false_negatives"],
         "runtime_s": m.runtime_s,
         "peak_rss_mb": m.peak_rss_mb,
     }
