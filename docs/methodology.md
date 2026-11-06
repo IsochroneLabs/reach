@@ -1,6 +1,6 @@
 # Methodology — reach
 
-> **Status:** draft v0.3 (2 Nov 2026). Binding definition of **what** is measured, scored,
+> **Status:** draft v0.4 (6 Nov 2026). Binding definition of **what** is measured, scored,
 > recommended and validated. `architecture.md` describes **how** the system computes it. Every
 > change bumps the version and adds a line to the [Change log](#change-log). Items marked
 > **[M#]** are open methodology questions (Section 7).
@@ -18,6 +18,12 @@ travel profiles, and a recommender for new facility locations.
   Tübingen, population $P_i$, origin = cell centroid (`architecture.md` §4, §5.2).
 - **Profiles *m*:** walking 3.39 km/h (inclusive default, 850 m in 15 min), walking 5.0 km/h
   (comparison), cycling 15 km/h, wheelchair 3.39 km/h.
+- **Slopes:** the speeds are flat-ground speeds. Valhalla's slope model (kept as it is,
+  `architecture.md` §6.1, O7) reduces them uphill and on steep downhill and raises them slightly
+  on gentle downhill; walking and wheelchair times are a median 6–8 % longer than flat-ground
+  times (up to +66 % on steep routes, at most −9 %). Results are therefore conservative compared
+  with a flat-ground model: fewer facilities count as reachable on hillside cells. V11 measures
+  the effect.
 - **Time budgets:** 15 minutes to facilities; 10 minutes on foot or by wheelchair to public transport stops.
 - **Count** $A_{i,c,m}$: number of facilities of category *c* reachable from cell *i* within the
   budget, using network travel times from the Valhalla matrix (never isochrone polygons).
@@ -123,9 +129,11 @@ Validation is a graded criterion; these experiments are part of the deliverable.
 | V7 | Plausibility with local knowledge: highest-deficit areas vs. known neighbourhoods | Do results make sense to people who know Tübingen? |
 | V8 | Spatial statistics on district or aggregated level **[M5]** | Are deficits clustered? |
 | V9 | Reproducibility: a team member who did not write the pipeline runs it from the README only, for the current and a newer data snapshot | Can someone use it without touching the code? |
+| V10 | Matrix vs. /route (in every run, `validate_results`, report part 2): a sample of counted pairs near the budget compared with /route (`matrix_vs_route`, Δ time), a sample of uncounted pairs within the prefilter reach routed with /route (`false_negatives`, warns above 0.5 %, fails above 2 %), and the flip rate from both: share of pairs on which matrix and /route lie on different sides of the budget, per profile and direction (`budget_flips`, warns only) | How often does the matrix decide differently from a single route near the budget, and in which direction? (notes N8, N9) |
+| V11 | With vs. without slopes (planned, P7): counts of the walking and wheelchair profiles on the production tiles vs. a one-off elevation-free tile set built from the same PBF; compare counts, classes and residents per class, by district | How much do slopes change the classes, and where (hillside districts vs. valley)? |
 
-Gate G1 (Stretch): test whether elevation changes walking times in Valhalla, with and without
-slopes, on 2–3 steep routes (e.g. old town → castle, city → Waldhäuser-Ost) and across Neckar bridges.
+Gate G1 (does elevation change walking times in Valhalla?) is answered: yes, for walking and
+wheelchair as well as cycling (`architecture.md` §6.1, notes N5); its effect on the results is V11.
 
 ## 7. Open methodology questions
 
@@ -142,6 +150,7 @@ slopes, on 2–3 steep routes (e.g. old town → castle, city → Waldhäuser-Os
 
 | Version | Date | Change | Why |
 |---|---|---|---|
+| v0.4 | 2026-11-06 | §1: speeds are flat-ground speeds, Valhalla's slope model reduces them, results conservative; §6: new experiments V10 (matrix vs. /route: `matrix_vs_route`, `false_negatives`, flip rate `budget_flips`) and V11 (with vs. without slopes, P7), G1 answered | N5 settled (decision by Rico: keep the slope model, no change to counts); the matrix-vs-/route checks of N8/N9 had no V-number; architecture v0.16 |
 | v0.3 | 2026-11-02 | §1 unit = populated cells inside the city boundary (was: urban boundary); §5 candidates restricted to the urban boundary | Architecture v0.12, O11 (notes N3) |
 | v0.2 | 2026-11-02 | §2 facility locations (representative point for polygons, access points for parks and playgrounds, park counted once with minimum time); §3 transit supply for walking and wheelchair profiles, raw values stored, classes derived at read time | Answers to the P0 implementation plan questions (Q1, Q5) |
 | v0.1 | 2026-11-02 | Created from the still valid parts of `architecture_proposal.md` (§5 scoring, §8 validation, §9 recommender), updated to current decisions (profiles, coarse categories, urban boundary, cell centroid) | Replace the outdated proposal with one binding methodology document |

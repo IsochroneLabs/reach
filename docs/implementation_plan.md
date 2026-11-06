@@ -26,7 +26,7 @@
 | P5 | API | `feature/rico-api` | [x] merged PR #24, 5 Nov (full depth; N7/N8 follow-up `fix/rico-matrix-algorithm`) | 21 Nov |
 | P6 | Web | `feature/rico-web` | [x] merged PR #26, 6 Nov (interim + district panel; ranking/polish after; team review pending) | 24 Nov |
 | — | **Interim demo (local), `v0.1.0`** | release PR `dev` → `main` on request | [ ] | 25 Nov |
-| P7 | Recommender + validation V1–V9 | `feature/rico-recommender`, `feature/rico-validation` | [ ] | 10 Jan |
+| P7 | Recommender + validation V1–V11 | `feature/rico-recommender`, `feature/rico-validation` | [ ] | 10 Jan |
 | P8 | Production | `feature/rico-production` | [ ] | server from ~1 Dec, hardening until 15 Jan |
 
 The dates leave about four working days per phase until 25 Nov. To make the interim demo, P1–P6
@@ -174,7 +174,7 @@ views, polish.
 ### P7 — Recommender and validation
 
 `recommend.py` (candidates per methodology §5, land-use filter, block catchments §6.5 rule 7,
-greedy with marginal gain ΔW, ranked zones), `recommendations` table; experiments V1–V9 as
+greedy with marginal gain ΔW, ranked zones), `recommendations` table; experiments V1–V11 as
 scripted analyses under `pipeline/src/reach_pipeline/experiments/` producing a Markdown/HTML
 report (`docs/validation_report.md` or the app page); V4 needs an MILP solver (dependency, ask).
 
@@ -347,6 +347,7 @@ Confirmed by Rico (2 Nov 2026): C6–C12 as recommended in Section 5; Q4 also co
 | 2026-11-06 | P6 review (fresh agent) | Fixed: cells re-sent to MapLibre on every render (class list memoised); a failed `/api/cells` showed the previous category as the new one (error keyed by selection); transit legend claimed the 15 min profile budget (transit budget is not in `/api/meta`: label without minutes); inspector/overlays collapsed for fast answers (previous answer stays dimmed until the new one arrives); data page dropped the map selection and remounted the map (selection kept in the hash, map stays mounted); `.env.production` comments; root AGENTS.md folder-rules wording; smoke test checks NVBW/OpenMapTiles attribution and console errors of the error test; CI builds once; mobile: one-line top bar, "Details below" hint, map region role. Open (ask first): `@types/geojson` as a direct dev dependency (now transitive via maplibre-gl), transit budget in `/api/meta` (API + contract). Accepted: a profile change typed into the hash does not re-run a pinned inspect; static UI text (attribution links, limitations) in code (rule worded in `web/AGENTS.md`); no keyboard path to drop a pin yet |
 | 2026-11-06 | P6 follow-up (Rico) | `@types/geojson` 7946.0.16 as a direct dev dependency; `GET /api/meta` `profiles[].transit_budget_min` from `time_budgets_min.transit` (config, part of the meta ETag; data contract v0.8, test), transit legend shows the minutes; minimatch: no non-breaking fix (11.x is a major outside eslint's `^10.2`), no override, recorded as notes N10; demo addresses checked against one-source matrices: Burgholzweg 127 lacks parks because forest is not a park (forest edge 55 m) and the nearest playground is 509 m by line but 1.37 km / 24 min on foot, but its childcare lack is a block-matrix artefact (notes N9) → demo uses Burgholzweg 79 (nearest facility 18–25 min in every category); merge to `dev` approved by Rico before team review |
 | 2026-11-06 | N9 (Rico) | No counting error: the three examples take 932–984 s uphill at 3.39 km/h by block matrix, one-source matrix and /route alike; the reported 740–894 s were route length ÷ speed (slope effect N5). Valhalla config effective by construction (`config/` mounted, `valhalla.effective.json` copy served, `make valhalla-config`, `count` fails on a difference); new check `false_negatives` (20 pairs per profile × category, warn > 0, fail > 2 %); published run used `costmatrix` (recount bit-identical); squash-merge after green CI approved by Rico, team review pending |
+| 2026-11-06 | N5 decision (Rico) | Option (a): keep Valhalla's slope model for walking and wheelchair, no change to counts; architecture v0.16 (§6.1 per-profile table with evidence, O7), methodology v0.4 (§1 flat-ground speeds, conservative results; §6 G1 answered, V10 matrix vs. /route incl. new check `budget_flips`, V11 with vs. without slopes planned for P7; architecture §7 names the /route checks); wheelchair uses the same grade factor (881 s up / 700 s back / 666 s flat on Burgholzweg); `false_negatives` warn above 0.5 % (was 0), fail above 2 %. Branch `docs/rico-slope-walking` |
 
 Measured numbers (runtime, peak memory, counts) are added here at the end of every phase.
 
@@ -450,8 +451,10 @@ Measured numbers (runtime, peak memory, counts) are added here at the end of eve
    fills `/api/recommendations`), keyboard path for the inspector, N10
    (dev-only minimatch audit finding), production Caddyfile with HTTPS and the GHCR web image
    (P8). Next: P7.
-9. ~~N9~~ — settled (branch `fix/rico-count-missing`): no missed facilities; open from it: N5
-   decision (slopes in walking times) and the route time in the inspector.
+9. ~~N9~~ — settled (branch `fix/rico-count-missing`): no missed facilities; open from it:
+   the route time in the inspector. ~~N5~~ — settled (branch `docs/rico-slope-walking`): slopes
+   kept for walking and wheelchair, V11 planned for P7; V10 = matrix vs. /route
+   (`budget_flips` added).
 
 ## 9. Working rules (copy from the start prompt)
 

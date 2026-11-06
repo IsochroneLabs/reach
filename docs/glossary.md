@@ -52,5 +52,5 @@ Project vocabulary used in code, docs, issues and prompts. People and roles ("yo
 | **M-numbers (M1, …)** | Open methodology questions in `methodology.md` §7. |
 | **V-numbers (V1, …)** | Validation experiments in `methodology.md` §6. |
 | **N-numbers (N1, …)** | Open points and future work in `notes.md`. |
-| **gate G1** | Test whether slopes change walking times in Valhalla (Stretch). |
+| **gate G1** | Test whether slopes change walking times in Valhalla; answered 6 Nov 2026: yes, for all profiles (`architecture.md` §6.1); the effect on results is V11. |
 | **ask first** | Stop, describe what you want to do and why, and wait for an explicit "yes" from your human. |

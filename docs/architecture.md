@@ -1,6 +1,6 @@
 # Architecture — reach (15-Minute City Tübingen)
 
-> **Status:** draft v0.15 (5 Nov 2026). Describes the target architecture the team builds towards.
+> **Status:** draft v0.16 (6 Nov 2026). Describes the target architecture the team builds towards.
 > Every change bumps the version and adds a line to the [Change log](#change-log).
 > Settled and open decisions are listed in [Section 13](#13-decisions); items marked **[OPEN]**
 > must be settled before the related code is written. Methodology (categories, thresholds,
@@ -162,18 +162,20 @@ volume, so restarts never rebuild the graph.
 | Cycling | `bicycle` | bike type `Hybrid`, `cycling_speed` 15 km/h, `use_hills` (default) | yes |
 | Wheelchair / pram | `pedestrian` with `type: wheelchair` | `walking_speed` 3.39 km/h, avoids steps and steep sections | yes |
 
-**Elevation is built in, its use is a per-profile setting.** The tiles are always built with
-elevation data (`build_elevation`), so slope information is available on every edge without a
-rebuild. Whether a profile uses it is controlled in `config/config.yaml`
-(`profiles.<name>.use_hills` and related costing options):
+**Elevation is built in, and Valhalla applies it to every profile.** The tiles are always built
+with elevation data (`build_elevation`), so every edge carries its grade (checked by `tiles
+verify`, VF1). Valhalla 3.9.1 uses the grades in all costings we use; we keep its default
+behaviour (O7, notes N5):
 
-| Profile | Elevation in Core | Note |
+| Profile | What Valhalla does with elevation | Evidence (Valhalla 3.9.1, Tübingen tiles) |
 |---|---|---|
-| Walking, wheelchair | **ignored for now** (default costing, slope effect not analysed or reported) | Gate G1 (`methodology.md` §6) tests whether slopes change walking times in Valhalla **[VERIFY]**; stairs are always handled through OSM `highway=steps` |
-| Cycling | as Valhalla's bicycle costing applies it with elevation present **[VERIFY]** | `use_hills` stays at the default until tested |
+| Walking (both speeds) | `pedestrian` costing scales the time of each edge by a grade factor: uphill and steep downhill are slower, gentle downhill slightly faster; `walking_speed` is the flat-ground speed. `use_hills` and `max_grade` do not change the times | Burgholzweg 127 → Waldkindergarten (697 m): 984 s uphill, 769 s back, 740 s on flat ground (3.39 km/h); Marktplatz → Schloss (506 m): 681 s / 619 s vs. 537 s; 300 random routes: median 1.08 × the flat-ground time (0.91–1.66) |
+| Wheelchair | same grade factor as walking; `type: wheelchair` changes the route (no steps), not the factor | Burgholzweg 127 → Waldkindergarten (627 m without steps): 881 s uphill, 700 s back, 666 s on flat ground; 235 random routes: median 1.06 (0.94–1.79) |
+| Cycling | `bicycle` costing slows uphill and speeds up downhill; `use_hills` stays at the default (0 and default give the same times) | Marktplatz → Schloss 677 s / 591 s; Hbf → Waldhäuser-Ost 1,196 s / 865 s (VF2) |
 
-Enabling slopes for walking later is a config change plus a pipeline run, not a code or
-architecture change.
+Stairs are always handled through OSM `highway=steps`. Slope-free walking times would need a
+second, elevation-free tile set (against "same tile set" below); they are only computed once
+for the validation experiment V11 (`methodology.md` §6), not served.
 
 **Maximum reach per profile** (speed × time budget), the basis of the prefilter (6.3, where
 cycling adds a measured speed factor) and of the routing buffer (Section 4):
@@ -322,7 +324,7 @@ flowchart LR
 | `count` | cells, facilities, stops, Valhalla | raw counts and nearest times per cell × category × profile | Section 6.3 |
 | `score` | raw counts, config thresholds | `thresholds` table; classes and deficits as views over the raw counts (§8) | `methodology.md` §4; the pipeline writes no derived score tables |
 | `recommend` | deficits, catchments | ranked candidate zones with population gain | Greedy, land-use filtered |
-| `validate results` | all results | validation report part 2 | Monotonicity, totals, sample checks |
+| `validate results` | all results | validation report part 2 | Monotonicity, totals, sample checks; `reachable` gives exactly the counts; calls Valhalla /route for a sample of counted pairs (`matrix_vs_route`), a sample of uncounted pairs within the prefilter reach (`false_negatives`) and reports the budget flips of both (methodology V10) |
 | `publish` | validated results | new DB schema `run_<id>`, then `current` view switched | Atomic; previous run stays available |
 | `cleanup` | run history | – | Keeps the last 3 published runs (DB schemas and `data/raw/<run_id>/`), deletes older ones; 40 GB disk |
 
@@ -447,7 +449,7 @@ Environments:
 
 Cut first if time is short; can be added later without changing the architecture:
 job queue / live scenario recomputation, self-hosted geocoder (map click and district picker
-instead), transit routing (Valhalla multimodal or r5py), slope-aware walking times unless gate G1 passes,
+instead), transit routing (Valhalla multimodal or r5py),
 H3 aggregation, second region, Prefect/Dagster, monitoring stack.
 
 ## 13. Decisions
@@ -467,7 +469,7 @@ H3 aggregation, second region, Prefect/Dagster, monitoring stack.
 | O10 | Failed runs notify the team chat via webhook |
 | O11 | Scoring scope = all populated cells with centroid inside the city boundary of Tübingen, coverage ≥ 0.98 of the city's residents checked in `validate`; the urban boundary (O17) only defines the map area, the live-endpoint check and the recommender candidates (changed 2 Nov 2026, v0.12) |
 | O12 | English documentation; branches `main` (releases) + `dev` (integration) |
-| O7 | Elevation is built into the tiles; its use is a per-profile config setting, ignored for walking/wheelchair for now; gate G1 decides later (stairs are always handled) |
+| O7 | Elevation is built into the tiles and Valhalla's default slope model is kept for every profile: walking and wheelchair times include the pedestrian grade factor, cycling the bicycle one; stairs are always handled; slope-free times only for V11 (§6.1; changed 6 Nov 2026, v0.16, notes N5) |
 | O13 | Routing buffer = 4 km around the city boundary (covers maximum cycling reach of 3.75 km); raised after confirmation if the prefilter reach of O20 exceeds it |
 | O15 | Cycling speed fixed at 15 km/h |
 | O18 | Transit supply stored as raw departure sums in `transit_supply` (cell × profile, walking and wheelchair); classes via the `transit_scores` view (§6.3, §8) |
@@ -554,6 +556,7 @@ documented here in the same branch (see `AGENTS.md`).
 
 | Version | Date | Change | Why |
 |---|---|---|---|
+| v0.16 | 2026-11-06 | §6.1: Valhalla applies elevation to every profile (pedestrian grade factor for walking and wheelchair, bicycle costing for cycling), per-profile table with evidence; §12: slope-aware walking removed from out of scope; O7 changed (slope model kept, slope-free times only for V11); §7: `validate results` checks `reachable` and calls /route (`matrix_vs_route`, `false_negatives`, budget flips, methodology V10) | N5/N9: walking and wheelchair times already included slopes (e.g. 984 s instead of 740 s uphill), the old text said "ignored for now"; `use_hills` cannot switch it off; decision by Rico: keep it, no change to counts; the §7 stage table did not mention the /route checks (N8 review) |
 | v0.15 | 2026-11-05 | §6.5 rule 2: every matrix uses `costmatrix` (service config); rule 6: `count` also yields `reachable`; rule 8: inspector lists reachable facilities from `current.reachable`, live matrix only for grid cells without residents; §8: `reachable` table | N8: `select_optimal` mixed two algorithms (2.5 % of live/precomputed pairs differed; `timedistancematrix` misses wheelchair routes); N7 settled; confirmed by Rico (variant C) |
 | v0.14 | 2026-11-05 | §6.5 rule 8: inspector snaps every point (also unpopulated) to its 100 m grid cell and uses one live matrix to all facility points within the prefilter reach; rule 12: points inside a scored cell are accepted too; §9: endpoint descriptions, snapping, cache, rate limit, ETag | P5: the DB stores no nearest facility id (needed for routes, notes N7); 86 scored cells (1,144 residents) lie outside the urban boundary + 100 m (O11); confirmed by Rico (K1, K2) |
 | v0.13 | 2026-11-05 | §7: `cleanup` named next to `publish` as the only other stage touching PostGIS (it drops old run schemas) | The sentence contradicted the §7 stage table and the P4 implementation; aligned with AGENTS.md rule 6 |
