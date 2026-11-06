@@ -141,6 +141,8 @@ def test_greedy_stops_below_min_gain_and_when_saturated() -> None:
     picks = rec.greedy(cover, pop, counts, 1, 5, 50)
     assert [p.candidate for p in picks] == [0]  # 100; then 0 (saturated) and 40 < 50
     assert rec.greedy(cover, pop, np.array([1, 1]), 1, 5, 0.5) == []  # nothing left to gain
+    # min_gain 0 still stops at zero gain (no zones without effect)
+    assert [p.candidate for p in rec.greedy(cover, pop, counts, 1, 5, 0)] == [0, 2]
 
 
 # --- stage -----------------------------------------------------------------------------------

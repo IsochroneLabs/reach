@@ -271,7 +271,9 @@ function Main({ meta, districts }: { meta: Meta; districts: Districts }) {
             onPick={pick}
             onRecommendation={(id) => {
               const rec = currentRecommendations?.features.find((f) => f.properties.candidate_id === id)
-              if (rec) selectRecommendation(rec.properties)
+              const selected = catchmentState.status === 'idle' ? null : catchmentState.candidateId
+              // a second click on the selected marker clears it, as in the list
+              if (rec) selectRecommendation(id === selected ? null : rec.properties)
             }}
           />
           {pin && (

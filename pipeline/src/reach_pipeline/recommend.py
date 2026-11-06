@@ -23,15 +23,12 @@ import shapely
 
 from reach_pipeline.zensus import CELL_SIZE_M, GRID_CRS, METRIC_CRS
 
-GRID_ID = "CRS3035RES100mN{n}E{e}"
-
 
 def grid_id(north: np.ndarray, east: np.ndarray) -> np.ndarray:
     """Zensus grid ids from the lower-left corners (EPSG:3035, whole metres)."""
-    return np.array(
-        [GRID_ID.format(n=int(n), e=int(e)) for n, e in zip(north, east, strict=True)],
-        dtype=object,
-    )
+    n = pd.Series(np.asarray(north, dtype=np.int64)).astype(str)
+    e = pd.Series(np.asarray(east, dtype=np.int64)).astype(str)
+    return ("CRS3035RES100mN" + n + "E" + e).to_numpy(dtype=object)
 
 
 def candidate_grid(area: shapely.Geometry, spacing_m: int) -> gpd.GeoDataFrame:
@@ -147,7 +144,7 @@ def greedy(
         gains = cover_f @ gain_weights(pop, a, k)
         gains[used] = -np.inf
         x = int(np.argmax(gains))
-        if gains[x] < min_gain:
+        if gains[x] <= 0 or gains[x] < min_gain:  # nothing left to gain (also min_gain 0)
             break
         m = cover[x]
         picks.append(

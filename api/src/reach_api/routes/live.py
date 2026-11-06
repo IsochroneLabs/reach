@@ -306,14 +306,15 @@ async def _candidate_catchment(
 ) -> Response:
     if category not in run.categories:
         raise HTTPException(422, f"unknown category {category!r}")
-    r = await d.db.recommendation(candidate_id, category, p.profile_id)
-    if r is None:
-        raise HTTPException(
-            404, f"no recommendation {candidate_id!r} for {category!r} and {p.profile_id!r}"
-        )
     key = (run.run_id, "catchment", "candidate", candidate_id, category, p.profile_id)
 
     async def build() -> dict[str, Any]:
+        # inside the cached build: a hit needs no query; a 404 is not cached (errors never are)
+        r = await d.db.recommendation(candidate_id, category, p.profile_id)
+        if r is None:
+            raise HTTPException(
+                404, f"no recommendation {candidate_id!r} for {category!r} and {p.profile_id!r}"
+            )
         ids = list(r["cell_ids"])
         isochrone = await _isochrone(d, (r["lon"], r["lat"]), p, reverse=True)
         return {

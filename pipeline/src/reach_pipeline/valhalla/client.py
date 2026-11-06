@@ -110,7 +110,8 @@ class ValhallaClient:
         if per_request < 1:
             raise ConfigError(
                 f"{n_src} sources exceed valhalla.max_matrix_pairs "
-                f"({self.cfg.max_matrix_pairs}); use smaller count.block_size_m"
+                f"({self.cfg.max_matrix_pairs}); use a smaller count.block_size_m or "
+                "recommend.group_size_m"
             )
         src = _locations(sources)
         chunks = [targets[i : i + per_request] for i in range(0, n_tgt, per_request)]
