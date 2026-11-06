@@ -5,7 +5,8 @@
 > decision → architecture v0.12, methodology v0.3). P3 merged (PR #21, 5 Nov 2026; full depth:
 > all profiles and categories; open decisions N4, N5, cycling factor). P4 merged (PR #22, 5 Nov
 > 2026; full depth; monotonicity with tolerance, N6). P5 merged (PR #24, 5 Nov 2026, full depth,
-> architecture v0.14); N8 follow-up: one matrix algorithm + `reachable` (architecture v0.15). Next: P6. This file is the **handoff between
+> architecture v0.14); N8 follow-up: one matrix algorithm + `reachable` (architecture v0.15). P6 implemented on
+> `feature/rico-web` (6 Nov 2026, draft PR, interim depth plus district panel). Next: P7. This file is the **handoff between
 > agent sessions**: phase status, decisions, agreed deviations, measured numbers and next steps.
 > It is informative; `architecture.md` and `methodology.md` stay binding. Where this plan proposes
 > something that differs from them, it is listed in [Section 5](#5-conflicts-gaps-and-ambiguities)
@@ -23,7 +24,7 @@
 | P3 | tiles + count | `feature/juju-tiles-count` | [x] merged PR #21, 5 Nov (full depth) | 16 Nov |
 | P4 | score + publish + cleanup | `feature/juju-score-publish` | [x] merged PR #22, 5 Nov (full depth) | 19 Nov |
 | P5 | API | `feature/rico-api` | [x] merged PR #24, 5 Nov (full depth; N7/N8 follow-up `fix/rico-matrix-algorithm`) | 21 Nov |
-| P6 | Web | `feature/rico-web` | [ ] | 24 Nov |
+| P6 | Web | `feature/rico-web` | [~] draft PR, 6 Nov (interim + district panel; ranking/polish after) | 24 Nov |
 | — | **Interim demo (local), `v0.1.0`** | release PR `dev` → `main` on request | [ ] | 25 Nov |
 | P7 | Recommender + validation V1–V9 | `feature/rico-recommender`, `feature/rico-validation` | [ ] | 10 Jan |
 | P8 | Production | `feature/rico-production` | [ ] | server from ~1 Dec, hardening until 15 Jan |
@@ -164,6 +165,11 @@ data & validation page with attribution (OSM, GTFS, Zensus, basemap). Basemap: a
 needs no key (decided in P6, licence checked). Caddy serves `web/dist` and proxies `/api`.
 **Done when:** `npm run lint && npm run build` pass; `make up` + browser shows the map with real
 data; screenshot in the PR. *Interim:* map + selector + inspector + attribution.
+*Changed in P6 (Rico, 6 Nov 2026):* district panel (shares, residents lacking, deficit, rank)
+already in the interim; basemap OpenFreeMap Positron; `infra/web.Dockerfile` (Node build →
+Caddy image) replaces `infra/web-placeholder/`; CI job `web` with a Playwright smoke test on
+recorded API responses. After the interim: sortable district ranking, catchment/expansion
+views, polish.
 
 ### P7 — Recommender and validation
 
@@ -337,6 +343,7 @@ Confirmed by Rico (2 Nov 2026): C6–C12 as recommended in Section 5; Q4 also co
 | 2026-11-05 | N8 assumptions | `reachable` without primary key: the key index would take 55 MB per run, the deduplicated (`cell_id`, `profile_id`) index 4–6 MB; uniqueness is guaranteed by `count` and checked by `reachable_matches_counts` (fail). Route line of a listed facility goes to its routing point nearest to the origin by straight line (display only; the time is the run's matrix time). Catchments keep a live matrix (cells → facility); reading them from `reachable` is possible later. `matrix_vs_route` samples 25 pairs per profile (80 % near the budget), seed from the run id, warns above 60 s, never fails; needs the running Valhalla in `validate_results` (`valhalla` added to its config sections). Methodology not changed (proposal in the PR) |
 | 2026-11-05 | N8 review (fresh agent) | Fixed: `matrix_vs_route` treated every Valhalla error as "no route" (Valhalla down → all pairs without route → check ok) → only 4xx (`BadRequestError`, new in `errors.py`) means no route, other errors abort; the check also warns when more than half of the pairs have no route; tests for 5xx/timeout and the stage wiring (`check_routes`, Markdown); contract: 504 for any Valhalla timeout, `nearest_route` display note. Left open (ask first): architecture §7 stage table does not yet mention that `validate results` calls /route and checks `reachable`; methodology §6 has no entry for the matrix-vs-/route comparison (proposal to Rico); `near_budget_share` sets both the share and the threshold (nit); CHANGELOG lines in the docs commit (squash merge) |
 | 2026-11-05 | P5 review (fresh agent) | Fixed: live caches held Python dicts (~10× the JSON size; 2,000 cycling inspects ≈ 1 GB) → caches hold serialized JSON bytes, defaults lowered (`live_entries` 500, `expansion_entries` 10; worst case ~60 MB) and size comments corrected; rate-limit dependency was sync (threadpool, unlocked limiter state) → async; concurrent misses of one key now share one Valhalla computation (rule 10); `rank_share_lack` ranked districts without residents first → `NULLS LAST`; Valhalla retries now wait `api.valhalla.backoff_s * 2**attempt` (new key); matrix larger than the limit on both axes raises; meta ETag includes the config category names; unit tests no longer resolve DNS; db test covers a scored cell with a real grid id outside the urban boundary (K1) and snapping; contract lists 500/502 causes; commits reordered (code with its contract, `chore` types). Left: none |
+| 2026-11-06 | P6 answers + assumptions (Rico) | Basemap OpenFreeMap Positron via `VITE_BASEMAP_STYLE`, attribution "© OpenMapTiles © OpenStreetMap contributors" always visible (plus the TileJSON credit OpenFreeMap adds); Node 24 LTS (`web/.nvmrc` 24.22.2, `engines`, `setup-node` in CI, `node:24.22.2-alpine3.24`); `infra/web.Dockerfile` + caddy service built from it, placeholder removed, CI job `web` (approved); Playwright in CI with `page.route` on fixtures, basemap blocked, `E2E_LIVE=1` against :8080. npm (exact): react/react-dom 19.3.1, maplibre-gl 6.15.0; dev: vite 8.3.5, @vitejs/plugin-react 6.1.2, typescript 6.0.3 (7.x unsupported by typescript-eslint), @types/react(-dom) 19.3.0, eslint 10.13.0, @eslint/js 10.0.1, typescript-eslint 8.72.0, eslint-plugin-react-hooks 7.1.1, eslint-plugin-react-refresh 0.5.7, globals 17.13.0, @playwright/test 1.64.1 (no @types/node: one ambient `process` declaration). Palette: Rico rejected two oranges; ordered lightness instead (facility L* 23/51/79, transit 23/44/70/81; min. ΔE76 under simulated CVD 39 / 25). UI English; view + selection in the URL hash (no router); legend sums residents per class from `/api/cells` (display only); browser HTTP cache handles ETag/304 (third `/api/cells` request: 300 bytes); spinner after 300 ms; inspect aborted on a new pin; maplibre-gl 6 worker emitted via `?url` + `setWorkerUrl`; known limitations on the data page are static text with doc links |
 
 Measured numbers (runtime, peak memory, counts) are added here at the end of every phase.
 
@@ -393,6 +400,11 @@ Measured numbers (runtime, peak memory, counts) are added here at the end of eve
 | N8 | `reachable`: rows (walking 3.39 / 5.0 / cycling / wheelchair) / Parquet / PostGIS heap + index | 552,917 (37,048 / 75,254 / 407,949 / 32,666) / 1.3 MB / 46.2 + 6.2 = 52.4 MB per run, ~157 MB for 3 kept runs (with a primary key: 101.6 MB, ~305 MB) |
 | N8 | `matrix_vs_route` in report part 2 (100 random pairs, 80 % near the budget) | mean 0.5 s, max 4.1 s (wheelchair), 0 flips |
 | N8 | `inspect` through Caddy, cache miss: scored walking / cycling (n = 5) · unscored (live matrix) walking / cycling (n = 4) | median 44 / 66 ms (max 131 / 82) · 77–388 ms / 2.7–3.0 s |
+| P6 | Bundle (gzip): app JS / maplibre JS / CSS; maplibre worker (raw, loaded by MapLibre) | 77 KB / 290 KB / 12 KB; 519 KB |
+| P6 | First load, local stack, cold browser cache (basemap from the internet): map with cells ready / same-origin transfer | ~1.6 s / 674 KB (`/api/cells` 59 KB gzip) |
+| P6 | Warm reload (ETag/304, immutable assets) until cells ready | ~0.9 s |
+| P6 | `POST /api/inspect`: scored cell / live grid cell (cycling) | 40–140 ms / 2.0–2.8 s |
+| P6 | Playwright smoke test: mocked (preview build) / live (:8080) | 1.1 s / 2.8 s |
 
 ## 8. Next steps
 
@@ -425,8 +437,12 @@ Measured numbers (runtime, peak memory, counts) are added here at the end of eve
    `fix/rico-matrix-algorithm`). Open: report the `timedistancematrix` wheelchair gap upstream (N8);
    N4 (Valhalla memory comes from `costmatrix`); `catchment` for recommender candidates gets
    its candidates in P7; production command, HTTPS and no published ports in `compose.prod.yaml` (P8); measure API memory and
-   inspect latency on the CX23 (VF3). Next: P6 (web) on `/api/cells`, `/api/districts`,
-   `/api/inspect`, `/api/meta`.
+   inspect latency on the CX23 (VF3).
+8. P6 — draft PR from `feature/rico-web` (review by Socke or Juju, no self-merge). Open: sortable
+   district ranking, catchment/expansion and recommendation views (P7 fills
+   `/api/recommendations`), dev-only npm audit finding (moderate `minimatch` ReDoS in eslint /
+   typescript-eslint, not in the bundle; update when fixed upstream), production Caddyfile with
+   HTTPS and the GHCR web image (P8). Next: P7.
 
 ## 9. Working rules (copy from the start prompt)
 

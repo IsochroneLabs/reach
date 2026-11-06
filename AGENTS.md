@@ -9,12 +9,13 @@ They apply to every agent session, on behalf of any team member. Humans: see `RE
 of the city of Tübingen, finds underserved areas and recommends sites for new facilities. Course project
 DS500, University of Tübingen. Automation, validation, documentation and a hosted app are graded.
 
-**Status:** P5 (API) merged, P6 next — `docs/` (incl. a draft `docs/data_contract.md`), `config/config.yaml`,
+**Status:** P6 (web) on `feature/rico-web` (draft PR), P7 next — `docs/` (incl. a draft `docs/data_contract.md`), `config/config.yaml`,
 `config/valhalla.json`, `Makefile` (incl. `refresh`, `migrate`), `compose.yaml` (db, valhalla,
-valhalla-build, api from `infra/api.Dockerfile`, caddy placeholder), `.github/` (CI incl. the PostGIS
-data-contract job), `infra/db/` (roles, migrations, run schema) and the pipeline stages
-`acquire`, `validate`, `tiles`, `count`, `score`, `validate_results`, `publish` and `cleanup`
-and the API endpoints (`api/`) exist; `recommend`, `web/`, `compose.prod.yaml` and the rest of `infra/` are
+valhalla-build, api from `infra/api.Dockerfile`, caddy with the web build from
+`infra/web.Dockerfile`), `.github/` (CI incl. the PostGIS data-contract job and the `web` job),
+`infra/db/` (roles, migrations, run schema) and the pipeline stages
+`acquire`, `validate`, `tiles`, `count`, `score`, `validate_results`, `publish` and `cleanup`,
+the API endpoints (`api/`) and the web app (`web/`) exist; `recommend`, `compose.prod.yaml` and the rest of `infra/` are
 planned. If a file, folder or command referenced here does not exist yet, say so; do not invent a
 substitute.
 
