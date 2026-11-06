@@ -1,6 +1,6 @@
 # Data contract — reach
 
-> **Status:** draft v0.7 (5 Nov 2026), from `implementation_plan.md` §3. Binding for the tables
+> **Status:** draft v0.8 (6 Nov 2026), from `implementation_plan.md` §3. Binding for the tables
 > and files exchanged between pipeline and API once a phase implements them; every change needs
 > confirmation (AGENTS.md) and a data-contract test. Tables marked *(planned, Pn)* do not exist yet.
 
@@ -112,7 +112,7 @@ uncached answer share one Valhalla computation and report `cached: true`.
 
 | Endpoint | Body |
 |---|---|
-| `GET /api/meta` | `run` (row of `meta.runs`), `data_sources` (rows of `meta.data_sources`: `source`, `url`, `retrieved_at`, `checksum`, `licence`), `validation` {`ok`, `warn`, `fail` counts, `issues`: non-ok rows of `validation_report`}, `profiles` [{`profile_id`, `costing`, `speed_kmh`, `time_budget_min`, `transit`}], `categories` [{`id`, `name` (config), `k`}], `transit_classes` [{`class`, `lower`, `upper`}] |
+| `GET /api/meta` | `run` (row of `meta.runs`), `data_sources` (rows of `meta.data_sources`: `source`, `url`, `retrieved_at`, `checksum`, `licence`), `validation` {`ok`, `warn`, `fail` counts, `issues`: non-ok rows of `validation_report`}, `profiles` [{`profile_id`, `costing`, `speed_kmh`, `time_budget_min` (facility budget), `transit`, `transit_budget_min` (walking time to stops, config `time_budgets_min.transit`; null if `transit` is false)}], `categories` [{`id`, `name` (config), `k`}], `transit_classes` [{`class`, `lower`, `upper`}] |
 | `GET /api/districts` | GeoJSON FeatureCollection (`application/geo+json`) + `run_id`; feature `id` = `district_id`, properties `district_id`, `name`, `admin_level`, `residents`, `cells` (scored cells) |
 | `GET /api/districts/{id}/scores?profile=` | `run_id`, `district_id`, `name`, `admin_level`, `scores` [{`category`, `profile_id`, `share_lack`, `share_insufficient`, `share_sufficient`, `deficit_sum`, `residents_lack`, `rank_deficit`, `rank_share_lack`, `districts_ranked`}]; ranks over all districts per category × profile (1 = highest), `profile` optional |
 | `GET /api/cells?category=&profile=` | GeoJSON FeatureCollection + `run_id`, `category`, `profile_id`; feature `id` = `cell_id`, Polygon; properties `cell_id`, `population`, `district_id`, `count`, `nearest_min`, `class`, `deficit`. `category=transit` (profiles with transit only): `departures`, `stops_count`, `nearest_stop_min`, `class` instead of the count columns |
@@ -244,3 +244,4 @@ their row counts.
 | v0.5 | 2026-11-04 | Roles, `meta` and run schema implemented (`infra/db/`); `meta.schema_migrations`; `profiles.costing_options` = options as sent to Valhalla; FKs of `access_counts`/`transit_supply`; `district_scores` details; `score/`, report part 2 and `publish` manifest files | P4 score + publish + cleanup |
 | v0.6 | 2026-11-05 | API responses (read and live endpoints, errors, ETag, snapping, HEAD, inspect `count`/`count_source`); manifest config input per stage; `config_hash` without `api` | P5 API |
 | v0.7 | 2026-11-05 | `reachable` table and `count/reachable.parquet`; report part 2 checks `reachable_matches_counts`, `matrix_vs_route` and key `route_check`; inspect `source`; error 504 | Notes N7/N8, architecture v0.15 (variant C) |
+| v0.8 | 2026-11-06 | `GET /api/meta`: `profiles[].transit_budget_min` (from the config like category names; part of the meta ETag) | Transit legend in the web app (P6) |
