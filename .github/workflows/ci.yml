@@ -1,5 +1,5 @@
-# Lint and unit tests, plus the PostGIS data-contract test, on every push and pull request
-# (arch. §11 "CI", §14.1).
+# Lint and unit tests, the PostGIS data-contract test and the web checks (lint, build, browser
+# smoke test) on every push and pull request (arch. §11 "CI", §14.1).
 name: CI
 
 on:
@@ -72,3 +72,49 @@ jobs:
 
       - name: Data-contract tests
         run: uv run pytest -m db
+
+  # Frontend (web/, arch. §10): lint + type check, production build, and the browser smoke test
+  # against recorded API responses (web/tests/fixtures/; no stack, no basemap, no network).
+  web:
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v7.0.1
+
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version-file: web/.nvmrc
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install (locked versions)
+        run: npm ci --no-audit --no-fund
+
+      - name: Lint + type check
+        run: npm run lint
+
+      - name: Build
+        run: npm run build
+
+      - name: Bundle size (KB per file, raw and gzip)
+        run: |
+          for f in dist/assets/*; do
+            echo "$(( $(wc -c < "$f") / 1024 )) KB raw, $(( $(gzip -9c "$f" | wc -c) / 1024 )) KB gzip  $f"
+          done
+
+      - name: Install the Playwright browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Browser smoke test
+        run: npx playwright test
+
+      - uses: actions/upload-artifact@v7.0.2
+        if: failure()
+        with:
+          name: playwright-report
+          path: |
+            web/playwright-report
+            web/test-results
+          retention-days: 7
