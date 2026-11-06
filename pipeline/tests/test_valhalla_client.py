@@ -349,3 +349,21 @@ def test_check_false_negatives_routes_unreached_pairs_within_reach(
     )
     assert "## Missed facilities" in md and "| walking_339 | grocery | 1 | 0 | 1 | 100.0% |" in md
     assert "## Budget flips" in md and "| walking_339 | 0 of 25 (0.0%) | 1 of 1 (100.0%) |" in md
+
+
+def test_no_url_fails_clearly(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("VALHALLA_URL", raising=False)
+    cfg = CFG.model_copy(update={"url": None})
+    with pytest.raises(ConfigError, match="VALHALLA_URL is not set"):
+        resolve_url(cfg)
+    monkeypatch.setenv("VALHALLA_URL", "http://localhost:8003/")
+    assert resolve_url(cfg) == "http://localhost:8003"
+
+
+def test_repo_config_has_no_default_url() -> None:
+    from pathlib import Path
+
+    from reach_pipeline.config import load_config
+
+    repo = Path(__file__).resolve().parents[2]
+    assert load_config(repo / "config" / "config.yaml").valhalla.url is None

@@ -209,7 +209,8 @@ class Tiles(_Model):
 
 
 class Valhalla(_Model):
-    url: str = Field(pattern=r"^https?://")
+    # null = only $VALHALLA_URL (.env); no fallback to a guessed local port (notes N9).
+    url: str | None = Field(default=None, pattern=r"^https?://")
     concurrency: int = Field(ge=1)
     timeout_s: float = Field(gt=0)
     retries: int = Field(ge=0)

@@ -7,6 +7,11 @@ adds a line under `Unreleased`.
 
 ## [Unreleased]
 
+### Changed (configuration)
+- `valhalla.url` is null: the pipeline takes the Valhalla URL only from `VALHALLA_URL` (.env)
+  and stops with a clear configuration error if it is missing, instead of falling back to
+  `localhost:8002` (another service listened there on a dev machine, notes N9).
+
 ### Added (recommender, P7)
 - Pipeline stage `recommend` (methodology v0.6 §5, architecture v0.18 §6.4): 100 m grid
   candidates inside the urban boundary without forest, farmland, water, nature reserves and

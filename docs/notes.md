@@ -309,7 +309,10 @@ old inode); a 25 × 101 pedestrian request was refused with error 150 "Exceeded 
   `iso15-socke-valhalla-1`), which rejects every pedestrian matrix above 2,500 pairs; our
   service listens on `localhost:8003` (`VALHALLA_URL` in `.env`). A script that does not load
   `.env` falls back to `valhalla.url` (`http://localhost:8002`) and asks the wrong service. The
-  pipeline (`make`, `uv run --env-file .env`) is not affected.
+  pipeline (`make`, `uv run --env-file .env`) is not affected. **Fixed (6 Nov 2026):**
+  `valhalla.url` is null in `config/config.yaml`; without `VALHALLA_URL` the pipeline stops
+  with a clear configuration error (exit code 2) instead of guessing a port. The other
+  project's containers were stopped (`docker compose down`, volumes kept).
 
 **Open:** none. The inspector shows the route time first and its length second (6 Nov 2026,
 branch `fix/rico-inspector-time`). N5 settled (6 Nov 2026: slopes kept); `false_negatives` warns above 0.5 % since then (one hit in ~480

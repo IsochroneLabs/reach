@@ -221,10 +221,12 @@ tiles:
     costing: pedestrian
     max_detour_factor: 3.0
 
-# Valhalla service used by the pipeline (arch. §6.5). The environment variable VALHALLA_URL
-# overrides `url` (Compose sets http://valhalla:8002).
+# Valhalla service used by the pipeline (arch. §6.5). The URL comes from the environment
+# variable VALHALLA_URL (.env, passed by `make`; Compose sets http://valhalla:8002); `url` is
+# only a fallback and stays null, so a run without .env fails clearly instead of calling
+# whatever listens on a guessed local port (notes N9).
 valhalla:
-  url: http://localhost:8002
+  url: null
   # Parallel requests; equals the worker threads of valhalla_service (compose.yaml, 2 = vCPUs).
   concurrency: 2
   # Seconds per request; retries with backoff_s * 2**attempt on timeouts, connection errors
