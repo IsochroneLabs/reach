@@ -258,7 +258,7 @@ function Main({ meta, districts }: { meta: Meta; districts: Districts }) {
     if (!facilityKey || !inspectedOrigin || !selectedFacility) return
     const controller = new AbortController()
     postRoute(inspectedOrigin[0], inspectedOrigin[1], profile.profile_id, selectedFacility, controller.signal).then(
-      (data) => setPicked({ key: facilityKey, state: { status: 'done', data } }),
+      (data) => !controller.signal.aborted && setPicked({ key: facilityKey, state: { status: 'done', data } }),
       (err: unknown) =>
         !controller.signal.aborted && setPicked({ key: facilityKey, state: { status: 'error', message: errorMessage(err) } }),
     )

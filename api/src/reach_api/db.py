@@ -242,7 +242,8 @@ ORDER BY fp.facility_id, fp.point_id, f.category
 
 # The `limit` nearest facilities of a category by straight line (distance to their nearest routing
 # point), without the excluded ones; one row per facility with that point. Used to find the next
-# facility beyond the budget (W4), so no reach limit applies.
+# facility beyond the budget (W4), so no reach limit applies. Every facility has at least one
+# row in `facility_points` (`count` only sees facilities through them), so the join loses none.
 _NEAREST_POINTS = """
 SELECT f.facility_id, p.point_id, f.category, f.name,
        ST_X(ST_Transform(p.geom, 4326)) AS lon, ST_Y(ST_Transform(p.geom, 4326)) AS lat

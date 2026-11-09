@@ -199,6 +199,7 @@ export default function MapView(props: Props) {
   const container = useRef<HTMLDivElement>(null)
   const mapRef = useRef<MapLibreMap | null>(null)
   const markerRef = useRef<Marker | null>(null)
+  const popupRef = useRef<Popup | null>(null)
   const [ready, setReady] = useState(false)
   const clickTimer = useRef<number | undefined>(undefined)
   const [basemapOk, setBasemapOk] = useState(true)
@@ -274,6 +275,7 @@ export default function MapView(props: Props) {
       }
       // hover on a pin: popup with name, category and time; the list highlights the same entry
       const popup = new Popup({ closeButton: false, closeOnClick: false, offset: 10, className: 'poi-popup' })
+      popupRef.current = popup
       map.on('mouseenter', 'poi-pins', (e) => {
         const f = e.features?.[0]
         if (!f || !map || f.geometry.type !== 'Point') return
@@ -594,6 +596,8 @@ export default function MapView(props: Props) {
   )
   useEffect(() => {
     if (!ready) return
+    // a pin that goes away under the pointer fires no mouseleave: close its popup
+    popupRef.current?.remove()
     source('poi-pins')?.setData(pins)
     source('route')?.setData(route)
     source('route-label')?.setData(routeLabelPoint(route))

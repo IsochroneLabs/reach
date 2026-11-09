@@ -450,3 +450,33 @@ def test_route_validation(client: TestClient, db: FakeDatabase, valhalla: respx.
     db.in_city = db.click_in_city = db.scored = False
     assert client.post("/api/route", json=body).status_code == 422  # outside the city
     assert valhalla.calls.call_count == 0
+
+
+def test_failed_matrix_is_not_cached_and_one_bad_point_costs_one_category(
+    client: TestClient, db: FakeDatabase, valhalla: respx.MockRouter
+) -> None:
+    db.reachable_n = 1
+    db.scores[0] = {**db.scores[0], "count": 1, "class": "insufficient", "deficit": 80.0}
+    ok = valhalla["matrix"].side_effect
+
+    def matrix(request: httpx.Request) -> httpx.Response:
+        targets = json.loads(request.content)["targets"]
+        # a pharmacy point without a street nearby: Valhalla rejects every request carrying it
+        if any(t["lon"] == round(db.rec["points"][0]["lon"], 7) for t in targets):
+            return httpx.Response(400, json={"error_code": 171})
+        return ok(request)
+
+    valhalla["matrix"].mock(side_effect=matrix)
+    body = client.post("/api/inspect", json=INSPECT).json()
+    # grocery still gets its next facility; only the category with the bad point has a note
+    assert _category(body, "grocery")["next_facility"]["facility_id"] == "n5183783736"
+    assert (
+        _category(body, "pharmacy")["next_note"]
+        == "The next facility could not be calculated right now."
+    )
+    assert "_degraded" not in body
+    # the degraded answer is not cached: the next click asks again
+    valhalla["matrix"].mock(side_effect=ok)
+    again = client.post("/api/inspect", json=INSPECT).json()
+    assert again["cached"] is False
+    assert _category(again, "pharmacy")["next_facility"]["time_s"] == 1712

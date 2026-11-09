@@ -33,6 +33,9 @@ class LRUCache:
         while len(self._data) > self.max_entries:
             self._data.popitem(last=False)
 
+    def discard(self, key: Hashable) -> None:
+        self._data.pop(key, None)
+
     async def get_or_compute(
         self, key: Hashable, compute: Callable[[], Awaitable[Any]]
     ) -> tuple[Any, bool]:

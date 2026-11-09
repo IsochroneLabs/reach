@@ -41,7 +41,8 @@ export const CELL_STATUS_TEXT: Record<Exclude<CellStatus, 'scored'>, string> = {
 
 /** "7 min", or "23 min · beyond 15 min" for a time over the budget (route labels, popups). */
 export function timeLabel(minutes: number, budgetMin: number | null, beyond: boolean): string {
-  const label = `${Math.round(minutes)} min`
+  // beyond the budget: round up, so "15 min · beyond 15 min" cannot occur
+  const label = `${beyond ? Math.ceil(minutes) : Math.round(minutes)} min`
   return beyond && budgetMin !== null ? `${label} · beyond ${budgetMin} min` : label
 }
 

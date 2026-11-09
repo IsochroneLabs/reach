@@ -209,6 +209,8 @@ async def _inspect(d: Deps, run: Run, p: Profile, loc: Location) -> dict[str, An
     source = "precomputed" if loc.scored else "live"
     names = {c.id: c.name for c in d.config.categories}
     return {
+        # not part of the answer: `_serve` does not cache a body with a failed next facility
+        "_degraded": any(n == NEXT_UNAVAILABLE for _, n in next_facilities.values()),
         "run_id": run.run_id,
         "profile_id": p.profile_id,
         "cell": _cell(loc),
@@ -270,17 +272,33 @@ async def _next_facilities(
             points.setdefault((r["facility_id"], r["point_id"]), (r["lon"], r["lat"]))
     costing, options = _options(p)
     origin = (loc.lon, loc.lat)
+
+    async def times_of(pts: dict[tuple[str, int], LonLat]) -> dict[tuple[str, int], float | None]:
+        row = (await d.live_matrix.matrix([origin], list(pts.values()), costing, options))[0]
+        return dict(zip(pts, row, strict=True))
+
     times: dict[tuple[str, int], float | None] = {}
+    failed: set[str] = set()
     if points:
         try:
-            row = (await d.live_matrix.matrix([origin], list(points.values()), costing, options))[0]
-        except (ValhallaError, NoRouteError) as exc:
+            times = await times_of(points)
+        except NoRouteError:
+            # one point without a street nearby fails the whole request: ask per category
+            for c in missing:
+                pts = {
+                    (r["facility_id"], r["point_id"]): (r["lon"], r["lat"]) for r in candidates[c]
+                }
+                try:
+                    times |= await times_of(pts) if pts else {}
+                except (ValhallaError, NoRouteError) as exc:
+                    log.warning("next facility matrix failed for %s %s: %s", loc.cell_id, c, exc)
+                    failed.add(c)
+        except ValhallaError as exc:
             log.warning("next facility matrix failed for %s: %s", loc.cell_id, exc)
             return {c: (None, NEXT_UNAVAILABLE) for c in missing}
-        times = dict(zip(points, row, strict=True))
     max_s = nf.max_time_min * 60
     best: dict[str, dict[str, Any]] = {}
-    for c in missing:
+    for c in (c for c in missing if c not in failed):
         reached = [
             {**r, "time_s": t}
             for r in candidates[c]
@@ -292,9 +310,11 @@ async def _next_facilities(
         *(_route_or_none(d, origin, (r["lon"], r["lat"]), costing, options) for r in best.values())
     )
     budget_s = p.time_budget_min * 60
-    out: dict[str, tuple[dict[str, Any] | None, str | None]] = {}
+    out: dict[str, tuple[dict[str, Any] | None, str | None]] = {
+        c: (None, NEXT_UNAVAILABLE) for c in failed
+    }
     for c in missing:
-        if c not in best:
+        if c not in best and c not in failed:
             note = f"No facility of this category within {nf.max_time_min:g} min."
             out[c] = (None, note if candidates[c] else "No other facility of this category.")
     for (c, r), route in zip(best.items(), routes, strict=True):
@@ -547,11 +567,15 @@ async def _serve(
     build, rule 10). The cache holds the serialized body: JSON bytes are an order of magnitude
     smaller than the same coordinates as Python lists."""
     fresh: list[bytes] = []
+    degraded: list[bool] = []
 
     async def compute() -> bytes:
         result = await build()
+        degraded.append(bool(result.pop("_degraded", False)))
         fresh.append(_dumps({**result, "cached": False}))
         return _dumps({**result, "cached": True})
 
     body, built_here = await cache.get_or_compute(key, compute)
+    if degraded and degraded[0]:
+        cache.discard(key)  # a transient Valhalla failure must not stick to the cell
     return Response(content=fresh[0] if built_here else body, media_type="application/json")
