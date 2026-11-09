@@ -551,15 +551,21 @@ export default function MapView(props: Props) {
       mapRef.current?.setFilter('districts-selected', ['==', ['get', 'district_id'], selectedDistrict ?? ''])
   }, [ready, selectedDistrict])
 
-  // Zoom to a new inspect answer once (not again when only the category changes).
-  const fitted = useRef<Inspect | null>(null)
+  // Zoom to a new inspect answer: the isochrone plus the route to the next missing facility of the
+  // selected category, which can lie far outside it. A category change zooms again only when it
+  // brings such a route; otherwise the view stays where the user left it.
+  const fitted = useRef<{ inspect: Inspect; category: string } | null>(null)
   useEffect(() => {
     const map = mapRef.current
-    if (!ready || !map || !inspect || fitted.current === inspect) return
-    fitted.current = inspect
-    if (inspect.isochrone.features.length)
-      map.fitBounds(bboxOf(inspect.isochrone), { padding: 40, maxZoom: 15, duration: 600 })
-  }, [ready, inspect])
+    if (!ready || !map || !inspect) return
+    const last = fitted.current
+    const nextRoute = inspect.categories.find((c) => c.category === routeCategory)?.next_facility?.route
+    if (last && last.inspect === inspect && (last.category === routeCategory || !nextRoute)) return
+    fitted.current = { inspect, category: routeCategory }
+    const shapes = [...inspect.isochrone.features, ...(nextRoute ? [nextRoute] : [])]
+    if (shapes.length)
+      map.fitBounds(bboxOf({ type: 'FeatureCollection', features: shapes }), { padding: 40, maxZoom: 15, duration: 600 })
+  }, [ready, inspect, routeCategory])
 
   useEffect(() => {
     if (!ready) return
