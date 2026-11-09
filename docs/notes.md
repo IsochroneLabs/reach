@@ -414,3 +414,18 @@ What the first validation report (branch `feature/rico-validation-report`) leave
 - **V3/V4 as regression checks:** both run in seconds on stored data and could become checks of
   `validate_results` (e.g. greedy gap ≤ 5 % for N = 5); only if the team wants it.
 
+
+## N14. Non-public playgrounds and parks are counted
+
+**Status:** open · **Added:** 9 Nov 2026 · **Related:** `methodology.md` §2,
+`docs/osm_tagging.md` §4, `docs/app_iteration_plan.md` W7a
+
+**Finding (run `20261106T142630Z`, OSM 2026-11-01):** the pipeline ignores `access=*`. Of 349
+`leisure=playground` features in the routing area, 65 carry `access=private` and 15
+`access=customers` (housing estates, restaurants, Kitas); 2 parks carry `access=private` and 1
+`access=no`. All of them count as reachable parks & playgrounds, so the category is optimistic,
+most likely in dense housing areas.
+
+**Proposal (W7a, ask first):** exclude `access` in `[private, no, customers]` for parks and
+playgrounds only (not for schools, childcare, shops or practices, where the tag describes the
+grounds or customers), and report the excluded features per category in `validate`.

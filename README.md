@@ -198,6 +198,9 @@ second `make up` replaces the containers of the first (images `reach-api:dev` an
 | [`docs/notes.md`](docs/notes.md) | Open points and future work |
 | [`docs/implementation_plan.md`](docs/implementation_plan.md) | Phase plan, status and decisions of the implementation (handoff between sessions) |
 | [`docs/prompts/implementation.md`](docs/prompts/implementation.md) | Prompts for building the system with a coding agent, phase by phase |
+| [`docs/prompts/app_iteration.md`](docs/prompts/app_iteration.md) | Approvals block and master prompt that let a coding agent build W1–W8 of the app iteration |
+| [`docs/app_iteration_plan.md`](docs/app_iteration_plan.md) | Work packages W1–W8 for the app feedback round (18 points), decisions and agent prompt |
+| [`docs/osm_tagging.md`](docs/osm_tagging.md) | How facilities are tagged in OSM, which tags the pipeline reads, how we improve OSM data |
 | [`docs/project_management_decisions.md`](docs/project_management_decisions.md) | Team and course organisation |
 | [`CONTRIBUTING.md`](CONTRIBUTING.md) | How we work together |
 | [`AGENTS.md`](AGENTS.md) | Rules for coding agents |
