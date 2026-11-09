@@ -13,10 +13,18 @@ from reach_pipeline.config import AccessPoints, Category
 
 CRS = "EPSG:25832"
 CATS = [
-    Category(id="grocery", name="Grocery", k=2, tags=[{"shop": "supermarket"}], location="point"),
+    Category(
+        id="grocery",
+        name="Grocery",
+        group="food",
+        k=2,
+        tags=[{"shop": "supermarket"}],
+        location="point",
+    ),
     Category(
         id="childcare",
         name="Childcare",
+        group="education",
         k=2,
         tags=[{"amenity": "kindergarten"}, {"amenity": "childcare"}],
         location="point",
@@ -24,6 +32,7 @@ CATS = [
     Category(
         id="parks",
         name="Parks",
+        group="green",
         k=1,
         tags=[{"leisure": "park"}, {"leisure": "playground"}],
         location="access_points",
@@ -159,3 +168,79 @@ def test_tag_values_are_cleaned_for_jsonb() -> None:
     tags = json.loads(fac.set_index("facility_id").loc["n1", "tags"])
     assert tags["opening_hours"] == "Mo -Fr 08:00"  # NUL and newline replaced, never raw
     assert len(tags["phone"]) == facilities.MAX_TAG_LEN
+
+
+PLAY = Category(
+    id="playgrounds",
+    name="Playgrounds",
+    group="green",
+    k=1,
+    tags=[{"leisure": "playground"}],
+    location="access_points",
+    exclude=[{"access": "private"}, {"access": "no"}, {"access": "customers"}],
+)
+SECONDARY = Category(
+    id="secondary_school",
+    name="Secondary school",
+    group="education",
+    k=1,
+    tags=[{"amenity": "school"}],
+    location="point",
+    require=[{"school": "secondary"}, {"school:de": "Gymnasium"}, {"isced:level": "3"}],
+)
+
+
+def test_exclude_drops_non_public_features_and_counts_them() -> None:
+    feats = _features(
+        [
+            ("w1", {"leisure": "playground", "access": "yes"}, box(0, 0, 10, 10)),
+            ("w2", {"leisure": "playground"}, box(100, 0, 110, 10)),
+            ("w3", {"leisure": "playground", "access": "private"}, box(200, 0, 210, 10)),
+            ("w4", {"leisure": "playground", "access": "customers"}, box(300, 0, 310, 10)),
+            ("w5", {"leisure": "playground", "access": "no"}, box(400, 0, 410, 10)),
+            ("w6", {"leisure": "playground", "access": "private;yes"}, box(500, 0, 510, 10)),
+        ]
+    )
+    fac, _ = facilities.build(feats, _ways(), [PLAY], AP)
+    assert sorted(fac["facility_id"]) == ["w1", "w2"]
+    stats = facilities.exclusion_stats(feats, [PLAY])
+    assert stats == {
+        "playgrounds": {
+            "excluded": 4,
+            "access=private": 2,
+            "access=no": 1,
+            "access=customers": 1,
+        }
+    }
+    assert facilities.exclusion_stats(feats, CATS) == {}  # no exclude conditions configured
+
+
+def test_require_accepts_any_alternative_and_semicolon_values() -> None:
+    feats = _features(
+        [
+            ("n1", {"amenity": "school", "school": "secondary"}, Point(0, 0)),
+            ("n2", {"amenity": "school", "school:de": "Grundschule;Gymnasium"}, Point(10, 0)),
+            ("n3", {"amenity": "school", "isced:level": "1; 3"}, Point(20, 0)),
+            ("n4", {"amenity": "school", "school": "primary", "isced:level": "1"}, Point(30, 0)),
+            ("n5", {"amenity": "school"}, Point(40, 0)),
+            ("n6", {"amenity": "school", "isced:level": "13"}, Point(50, 0)),
+        ]
+    )
+    fac, _ = facilities.build(feats, _ways(), [SECONDARY], AP)
+    assert sorted(fac["facility_id"]) == ["n1", "n2", "n3"]
+
+
+def test_subtype_gap_lists_schools_without_a_type_tag() -> None:
+    feats = _features(
+        [
+            ("n1", {"amenity": "school", "name": "A", "school": "primary"}, Point(0, 0)),
+            ("n2", {"amenity": "school", "name": "B"}, Point(10, 0)),
+            ("n3", {"amenity": "school", "school:de": " "}, Point(20, 0)),
+            ("n4", {"amenity": "pharmacy"}, Point(30, 0)),
+        ]
+    )
+    total, missing = facilities.subtype_gap(
+        feats, {"amenity": "school"}, ["school", "school:de", "isced:level"]
+    )
+    assert total == 3 and missing == ["B", "n3"]
+    assert facilities.subtype_gap(feats, {"amenity": "x"}, ["school"]) == (0, [])

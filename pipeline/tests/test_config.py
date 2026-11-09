@@ -81,6 +81,9 @@ def _set(data: dict[str, Any], dotted: str, value: Any) -> dict[str, Any]:
             {"nope": {"candidate_spacing_m": 200}},
             "profile_overrides: unknown profiles",
         ),
+        ("categories.0.group", "shopping", "categories.0.group"),
+        ("categories.0.exclude", [{"access": "a", "x": "b"}], "one non-empty key: value pair"),
+        ("categories.0.require", [{"": "x"}], "one non-empty key: value pair"),
         ("transit_classes.2.lower", 100, "increase without gaps"),
         ("transit_classes.3.upper", 5000, "open-ended"),
         (

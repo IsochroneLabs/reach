@@ -36,12 +36,12 @@ def _result(**overrides: Any) -> dict[str, Any]:
         geometry=[box(450, 450, 550, 550)],
         crs=CRS,
     )
-    categories = ["grocery", "pharmacy", "doctors", "childcare", "school", "parks"]
+    categories = ["grocery", "pharmacy", "doctors", "childcare", "school", "parks", "playgrounds"]
     layers = {
         "cells": cells,
         "facilities": gpd.GeoDataFrame(
-            {"facility_id": [f"n{i}" for i in range(6)], "category": categories},
-            geometry=[Point(100, 100)] * 6,
+            {"facility_id": [f"n{i}" for i in range(7)], "category": categories},
+            geometry=[Point(100, 100)] * 7,
             crs=CRS,
         ),
         "facility_points": gpd.GeoDataFrame(
@@ -61,6 +61,9 @@ def _result(**overrides: Any) -> dict[str, Any]:
         "residents_scored": 90_000,
         "residents_excluded": 500,
         "excluded_by_district": {"West": 500},
+        "excluded_by_filter": {"playgrounds": {"excluded": 3, "access=private": 2, "access=no": 1}},
+        "subtype_total": 20,
+        "subtype_missing": [],
         "gtfs_valid_from": date(2026, 7, 12),
         "gtfs_valid_to": date(2026, 12, 12),
         "reference_weekday": date(2026, 11, 3),
@@ -125,3 +128,22 @@ def test_cell_outside_scope_fails(ctx: RunContext) -> None:
     result = _result()
     result["layers"]["cells"]["origin_geom"] = gpd.GeoSeries([Point(5000, 5000)], crs=CRS)
     assert _status(validate.checks(ctx, result))["cells_inside_boundary"] == "fail"
+
+
+def test_facilities_excluded_by_access_is_informative(ctx: RunContext) -> None:
+    checks = {c.check: c for c in validate.checks(ctx, _result())}
+    c = checks["facilities_excluded_by_access"]
+    assert c.status == "ok" and c.value == 3
+    assert "playgrounds: access=private 2, access=no 1" in c.message
+
+
+def test_facility_subtypes_complete_warns_below_the_gate(ctx: RunContext) -> None:
+    ok = {c.check: c for c in validate.checks(ctx, _result())}["facility_subtypes_complete"]
+    assert ok.status == "ok" and ok.value == 100.0
+    missing = [f"School {i}" for i in range(12)]
+    warn = {c.check: c for c in validate.checks(ctx, _result(subtype_missing=missing))}[
+        "facility_subtypes_complete"
+    ]
+    assert warn.status == "warn" and warn.value == 40.0
+    assert "8 of 20 amenity=school" in warn.message and "School 0" in warn.message
+    assert warn.message.endswith("…")

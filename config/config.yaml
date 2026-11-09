@@ -98,37 +98,57 @@ profiles:
 # tags: OSM key/value pairs; a feature matching any pair belongs to the category.
 # location: "point" = node as is, polygon -> representative point;
 #           "access_points" = access points on the boundary (parks and playgrounds, see below).
+# Each category: `group` (food, health, education, green; the app combines categories per group),
+# `tags` (any one defines the category), optional `require` (list of alternative `key: value`
+# conditions, at least one must hold) and `exclude` (conditions that drop a feature). In
+# conditions `;`-separated OSM values match if any part matches (docs/osm_tagging.md §3, §4).
 categories:
   - id: grocery
     name: Grocery
+    group: food
     k: 2
     tags: [{shop: supermarket}]
     location: point
   - id: pharmacy
     name: Pharmacy
+    group: health
     k: 1
     tags: [{amenity: pharmacy}]
     location: point
   - id: doctors
     name: Doctors
+    group: health
     k: 2
     tags: [{amenity: doctors}]
     location: point
   - id: childcare
     name: Childcare
+    group: education
     k: 2
     tags: [{amenity: kindergarten}, {amenity: childcare}]
     location: point
   - id: school
     name: School
+    group: education
     k: 1
     tags: [{amenity: school}]
     location: point
+  # Parks and playgrounds are separate categories (W7a); only public ones count (access rule,
+  # methodology §2): private, closed and customers-only features are dropped.
   - id: parks
-    name: Parks & playgrounds
+    name: Parks
+    group: green
     k: 1
-    tags: [{leisure: park}, {leisure: playground}]
+    tags: [{leisure: park}]
     location: access_points
+    exclude: [{access: private}, {access: "no"}, {access: customers}]
+  - id: playgrounds
+    name: Playgrounds
+    group: green
+    k: 1
+    tags: [{leisure: playground}]
+    location: access_points
+    exclude: [{access: private}, {access: "no"}, {access: customers}]
 
 # Access points for categories with location "access_points" (meth. §2): intersections of
 # walkable ways with the boundary; fallback points every spacing_m along the boundary; at most
@@ -325,6 +345,13 @@ validation:
   min_scored_share: 0.98
   # Minimum number of facilities per category; fewer fails validation.
   min_facilities_per_category: 1
+  # Check facility_subtypes_complete: share of the amenity=school features in the city that carry
+  # a school type tag (docs/osm_tagging.md §3.5). Gate for splitting `school` into primary and
+  # secondary schools (W7a): at least 95 %; below it the check warns and lists the schools.
+  facility_subtypes:
+    base: {amenity: school}
+    type_keys: [school, school:de, isced:level]
+    min_typed_pct: 95
   # Validation of results (arch. §7 "validate results", report part 2). Monotonicity: per pair,
   # the share of cells where `higher` has fewer facilities of any category (or fewer transit
   # departures, if both profiles have transit) than `lower`. Above warn_above the check warns,

@@ -94,8 +94,15 @@ class Category(_Model):
     id: str = Field(pattern=r"^[a-z][a-z0-9_]*$")
     name: str = Field(min_length=1)
     k: int = Field(ge=1)
+    # Thematic group (food, health, education, green); the app combines categories per group.
+    group: Literal["food", "health", "education", "green"]
     tags: list[dict[str, str]] = Field(min_length=1)
     location: Literal["point", "access_points"]
+    # Conditions on the matched features, each one `key: value`; `;`-separated OSM values match
+    # if any part matches. `require`: at least one must hold (empty = no restriction);
+    # `exclude`: a feature matching any of them is dropped.
+    require: list[dict[str, str]] = Field(default_factory=list)
+    exclude: list[dict[str, str]] = Field(default_factory=list)
 
     @field_validator("id")
     @classmethod
@@ -104,7 +111,7 @@ class Category(_Model):
             raise ValueError(f"category id {v!r} is reserved for the transit classes")
         return v
 
-    @field_validator("tags")
+    @field_validator("tags", "require", "exclude")
     @classmethod
     def _one_pair_per_tag(cls, v: list[dict[str, str]]):
         for tag in v:
@@ -358,11 +365,29 @@ class ResultsValidation(_Model):
     budget_flips: BudgetFlips
 
 
+class FacilitySubtypes(_Model):
+    """Check `facility_subtypes_complete`: share of features of `base` that carry a type tag."""
+
+    base: dict[str, str]
+    type_keys: list[str] = Field(min_length=1)
+    # Below this share (percent) of typed features the check warns.
+    min_typed_pct: float = Field(ge=0, le=100)
+
+    @field_validator("base")
+    @classmethod
+    def _one_pair(cls, v: dict[str, str]):
+        if len(v) != 1 or not all(k and val for k, val in v.items()):
+            raise ValueError(f"base must be one non-empty key: value pair, got {v}")
+        return v
+
+
 class Validation(_Model):
     population_tolerance_pct: float = Field(ge=0)
     official_population: int | None = Field(default=None, gt=0)
     min_scored_share: float = Field(ge=0, le=1)
     min_facilities_per_category: int = Field(ge=0)
+    # Optional; omitted = the check is skipped.
+    facility_subtypes: FacilitySubtypes | None = None
     results: ResultsValidation
 
 

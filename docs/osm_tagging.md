@@ -16,14 +16,15 @@ and the next `make refresh`.
 
 ## 1. How the pipeline reads tags
 
-- **Today:** `categories[].tags` in `config/config.yaml` is a list of `key: value` pairs; a feature
-  that matches **any** pair belongs to the category (`facilities.match_categories`). Nothing else
-  is read; in particular `access=*` is ignored (see §4).
-- **Planned (W7):** each category can add
+- **Since W7a:** `categories[].tags` in `config/config.yaml` is a list of `key: value` pairs; a
+  feature that matches **any** pair belongs to the category (`facilities.match_categories`). Each
+  category can add
   - `require`: alternative conditions on further tags (a feature must match at least one), e.g.
     the school type;
-  - `exclude`: conditions that drop a feature, e.g. `access` in `[private, no, customers]`.
-  Values separated by `;` in OSM (`isced:level=1;2`) match if **any** part matches.
+  - `exclude`: conditions that drop a feature, e.g. `access` in `[private, no, customers]`
+    (parks and playgrounds, §4).
+  Values separated by `;` in OSM (`isced:level=1;2`) match if **any** part matches. Every category
+  also has a `group` (`food`, `health`, `education`, `green`).
 - **Planned (W5):** `facility_tags` lists the informative tags carried into the app (opening
   hours, wheelchair, address, …); they never change counts.
 
@@ -127,7 +128,7 @@ three; we tag **`school=*` + `school:de=*`**, plus `isced:level` where we know i
 A school with several forms on one site gets all values (`;`). A school with two sites gets the
 tags on each site.
 
-### 3.6 Parks — counted; split from playgrounds planned (W7)
+### 3.6 Parks — counted (own category since W7a)
 
 | Tag | Use |
 |---|---|
@@ -141,13 +142,13 @@ point every 50 m on the boundary (at most 20 per park). Mapping the paths that l
 (and gates, `barrier=gate` on the boundary) therefore makes park times more realistic. A fenced
 park whose only entrance is not mapped is reached at the wrong place.
 
-### 3.7 Playgrounds — counted with parks today; own category planned (W7)
+### 3.7 Playgrounds — counted (own category since W7a)
 
 | Tag | Use |
 |---|---|
 | `leisure=playground` | **Defines the category.** |
 | `access=yes\|permissive` | Public: counted. |
-| `access=private\|customers\|no` | Not public (housing estates, restaurants, *Kitas*): **excluded after W7** (§4). |
+| `access=private\|customers\|no` | Not public (housing estates, restaurants, *Kitas*): **excluded since W7a** (§4). |
 | `min_age=*`, `max_age=*`, `surface=*`, `wheelchair=*` | Informative. |
 
 ### 3.8 Public transport — not from OSM
@@ -157,9 +158,9 @@ are not used, so tagging them changes nothing in `reach`.
 
 ## 4. Access: public or not
 
-Today every feature counts regardless of `access`. That is wrong for green space: 65 private and 15
-customer-only playgrounds (plus 3 parks) are counted as reachable. Rule planned in W7 (methodology
-§2, ask first):
+Until W7a every feature counted regardless of `access`, which is wrong for green space: 65 private
+and 15 customer-only playgrounds (plus 3 parks) were counted as reachable. Rule since W7a
+(methodology §2):
 
 | Category | Excluded `access` values | Why |
 |---|---|---|
@@ -201,15 +202,18 @@ never change counts. Adding them in OSM improves the app directly.
    (`nwr["leisure"="playground"]["access"!~"."](area.city);`) or practices without speciality
    (`nwr["amenity"="doctors"]["healthcare:speciality"!~"."](area.city);`).
 5. **Pick up.** The change reaches `reach` after the next Geofabrik extract (daily) and
-   `make refresh`; the validation report (W7 check `facility_subtypes_complete`) shows the
+   `make refresh`; the validation report (check `facility_subtypes_complete`) shows the
    remaining gaps.
 
-**Gate for the school split (W7):** start it when at least 95 % of the schools in the city carry a
-type tag; until then the category stays `school`.
+**Gate for the school split:** start it when at least 95 % of the schools in the city carry a
+type tag; until then the category stays `school`. Status 10 Nov 2026 (run `20261109T175743Z`):
+1 of 42 `amenity=school` features in the city carries `school`, `school:de` or `isced:level`
+(2.4 %); the validation report lists the others.
 
-## 7. Config sketch after W7
+## 7. Config sketch for the school split
 
-Illustrative; the confirmed schema is defined in W7 and `docs/data_contract.md`.
+Parks and playgrounds are configured this way in `config/config.yaml` since W7a. The school split
+below is illustrative and waits for the gate in §6.
 
 ```yaml
 categories:

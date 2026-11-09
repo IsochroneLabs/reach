@@ -67,6 +67,73 @@ def _area_outlines(geoms: gpd.GeoSeries, tolerance_m: float) -> np.ndarray:
     return values
 
 
+def _condition_mask(features: gpd.GeoDataFrame, conditions: list[dict[str, str]]) -> np.ndarray:
+    """True where a feature matches any `key: value` condition; `;`-separated OSM values match
+    if any part equals the value."""
+    mask = np.zeros(len(features), dtype=bool)
+    for cond in conditions:
+        ((key, value),) = cond.items()
+        if key in features.columns:
+            pattern = rf"(?:^|;)\s*{re.escape(value)}\s*(?:;|$)"
+            found = features[key].astype("string").str.contains(pattern, regex=True, na=False)
+            mask |= found.to_numpy(dtype=bool)
+    return mask
+
+
+def _with_defining_tag(features: gpd.GeoDataFrame, cat: Category) -> gpd.GeoDataFrame:
+    """Features with a defining tag of the category that pass `require` (before `exclude`)."""
+    parts = []
+    for tag in cat.tags:
+        ((key, value),) = tag.items()
+        if key in features.columns:
+            parts.append(features[features[key] == value])
+    if not parts:
+        return features.iloc[0:0]
+    hit = pd.concat(parts)
+    hit = hit[~hit.index.duplicated()]
+    return hit[_condition_mask(hit, cat.require)] if cat.require else hit
+
+
+def exclusion_stats(
+    features: gpd.GeoDataFrame, categories: list[Category]
+) -> dict[str, dict[str, int]]:
+    """Per category with `exclude` conditions: features dropped by them (`excluded`, a feature
+    counts once) and per condition (`key=value`, informative; one feature can match several)."""
+    stats: dict[str, dict[str, int]] = {}
+    for cat in categories:
+        if not cat.exclude:
+            continue
+        hit = _with_defining_tag(features, cat)
+        per = {}
+        for cond in cat.exclude:
+            ((key, value),) = cond.items()
+            per[f"{key}={value}"] = int(_condition_mask(hit, [cond]).sum())
+        stats[cat.id] = {
+            "excluded": int(_condition_mask(hit, cat.exclude).sum()),
+            **per,
+        }
+    return stats
+
+
+def subtype_gap(
+    features: gpd.GeoDataFrame, base: dict[str, str], type_keys: list[str]
+) -> tuple[int, list[str]]:
+    """Number of features with the `base` tag and the `name`/OSM id of those without any of the
+    `type_keys` (a type tag with a non-blank value)."""
+    ((key, value),) = base.items()
+    if key not in features.columns:
+        return 0, []
+    sites = features[features[key] == value]
+    typed = np.zeros(len(sites), dtype=bool)
+    for k in type_keys:
+        if k in sites.columns:
+            typed |= sites[k].astype("string").str.strip().fillna("").ne("").to_numpy(dtype=bool)
+    untyped = sites[~typed]
+    ids = untyped["osm_id"].astype(str)
+    labels = untyped["name"].where(untyped["name"].notna(), ids) if "name" in untyped else ids
+    return len(sites), sorted(labels.astype(str))
+
+
 def match_categories(
     features: gpd.GeoDataFrame,
     categories: list[Category],
@@ -83,6 +150,10 @@ def match_categories(
             if key not in features.columns:
                 continue
             hit = features[features[key] == value]
+            if cat.require:
+                hit = hit[_condition_mask(hit, cat.require)]
+            if cat.exclude:
+                hit = hit[~_condition_mask(hit, cat.exclude)]
             # tags and outlines only for the matched rows, not for every exported feature
             info = _tags_json(hit, list(tag_keys))
             outline = _area_outlines(hit.geometry, outline_simplify_m)
