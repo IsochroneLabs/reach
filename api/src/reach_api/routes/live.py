@@ -23,7 +23,7 @@ from pydantic import BaseModel, Field, model_validator
 from reach_api.cache import LRUCache
 from reach_api.db import Location, Profile
 from reach_api.deps import Deps, Run, current_run, deps, rate_limited
-from reach_api.valhalla import LonLat
+from reach_api.valhalla import LonLat, NoRouteError, ValhallaError
 
 log = logging.getLogger(__name__)
 
@@ -43,6 +43,10 @@ class Point(BaseModel):
 class IsochroneRequest(Point):
     # forward: where you get from the cell; reverse: from where people reach the cell
     direction: Literal["forward", "reverse"] = "forward"
+
+
+class RouteRequest(Point):
+    facility_id: str
 
 
 class CatchmentRequest(BaseModel):
@@ -109,7 +113,9 @@ def _weakest(scores: list[dict[str, Any]]) -> str | None:
 
 
 def _by_category(rows: list[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:
-    """Facilities per category, nearest first; `_point` (lon/lat) is the routing target."""
+    """Facilities per category, nearest first; `_point` (lon/lat) is the routing target and
+    `point` its rounded copy for the client (for parks the access point the time was measured
+    to)."""
     by_category: dict[str, list[dict[str, Any]]] = {}
     for r in rows:
         by_category.setdefault(r["category"], []).append(
@@ -118,6 +124,7 @@ def _by_category(rows: list[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:
                 "name": r["name"],
                 "time_s": r["time_s"],
                 "time_min": round(r["time_s"] / 60, 2),
+                "point": [round(r["lon"], 6), round(r["lat"], 6)],
                 "_point": (r["lon"], r["lat"]),
             }
         )
@@ -182,15 +189,23 @@ async def _inspect(d: Deps, run: Run, p: Profile, loc: Location) -> dict[str, An
     isochrone, reachable = await asyncio.gather(_isochrone(d, origin, p), listing(d, loc, p))
     costing, options = _options(p)
     categories = sorted(run.categories)
-    routes = await asyncio.gather(
-        *(
-            d.valhalla.route(origin, reachable[c][0]["_point"], costing, options)
-            for c in categories
-            if c in reachable
-        )
-    )
-    route_of = dict(zip([c for c in categories if c in reachable], routes, strict=True))
     precomputed = {s["category"]: s for s in scores}
+    # Scored cells: count and list from the run (equal by construction).
+    counts = {
+        c: precomputed[c]["count"] if c in precomputed else len(reachable.get(c, []))
+        for c in categories
+    }
+    with_route = [c for c in categories if c in reachable]
+    routes, next_facilities = await asyncio.gather(
+        asyncio.gather(
+            *(
+                d.valhalla.route(origin, reachable[c][0]["_point"], costing, options)
+                for c in with_route
+            )
+        ),
+        _next_facilities(d, run, p, loc, counts, reachable),
+    )
+    route_of = dict(zip(with_route, routes, strict=True))
     source = "precomputed" if loc.scored else "live"
     names = {c.id: c.name for c in d.config.categories}
     return {
@@ -205,17 +220,147 @@ async def _inspect(d: Deps, run: Run, p: Profile, loc: Location) -> dict[str, An
             {
                 "category": c,
                 "name": names.get(c, c),
-                # Scored cells: count and list from the run (equal by construction).
-                "count": precomputed[c]["count"] if c in precomputed else len(reachable.get(c, [])),
+                "count": counts[c],
                 "count_source": source,
                 "reachable": [
                     {k: v for k, v in f.items() if k != "_point"} for f in reachable.get(c, [])
                 ],
                 "nearest_route": route_of.get(c),
+                "next_facility": next_facilities.get(c, (None, None))[0],
+                "next_note": next_facilities.get(c, (None, None))[1],
             }
             for c in categories
         ],
     }
+
+
+NEXT_UNAVAILABLE = "The next facility could not be calculated right now."
+
+
+async def _next_facilities(
+    d: Deps,
+    run: Run,
+    p: Profile,
+    loc: Location,
+    counts: dict[str, int],
+    reachable: dict[str, list[dict[str, Any]]],
+) -> dict[str, tuple[dict[str, Any] | None, str | None]]:
+    """Per category with fewer than `k` facilities in the budget: the fastest facility that is not
+    counted yet (the one that would raise the count by one), with its route, also beyond the
+    budget. The `api.next_facility.candidates` nearest facilities per category (straight line) go
+    into one live matrix from the cell origin for all such categories together (arch. §6.5 rule
+    8); slower than `api.next_facility.max_time_min` is not offered. A failing matrix leaves the
+    rest of the inspector intact: the category gets a note instead of a facility."""
+    missing = [c for c in sorted(run.categories) if counts[c] < run.categories[c]]
+    if not missing:
+        return {}
+    nf = d.config.api.next_facility
+    found = await asyncio.gather(
+        *(
+            d.db.nearest_facility_points(
+                loc.x, loc.y, c, [f["facility_id"] for f in reachable.get(c, [])], nf.candidates
+            )
+            for c in missing
+        )
+    )
+    candidates = dict(zip(missing, found, strict=True))
+    points: dict[tuple[str, int], LonLat] = {}
+    for rows in found:
+        for r in rows:
+            points.setdefault((r["facility_id"], r["point_id"]), (r["lon"], r["lat"]))
+    costing, options = _options(p)
+    origin = (loc.lon, loc.lat)
+    times: dict[tuple[str, int], float | None] = {}
+    if points:
+        try:
+            row = (await d.live_matrix.matrix([origin], list(points.values()), costing, options))[0]
+        except (ValhallaError, NoRouteError) as exc:
+            log.warning("next facility matrix failed for %s: %s", loc.cell_id, exc)
+            return {c: (None, NEXT_UNAVAILABLE) for c in missing}
+        times = dict(zip(points, row, strict=True))
+    max_s = nf.max_time_min * 60
+    best: dict[str, dict[str, Any]] = {}
+    for c in missing:
+        reached = [
+            {**r, "time_s": t}
+            for r in candidates[c]
+            if (t := times.get((r["facility_id"], r["point_id"]))) is not None and t <= max_s
+        ]
+        if reached:
+            best[c] = min(reached, key=lambda r: (r["time_s"], r["facility_id"]))
+    routes = await asyncio.gather(
+        *(_route_or_none(d, origin, (r["lon"], r["lat"]), costing, options) for r in best.values())
+    )
+    budget_s = p.time_budget_min * 60
+    out: dict[str, tuple[dict[str, Any] | None, str | None]] = {}
+    for c in missing:
+        if c not in best:
+            note = f"No facility of this category within {nf.max_time_min:g} min."
+            out[c] = (None, note if candidates[c] else "No other facility of this category.")
+    for (c, r), route in zip(best.items(), routes, strict=True):
+        out[c] = (
+            {
+                "facility_id": r["facility_id"],
+                "name": r["name"],
+                "time_s": r["time_s"],
+                "time_min": round(r["time_s"] / 60, 2),
+                "point": [round(r["lon"], 6), round(r["lat"], 6)],
+                "within_budget": r["time_s"] <= budget_s,
+                "route": route,
+            },
+            None,
+        )
+    return out
+
+
+async def _route_or_none(
+    d: Deps, origin: LonLat, target: LonLat, costing: str, options: dict[str, Any]
+) -> dict[str, Any] | None:
+    """Route line for display; a missing line must not hide the facility."""
+    try:
+        return await d.valhalla.route(origin, target, costing, options)
+    except (ValhallaError, NoRouteError) as exc:
+        log.warning("route to the next facility failed: %s", exc)
+        return None
+
+
+@router.post("/route")
+async def facility_route(body: RouteRequest, d: DepsDep) -> Response:
+    """Route from the cell origin to one facility (list click in the web app): to the facility's
+    routing point nearest to the origin by straight line, any distance (display only). `time_s`
+    is the route's own time; `within_budget` compares it with the profile's facility budget."""
+    run = await current_run(d)
+    p = run.profile(body.profile)
+    loc = await _locate(d, body.lon, body.lat)
+    key = (run.run_id, "route", loc.cell_id, p.profile_id, body.facility_id)
+
+    async def build() -> dict[str, Any]:
+        facility = await d.db.facility(body.facility_id)
+        if facility is None:
+            raise HTTPException(404, f"unknown facility {body.facility_id!r}")
+        points = [pt for pt in facility["points"] or [] if pt["x"] is not None] or [
+            {"x": loc.x, "y": loc.y, "lon": facility["lon"], "lat": facility["lat"]}
+        ]
+        target = min(points, key=lambda pt: (pt["x"] - loc.x) ** 2 + (pt["y"] - loc.y) ** 2)
+        costing, options = _options(p)
+        route = await d.valhalla.route(
+            (loc.lon, loc.lat), (target["lon"], target["lat"]), costing, options
+        )
+        return {
+            "run_id": run.run_id,
+            "profile_id": p.profile_id,
+            "cell": _cell(loc),
+            "facility": {
+                "facility_id": facility["facility_id"],
+                "name": facility["name"],
+                "categories": facility["categories"],
+                "point": [round(target["lon"], 6), round(target["lat"], 6)],
+            },
+            "within_budget": route["properties"]["time_s"] <= p.time_budget_min * 60,
+            "route": route,
+        }
+
+    return await _serve(d.live_cache, key, build)
 
 
 @router.post("/isochrone")

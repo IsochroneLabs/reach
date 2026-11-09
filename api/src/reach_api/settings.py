@@ -43,6 +43,11 @@ class Isochrone(_Model):
     denoise: float = Field(ge=0, le=1)
 
 
+class NextFacility(_Model):
+    candidates: int = Field(ge=1)  # nearest facilities per category sent to the live matrix
+    max_time_min: float = Field(gt=0)  # slower facilities are not offered as "next"
+
+
 class Cache(_Model):
     live_entries: int = Field(ge=1)
     expansion_entries: int = Field(ge=1)
@@ -69,6 +74,7 @@ class DbPool(_Model):
 
 class Api(_Model):
     isochrone: Isochrone
+    next_facility: NextFacility
     cache: Cache
     rate_limit: RateLimit
     trusted_proxies: list[str]

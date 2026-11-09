@@ -82,6 +82,9 @@ class Database(Protocol):
         self, x: float, y: float, reach_m: float
     ) -> list[dict[str, Any]]: ...
     async def facility(self, facility_id: str) -> dict[str, Any] | None: ...
+    async def nearest_facility_points(
+        self, x: float, y: float, category: str, exclude_ids: list[str], limit: int
+    ) -> list[dict[str, Any]]: ...
     async def cells_near(
         self, points_xy: list[tuple[float, float]], reach_m: float
     ) -> list[dict[str, Any]]: ...
@@ -235,6 +238,23 @@ FROM current.facility_points fp
 JOIN current.facilities f USING (facility_id)
 WHERE ST_DWithin(fp.geom, ST_SetSRID(ST_MakePoint(%(x)s, %(y)s), 25832), %(reach)s)
 ORDER BY fp.facility_id, fp.point_id, f.category
+"""
+
+# The `limit` nearest facilities of a category by straight line (distance to their nearest routing
+# point), without the excluded ones; one row per facility with that point. Used to find the next
+# facility beyond the budget (W4), so no reach limit applies.
+_NEAREST_POINTS = """
+SELECT f.facility_id, p.point_id, f.category, f.name,
+       ST_X(ST_Transform(p.geom, 4326)) AS lon, ST_Y(ST_Transform(p.geom, 4326)) AS lat
+FROM current.facilities f
+CROSS JOIN LATERAL (
+  SELECT fp.point_id, fp.geom FROM current.facility_points fp
+  WHERE fp.facility_id = f.facility_id
+  ORDER BY fp.geom <-> ST_SetSRID(ST_MakePoint(%(x)s, %(y)s), 25832), fp.point_id
+  LIMIT 1) p
+WHERE f.category = %(category)s AND NOT (f.facility_id = ANY(%(exclude)s::text[]))
+ORDER BY p.geom <-> ST_SetSRID(ST_MakePoint(%(x)s, %(y)s), 25832), f.facility_id
+LIMIT %(limit)s
 """
 
 _FACILITY = """
@@ -441,6 +461,12 @@ class PostgresDatabase:
 
     async def facility(self, facility_id: str) -> dict[str, Any] | None:
         return await self._one(_FACILITY, {"facility_id": facility_id})
+
+    async def nearest_facility_points(
+        self, x: float, y: float, category: str, exclude_ids: list[str], limit: int
+    ) -> list[dict[str, Any]]:
+        params = {"x": x, "y": y, "category": category, "exclude": exclude_ids, "limit": limit}
+        return await self._all(_NEAREST_POINTS, params)
 
     async def cells_near(
         self, points_xy: list[tuple[float, float]], reach_m: float

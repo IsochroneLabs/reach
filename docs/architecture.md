@@ -1,6 +1,6 @@
 # Architecture — reach (15-Minute City Tübingen)
 
-> **Status:** draft v0.20 (9 Nov 2026). Describes the target architecture the team builds towards.
+> **Status:** draft v0.21 (9 Nov 2026). Describes the target architecture the team builds towards.
 > Every change bumps the version and adds a line to the [Change log](#change-log).
 > Settled and open decisions are listed in [Section 13](#13-decisions); items marked **[OPEN]**
 > must be settled before the related code is written. Methodology (categories, thresholds,
@@ -288,13 +288,22 @@ The server has 4 GB RAM, so every Valhalla call must be cheap. Rules:
    calls start from the cell's origin point** (the cell centre), not from the raw click
    position, so polygon, routes and counts always describe the same start and can be cached
    per cell; this also holds for grid cells without residents (parks, fields), whose answer
-   says that no precomputed values exist there.
+   says that no precomputed values exist there. **Beyond the budget:** for every category where
+   the cell has fewer than `k` facilities, the inspector also looks for the *next* facility, the
+   fastest one not counted yet. The `api.next_facility.candidates` nearest facilities of that
+   category by straight line (one routing point each) go into one live matrix from the cell
+   origin, all such categories together, and the fastest one within
+   `api.next_facility.max_time_min` gets a route. This is the only live matrix a scored cell can
+   trigger; its result is cached with the rest of the inspect answer (rule 10) and never feeds a
+   count or class.
 9. **One isochrone call for all rings.** 5, 10 and 15 minutes are requested as contours in a single
    call, with `generalize` and `denoise` set to keep polygons small.
 10. **Cache by cell.** Live isochrones and catchments are cached per (cell, profile); repeated
     clicks in the same cell never hit Valhalla twice.
 11. **Expensive calls on demand only.** `expansion` is only called when the user opens the
     "spread" view and is limited to the 15-minute budget.
+    `POST /api/route` (one route from the cell origin to a clicked facility of the list) is also
+    on demand and cached per (cell, profile, facility).
 12. **Validate before routing.** A point is accepted if it **or the centre of its grid cell**
     lies inside the city boundary (the union of the districts), **or** inside a scored cell;
     every other point is rejected before any Valhalla call. Every live answer carries the cell
@@ -396,10 +405,13 @@ Read endpoints (from `current`):
 Live endpoints (call Valhalla, small and fast, no queue):
 - `POST /api/inspect` — pin-drop: precomputed values of the grid cell, isochrone, reachable
   facilities per category with times (one matrix), route to the nearest one per category,
-  weakest category.
+  weakest category; per category with fewer than `k` facilities also the next missing one
+  (beyond the budget) with its route (§6.5 rule 8).
 - `POST /api/catchment` — facility, point or recommended zone: reverse isochrone + residents
   reaching it (matrix from the scored cells within the prefilter reach; for a recommended zone
   the stored `recommendation_catchments`, rule 8).
+- `POST /api/route` — route from the cell origin to one facility (list click), any distance;
+  cached per (run, cell, profile, facility).
 - `POST /api/expansion` — street-level spread for visualisation.
 - `POST /api/isochrone` — isochrone of the cell origin in one `direction` (`forward`: where you
   get; `reverse`: from where people reach the point; display only, rule 9); cached per (run,
@@ -566,6 +578,7 @@ documented here in the same branch (see `AGENTS.md`).
 
 | Version | Date | Change | Why |
 |---|---|---|---|
+| v0.21 | 2026-11-09 | §6.5 rules 8 and 11, §9: the inspector also looks for the next missing facility beyond the budget (one live matrix from the cell origin to the nearest candidates of all categories with fewer than `k`, `api.next_facility.*`) and draws its route; `POST /api/route` for one facility | App iteration W4 (points 4, 6, 16); confirmed by Rico (plan v0.1) |
 | v0.20 | 2026-11-09 | §4, §6.5 rule 12, §9, O11: live endpoints accept points inside the city boundary (point or cell centre) or a scored cell, no longer the urban boundary + margin; every live answer has `cell.status` | App iteration W3 (points 12, 13): populated cells outside the city and unpopulated cells in the city were both shown as "no residents"; clicks anywhere in the city (E5, confirmed by Rico) |
 | v0.19 | 2026-11-09 | §9: `POST /api/isochrone` with `direction` forward/reverse | App iteration W2 (point 10: choose forward or reverse isochrone); confirmed by Rico (plan v0.1) |
 | v0.18 | 2026-11-06 | §6.4: candidates = grid cells near deficits, land-use filter without industrial, protected areas of nature classes only, catchments per profile, stored catchments of the picks; §7 `recommend` row; §8 `recommendations` columns and new `recommendation_catchments`; §9 catchment of a recommended zone | P7 recommender; decisions by Rico (6 Nov 2026): store the catchments (numbers in the app match the recommendation), keep industrial land use; methodology v0.6 |
