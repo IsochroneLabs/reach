@@ -24,12 +24,14 @@ interface Props {
   card: { open: boolean; onToggle: (open: boolean) => void }
   loading: boolean
   error: string | null
+  /** Retry button next to a score error (failed times request). */
+  onRetry?: () => void
   onProfile: (id: string) => void
   onCategories: (ids: string[]) => void
 }
 
 export default function Controls(props: Props) {
-  const { meta, profile, category, selected, score, cells, allCells, minResidents, coloursHidden, card, loading, error, onProfile, onCategories } =
+  const { meta, profile, category, selected, score, cells, allCells, minResidents, coloursHidden, card, loading, error, onRetry, onProfile, onCategories } =
     props
   const transit = category === TRANSIT
   const budget = transit ? profile.transit_budget_min : profile.time_budget_min
@@ -46,7 +48,7 @@ export default function Controls(props: Props) {
     <Card title="Map" label="Map selection" help={CARD_HELP.map} {...card}>
       <p className="intro">
         {score
-          ? `Each square is 100 m. Colour = accessibility score: how much of what the selected categories need residents reach within ${score.budgetMin} minutes (100 = everything).`
+          ? `Each square is 100 m. Colour = accessibility score: how much of what the selected categories need residents reach within the chosen time (at most ${score.budgetMin} minutes; 100 = everything).`
           : transit
           ? `Each square is 100 m. Colour = how many weekday departures residents reach at stops within ${budget} minutes on foot.`
           : `Each square is 100 m. Colour = how many facilities residents reach in ${budget} minutes.`}
@@ -78,7 +80,12 @@ export default function Controls(props: Props) {
         {coloursHidden && <p className="muted small">Colours are hidden while a pin is set (switch in the Location card).</p>}
         {error && (
           <p className="error" role="alert">
-            {error}
+            {error}{' '}
+            {onRetry && (
+              <button type="button" className="link-btn" onClick={onRetry}>
+                Retry
+              </button>
+            )}
           </p>
         )}
         {score && (

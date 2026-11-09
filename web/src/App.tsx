@@ -22,7 +22,7 @@ import SettingsPanel from './components/SettingsPanel'
 import ScorePanel from './components/ScorePanel'
 import { FACILITY_CLASSES, SCORE_CLASSES, TRANSIT } from './palette'
 import { routeHash, useRoute } from './route'
-import { decodeParams, districtMean, encodeParams, isDefault, scoreCells, summarise, type ScoreParams } from './score'
+import { decodeParams, districtMean, effective, encodeParams, isEffectiveDefault, scoreCells, summarise, type ScoreParams } from './score'
 import { cardOpen, useSettings } from './settings'
 import type { CellTimes, Cells, Districts, Facilities, IsochroneAnswer, Meta, RecommendationProps, Recommendations } from './types'
 
@@ -80,8 +80,12 @@ function Main({ meta, districts }: { meta: Meta; districts: Districts }) {
   const multi = selected.length > 1
   const params = useMemo(() => decodeParams(route.score), [route.score])
   const scoreKey = encodeParams(params)
+  const selectedCategories = useMemo(
+    () => meta.categories.filter((c) => selectedKey.split(',').includes(c.id)),
+    [meta.categories, selectedKey],
+  )
   // one category with the default settings is today's class map; everything else is the score view
-  const scoreMode = category !== TRANSIT && (multi || !isDefault(params))
+  const scoreMode = category !== TRANSIT && (multi || !isEffectiveDefault(params, selectedCategories, profile.time_budget_min))
 
   const viewKey = `${category}|${profile.profile_id}`
   // Results carry the selection they belong to; the previous cells stay visible while loading.
@@ -229,6 +233,7 @@ function Main({ meta, districts }: { meta: Meta; districts: Districts }) {
   // is computed here, so the sliders need no request.
   const [times, setTimes] = useState<CellTimes | null>(null)
   const [timesError, setTimesError] = useState<{ profile: string; message: string } | null>(null)
+  const [timesAttempt, setTimesAttempt] = useState(0)
   const haveTimes = times?.profile_id === profile.profile_id
   useEffect(() => {
     if (!scoreMode || haveTimes) return
@@ -240,11 +245,7 @@ function Main({ meta, districts }: { meta: Meta; districts: Districts }) {
     return () => {
       cancelled = true
     }
-  }, [scoreMode, haveTimes, profile.profile_id])
-  const selectedCategories = useMemo(
-    () => meta.categories.filter((c) => selectedKey.split(',').includes(c.id)),
-    [meta.categories, selectedKey],
-  )
+  }, [scoreMode, haveTimes, profile.profile_id, timesAttempt])
   const scored = useMemo(
     () =>
       scoreMode && cells && cells.category !== TRANSIT && times?.profile_id === profile.profile_id
@@ -262,7 +263,13 @@ function Main({ meta, districts }: { meta: Meta; districts: Districts }) {
     [mapCells, settings.minResidents],
   )
   const scoreSummary = useMemo(() => summarise(shownCells), [shownCells])
-  const scoreError = scoreMode && timesError?.profile === profile.profile_id && !haveTimes ? timesError.message : null
+  const timesFailed = scoreMode && timesError?.profile === profile.profile_id && !haveTimes
+  const noWeight = scoreMode && selectedCategories.every((c) => effective(params, c, profile.time_budget_min).w === 0)
+  const scoreError = timesFailed ? timesError.message : noWeight ? 'Set at least one weight above 0 in the score settings.' : null
+  const retryTimes = () => {
+    setTimesError(null)
+    setTimesAttempt((a) => a + 1)
+  }
   const cellsCurrent = cellsResult.key === viewKey
   const cellsFailed = cellsError?.key === viewKey && !cellsCurrent
   // a facility from the list or a pin: its category becomes the selected one, so its pin is shown
@@ -381,6 +388,7 @@ function Main({ meta, districts }: { meta: Meta; districts: Districts }) {
               coloursHidden={pin !== null && !settings.coloursWithPin}
               card={card('map')}
               loading={(!cellsCurrent && !cellsFailed) || (scoreMode && !scored && !scoreError)}
+              onRetry={timesFailed ? retryTimes : undefined}
               error={cellsFailed ? cellsError.message : scoreError}
               onProfile={(id) => select({ profile: id })}
               onCategories={(ids) => select({ categories: ids })}
@@ -391,6 +399,7 @@ function Main({ meta, districts }: { meta: Meta; districts: Districts }) {
                 params={params}
                 budgetMin={profile.time_budget_min}
                 maxK={times?.max_times_per_category ?? 5}
+                noWeight={noWeight}
                 card={card('score')}
                 onChange={(next: ScoreParams) =>
                   navigate({ view: 'map', profile: profile.profile_id, category: selectedKey, score: encodeParams(next) })

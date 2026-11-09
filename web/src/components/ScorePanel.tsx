@@ -1,5 +1,6 @@
 // Score settings (methodology §4b): time threshold, facilities needed and weight per category.
 // Everything is computed in the browser (`score.ts`); the values live in the URL hash.
+import { useState } from 'react'
 import { CARD_HELP } from '../labels'
 import { effective, isDefault, type CategoryParams, type ScoreParams } from '../score'
 import type { Category } from '../types'
@@ -12,13 +13,38 @@ interface Props {
   budgetMin: number
   /** Largest number of facilities per category the API delivers times for. */
   maxK: number
+  /** All weights are 0: nothing can be scored. */
+  noWeight?: boolean
   card: { open: boolean; onToggle: (open: boolean) => void }
   onChange: (next: ScoreParams) => void
 }
 
 const MIN_T = 5
 
-export default function ScorePanel({ categories, params, budgetMin, maxK, card, onChange }: Props) {
+/** Number input that lets you clear and retype: the typed text is kept until blur, a valid number
+ * is committed at once. */
+function NumberField(props: { value: number; min: number; max?: number; step: number; label: string; onValue: (n: number) => void }) {
+  const { value, min, max, step, label, onValue } = props
+  const [draft, setDraft] = useState<string | null>(null)
+  return (
+    <input
+      type="number"
+      min={min}
+      max={max}
+      step={step}
+      value={draft ?? value}
+      aria-label={label}
+      onChange={(e) => {
+        setDraft(e.target.value)
+        const n = Number(e.target.value)
+        if (e.target.value !== '' && Number.isFinite(n)) onValue(n)
+      }}
+      onBlur={() => setDraft(null)}
+    />
+  )
+}
+
+export default function ScorePanel({ categories, params, budgetMin, maxK, noWeight, card, onChange }: Props) {
   const globalT = params.t ?? budgetMin
   const setGlobal = (t: number) => onChange({ ...params, t: t >= budgetMin ? null : t })
   // a value equal to its default is not stored, so the hash stays empty until something changes
@@ -48,6 +74,11 @@ export default function ScorePanel({ categories, params, budgetMin, maxK, card, 
       <p className="muted small">
         At most {budgetMin} minutes: the routing only stores facilities within the budget, so a longer time cannot be shown.
       </p>
+      {noWeight && (
+        <p className="error" role="alert">
+          Set at least one weight above 0, otherwise nothing is scored.
+        </p>
+      )}
       <table className="score-table">
         <thead>
           <tr>
@@ -59,7 +90,7 @@ export default function ScorePanel({ categories, params, budgetMin, maxK, card, 
         </thead>
         <tbody>
           {categories.map((c) => {
-            const e = effective(params, c, budgetMin)
+            const e = effective(params, c, budgetMin, maxK)
             const own = params.cats[c.id] ?? {}
             return (
               <tr key={c.id}>
@@ -73,29 +104,21 @@ export default function ScorePanel({ categories, params, budgetMin, maxK, card, 
                     value={own.t ?? ''}
                     placeholder={String(globalT)}
                     aria-label={`${c.name}: minutes`}
-                    onChange={(ev) => setCat(c, 't', Math.min(budgetMin, num(ev.target.value) ?? NaN) || undefined, globalT)}
+                    onChange={(ev) => setCat(c, 't', Math.min(budgetMin, num(ev.target.value) ?? NaN) || undefined, budgetMin)}
                   />
                 </td>
                 <td>
-                  <input
-                    type="number"
+                  <NumberField
+                    value={e.k}
                     min={1}
                     max={maxK}
                     step={1}
-                    value={e.k}
-                    aria-label={`${c.name}: facilities needed`}
-                    onChange={(ev) => setCat(c, 'k', Math.min(maxK, Math.max(1, num(ev.target.value) ?? c.k)), c.k)}
+                    label={`${c.name}: facilities needed`}
+                    onValue={(n) => setCat(c, 'k', Math.min(maxK, Math.max(1, Math.round(n))), Math.min(maxK, c.k))}
                   />
                 </td>
                 <td>
-                  <input
-                    type="number"
-                    min={0}
-                    step={0.5}
-                    value={e.w}
-                    aria-label={`${c.name}: weight`}
-                    onChange={(ev) => setCat(c, 'w', Math.max(0, num(ev.target.value) ?? 1), 1)}
-                  />
+                  <NumberField value={e.w} min={0} step={0.5} label={`${c.name}: weight`} onValue={(n) => setCat(c, 'w', Math.max(0, n), 1)} />
                 </td>
               </tr>
             )

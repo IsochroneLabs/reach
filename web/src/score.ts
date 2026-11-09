@@ -28,10 +28,26 @@ export interface Effective {
   w: number
 }
 
-/** The values used for one category: its override, else the global threshold, else the default. */
-export function effective(params: ScoreParams, cat: Category, budgetMin: number): Effective {
+/** Facilities per category the API delivers times for (config `api.score`, default); the
+ * facilities needed cannot exceed it, or the score could never reach 100. */
+export const DEFAULT_MAX_K = 5
+
+/** The values used for one category: its override, else the global threshold, else the default.
+ * `k` is kept between 1 and `maxK`. */
+export function effective(params: ScoreParams, cat: Category, budgetMin: number, maxK = DEFAULT_MAX_K): Effective {
   const o = params.cats[cat.id] ?? {}
-  return { t: Math.min(budgetMin, o.t ?? params.t ?? budgetMin), k: o.k ?? cat.k, w: o.w ?? 1 }
+  const k = Math.round(o.k ?? cat.k)
+  return { t: Math.min(budgetMin, o.t ?? params.t ?? budgetMin), k: Math.min(maxK, Math.max(1, k)), w: o.w ?? 1 }
+}
+
+/** True if the selected categories use exactly the default settings (threshold = budget,
+ * `k` from the config, weight 1): then one category is the plain class map. Values of categories
+ * that are not selected, or equal to the default, do not count. */
+export function isEffectiveDefault(p: ScoreParams, selected: Category[], budgetMin: number, maxK = DEFAULT_MAX_K): boolean {
+  return selected.every((c) => {
+    const e = effective(p, c, budgetMin, maxK)
+    return e.t === budgetMin && e.k === Math.min(maxK, Math.max(1, c.k)) && e.w === 1
+  })
 }
 
 export function isDefault(p: ScoreParams): boolean {
@@ -57,7 +73,9 @@ export function decodeParams(s: string | null): ScoreParams {
     if (key === 't') out.t = value
     else {
       const [id, field] = key.split('.')
-      if (id && (field === 't' || field === 'k' || field === 'w')) out.cats[id] = { ...out.cats[id], [field]: value }
+      // category ids only (no `__proto__` and the like)
+      if (/^[a-z][a-z0-9_]*$/.test(id) && (field === 't' || field === 'k' || field === 'w'))
+        out.cats[id] = { ...out.cats[id], [field]: value }
     }
   }
   return out
@@ -93,12 +111,15 @@ export function scoreCells(
   params: ScoreParams,
   budgetMin: number,
 ): Cells {
-  const eff: [string, Effective][] = categories.map((c) => [c.id, effective(params, c, budgetMin)])
+  const maxK = times.max_times_per_category
+  const eff: [string, Effective][] = categories.map((c) => [c.id, effective(params, c, budgetMin, maxK)])
   const byCell = new Map(times.cells.map((c) => [c.cell_id, c.times]))
   const features = cells.features.flatMap((f) => {
     const t = byCell.get(f.properties.cell_id)
-    const score = t ? scoreOf(t, eff) : null
-    if (score === null) return []
+    const raw = t ? scoreOf(t, eff) : null
+    if (raw === null) return []
+    // rounded, so a sum like 59.999999999 does not fall into the lower bin or miss the outline
+    const score = Math.round(raw * 1e6) / 1e6
     return [{ ...f, properties: { ...f.properties, score, class: SCORE_CLASSES[binOf(score)], full: score >= 100 } }]
   })
   return { ...cells, features }

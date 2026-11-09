@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test'
 import { readFileSync } from 'node:fs'
-import { decodeParams, DEFAULT_PARAMS, encodeParams, isDefault, scoreCells } from '../src/score'
+import { decodeParams, DEFAULT_PARAMS, effective, encodeParams, isDefault, isEffectiveDefault, scoreCells } from '../src/score'
 import type { Cells, CellTimes, Meta } from '../src/types'
 
 const live = Boolean(process.env.E2E_LIVE)
@@ -564,4 +564,19 @@ test('several categories give the score view; one category with defaults stays t
   await page.getByRole('group', { name: 'Health' }).getByLabel('Doctors').uncheck()
   await expect(page.getByTestId('score-legend')).toHaveCount(0)
   expect(errors).toEqual([])
+})
+
+test('score settings from a shared link are kept inside what the data can show', () => {
+  const meta = recorded<Meta>('meta.json')
+  const grocery = meta.categories.find((c) => c.id === 'grocery')!
+  // k is between 1 and the number of times the API delivers; thresholds stop at the budget
+  expect(effective({ t: 99, cats: { grocery: { k: 9 } } }, grocery, 15, 5)).toEqual({ t: 15, k: 5, w: 1 })
+  expect(effective({ t: null, cats: { grocery: { k: 0 } } }, grocery, 15, 5).k).toBe(1)
+  // settings of other categories or equal to the default do not leave the class map
+  expect(isEffectiveDefault({ t: null, cats: { pharmacy: { k: 1 } } }, [grocery], 15)).toBe(true)
+  expect(isEffectiveDefault({ t: 99, cats: { grocery: { k: 2, w: 1 } } }, [grocery], 15)).toBe(true)
+  expect(isEffectiveDefault({ t: 10, cats: {} }, [grocery], 15)).toBe(false)
+  // no prototype keys from the URL
+  expect(Object.keys(decodeParams('__proto__.k=1').cats)).toEqual([])
+  expect(isDefault(decodeParams('__proto__.k=1'))).toBe(true)
 })
