@@ -160,7 +160,7 @@ test('map settings switch layers, filter cells and survive a reload', async ({ p
   await panel.getByLabel('Show cells').uncheck()
   await panel.getByLabel(/Minimum residents per cell/).fill('10')
   await expect(page.getByTestId('cells-shown')).toContainText(/^[\d,]+ of [\d,]+ cells shown$/)
-  const [shown, all] = (await page.getByTestId('cells-shown').innerText()).match(/[\d,]+/g)!.map((n) => Number(n.replace(',', '')))
+  const [shown, all] = (await page.getByTestId('cells-shown').innerText()).match(/[\d,]+/g)!.map((n) => Number(n.replaceAll(',', '')))
   expect(shown).toBeLessThan(all)
   // reverse isochrones need the live endpoint of W2
   await expect(panel.getByLabel('Reverse')).toBeDisabled()

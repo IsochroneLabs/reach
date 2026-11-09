@@ -323,7 +323,7 @@ export default function MapView(props: Props) {
           paint: {
             'circle-radius': 4,
             'circle-color': MAP_COLOURS.clickPoint,
-            'circle-stroke-color': '#ffffff',
+            'circle-stroke-color': MAP_COLOURS.clickPointStroke,
             'circle-stroke-width': 1,
           },
         })

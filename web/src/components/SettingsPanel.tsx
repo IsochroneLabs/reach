@@ -1,7 +1,7 @@
 // Map settings (display only): gear button at the top right of the map, below the zoom buttons;
 // the popover groups cells, isochrones, layers and pin mode. Esc or a click outside closes it.
 import { useEffect, useId, useRef, useState } from 'react'
-import { ringShown, type IsochroneDirection, type MapSettings } from '../settings'
+import { MAX_MIN_RESIDENTS, ringShown, type IsochroneDirection, type MapSettings } from '../settings'
 
 interface Props {
   settings: MapSettings
@@ -12,10 +12,6 @@ interface Props {
   /** Reverse isochrones need the live endpoint of W2; until then only "forward". */
   directionAvailable: boolean
 }
-
-// residents slider: Zensus perturbs small counts (disclosure control), so a low threshold hides
-// the cells whose population is least reliable; the upper end is a UI choice, not a threshold
-const MAX_MIN_RESIDENTS = 100
 
 const DIRECTIONS: { value: IsochroneDirection; label: string }[] = [
   { value: 'forward', label: 'Forward' },
@@ -28,6 +24,12 @@ export default function SettingsPanel({ settings, onChange, onReset, rings, dire
   const root = useRef<HTMLDivElement>(null)
   const button = useRef<HTMLButtonElement>(null)
   const panelId = useId()
+  const panel = useRef<HTMLDivElement>(null)
+
+  // move focus into the panel on open, so keyboard users land on its first control
+  useEffect(() => {
+    if (open) panel.current?.querySelector<HTMLElement>('input, button')?.focus()
+  }, [open])
 
   useEffect(() => {
     if (!open) return
@@ -75,7 +77,7 @@ export default function SettingsPanel({ settings, onChange, onReset, rings, dire
         </svg>
       </button>
       {open && (
-        <div id={panelId} className="settings-panel" role="dialog" aria-label="Map settings">
+        <div id={panelId} ref={panel} className="settings-panel" role="dialog" aria-label="Map settings">
           <fieldset>
             <legend>Cells</legend>
             {check('showCells', 'Show cells')}
@@ -92,10 +94,7 @@ export default function SettingsPanel({ settings, onChange, onReset, rings, dire
                 onChange={(e) => onChange({ cellOpacity: Number(e.target.value) / 100 })}
               />
             </label>
-            <label
-              className="range"
-              title="Zensus 2022 perturbs small counts for disclosure control, so the residents of sparsely populated cells are approximate."
-            >
+            <label className="range">
               <span>
                 Minimum residents per cell <span className="muted">{settings.minResidents}</span>
               </span>
@@ -105,9 +104,14 @@ export default function SettingsPanel({ settings, onChange, onReset, rings, dire
                 max={MAX_MIN_RESIDENTS}
                 step={1}
                 value={settings.minResidents}
+                aria-describedby={`${panelId}-residents`}
                 onChange={(e) => onChange({ minResidents: Number(e.target.value) })}
               />
             </label>
+            <p id={`${panelId}-residents`} className="muted small">
+              Zensus 2022 perturbs small counts for disclosure control, so residents of sparsely populated
+              cells are approximate.
+            </p>
           </fieldset>
           <fieldset>
             <legend>Isochrones</legend>
@@ -127,7 +131,7 @@ export default function SettingsPanel({ settings, onChange, onReset, rings, dire
             ) : (
               <p className="muted small">Click the map to choose rings.</p>
             )}
-            <div className="check-row" role="radiogroup" aria-label="Direction">
+            <div className="check-row" role="radiogroup" aria-label="Isochrone direction">
               {DIRECTIONS.map((d) => (
                 <label key={d.value} className="check">
                   <input
@@ -147,7 +151,7 @@ export default function SettingsPanel({ settings, onChange, onReset, rings, dire
           <fieldset>
             <legend>Layers</legend>
             {check('showDistricts', 'District boundaries')}
-            {check('showPois', 'Facilities and routes')}
+            {check('showPois', 'Route to the nearest facility')}
             {check('showRecommendations', 'Recommended sites')}
           </fieldset>
           <fieldset>

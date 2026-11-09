@@ -61,7 +61,7 @@ export default function App() {
 
 function Main({ meta, districts }: { meta: Meta; districts: Districts }) {
   const [route, navigate] = useRoute()
-  const [settings, updateSettings, resetSettings] = useSettings()
+  const { settings, update: updateSettings, setCard, reset: resetSettings } = useSettings()
   const profile = meta.profiles.find((p) => p.profile_id === route.profile) ?? meta.profiles[0]
   const validCategory = (id: string | null) =>
     id !== null && (meta.categories.some((c) => c.id === id) || (id === TRANSIT && profile.transit))
@@ -151,6 +151,8 @@ function Main({ meta, districts }: { meta: Meta; districts: Districts }) {
 
   const pick = (lon: number, lat: number) => {
     setPin([lon, lat])
+    // a new pin always shows its answer, even if the card was collapsed before
+    setCard('inspector', true)
     runInspect(lon, lat, profile.profile_id)
   }
 
@@ -205,14 +207,15 @@ function Main({ meta, districts }: { meta: Meta; districts: Districts }) {
   const shownInspect =
     inspect.status === 'done' ? inspect.data : inspect.status === 'loading' ? inspect.previous : null
   // the pin sits where routing starts (cell centre); the click point shows briefly on the map
-  const marker = shownInspect ? shownInspect.cell.origin : inspect.status === 'error' ? pin : null
+  // while a new answer loads, the pin stays at the click point
+  const marker = inspect.status === 'done' ? inspect.data.cell.origin : inspect.status === 'idle' ? null : pin
   const rings = useMemo(
     () => [...new Set(shownInspect?.isochrone.features.map((f) => f.properties.contour_min) ?? [])].sort((a, b) => a - b),
     [shownInspect],
   )
   const card = (id: string) => ({
     open: cardOpen(settings, id),
-    onToggle: (open: boolean) => updateSettings({ openCards: { ...settings.openCards, [id]: open } }),
+    onToggle: (open: boolean) => setCard(id, open),
   })
 
   return (
@@ -246,6 +249,7 @@ function Main({ meta, districts }: { meta: Meta; districts: Districts }) {
               cells={cellsCurrent ? shownCells : null}
               allCells={cellsCurrent ? (cells?.features.length ?? 0) : 0}
               minResidents={settings.minResidents}
+              coloursHidden={pin !== null && !settings.coloursWithPin}
               card={card('map')}
               loading={!cellsCurrent && !cellsFailed}
               error={cellsFailed ? cellsError.message : null}

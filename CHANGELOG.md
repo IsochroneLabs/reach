@@ -10,7 +10,7 @@ adds a line under `Unreleased`.
 ### Added (web app, W1 map usability)
 - Map settings (gear button below the zoom buttons): cells on/off, cell opacity, minimum
   residents per cell (legend says "X of Y cells shown"), isochrone rings one by one, district
-  boundaries, facilities and routes, recommended sites, cell colours with a pin; remembered per
+  boundaries, the route to the nearest facility, recommended sites, cell colours with a pin; remembered per
   browser, "Reset to defaults".
 - Pin mode: with a pin the map shows the isochrone, route and a thin cell grid instead of the
   colours (switch "Show cell colours" in the inspector).

@@ -13,6 +13,8 @@ interface Props {
   /** Number of scored cells before the residents slider. */
   allCells: number
   minResidents: number
+  /** Pin mode without colours: the map shows the grid only. */
+  coloursHidden: boolean
   card: { open: boolean; onToggle: (open: boolean) => void }
   loading: boolean
   error: string | null
@@ -21,7 +23,8 @@ interface Props {
 }
 
 export default function Controls(props: Props) {
-  const { meta, profile, category, cells, allCells, minResidents, card, loading, error, onProfile, onCategory } = props
+  const { meta, profile, category, cells, allCells, minResidents, coloursHidden, card, loading, error, onProfile, onCategory } =
+    props
   const transit = category === TRANSIT
   const budget = transit ? profile.transit_budget_min : profile.time_budget_min
   const entries = legendEntries(category, meta.categories, meta.transit_classes)
@@ -34,9 +37,11 @@ export default function Controls(props: Props) {
   const shown = cells?.features.length ?? 0
 
   return (
-    <Card title="Map" label="Map settings" help={CARD_HELP.map} {...card}>
+    <Card title="Map" label="Map selection" help={CARD_HELP.map} {...card}>
       <p className="intro">
-        Each square is 100 m. Colour = how many facilities residents reach in {profile.time_budget_min} minutes.
+        {transit
+          ? `Each square is 100 m. Colour = how many weekday departures residents reach at stops within ${budget} minutes on foot.`
+          : `Each square is 100 m. Colour = how many facilities residents reach in ${budget} minutes.`}
       </p>
       <div className="field-row">
         <label className="field">
@@ -70,6 +75,7 @@ export default function Controls(props: Props) {
             : `${categoryName(meta, category)} within ${profile.time_budget_min} min`}
           {loading && <span className="muted"> · loading…</span>}
         </div>
+        {coloursHidden && <p className="muted small">Colours are hidden while a pin is set (switch in the Location card).</p>}
         {error && (
           <p className="error" role="alert">
             {error}

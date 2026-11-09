@@ -38,15 +38,29 @@ export const DEFAULT_SETTINGS: MapSettings = {
 
 const STORAGE_KEY = 'reach.mapSettings.v1'
 
+/** Upper end of the residents slider (a UI choice, not a threshold). */
+export const MAX_MIN_RESIDENTS = 100
+
+const clamp = (v: number, lo: number, hi: number) => (Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : lo)
+
 function load(): MapSettings {
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY)
     if (!raw) return DEFAULT_SETTINGS
-    const stored = JSON.parse(raw) as Partial<MapSettings>
-    // unknown or mistyped keys from an older version fall back to the defaults
+    const stored = JSON.parse(raw) as Record<string, unknown>
+    // unknown, mistyped or out-of-range values from an older version fall back to the defaults
     const merged = { ...DEFAULT_SETTINGS }
-    for (const key of Object.keys(DEFAULT_SETTINGS) as (keyof MapSettings)[])
-      if (typeof stored[key] === typeof DEFAULT_SETTINGS[key]) Object.assign(merged, { [key]: stored[key] })
+    for (const key of Object.keys(DEFAULT_SETTINGS) as (keyof MapSettings)[]) {
+      const value = stored[key]
+      const fallback = DEFAULT_SETTINGS[key]
+      const plainObject = (v: unknown) => typeof v === 'object' && v !== null && !Array.isArray(v)
+      if (plainObject(fallback) ? plainObject(value) : typeof value === typeof fallback)
+        Object.assign(merged, { [key]: value })
+    }
+    if (!['forward', 'reverse', 'both'].includes(merged.isochroneDirection))
+      merged.isochroneDirection = DEFAULT_SETTINGS.isochroneDirection
+    merged.cellOpacity = clamp(merged.cellOpacity, 0, 1)
+    merged.minResidents = clamp(Math.round(merged.minResidents), 0, MAX_MIN_RESIDENTS)
     return merged
   } catch {
     return DEFAULT_SETTINGS
@@ -62,12 +76,16 @@ function save(settings: MapSettings) {
 }
 
 /** Settings state shared by the app; `update` merges a partial change and persists it. */
-export function useSettings(): [MapSettings, (change: Partial<MapSettings>) => void, () => void] {
+export function useSettings() {
   const [settings, setSettings] = useState(load)
   useEffect(() => save(settings), [settings])
   const update = useCallback((change: Partial<MapSettings>) => setSettings((s) => ({ ...s, ...change })), [])
+  const setCard = useCallback(
+    (id: string, open: boolean) => setSettings((s) => ({ ...s, openCards: { ...s.openCards, [id]: open } })),
+    [],
+  )
   const reset = useCallback(() => setSettings(DEFAULT_SETTINGS), [])
-  return [settings, update, reset]
+  return { settings, update, setCard, reset }
 }
 
 export const ringShown = (settings: MapSettings, minute: number) => settings.isochroneRings[String(minute)] !== false

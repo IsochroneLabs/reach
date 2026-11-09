@@ -91,5 +91,6 @@ export const MAP_COLOURS = {
   cellOutline: 'rgba(0, 0, 0, 0.18)',
   selectedCell: '#111111',
   clickPoint: '#8a8a8a',
+  clickPointStroke: '#ffffff',
   pin: '#111111',
 }
