@@ -1,6 +1,6 @@
 # Data contract — reach
 
-> **Status:** draft v0.11 (9 Nov 2026), from `implementation_plan.md` §3. Binding for the tables
+> **Status:** draft v0.12 (9 Nov 2026), from `implementation_plan.md` §3. Binding for the tables
 > and files exchanged between pipeline and API once a phase implements them; every change needs
 > confirmation (AGENTS.md) and a data-contract test. Tables marked *(planned, Pn)* do not exist yet.
 
@@ -121,8 +121,11 @@ uncached answer share one Valhalla computation and report `cached: true`.
 
 **Live endpoints** (`POST`, JSON body; token bucket per client IP; `cached` true when served
 from the in-process cache of the run). Points are snapped to the 100 m Zensus grid cell; `cell`
-= {`cell_id`, `scored`, `population`, `district_id`, `origin` [lon, lat]} (`population` and
-`district_id` null for unscored cells). `isochrone` = FeatureCollection of Polygons with
+= {`cell_id`, `scored`, `status`, `population`, `district_id`, `origin` [lon, lat]} (`population`
+and `district_id` null for unscored cells). `status` = `scored` (row in `cells`), `unpopulated`
+(centre inside the city, no residents in the Zensus grid) or `outside_city` (centre outside the
+city boundary, never scored, O11; it may have residents). A point is accepted if it or its cell
+centre lies inside the city boundary (union of `districts`) or inside a scored cell; else 422. `isochrone` = FeatureCollection of Polygons with
 property `contour_min` (5, 10, 15), sorted ascending; display only.
 
 | Endpoint | Request | Body |
@@ -267,3 +270,4 @@ their row counts.
 | v0.9 | 2026-11-06 | Report part 2: check and key `budget_flips` (flip rate per profile and direction) | Methodology V10 (matrix vs. /route) |
 | v0.10 | 2026-11-06 | `recommendations` columns (gain, residents gaining access / reaching sufficient, catchment, zone + centre) and new `recommendation_catchments`; `recommend/` files (incl. the protected areas not excluded); check and key `recommendations` in report part 2; `/api/recommendations` filled (geo+json, district of the zone); `/api/catchment` for a recommended zone and `source`; `publish` drops `current` views of relations the run does not have | P7 recommender (methodology v0.6 §5, architecture v0.18); confirmed by Rico |
 | v0.11 | 2026-11-09 | `POST /api/isochrone` (`direction` forward/reverse) | App iteration W2 (point 10), architecture v0.19 |
+| v0.12 | 2026-11-09 | Live `cell.status` (`scored`/`unpopulated`/`outside_city`); points accepted inside the city boundary instead of the urban boundary + margin | App iteration W3 (points 12, 13; E5), architecture v0.20 |

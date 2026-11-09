@@ -5,7 +5,8 @@ this file wins where it is more specific.
 
 - **Status:** P5 — read endpoints (`routes/read.py`) and live endpoints (`routes/live.py`) exist;
   response formats are fixed in `docs/data_contract.md` ("API responses"). W2 added
-  `POST /api/isochrone` (forward or reverse, cached per direction).
+  `POST /api/isochrone` (forward or reverse, cached per direction). W3: `cell.status` in every
+  live answer (`scored`, `unpopulated`, `outside_city`), clicks accepted in the whole city.
 - **Layout:** `main.py` (`create_app(deps)`, lifespan builds pool and client from the
   environment, error mapping), `settings.py` (env + `api` section of the config), `db.py` (all
   SQL, `Database` protocol), `valhalla.py` (async client), `deps.py` (shared state, run context,
@@ -19,7 +20,8 @@ this file wins where it is more specific.
 - **No derived values in Python:** classes, deficits and district shares come from the views
   (`scores`, `transit_scores`, `district_scores`); the API only sorts and ranks them.
 - **Live endpoints** call Valhalla only for what is not precomputed (arch. §6.5 rules 8–12):
-  snap the point to its 100 m grid cell, check urban boundary + margin or scored cell before any
+  snap the point to its 100 m grid cell, check city boundary (point or cell centre, union of
+  `current.districts`) or scored cell before any
   call, one isochrone call for all contours; scored cells list reachable facilities from
   `current.reachable` (no matrix), catchments of recommended zones come from
   `current.recommendation_catchments` (no matrix), only grid cells without residents and other

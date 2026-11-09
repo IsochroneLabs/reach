@@ -1,6 +1,6 @@
 # Architecture — reach (15-Minute City Tübingen)
 
-> **Status:** draft v0.19 (9 Nov 2026). Describes the target architecture the team builds towards.
+> **Status:** draft v0.20 (9 Nov 2026). Describes the target architecture the team builds towards.
 > Every change bumps the version and adds a line to the [Change log](#change-log).
 > Settled and open decisions are listed in [Section 13](#13-decisions); items marked **[OPEN]**
 > must be settled before the related code is written. Methodology (categories, thresholds,
@@ -295,10 +295,11 @@ The server has 4 GB RAM, so every Valhalla call must be cheap. Rules:
     clicks in the same cell never hit Valhalla twice.
 11. **Expensive calls on demand only.** `expansion` is only called when the user opens the
     "spread" view and is limited to the 15-minute budget.
-12. **Validate before routing.** A point is accepted if it lies inside the urban boundary plus
-    a small margin **or** inside a scored cell (O11: scored cells outside the urban boundary
-    are shown on the map, so they can be inspected); every other point is rejected before any
-    Valhalla call.
+12. **Validate before routing.** A point is accepted if it **or the centre of its grid cell**
+    lies inside the city boundary (the union of the districts), **or** inside a scored cell;
+    every other point is rejected before any Valhalla call. Every live answer carries the cell
+    `status`: `scored`, `unpopulated` (centre in the city, no residents in the Zensus grid) or
+    `outside_city` (centre outside the city boundary, never scored under O11, answered live).
 
 **Valhalla service**
 
@@ -404,8 +405,8 @@ Live endpoints (call Valhalla, small and fast, no queue):
   get; `reverse`: from where people reach the point; display only, rule 9); cached per (run,
   cell, profile, direction). `/api/inspect` keeps the forward one.
 
-Live endpoints snap the point to its 100 m grid cell, accept it only inside the urban boundary
-(plus a small margin) or inside a scored cell (§6.5 rule 12), cache per (run, cell, profile) and
+Live endpoints snap the point to its 100 m grid cell, accept it only inside the city boundary
+or inside a scored cell (§6.5 rule 12), return the cell `status`, cache per (run, cell, profile) and
 enforce a token-bucket rate limit per client IP (`X-Forwarded-For` trusted only from Caddy).
 Read endpoints carry an ETag per run id. Response formats: `docs/data_contract.md`.
 
@@ -476,7 +477,7 @@ H3 aggregation, second region, Prefect/Dagster, monitoring stack.
 | O8 | Coarse facility categories (≈ 7) in Core |
 | O9 | Map data as GeoJSON from the API first |
 | O10 | Failed runs notify the team chat via webhook |
-| O11 | Scoring scope = all populated cells with centroid inside the city boundary of Tübingen, coverage ≥ 0.98 of the city's residents checked in `validate`; the urban boundary (O17) only defines the map area, the live-endpoint check and the recommender candidates (changed 2 Nov 2026, v0.12) |
+| O11 | Scoring scope = all populated cells with centroid inside the city boundary of Tübingen, coverage ≥ 0.98 of the city's residents checked in `validate`; the urban boundary (O17) only defines the map area and the recommender candidates; live endpoints accept clicks inside the city boundary (changed 2 Nov 2026, v0.12; click area 9 Nov 2026, v0.20) |
 | O12 | English documentation; branches `main` (releases) + `dev` (integration) |
 | O7 | Elevation is built into the tiles and Valhalla's default slope model is kept for every profile: walking and wheelchair times include the pedestrian grade factor, cycling the bicycle one; stairs are always handled; slope-free times only for V11 (§6.1; changed 6 Nov 2026, v0.16, notes N5) |
 | O13 | Routing buffer = 4 km around the city boundary (covers maximum cycling reach of 3.75 km); raised after confirmation if the prefilter reach of O20 exceeds it |
@@ -565,6 +566,7 @@ documented here in the same branch (see `AGENTS.md`).
 
 | Version | Date | Change | Why |
 |---|---|---|---|
+| v0.20 | 2026-11-09 | §6.5 rule 12, §9, O11: live endpoints accept points inside the city boundary (point or cell centre) or a scored cell, no longer the urban boundary + margin; every live answer has `cell.status` | App iteration W3 (points 12, 13): populated cells outside the city and unpopulated cells in the city were both shown as "no residents"; clicks anywhere in the city (E5, confirmed by Rico) |
 | v0.19 | 2026-11-09 | §9: `POST /api/isochrone` with `direction` forward/reverse | App iteration W2 (point 10: choose forward or reverse isochrone); confirmed by Rico (plan v0.1) |
 | v0.18 | 2026-11-06 | §6.4: candidates = grid cells near deficits, land-use filter without industrial, protected areas of nature classes only, catchments per profile, stored catchments of the picks; §7 `recommend` row; §8 `recommendations` columns and new `recommendation_catchments`; §9 catchment of a recommended zone | P7 recommender; decisions by Rico (6 Nov 2026): store the catchments (numbers in the app match the recommendation), keep industrial land use; methodology v0.6 |
 | v0.17 | 2026-11-06 | §6.1: wheelchair profile avoids steps only; `max_grade` excludes no edges in Valhalla 3.9.1, steep sections stay in wheelchair routes (known limitation) | N11 evidence: four steep routes give the same route, time and length for every `max_grade` value; the old text ("avoids steps and steep sections") overstated the profile; no change to counts or config values |

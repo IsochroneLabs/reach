@@ -6,9 +6,10 @@ Project vocabulary used in code, docs, issues and prompts. People and roles ("yo
 | Term | Meaning |
 |---|---|
 | **Core / Stretch** | Core = required for the graded deliverable. Stretch = only after Core works and is validated (`architecture.md` §12). |
-| **city boundary** | Administrative boundary of Tübingen (OSM `admin_level` 8, AGS `08416041`); defines the scoring scope. |
+| **city boundary** | Administrative boundary of Tübingen (OSM `admin_level` 8, AGS `08416041`); defines the scoring scope and the click area of the live endpoints. |
 | **scoring scope** | All populated cells whose centroid lies inside the city boundary; they get scores and deficits (O11). |
-| **urban boundary** | Built-up (settlement) area of Tübingen from OSM land use (O17); defines the map area, the live-endpoint check and the recommender candidates, not who is scored. |
+| **urban boundary** | Built-up (settlement) area of Tübingen from OSM land use (O17); defines the map area and the recommender candidates, not who is scored. |
+| **cell status** | Field `cell.status` of every live answer: `scored` (cell in `cells`), `unpopulated` (centre in the city, no residents in the Zensus grid; values computed live) or `outside_city` (centre outside the city boundary, never scored). |
 | **routing buffer** | 4 km around the city boundary, at least the largest prefilter reach (O20); network and facilities are loaded from boundary + buffer. |
 | **routing area** | City boundary plus the routing buffer; the OSM extract (`routing.osm.pbf`), facilities and stops are clipped to it. |
 | **coverage (scored share)** | Residents of scored cells ÷ residents of all populated cells touching the city area; checked against `validation.min_scored_share` in `validate`. |

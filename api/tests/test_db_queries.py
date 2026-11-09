@@ -129,29 +129,35 @@ async def test_locate_and_points(pg: PostgresDatabase) -> None:
     # Facility n1 at EPSG:25832 (500050, 5400050), inside the urban boundary (cells a, b).
     import pyproj
 
-    lon, lat = pyproj.Transformer.from_crs(25832, 4326, always_xy=True).transform(
-        500_050, 5_400_050
-    )
-    loc = await pg.locate(lon, lat, 100)
+    to4326 = pyproj.Transformer.from_crs(25832, 4326, always_xy=True)
+    lon, lat = to4326.transform(500_050, 5_400_050)
+    loc = await pg.locate(lon, lat)
     assert loc.allowed and loc.cell_id.startswith("CRS3035RES100mN")
     assert not loc.scored  # test cells use ids a–d, not grid ids
-    far = await pg.locate(lon + 0.05, lat, 100)
-    assert not far.allowed
+    # The districts (200 m square from 500000/5400000) are the city: grid centre at 500004.
+    assert loc.status == "unpopulated" and loc.in_city
+    far = await pg.locate(lon + 0.05, lat)
+    assert not far.allowed and far.status == "outside_city"
+    # Click inside the city near its east edge, grid centre outside (x = 500203.9): accepted,
+    # but never scored (O11).
+    edge = await pg.locate(*to4326.transform(500_195, 5_400_100))
+    assert edge.click_in_city and not edge.in_city
+    assert edge.allowed and edge.status == "outside_city"
 
 
 async def test_locate_scored_cell_outside_boundary(pg: PostgresDatabase) -> None:
     # K1 (architecture v0.14 rule 12): a scored cell far outside the urban boundary is allowed,
     # the grid id computed from the click matches cells.cell_id, origin = cells.origin_geom.
-    loc = await pg.locate(*MARKT, 100)
-    assert loc.scored and loc.allowed and loc.population == 7
+    loc = await pg.locate(*MARKT)
+    assert loc.scored and loc.allowed and loc.population == 7 and loc.status == "scored"
     assert loc.cell_id == "CRS3035RES100mN2823400E4251200"  # id of the real Marktplatz cell
     assert loc.lon == pytest.approx(9.056138, abs=1e-6)
     assert loc.lat == pytest.approx(48.520463, abs=1e-6)
     # Clicks ~30 m from the centre (inside the cell) snap to the same cell and origin; ~80 m
     # east is the next cell.
-    again = await pg.locate(loc.lon + 0.0003, loc.lat - 0.0002, 100)
+    again = await pg.locate(loc.lon + 0.0003, loc.lat - 0.0002)
     assert (again.cell_id, again.x, again.y) == (loc.cell_id, loc.x, loc.y)
-    east = await pg.locate(loc.lon + 0.0011, loc.lat, 100)
+    east = await pg.locate(loc.lon + 0.0011, loc.lat)
     assert east.cell_id == "CRS3035RES100mN2823400E4251300" and not east.scored
     near = await pg.facility_points_near(500_050, 5_400_050, 50)
     assert [(p["facility_id"], p["category"]) for p in near] == [("n1", "grocery")]

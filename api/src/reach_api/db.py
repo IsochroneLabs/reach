@@ -43,7 +43,21 @@ class Location:
     lat: float
     x: float  # origin, EPSG:25832
     y: float
-    allowed: bool  # inside the urban boundary + margin, or inside a scored cell (rule 12)
+    in_city: bool  # cell centre inside the city boundary (union of the districts)
+    click_in_city: bool  # clicked point inside the city boundary
+
+    @property
+    def status(self) -> str:
+        """`scored` (row in `cells`), `unpopulated` (centre in the city, no residents in the
+        Zensus grid) or `outside_city` (centre outside the city boundary: never scored, O11)."""
+        if self.scored:
+            return "scored"
+        return "unpopulated" if self.in_city else "outside_city"
+
+    @property
+    def allowed(self) -> bool:
+        """Rule 12: a scored cell, or a cell whose centre or clicked point lies in the city."""
+        return self.scored or self.in_city or self.click_in_city
 
 
 class Database(Protocol):
@@ -57,7 +71,7 @@ class Database(Protocol):
     async def district_scores(
         self, district_id: str, profile_id: str | None
     ) -> dict[str, Any] | None: ...
-    async def locate(self, lon: float, lat: float, margin_m: float) -> Location: ...
+    async def locate(self, lon: float, lat: float) -> Location: ...
     async def cell_values(
         self, cell_id: str, profile_id: str
     ) -> tuple[list[dict[str, Any]], dict[str, Any] | None]: ...
@@ -167,6 +181,8 @@ ORDER BY profile_id, category
 
 # The 100 m grid cell under the point: EPSG:3035 lower-left corner gives the Zensus id
 # (CRS3035RES100mN<north>E<east>), its centre is the origin (cells.origin_geom for scored cells).
+# The districts cover the city (up to `districts.coverage_tolerance_pct`), so "inside a district"
+# is "inside the city"; `in_city` is the cell centre, `click_in_city` the clicked point.
 _LOCATE = """
 WITH click AS (
   SELECT ST_SetSRID(ST_MakePoint(%(lon)s, %(lat)s), 4326) AS g4
@@ -183,9 +199,10 @@ WITH click AS (
 SELECT cell.cell_id, c.cell_id IS NOT NULL AS scored, c.population, c.district_id,
        ST_X(ST_Transform(o.origin, 4326)) AS lon, ST_Y(ST_Transform(o.origin, 4326)) AS lat,
        ST_X(o.origin) AS x, ST_Y(o.origin) AS y,
-       (c.cell_id IS NOT NULL OR EXISTS (
-          SELECT 1 FROM current.urban_boundary u
-          WHERE ST_DWithin(u.geom, cell.g, %(margin)s))) AS allowed
+       EXISTS (SELECT 1 FROM current.districts d WHERE ST_Covers(d.geom, cell.centre))
+         AS in_city,
+       EXISTS (SELECT 1 FROM current.districts d WHERE ST_Covers(d.geom, cell.g))
+         AS click_in_city
 FROM cell
 LEFT JOIN current.cells c ON c.cell_id = cell.cell_id
 CROSS JOIN LATERAL (SELECT coalesce(c.origin_geom, cell.centre) AS origin) o
@@ -389,8 +406,8 @@ class PostgresDatabase:
         )
         return {**district, "scores": rows}
 
-    async def locate(self, lon: float, lat: float, margin_m: float) -> Location:
-        row = await self._one(_LOCATE, {"lon": lon, "lat": lat, "margin": margin_m})
+    async def locate(self, lon: float, lat: float) -> Location:
+        row = await self._one(_LOCATE, {"lon": lon, "lat": lat})
         return Location(**row)
 
     async def cell_values(
