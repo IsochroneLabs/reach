@@ -1,6 +1,6 @@
 // Pin-drop inspector (POST /api/inspect): precomputed classes and counts of the cell, reachable
 // facilities with travel times, the route to the nearest one (time first, length secondary) and the 5/10/15 min isochrone (display).
-import { CARD_HELP, classPlain } from '../labels'
+import { CARD_HELP, CELL_STATUS_TEXT, classPlain } from '../labels'
 import { classColour, classLabel, TRANSIT } from '../palette'
 import type { IsochroneDirection } from '../settings'
 import type { Inspect, Meta } from '../types'
@@ -106,13 +106,13 @@ function InspectBody({
   return (
     <div data-testid="inspect-result">
       <p className="cell-meta">
-        {data.cell.scored ? (
+        {data.cell.status === 'scored' ? (
           <>
             {data.cell.population?.toLocaleString('en')} residents in this 100 m cell
             {district && <> · {district}</>}
           </>
         ) : (
-          <>No residents in this 100 m cell (not scored)</>
+          <span data-testid="cell-status">{CELL_STATUS_TEXT[data.cell.status]}</span>
         )}
         {live ? (
           <span className="badge live" title="Computed now with a live Valhalla matrix; not part of the published scores">
