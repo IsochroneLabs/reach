@@ -113,8 +113,8 @@ cells, most in Unterjesingen); urban boundary 12 parts, 16.6 km²; routing area 
 cell without a row in `cells`, also for the excluded edge cells with residents. Live answers now
 carry `cell.status` (`scored`, `unpopulated`, `outside_city`) and the live endpoints accept a
 point if it or its cell centre lies inside the city boundary (architecture v0.20, rule 12), no
-longer the urban boundary + `api.boundary_margin_m`. That key stays in `config.yaml` but is not
-read any more; removing it is open (needs a "yes", AGENTS.md: removing config keys).
+longer the urban boundary + `api.boundary_margin_m`. The unused key was removed from the config
+loader, `config.yaml` and the tests in W4 (confirmed by Rico, 9 Nov 2026).
 The city test uses the union of the published districts as the city boundary. `validate`
 checks gaps inside the city and overlaps (`district_coverage`), not district area outside the
 city. Checked on run `20261106T142630Z`: gap 0.000 %, no populated unscored Zensus cell has its

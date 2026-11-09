@@ -7,6 +7,10 @@ adds a line under `Unreleased`.
 
 ## [Unreleased]
 
+### Removed
+- Unused config key `api.boundary_margin_m` (loader, `config.yaml`, tests); live endpoints use the
+  city boundary since W3 (notes N3).
+
 ### Changed (API and web app, W3 cell status and click area)
 - Live answers carry `cell.status` (`scored`, `unpopulated`, `outside_city`); the inspector names
   it instead of "No residents in this 100 m cell" for every unscored cell (data contract v0.12).

@@ -68,9 +68,6 @@ class DbPool(_Model):
 
 
 class Api(_Model):
-    # Not read since W3 (clicks are accepted inside the city boundary, arch. §6.5 rule 12); kept
-    # so the config still loads until the key is removed (notes N3).
-    boundary_margin_m: float | None = Field(default=None, ge=0)
     isochrone: Isochrone
     cache: Cache
     rate_limit: RateLimit
