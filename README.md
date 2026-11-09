@@ -16,8 +16,10 @@ University of Tübingen, winter term 2026/27), Topic 9 "The 15-Minute City".
 > `recommend` ranks 100 m zones for new facilities, `validate_results` checks the results,
 > `publish` loads each validated run into PostGIS and switches the `current` views to it, the
 > API serves the results as GeoJSON plus live isochrones and routes, and the web app shows the
-> class map, a pin-drop inspector, recommended sites with their catchments, district statistics
-> and the data & validation page. The validation experiments V1–V11 run with `make experiments`
+> class map, a pin-drop inspector, recommended sites with their catchments, district statistics,
+> map settings (layers, cell opacity, isochrone rings, minimum residents, pin mode) and the data &
+> validation page. The app iteration on 18 feedback points (plan in PR #34) is in
+> progress. The validation experiments V1–V11 run with `make experiments`
 > and are interpreted in [`docs/validation_report.md`](docs/validation_report.md) (V7 and V9
 > need people and are not run yet); progress:
 > [`docs/implementation_plan.md`](docs/implementation_plan.md).
@@ -61,7 +63,7 @@ with Docker Compose on one small server. Details: [`docs/architecture.md`](docs/
 | `CHANGELOG.md` | Change history | ✅ |
 | `pipeline/` | Data pipeline (Python, uv workspace member): stages `acquire`, `validate`, `tiles`, `count`, `score`, `recommend`, `validate_results`, `publish`, `cleanup`; validation experiments V1–V11 (`reach_pipeline.experiments`) | ✅ |
 | `api/` | FastAPI backend (Python, uv workspace member): read endpoints from `current`, live endpoints via Valhalla | ✅ |
-| `web/` | React + TypeScript + MapLibre frontend (npm): class map, inspector, recommended sites with catchments, districts, data & validation page | ✅ |
+| `web/` | React + TypeScript + MapLibre frontend (npm): class map, inspector, recommended sites with catchments, districts, map settings, data & validation page | ✅ |
 | `config/` | Study area, profiles, categories, thresholds (`config.yaml`), test clip, Valhalla service config (`valhalla.json`), validation experiments (`experiments.yaml`) | ✅ |
 | `infra/` | Caddyfile; `api.Dockerfile`, `web.Dockerfile` (web build in the Caddy image); `db/`: roles, migrations, run schema template; pipeline image, scheduler planned | partial |
 | `Makefile`, `compose.yaml`, `.env.example` | Local stack (incl. Valhalla and its one-shot tile build) and command wrappers | ✅ |

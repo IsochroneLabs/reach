@@ -14,8 +14,10 @@ import DistrictPanel from './components/DistrictPanel'
 import Inspector, { type InspectState } from './components/Inspector'
 import MapView from './components/MapView'
 import RecommendationsPanel, { type CatchmentState } from './components/RecommendationsPanel'
+import SettingsPanel from './components/SettingsPanel'
 import { FACILITY_CLASSES, TRANSIT } from './palette'
 import { routeHash, useRoute } from './route'
+import { cardOpen, useSettings } from './settings'
 import type { Cells, Districts, Meta, RecommendationProps, Recommendations } from './types'
 
 // Scored cells answer in < 100 ms: show the spinner only for slower (live) answers.
@@ -59,6 +61,7 @@ export default function App() {
 
 function Main({ meta, districts }: { meta: Meta; districts: Districts }) {
   const [route, navigate] = useRoute()
+  const { settings, update: updateSettings, setCard, reset: resetSettings } = useSettings()
   const profile = meta.profiles.find((p) => p.profile_id === route.profile) ?? meta.profiles[0]
   const validCategory = (id: string | null) =>
     id !== null && (meta.categories.some((c) => c.id === id) || (id === TRANSIT && profile.transit))
@@ -148,6 +151,8 @@ function Main({ meta, districts }: { meta: Meta; districts: Districts }) {
 
   const pick = (lon: number, lat: number) => {
     setPin([lon, lat])
+    // a new pin always shows its answer, even if the card was collapsed before
+    setCard('inspector', true)
     runInspect(lon, lat, profile.profile_id)
   }
 
@@ -172,6 +177,11 @@ function Main({ meta, districts }: { meta: Meta; districts: Districts }) {
   const currentRecommendations = recommendations?.key === viewKey ? recommendations.data : null
 
   const cells = cellsResult.cells
+  // residents slider: the legend counts the cells shown on the map (the map filters itself)
+  const shownCells = useMemo(
+    () => (cells && settings.minResidents > 0 ? { ...cells, features: cells.features.filter((f) => f.properties.population >= settings.minResidents) } : cells),
+    [cells, settings.minResidents],
+  )
   const cellsCurrent = cellsResult.key === viewKey
   const cellsFailed = cellsError?.key === viewKey && !cellsCurrent
   const closeInspector = () => {
@@ -196,6 +206,17 @@ function Main({ meta, districts }: { meta: Meta; districts: Districts }) {
   )
   const shownInspect =
     inspect.status === 'done' ? inspect.data : inspect.status === 'loading' ? inspect.previous : null
+  // the pin sits where routing starts (cell centre); the click point shows briefly on the map
+  // while a new answer loads, the pin stays at the click point
+  const marker = inspect.status === 'done' ? inspect.data.cell.origin : inspect.status === 'idle' ? null : pin
+  const rings = useMemo(
+    () => [...new Set(shownInspect?.isochrone.features.map((f) => f.properties.contour_min) ?? [])].sort((a, b) => a - b),
+    [shownInspect],
+  )
+  const card = (id: string) => ({
+    open: cardOpen(settings, id),
+    onToggle: (open: boolean) => setCard(id, open),
+  })
 
   return (
     <div className="app">
@@ -225,7 +246,11 @@ function Main({ meta, districts }: { meta: Meta; districts: Districts }) {
               meta={meta}
               profile={profile}
               category={category}
-              cells={cellsCurrent ? cells : null}
+              cells={cellsCurrent ? shownCells : null}
+              allCells={cellsCurrent ? (cells?.features.length ?? 0) : 0}
+              minResidents={settings.minResidents}
+              coloursHidden={pin !== null && !settings.coloursWithPin}
+              card={card('map')}
               loading={!cellsCurrent && !cellsFailed}
               error={cellsFailed ? cellsError.message : null}
               onProfile={(id) => select({ profile: id })}
@@ -238,6 +263,9 @@ function Main({ meta, districts }: { meta: Meta; districts: Districts }) {
               category={category}
               onCategory={(id) => select({ category: id })}
               onClose={closeInspector}
+              card={card('inspector')}
+              coloursWithPin={settings.coloursWithPin}
+              onColoursWithPin={(on) => updateSettings({ coloursWithPin: on })}
             />
             <RecommendationsPanel
               meta={meta}
@@ -245,6 +273,7 @@ function Main({ meta, districts }: { meta: Meta; districts: Districts }) {
               recommendations={currentRecommendations}
               catchment={catchmentState}
               onSelect={selectRecommendation}
+              card={card('recommendations')}
             />
             <DistrictPanel
               meta={meta}
@@ -254,6 +283,7 @@ function Main({ meta, districts }: { meta: Meta; districts: Districts }) {
               category={category}
               onSelect={setDistrict}
               onCategory={(id) => select({ category: id })}
+              card={card('district')}
             />
           </aside>
           <MapView
@@ -263,7 +293,9 @@ function Main({ meta, districts }: { meta: Meta; districts: Districts }) {
             districts={districts}
             selectedDistrict={district}
             inspect={shownInspect}
-            pin={pin}
+            marker={marker}
+            pinMode={pin !== null}
+            settings={settings}
             routeCategory={category}
             recommendations={currentRecommendations}
             selectedCandidate={catchmentState.status === 'idle' ? null : catchmentState.candidateId}
@@ -275,7 +307,15 @@ function Main({ meta, districts }: { meta: Meta; districts: Districts }) {
               // a second click on the selected marker clears it, as in the list
               if (rec) selectRecommendation(id === selected ? null : rec.properties)
             }}
-          />
+          >
+            <SettingsPanel
+              settings={settings}
+              onChange={updateSettings}
+              onReset={resetSettings}
+              rings={rings}
+              directionAvailable={false}
+            />
+          </MapView>
           {pin && (
             <a className="details-hint" href="#inspector" onClick={scrollToInspector}>
               Details below ↓

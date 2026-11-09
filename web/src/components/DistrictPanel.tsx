@@ -2,8 +2,10 @@
 // lacking access, deficit sum and rank per category for the selected profile.
 import { useEffect, useState } from 'react'
 import { errorMessage, getDistrictScores } from '../api'
+import { CARD_HELP } from '../labels'
 import { classColour, FACILITY_CLASSES } from '../palette'
 import type { DistrictScores, Districts, Meta } from '../types'
+import Card from './Card'
 
 interface Props {
   meta: Meta
@@ -13,13 +15,14 @@ interface Props {
   category: string
   onSelect: (id: string | null) => void
   onCategory: (id: string) => void
+  card: { open: boolean; onToggle: (open: boolean) => void }
 }
 
 type Loaded = { key: string; data: DistrictScores } | { key: string; error: string }
 
 const pct = (v: number | null) => (v === null ? '–' : `${Math.round(v * 100)} %`)
 
-export default function DistrictPanel({ meta, districts, selected, profile, category, onSelect, onCategory }: Props) {
+export default function DistrictPanel({ meta, districts, selected, profile, category, onSelect, onCategory, card }: Props) {
   const [loaded, setLoaded] = useState<Loaded | null>(null)
   const key = selected ? `${selected}|${profile}` : null
 
@@ -41,14 +44,13 @@ export default function DistrictPanel({ meta, districts, selected, profile, cate
   const current = loaded && loaded.key === key ? loaded : null
 
   return (
-    <section className="card" aria-label="District statistics">
-      <header className="card-head">
-        <h2>District</h2>
-        <select
-          aria-label="District"
-          value={selected ?? ''}
-          onChange={(e) => onSelect(e.target.value || null)}
-        >
+    <Card
+      title="District"
+      label="District statistics"
+      help={CARD_HELP.district}
+      {...card}
+      extra={
+        <select aria-label="District" value={selected ?? ''} onChange={(e) => onSelect(e.target.value || null)}>
           <option value="">Choose a district…</option>
           {options.map((d) => (
             <option key={d.district_id} value={d.district_id}>
@@ -56,8 +58,9 @@ export default function DistrictPanel({ meta, districts, selected, profile, cate
             </option>
           ))}
         </select>
-      </header>
-      {!selected && <p className="muted small">Pick a district, or drop a pin to select its district.</p>}
+      }
+    >
+      {!selected && <p className="muted small">Choose a district above, or click a square on the map to select its district.</p>}
       {selected && !current && <p className="muted small">Loading…</p>}
       {current && 'error' in current && <p className="error">{current.error}</p>}
       {current && 'data' in current && (
@@ -115,6 +118,6 @@ export default function DistrictPanel({ meta, districts, selected, profile, cate
           </table>
         </>
       )}
-    </section>
+    </Card>
   )
 }

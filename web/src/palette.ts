@@ -85,3 +85,12 @@ export const RECOMMENDATION_COLOURS = {
   selectedText: '#ffffff',
   catchment: '#1f3b70',
 }
+
+/** Map overlays outside the class ramps: cell grid, the inspected cell, the click dot, the pin. */
+export const MAP_COLOURS = {
+  cellOutline: 'rgba(0, 0, 0, 0.18)',
+  selectedCell: '#111111',
+  clickPoint: '#8a8a8a',
+  clickPointStroke: '#ffffff',
+  pin: '#111111',
+}
