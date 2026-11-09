@@ -23,12 +23,14 @@ interface Props {
   coloursWithPin: boolean
   onColoursWithPin: (on: boolean) => void
   direction: IsochroneDirection
+  /** Message when the reverse isochrone could not be loaded. */
+  reverseError: string | null
 }
 
 const fmtMin = (m: number | null | undefined) => (m === null || m === undefined ? '–' : `${m.toFixed(1)} min`)
 
 export default function Inspector(props: Props) {
-  const { meta, state, districtName, category, onCategory, onClose, card, coloursWithPin, onColoursWithPin, direction } = props
+  const { meta, state, districtName, category, onCategory, onClose, card, coloursWithPin, onColoursWithPin, direction, reverseError } = props
   if (state.status === 'idle') return null
   return (
     <Card
@@ -61,7 +63,7 @@ export default function Inspector(props: Props) {
       )}
       {state.status === 'loading' && state.previous && (
         <div className="stale">
-          <InspectBody data={state.previous} meta={meta} districtName={districtName} category={category} onCategory={onCategory} direction={direction} />
+          <InspectBody data={state.previous} meta={meta} districtName={districtName} category={category} onCategory={onCategory} direction={direction} reverseError={reverseError} />
         </div>
       )}
       {state.status === 'error' && (
@@ -70,7 +72,7 @@ export default function Inspector(props: Props) {
         </p>
       )}
       {state.status === 'done' && (
-        <InspectBody data={state.data} meta={meta} districtName={districtName} category={category} onCategory={onCategory} direction={direction} />
+        <InspectBody data={state.data} meta={meta} districtName={districtName} category={category} onCategory={onCategory} direction={direction} reverseError={reverseError} />
       )}
     </Card>
   )
@@ -83,8 +85,10 @@ function InspectBody({
   category,
   onCategory,
   direction,
+  reverseError,
 }: {
   direction: IsochroneDirection
+  reverseError: string | null
   data: Inspect
   meta: Meta
   districtName: (id: string | null) => string | null
@@ -195,7 +199,12 @@ function InspectBody({
       <p className="muted small" data-testid="isochrone-legend">
         Count / needed for “sufficient” · time to the nearest.{' '}
         {direction !== 'reverse' && <>Forward (dashed): where you get in {rings} min. </>}
-        {direction !== 'forward' && <>Reverse (dotted): from where people reach this point in {rings} min. </>}
+        {direction !== 'forward' &&
+          (reverseError ? (
+            <span role="alert">Reverse isochrone unavailable: {reverseError} </span>
+          ) : (
+            <>Reverse (dotted): from where people reach this point in {rings} min. </>
+          ))}
         Display only; counts use the routing matrix.
         {data.cached && ' · cached'}
       </p>

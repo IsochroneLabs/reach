@@ -216,21 +216,23 @@ function Main({ meta, districts }: { meta: Meta; districts: Districts }) {
   )
   // Reverse isochrone of the inspected cell, requested only when the settings ask for it.
   const wantReverse = settings.isochroneDirection !== 'forward'
-  const inspectedOrigin = inspect.status === 'done' ? inspect.data.cell.origin : null
+  // from the shown answer, so the reverse isochrone stays with the forward one while a new pin loads
+  const inspectedOrigin = shownInspect?.cell.origin ?? null
   const reverseKey = inspectedOrigin && wantReverse ? `${inspectedOrigin.join(',')}|${profile.profile_id}` : null
-  const [reverse, setReverse] = useState<{ key: string; data: IsochroneAnswer } | null>(null)
+  const [reverse, setReverse] = useState<{ key: string; data: IsochroneAnswer | null; error?: string } | null>(null)
   useEffect(() => {
     if (!reverseKey || !inspectedOrigin) return
     const controller = new AbortController()
     postIsochrone(inspectedOrigin[0], inspectedOrigin[1], profile.profile_id, 'reverse', controller.signal).then(
       (data) => setReverse({ key: reverseKey, data }),
-      (err: unknown) => !controller.signal.aborted && console.warn('reverse isochrone:', errorMessage(err)),
+      (err: unknown) => !controller.signal.aborted && setReverse({ key: reverseKey, data: null, error: errorMessage(err) }),
     )
     return () => controller.abort()
     // the key covers origin and profile
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reverseKey])
-  const reverseIsochrone = pin && reverse && reverse.key === reverseKey ? reverse.data.isochrone : null
+  const reverseOfPin = pin && reverse && reverse.key === reverseKey ? reverse : null
+  const reverseIsochrone = reverseOfPin?.data?.isochrone ?? null
 
   const card = (id: string) => ({
     open: cardOpen(settings, id),
@@ -285,6 +287,7 @@ function Main({ meta, districts }: { meta: Meta; districts: Districts }) {
               card={card('inspector')}
               coloursWithPin={settings.coloursWithPin}
               direction={settings.isochroneDirection}
+              reverseError={reverseOfPin?.error ?? null}
               onColoursWithPin={(on) => updateSettings({ coloursWithPin: on })}
             />
             <RecommendationsPanel

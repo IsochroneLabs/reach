@@ -235,6 +235,25 @@ test('shows the reverse isochrone when chosen in the settings', async ({ page })
   expect(errors).toEqual([])
 })
 
+test('says so when the reverse isochrone fails', async ({ page }) => {
+  test.skip(live, 'the error answer is mocked')
+  await mockNetwork(page)
+  // registered after mockNetwork, so it wins for /api/isochrone
+  await page.route('**/api/isochrone', (route) =>
+    route.fulfill({ status: 502, contentType: 'application/json', body: '{"detail":"valhalla down"}' }),
+  )
+  await page.goto('/#/map?profile=walking_339&category=grocery')
+  await expect(page.getByTestId('map')).toHaveAttribute('data-ready', 'true', { timeout: 30_000 })
+  await page.getByRole('button', { name: 'Map settings' }).click()
+  await page.getByRole('dialog', { name: 'Map settings' }).getByLabel('Both').check()
+  await page.keyboard.press('Escape')
+  const { x, y } = await initialPixel(page, POINT)
+  await page.mouse.click(x, y)
+  const legend = page.getByTestId('isochrone-legend')
+  await expect(legend).toContainText('Forward (dashed)')
+  await expect(legend).toContainText('Reverse isochrone unavailable: The routing engine did not answer')
+})
+
 test('labels slow answers and explains timeouts and rate limits', async ({ page }) => {
   test.skip(live, 'error answers are mocked')
   const errors: string[] = []
