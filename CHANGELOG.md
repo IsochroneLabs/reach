@@ -7,6 +7,13 @@ adds a line under `Unreleased`.
 
 ## [Unreleased]
 
+### Changed (API and web app, W3 cell status and click area)
+- Live answers carry `cell.status` (`scored`, `unpopulated`, `outside_city`); the inspector names
+  it instead of "No residents in this 100 m cell" for every unscored cell (data contract v0.12).
+- Live endpoints accept clicks whose point or cell centre lies inside the city boundary, no longer
+  the urban boundary + 100 m (architecture v0.20 rule 12); `api.boundary_margin_m` is not read
+  any more.
+
 ### Added (API and web app, W2 isochrone direction)
 - `POST /api/isochrone` {`lon`, `lat`, `profile`, `direction`}: forward or reverse isochrone of
   the cell origin, cached per direction (data contract v0.11, architecture v0.19 §9).

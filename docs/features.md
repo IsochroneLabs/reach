@@ -47,6 +47,9 @@ Residents are a secondary audience served by the same map.
   reach it) or both, chosen in the map settings (`POST /api/isochrone`); on slopes they differ.
 - Values come from the precomputed cell, so map and inspector always agree
   (`architecture.md` §6.5).
+- **Click area and cell status:** clicks are accepted anywhere in the city; the inspector says
+  whether the cell is scored (its residents), has no residents in the Zensus grid (values
+  computed live) or lies outside the city boundary (not scored).
 - **Spread view (Stretch-light):** street-level spread via Valhalla `expansion`, animated by time.
 
 ## 5. Recommendations (Core)
