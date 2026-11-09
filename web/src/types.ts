@@ -192,6 +192,22 @@ export interface ReachableFacility {
   name: string | null
   time_s: number
   time_min: number
+  /** Routing point [lon, lat] the time was measured to (for parks the access point). */
+  point: [number, number]
+}
+
+export type RouteLine = Feature<LineString, { time_s: number; length_m: number }>
+
+/** The fastest facility of a category that is not counted yet (cell below `k`), also beyond the
+ * budget; `route` is null if the route line could not be drawn. */
+export interface NextFacility {
+  facility_id: string
+  name: string | null
+  time_s: number
+  time_min: number
+  point: [number, number]
+  within_budget: boolean
+  route: RouteLine | null
 }
 
 export interface InspectCategory {
@@ -200,7 +216,10 @@ export interface InspectCategory {
   count: number
   count_source: 'precomputed' | 'live'
   reachable: ReachableFacility[]
-  nearest_route: Feature<LineString, { time_s: number; length_m: number }> | null
+  nearest_route: RouteLine | null
+  /** Only for a category below `k`; `next_note` says why there is none (or null). */
+  next_facility: NextFacility | null
+  next_note: string | null
 }
 
 export interface Inspect {
@@ -222,5 +241,16 @@ export interface IsochroneAnswer {
   cell: InspectCell
   direction: 'forward' | 'reverse'
   isochrone: FeatureCollection<Polygon, { contour_min: number }>
+  cached: boolean
+}
+
+/** POST /api/route: route from the cell origin to one facility (list click), any distance. */
+export interface RouteAnswer {
+  run_id: string
+  profile_id: string
+  cell: InspectCell
+  facility: { facility_id: string; name: string | null; categories: string[]; point: [number, number] }
+  within_budget: boolean
+  route: RouteLine
   cached: boolean
 }

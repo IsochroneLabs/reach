@@ -155,7 +155,7 @@ export default function SettingsPanel({ settings, onChange, onReset, rings, dire
           <fieldset>
             <legend>Layers</legend>
             {check('showDistricts', 'District boundaries')}
-            {check('showPois', 'Route to the nearest facility')}
+            {check('showPois', 'Facility pins and routes')}
             {check('showRecommendations', 'Recommended sites')}
           </fieldset>
           <fieldset>

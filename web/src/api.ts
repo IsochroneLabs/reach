@@ -10,6 +10,7 @@ import type {
   IsochroneAnswer,
   Meta,
   Recommendations,
+  RouteAnswer,
 } from './types'
 
 const API_BASE: string = import.meta.env.VITE_API_BASE
@@ -91,6 +92,14 @@ export const postIsochrone = (
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ lon, lat, profile, direction }),
+    signal,
+  })
+
+export const postRoute = (lon: number, lat: number, profile: string, facilityId: string, signal?: AbortSignal) =>
+  request<RouteAnswer>('/route', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ lon, lat, profile, facility_id: facilityId }),
     signal,
   })
 
