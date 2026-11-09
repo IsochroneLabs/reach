@@ -456,7 +456,9 @@ most likely in dense housing areas.
 
 **Resolution (W7a):** `access` in `[private, no, customers]` is excluded for parks and
 playgrounds only (not for schools, childcare, shops or practices, where the tag describes the
-grounds or customers); `validate` reports the dropped features (`facilities_excluded_by_access`:
+grounds or customers); a standing `warn` for `facility_subtypes_complete` is expected until the
+schools are tagged; a private polygon hides only itself (an untagged playground node inside it
+still counts); `validate` reports the dropped features (`facilities_excluded_by_access`:
 in the city 58 private and 10 customers playgrounds, 1 private and 1 closed park; run
 `20261109T175743Z`). Share of residents with a park or playground within 15 minutes (walking
 3.39 km/h) 97.5 % before, 97.2 % after; wheelchair 95.8 % → 94.8 %. Parks alone: 69.2 % (walking

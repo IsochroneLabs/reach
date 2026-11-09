@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import dataclasses
 from datetime import date
 from pathlib import Path
 from typing import Any
@@ -147,3 +148,11 @@ def test_facility_subtypes_complete_warns_below_the_gate(ctx: RunContext) -> Non
     assert warn.status == "warn" and warn.value == 40.0
     assert "8 of 20 amenity=school" in warn.message and "School 0" in warn.message
     assert warn.message.endswith("…")
+
+
+def test_no_subtype_check_without_config(ctx: RunContext) -> None:
+    cfg = ctx.config.model_copy(
+        update={"validation": ctx.config.validation.model_copy(update={"facility_subtypes": None})}
+    )
+    names = {c.check for c in validate.checks(dataclasses.replace(ctx, config=cfg), _result())}
+    assert "facility_subtypes_complete" not in names

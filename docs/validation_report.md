@@ -119,7 +119,6 @@ only). The city list covers what the city lists (no Tagespflege; schools of the 
 others). Name matching misses renamed facilities. Only two categories are checked
 automatically.
 
-
 **Note (10 Nov 2026, W7a).** The pipeline now checks type tags itself: `facility_subtypes_complete`
 reports how many `amenity=school` features in the city carry `school`, `school:de` or
 `isced:level` (run `20261109T175743Z`: 1 of 42, 2.4 %, gate 95 %) and lists the others in

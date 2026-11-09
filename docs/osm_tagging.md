@@ -25,7 +25,7 @@ and the next `make refresh`.
     (parks and playgrounds, §4).
   Values separated by `;` in OSM (`isced:level=1;2`) match if **any** part matches. Every category
   also has a `group` (`food`, `health`, `education`, `green`).
-- **Planned (W5):** `facility_tags` lists the informative tags carried into the app (opening
+- **Since W5:** `facility_tags` lists the informative tags carried into the app (opening
   hours, wheelchair, address, …); they never change counts.
 
 ## 2. Status in Tübingen (run `20261106T142630Z`, OSM 2026-11-01)

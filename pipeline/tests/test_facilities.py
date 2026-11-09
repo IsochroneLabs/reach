@@ -244,3 +244,17 @@ def test_subtype_gap_lists_schools_without_a_type_tag() -> None:
     )
     assert total == 3 and missing == ["B", "n3"]
     assert facilities.subtype_gap(feats, {"amenity": "x"}, ["school"]) == (0, [])
+
+
+def test_require_and_exclude_apply_together() -> None:
+    cat = SECONDARY.model_copy(update={"exclude": [{"access": "private"}]})
+    feats = _features(
+        [
+            ("n1", {"amenity": "school", "school": "secondary"}, Point(0, 0)),
+            ("n2", {"amenity": "school", "school": "secondary", "access": "private"}, Point(1, 0)),
+            ("n3", {"amenity": "school", "school": "secondary", "access": "Private"}, Point(2, 0)),
+            ("n4", {"amenity": "school", "school": "primary"}, Point(3, 0)),
+        ]
+    )
+    fac, _ = facilities.build(feats, _ways(), [cat], AP)
+    assert sorted(fac["facility_id"]) == ["n1", "n3"]  # matching is case-sensitive
