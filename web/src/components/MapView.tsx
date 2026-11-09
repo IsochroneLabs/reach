@@ -1,6 +1,7 @@
 // MapLibre map: basemap, class map of cells, districts, inspector overlays (isochrone and route,
 // display only), the recommendations layer (ranked zones; hidden while the run has none) and the
-// catchment of a selected zone (the cells that reach it, plus its reverse isochrone).
+// catchment of a selected zone (the cells that reach it, plus its reverse isochrone). The map
+// settings (settings.ts) switch layers, opacity, rings and the pin mode without reloading data.
 import {
   AttributionControl,
   Map as MapLibreMap,
@@ -17,15 +18,21 @@ import 'maplibre-gl/dist/maplibre-gl.css'
 // maplibre-gl 6 resolves its worker next to its own module, which the bundle does not keep:
 // let Vite emit the worker as an asset and point MapLibre at it.
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import type { FeatureCollection } from 'geojson'
 import { BASEMAP_ATTRIBUTION, DATA_ATTRIBUTION } from '../attribution'
-import { fillColourExpression, RECOMMENDATION_COLOURS as REC } from '../palette'
+import { fillColourExpression, MAP_COLOURS, RECOMMENDATION_COLOURS as REC } from '../palette'
+import type { MapSettings } from '../settings'
 import type { CandidateCatchment, Cells, Districts, Inspect, Recommendations } from '../types'
 
 setWorkerUrl(workerUrl)
 
 const EMPTY: FeatureCollection = { type: 'FeatureCollection', features: [] }
+
+// the grey dot where the user clicked stays this long; the pin moves to the cell centre
+const CLICK_DOT_MS = 1500
+// layers a click selects (instead of dropping a pin); they get the pointer cursor
+const CLICKABLE_LAYERS = ['recommendations']
 
 // Shown when the basemap style cannot be loaded (offline demo): the data layers still work.
 const FALLBACK_STYLE: StyleSpecification = {
@@ -67,13 +74,19 @@ interface Props {
   districts: Districts
   selectedDistrict: string | null
   inspect: Inspect | null
-  pin: [number, number] | null
+  /** Pin position: the routing origin of the inspected cell (`cell.origin`). */
+  marker: [number, number] | null
+  /** A pin is set (pin mode: isochrone and route, cell colours only if the settings say so). */
+  pinMode: boolean
+  settings: MapSettings
   routeCategory: string
   recommendations: Recommendations | null
   selectedCandidate: string | null
   catchment: CandidateCatchment | null
   onPick: (lon: number, lat: number) => void
   onRecommendation: (candidateId: string) => void
+  /** Overlays on the map (settings button). */
+  children?: ReactNode
 }
 
 /** True for the recommendation with this candidate id (selected marker). */
@@ -98,12 +111,13 @@ function recommendationPoints(recs: Recommendations): FeatureCollection {
 }
 
 export default function MapView(props: Props) {
-  const { cells, classes, transit, districts, selectedDistrict, inspect, pin, routeCategory, recommendations } = props
-  const { selectedCandidate, catchment } = props
+  const { cells, classes, transit, districts, selectedDistrict, inspect, marker, routeCategory, recommendations } = props
+  const { selectedCandidate, catchment, pinMode, settings } = props
   const container = useRef<HTMLDivElement>(null)
   const mapRef = useRef<MapLibreMap | null>(null)
   const markerRef = useRef<Marker | null>(null)
   const [ready, setReady] = useState(false)
+  const clickTimer = useRef<number | undefined>(undefined)
   const [basemapOk, setBasemapOk] = useState(true)
   const onPick = useRef(props.onPick)
   const onRecommendation = useRef(props.onRecommendation)
@@ -146,14 +160,31 @@ export default function MapView(props: Props) {
         const hit = map?.getLayer('recommendations')
           ? map.queryRenderedFeatures(e.point, { layers: ['recommendations'] })[0]
           : undefined
-        if (hit) onRecommendation.current(String(hit.properties.candidate_id))
-        else onPick.current(e.lngLat.lng, e.lngLat.lat)
+        if (hit) {
+          onRecommendation.current(String(hit.properties.candidate_id))
+          return
+        }
+        onPick.current(e.lngLat.lng, e.lngLat.lat)
+        const dot = map?.getSource('click-point') as GeoJSONSource | undefined
+        dot?.setData({ type: 'Feature', properties: {}, geometry: { type: 'Point', coordinates: [e.lngLat.lng, e.lngLat.lat] } })
+        window.clearTimeout(clickTimer.current)
+        clickTimer.current = window.setTimeout(() => dot?.setData(EMPTY), CLICK_DOT_MS)
       })
+      for (const layer of CLICKABLE_LAYERS) {
+        map.on('mouseenter', layer, () => {
+          if (map) map.getCanvas().style.cursor = 'pointer'
+        })
+        // back to the crosshair of styles.css
+        map.on('mouseleave', layer, () => {
+          if (map) map.getCanvas().style.cursor = ''
+        })
+      }
       map.on('load', () => {
         if (!map) return
         // data below the basemap labels, so street and place names stay readable
         const labels = map.getStyle().layers.find((l) => l.type === 'symbol')?.id
         const sources = ['cells', 'districts', 'isochrone', 'route', 'recommendations', 'recommendation-zones']
+        sources.push('cell-selected', 'click-point')
         for (const id of [...sources, 'catchment', 'catchment-isochrone'])
           map.addSource(id, { type: 'geojson', data: EMPTY })
         map.addLayer(
@@ -162,7 +193,18 @@ export default function MapView(props: Props) {
             type: 'fill',
             source: 'cells',
             // the faint outline keeps the lightest classes apart from the light basemap
-            paint: { 'fill-opacity': 0.8, 'fill-outline-color': 'rgba(0, 0, 0, 0.18)' },
+            paint: { 'fill-opacity': 0.8, 'fill-outline-color': MAP_COLOURS.cellOutline },
+          },
+          labels,
+        )
+        // pin mode without colours: the fill is transparent, a thin grid stays
+        map.addLayer(
+          {
+            id: 'cells-outline',
+            type: 'line',
+            source: 'cells',
+            layout: { visibility: 'none' },
+            paint: { 'line-color': MAP_COLOURS.cellOutline, 'line-width': 0.6 },
           },
           labels,
         )
@@ -185,6 +227,13 @@ export default function MapView(props: Props) {
           },
           labels,
         )
+        // the scored cell of the pin: routing starts at its centre
+        map.addLayer({
+          id: 'cell-selected',
+          type: 'line',
+          source: 'cell-selected',
+          paint: { 'line-color': MAP_COLOURS.selectedCell, 'line-width': 2.5 },
+        })
         map.addLayer({
           id: 'isochrone-fill',
           type: 'fill',
@@ -267,6 +316,17 @@ export default function MapView(props: Props) {
             },
             paint: { 'text-color': pick('', REC.selectedText, REC.ring) },
           })
+        map.addLayer({
+          id: 'click-point',
+          type: 'circle',
+          source: 'click-point',
+          paint: {
+            'circle-radius': 4,
+            'circle-color': MAP_COLOURS.clickPoint,
+            'circle-stroke-color': '#ffffff',
+            'circle-stroke-width': 1,
+          },
+        })
         setReady(true)
       })
     })
@@ -290,6 +350,28 @@ export default function MapView(props: Props) {
   useEffect(() => {
     if (ready) source('districts')?.setData(districts)
   }, [ready, districts])
+
+  // Display settings: visibility, opacity and filters only, the data stays loaded.
+  useEffect(() => {
+    const map = mapRef.current
+    if (!ready || !map) return
+    const visible = (on: boolean) => (on ? 'visible' : 'none')
+    const coloured = !pinMode || settings.coloursWithPin
+    const minResidents: ExpressionSpecification = ['>=', ['get', 'population'], settings.minResidents]
+    map.setLayoutProperty('cells-fill', 'visibility', visible(settings.showCells))
+    map.setPaintProperty('cells-fill', 'fill-opacity', coloured ? settings.cellOpacity : 0)
+    map.setFilter('cells-fill', minResidents)
+    map.setLayoutProperty('cells-outline', 'visibility', visible(settings.showCells && !coloured))
+    map.setFilter('cells-outline', minResidents)
+    for (const id of ['districts-line', 'districts-selected'])
+      map.setLayoutProperty(id, 'visibility', visible(settings.showDistricts))
+    for (const id of ['route-casing', 'route-line']) map.setLayoutProperty(id, 'visibility', visible(settings.showPois))
+    const hidden = Object.entries(settings.isochroneRings)
+      .filter(([, shown]) => !shown)
+      .map(([m]) => Number(m))
+    const rings: ExpressionSpecification = ['!', ['in', ['get', 'contour_min'], ['literal', hidden]]]
+    for (const id of ['isochrone-fill', 'isochrone-line']) map.setFilter(id, rings)
+  }, [ready, settings, pinMode])
 
   useEffect(() => {
     if (ready)
@@ -316,12 +398,12 @@ export default function MapView(props: Props) {
   useEffect(() => {
     const map = mapRef.current
     if (!ready || !map) return
-    const show = Boolean(recommendations?.available && recommendations.features.length)
+    const show = Boolean(settings.showRecommendations && recommendations?.available && recommendations.features.length)
     source('recommendations')?.setData(show && recommendations ? recommendationPoints(recommendations) : EMPTY)
     source('recommendation-zones')?.setData(show && recommendations ? recommendations : EMPTY)
     for (const id of ['recommendations', 'recommendations-rank'])
       if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', show ? 'visible' : 'none')
-  }, [ready, recommendations])
+  }, [ready, recommendations, settings.showRecommendations])
 
   useEffect(() => {
     const map = mapRef.current
@@ -350,17 +432,27 @@ export default function MapView(props: Props) {
       map.fitBounds(bboxOf(catchment.isochrone), { padding: 40, maxZoom: 15, duration: 600 })
   }, [ready, catchment])
 
+  // Outline of the inspected cell (scored cells only: the map has no polygons of the others).
+  const cellId = inspect?.cell.cell_id ?? null
+  useEffect(() => {
+    if (!ready) return
+    const feature = pinMode && cellId ? cells?.features.find((f) => f.properties.cell_id === cellId) : undefined
+    source('cell-selected')?.setData(feature ? { type: 'FeatureCollection', features: [feature] } : EMPTY)
+  }, [ready, cells, cellId, pinMode])
+
   useEffect(() => {
     const map = mapRef.current
     if (!ready || !map) return
-    if (!pin) {
+    if (!marker) {
       markerRef.current?.remove()
       markerRef.current = null
       return
     }
-    if (!markerRef.current) markerRef.current = new Marker({ color: '#111111' })
-    markerRef.current.setLngLat(pin).addTo(map)
-  }, [ready, pin])
+    if (!markerRef.current) markerRef.current = new Marker({ color: MAP_COLOURS.pin })
+    markerRef.current.setLngLat(marker).addTo(map)
+  }, [ready, marker])
+
+  useEffect(() => () => window.clearTimeout(clickTimer.current), [])
 
   return (
     <div className="map-wrap">
@@ -373,6 +465,7 @@ export default function MapView(props: Props) {
         aria-label="Map: click to inspect a location"
       />
       {!basemapOk && <div className="map-notice">Basemap unavailable — data layers only.</div>}
+      {props.children}
     </div>
   )
 }

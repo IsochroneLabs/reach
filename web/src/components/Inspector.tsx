@@ -1,7 +1,9 @@
 // Pin-drop inspector (POST /api/inspect): precomputed classes and counts of the cell, reachable
 // facilities with travel times, the route to the nearest one (time first, length secondary) and the 5/10/15 min isochrone (display).
+import { CARD_HELP, classPlain } from '../labels'
 import { classColour, classLabel, TRANSIT } from '../palette'
 import type { Inspect, Meta } from '../types'
+import Card from './Card'
 
 export type InspectState =
   | { status: 'idle' }
@@ -16,20 +18,37 @@ interface Props {
   category: string
   onCategory: (id: string) => void
   onClose: () => void
+  card: { open: boolean; onToggle: (open: boolean) => void }
+  coloursWithPin: boolean
+  onColoursWithPin: (on: boolean) => void
 }
 
 const fmtMin = (m: number | null | undefined) => (m === null || m === undefined ? '–' : `${m.toFixed(1)} min`)
 
-export default function Inspector({ meta, state, districtName, category, onCategory, onClose }: Props) {
+export default function Inspector(props: Props) {
+  const { meta, state, districtName, category, onCategory, onClose, card, coloursWithPin, onColoursWithPin } = props
   if (state.status === 'idle') return null
   return (
-    <section id="inspector" className="card inspector" aria-label="Inspector" aria-busy={state.status === 'loading'}>
-      <header className="card-head">
-        <h2>Location</h2>
-        <button type="button" className="icon-btn" onClick={onClose} aria-label="Close inspector">
-          ×
-        </button>
-      </header>
+    <Card
+      id="inspector"
+      className="inspector"
+      title="Location"
+      label="Inspector"
+      busy={state.status === 'loading'}
+      help={CARD_HELP.inspector}
+      {...card}
+      extra={
+        <span className="card-tools">
+          <label className="check small" title="Show the cell colours while a pin is set">
+            <input type="checkbox" checked={coloursWithPin} onChange={(e) => onColoursWithPin(e.target.checked)} />
+            Show cell colours
+          </label>
+          <button type="button" className="icon-btn" onClick={onClose} aria-label="Close inspector">
+            ×
+          </button>
+        </span>
+      }
+    >
       {state.status === 'loading' && state.showSpinner && (
         <p className="loading" role="status">
           <span className="spinner" aria-hidden="true" /> Calculating reachable facilities…
@@ -51,7 +70,7 @@ export default function Inspector({ meta, state, districtName, category, onCateg
       {state.status === 'done' && (
         <InspectBody data={state.data} meta={meta} districtName={districtName} category={category} onCategory={onCategory} />
       )}
-    </section>
+    </Card>
   )
 }
 
@@ -73,6 +92,7 @@ function InspectBody({
   const live = data.source === 'live'
   const weakest = data.weakest_category
   const district = districtName(data.cell.district_id)
+  const budgetMin = meta.profiles.find((p) => p.profile_id === data.profile_id)?.time_budget_min ?? null
 
   return (
     <div data-testid="inspect-result">
@@ -95,10 +115,11 @@ function InspectBody({
           </span>
         )}
       </p>
+      <p className="muted small origin-note">Measured from the centre of this 100 m cell (the pin).</p>
       {weakest && (
         <p className="weakest">
           Weakest category: <strong>{meta.categories.find((c) => c.id === weakest)?.name ?? weakest}</strong>
-          {pre.get(weakest) && <> ({pre.get(weakest)!.class})</>}
+          {pre.get(weakest) && <> ({classPlain(pre.get(weakest)!.class, budgetMin).toLowerCase()})</>}
         </p>
       )}
       {data.cell.scored && !weakest && data.precomputed && <p className="weakest">All categories sufficient.</p>}
@@ -112,7 +133,7 @@ function InspectBody({
             <li key={c.category} className={c.category === category ? 'selected' : undefined}>
               <details>
                 <summary>
-                  <span className="swatch" style={{ background: classColour(p?.class) }} title={p ? classLabel(p.class) : 'not scored'} />
+                  <span className="swatch" style={{ background: classColour(p?.class) }} title={p ? `${classPlain(p.class, budgetMin)} (${classLabel(p.class)})` : 'not scored'} />
                   <button type="button" className="link-btn" onClick={() => onCategory(c.category)} title="Show on the map">
                     {c.name}
                   </button>
@@ -153,7 +174,7 @@ function InspectBody({
         {transit && (
           <li className={category === TRANSIT ? 'selected' : undefined}>
             <div className="transit-row">
-              <span className="swatch" style={{ background: classColour(transit.class, true) }} title={classLabel(transit.class)} />
+              <span className="swatch" style={{ background: classColour(transit.class, true) }} title={`${classPlain(transit.class, null, true)} (${classLabel(transit.class)})`} />
               <button type="button" className="link-btn" onClick={() => onCategory(TRANSIT)} title="Show on the map">
                 Public transport
               </button>

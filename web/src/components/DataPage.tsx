@@ -54,7 +54,7 @@ export default function DataPage({ meta }: { meta: Meta }) {
           <dt>Reference weekday</dt>
           <dd>{fmtDate(run.reference_weekday)}</dd>
           <dt>Profiles</dt>
-          <dd>{meta.profiles.map(profileLabel).join(' · ')}</dd>
+          <dd>{meta.profiles.map((p) => profileLabel(p, meta.profiles)).join(' · ')}</dd>
           <dt>Categories (k)</dt>
           <dd>{meta.categories.map((c) => `${c.name} (${c.k})`).join(' · ')}</dd>
         </dl>
