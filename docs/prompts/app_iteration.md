@@ -52,11 +52,14 @@ dev/main, editing OSM.
 STEP 1 — FIND THE NEXT PACKAGE (start of every session and after every PR)
 git fetch --all --prune. For each package take its branch from plan §3 and run
 gh pr list --repo IsochroneLabs/reach --state all --head <branch> --json number,state,url
-merged = done, open = built, none = to build. Next = first package without a PR. Show me the
-table in a few lines, then continue.
+merged = done, open = built, none = to build. Next = first package without a PR. Read the
+handoff comments on the open PRs of this iteration (gh api repos/IsochroneLabs/reach/issues/<n>/comments)
+and follow them unless they conflict with this prompt. Show me the table in a few lines, then
+continue.
 
 STEP 2 — BRANCH
-Prerequisites: W4←W3, W5←W4, W7a←W5, W7b←W7a, W8←W7b; W1, W2, W3, W6 have none.
+Prerequisites: W2←W1 (direction switch lives in the W1 settings panel), W3←W2 (both change
+live.py and Inspector.tsx), W4←W3, W5←W4, W7a←W5, W7b←W7a, W8←W7b; W1 and W6 have none.
 Prerequisite merged → branch from origin/dev. Only an open PR → branch from its branch, first line
 of the PR body "Depends on #<n>"; rebase onto origin/dev once it is merged (--force-with-lease,
 own branch only).
