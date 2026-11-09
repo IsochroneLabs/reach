@@ -8,9 +8,13 @@
 - A node and an area with the same category tag that overlap are one facility: for point
   categories the node is kept (it marks the shop or entrance), for access-point categories the
   area is kept (it has the boundary).
+- Informative OSM tags (`facility_tags`, shown in the app, never used for counting) are kept per
+  facility as a JSON object in `tags`; areas also keep a simplified `area_geometry`.
 """
 
 from __future__ import annotations
+
+import json
 
 import geopandas as gpd
 import numpy as np
@@ -23,11 +27,48 @@ METRIC_CRS = "EPSG:25832"
 _POLYGONAL = ("Polygon", "MultiPolygon")
 # Access points closer than this along one boundary are the same point (metres).
 _SAME_POINT_M = 1.0
+# Tolerance of the area outline kept for display (metres).
+AREA_SIMPLIFY_M = 2.0
 
 
-def match_categories(features: gpd.GeoDataFrame, categories: list[Category]) -> gpd.GeoDataFrame:
+def _tags_json(features: gpd.GeoDataFrame, keys: list[str]) -> pd.Series:
+    """The informative tags of every feature as a JSON object text (`{}` if it has none)."""
+    present = [k for k in keys if k in features.columns]
+    if not present:
+        return pd.Series("{}", index=features.index)
+    records = features[present].astype(object).to_dict("records")  # one row per facility
+    return pd.Series(
+        [
+            json.dumps(
+                {k: v for k, v in r.items() if isinstance(v, str) and v},
+                ensure_ascii=False,
+                sort_keys=True,
+            )
+            for r in records
+        ],
+        index=features.index,
+    )
+
+
+def _area_outlines(geoms: gpd.GeoSeries) -> np.ndarray:
+    """Simplified MultiPolygon per polygonal geometry, None for points (display only)."""
+    values = np.full(len(geoms), None, dtype=object)
+    is_area = geoms.geom_type.isin(_POLYGONAL).to_numpy()
+    if is_area.any():
+        simple = shapely.simplify(geoms.values[is_area], AREA_SIMPLIFY_M, preserve_topology=True)
+        parts, idx = shapely.get_parts(simple, return_index=True)
+        values[is_area] = shapely.multipolygons(parts, indices=idx)
+    return values
+
+
+def match_categories(
+    features: gpd.GeoDataFrame, categories: list[Category], tag_keys: list[str] | tuple = ()
+) -> gpd.GeoDataFrame:
     """One row per (feature, category, tag) that matches; columns `facility_id`, `category`,
-    `tag` (`key=value`), `name`, `is_area`, geometry."""
+    `tag` (`key=value`), `name`, `tags` (JSON of `tag_keys`), `area_geometry` (display outline of
+    areas, else None), `is_area`, geometry."""
+    info = _tags_json(features, list(tag_keys))
+    outline = pd.Series(_area_outlines(features.geometry), index=features.index)
     frames = []
     for cat in categories:
         for tag in cat.tags:
@@ -42,6 +83,8 @@ def match_categories(features: gpd.GeoDataFrame, categories: list[Category]) -> 
                         "category": cat.id,
                         "tag": f"{key}={value}",
                         "name": hit["name"].to_numpy() if "name" in hit else None,
+                        "tags": info.loc[hit.index].to_numpy(),
+                        "area_geometry": outline.loc[hit.index].to_numpy(),
                     },
                     geometry=hit.geometry.values,
                     crs=METRIC_CRS,
@@ -49,7 +92,16 @@ def match_categories(features: gpd.GeoDataFrame, categories: list[Category]) -> 
             )
     if not frames:
         return gpd.GeoDataFrame(
-            columns=["facility_id", "category", "tag", "name", "is_area", "geometry"],
+            columns=[
+                "facility_id",
+                "category",
+                "tag",
+                "name",
+                "tags",
+                "area_geometry",
+                "is_area",
+                "geometry",
+            ],
             geometry="geometry",
             crs=METRIC_CRS,
         )
@@ -142,16 +194,21 @@ def build(
     ways: gpd.GeoSeries,
     categories: list[Category],
     cfg: AccessPoints,
+    tag_keys: list[str] | tuple = (),
 ) -> tuple[gpd.GeoDataFrame, gpd.GeoDataFrame]:
-    """Facilities (`facility_id`, `category`, `name`, point geometry) and their routing points
-    (`facility_id`, `point_id`, `kind`, geometry), from exported points and polygons."""
-    matched = dedupe(match_categories(features, categories), categories)
+    """Facilities (`facility_id`, `category`, `name`, `tags`, point geometry, `area_geometry`)
+    and their routing points (`facility_id`, `point_id`, `kind`, geometry), from exported points
+    and polygons."""
+    matched = dedupe(match_categories(features, categories, tag_keys), categories)
     access_cats = {c.id for c in categories if c.location == "access_points"}
 
     facilities = gpd.GeoDataFrame(
-        matched[["facility_id", "category", "name"]],
+        matched[["facility_id", "category", "name", "tags"]],
         geometry=matched.representative_point().values,  # a point stays itself
         crs=METRIC_CRS,
+    )
+    facilities["area_geometry"] = gpd.GeoSeries(
+        matched["area_geometry"].to_numpy(), index=facilities.index, crs=METRIC_CRS
     )
 
     # Routing points per facility id (shared by all its categories).

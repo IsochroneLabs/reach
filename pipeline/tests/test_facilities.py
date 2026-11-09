@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+
 import geopandas as gpd
 import numpy as np
 from shapely.geometry import LineString, Point, box
@@ -104,3 +106,39 @@ def test_access_points_capped_evenly() -> None:
 def test_tiny_playground_gets_one_point() -> None:
     area = gpd.GeoDataFrame({"facility_id": ["w1"]}, geometry=[box(0, 0, 10, 10)], crs=CRS)
     assert len(facilities.access_points(area, _ways(), AP)) == 1
+
+
+def test_informative_tags_and_area_outline() -> None:
+    feats = _features(
+        [
+            (
+                "n1",
+                {
+                    "shop": "supermarket",
+                    "name": "Node",
+                    "opening_hours": "Mo-Sa 08:00-20:00",
+                    "wheelchair": "yes",
+                    "note": "not listed",
+                },
+                Point(50, 50),
+            ),
+            ("w3", {"leisure": "park", "name": "Park"}, box(0, 500, 100, 600)),
+            ("n4", {"amenity": "kindergarten"}, Point(900, 900)),
+        ]
+    )
+    fac, _ = facilities.build(feats, _ways(), CATS, AP, ["opening_hours", "wheelchair", "phone"])
+    by_id = fac.set_index("facility_id")
+    # only the listed keys that are set, as JSON text; no tags at all gives {}
+    assert json.loads(by_id.loc["n1", "tags"]) == {
+        "opening_hours": "Mo-Sa 08:00-20:00",
+        "wheelchair": "yes",
+    }
+    assert by_id.loc["n4", "tags"] == "{}"
+    # areas keep a simplified MultiPolygon outline, points none
+    outline = by_id["area_geometry"]
+    assert outline.loc["w3"].geom_type == "MultiPolygon"
+    assert outline.loc["w3"].area == 10_000
+    assert outline.loc["n1"] is None
+    # without `tag_keys` nothing is kept
+    plain, _ = facilities.build(feats, _ways(), CATS, AP)
+    assert (plain["tags"] == "{}").all()

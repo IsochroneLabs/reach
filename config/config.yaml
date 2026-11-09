@@ -141,6 +141,12 @@ access_points:
     [footway, path, pedestrian, steps, living_street, residential, service, track, cycleway,
      bridleway, unclassified, tertiary, secondary, primary]
 
+# Informative OSM keys kept per facility and shown in the app (popup, list), displayed as stored
+# (no parsing of opening_hours). They never change counts (docs/osm_tagging.md §5).
+facility_tags:
+  [opening_hours, wheelchair, website, contact:website, phone, contact:phone, addr:street,
+   addr:housenumber, addr:postcode, brand, operator, healthcare:speciality]
+
 # Public transport supply classes (meth. §3, provisional until M2): bounds on the sum of
 # weekday departures, inclusive; upper null = open-ended. Bounds must increase without gaps.
 transit_classes:
