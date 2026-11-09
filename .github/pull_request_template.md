@@ -17,7 +17,10 @@ architecture.md / data_contract.md / README / CHANGELOG updated? Which sections?
 Limitations, follow-ups, questions.
 
 ## Related
-Closes #
+Plan task ID:
+Tracking issue: #
+
+Use `Closes #N`, `Fixes #N`, or `Resolves #N` only when this PR completes that issue. Otherwise use the tracking reference above so merging the PR does not close unfinished work.
 
 <!-- If an AI assistant prepared this PR: -->
 <!-- Prepared by <assistant> on behalf of @<github-user>. -->

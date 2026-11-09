@@ -58,6 +58,9 @@ merged = done, open = built, none = to build. Next = first package without a PR.
 handoff comments on the open PRs of this iteration (gh api repos/IsochroneLabs/reach/issues/<n>/comments)
 and follow them unless they conflict with this prompt. Show me the table in a few lines, then
 continue.
+Also look up the stable plan task ID and its generated issue in the Data Science Project before
+starting the package; include both the ID and issue reference in the PR. Use a closing keyword
+only if the PR completes that entire issue.
 
 STEP 2 — BRANCH
 Prerequisites: W2←W1 (direction switch lives in the W1 settings panel), W3←W2 (both change
@@ -107,6 +110,9 @@ Push your branch; open a draft PR into dev (REST if GraphQL is blocked:
 gh api repos/IsochroneLabs/reach/pulls -f title=... -f head=<branch> -f base=dev -F draft=true -F body=@<file>).
 Title = Conventional Commit; body = CONTRIBUTING.md §4 template + points closed, commands with
 results, measurements, screenshots, "Prepared by Claude on behalf of @RicoS03."
+Before implementation, look up the generated issue for the package. Include its stable task ID
+(for example `app-iteration/W5`) and issue number in the PR. Use `Closes/Fixes/Resolves #N` only
+when this PR completes the entire tracked task; otherwise write `Tracking issue: #N`.
 
 STEP 8 — REPORT AND CONTINUE
 Tell me in German: package, PR link, what works, open points. Then go back to STEP 1.
