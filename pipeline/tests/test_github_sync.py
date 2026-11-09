@@ -461,7 +461,9 @@ def test_project_preflight_requires_unique_project_and_status_options():
     class ProjectClient:
         repository = "IsochroneLabs/reach"
 
-        def graphql(self, _query, _variables):
+        def graphql(self, query, _variables):
+            assert "fields(first:50) { nodes {" in query
+            assert "                }\n                pageInfo { hasNextPage endCursor }" in query
             return {
                 "organization": {
                     "projectsV2": {
@@ -478,7 +480,6 @@ def test_project_preflight_requires_unique_project_and_status_options():
                                         }
                                     ]
                                 },
-                                "pageInfo": {"hasNextPage": False, "endCursor": None},
                             }
                         ],
                         "pageInfo": {"hasNextPage": False, "endCursor": None},
