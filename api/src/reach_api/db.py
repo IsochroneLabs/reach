@@ -9,6 +9,7 @@ replace it with a fake.
 
 from __future__ import annotations
 
+import time
 from dataclasses import dataclass
 from typing import Any, Protocol
 
@@ -102,6 +103,9 @@ class Database(Protocol):
 
 # Run schema that `current.cells` reads from (same lookup as reach_pipeline.db.current_schema),
 # mapped back to its run id.
+# How long the schema check of `current.facilities` is remembered (seconds).
+_DETAILS_TTL_S = 30.0
+
 _RUN_ID = """
 SELECT r.run_id FROM meta.runs r
 WHERE 'run_' || lower(r.run_id) = (
@@ -396,6 +400,7 @@ class PostgresDatabase:
             open=False,
             kwargs={"autocommit": True, "row_factory": dict_row},
         )
+        self._details_cache: tuple[float, bool] | None = None
 
     async def open(self) -> None:
         await self.pool.open()
@@ -414,13 +419,19 @@ class PostgresDatabase:
 
     async def _details(self) -> bool:
         """True if `current.facilities` has the W5 columns (`tags`, `area_geom`); runs published
-        before have not."""
+        before have not. Remembered for a short time: it only changes when a run is published."""
+        now = time.monotonic()
+        cached = self._details_cache
+        if cached and now - cached[0] < _DETAILS_TTL_S:
+            return cached[1]
         row = await self._one(
             "SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE "
             "table_schema = 'current' AND table_name = 'facilities' AND column_name = 'tags') "
             "AS ok"
         )
-        return bool(row and row["ok"])
+        ok = bool(row and row["ok"])
+        self._details_cache = (now, ok)
+        return ok
 
     async def run_id(self) -> str | None:
         row = await self._one(_RUN_ID)

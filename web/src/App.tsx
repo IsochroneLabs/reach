@@ -381,6 +381,7 @@ function Main({ meta, districts }: { meta: Meta; districts: Districts }) {
             routeCategory={category}
             budgetMin={budgetMin}
             facilities={facilities}
+            areaIds={areaIds}
             selectedFacility={selectedFacility}
             hoveredFacility={hoveredFacility}
             facilityRoute={facilityRoute.status === 'done' ? facilityRoute.data : null}

@@ -142,3 +142,20 @@ def test_informative_tags_and_area_outline() -> None:
     # without `tag_keys` nothing is kept
     plain, _ = facilities.build(feats, _ways(), CATS, AP)
     assert (plain["tags"] == "{}").all()
+
+
+def test_tag_values_are_cleaned_for_jsonb() -> None:
+    long = "x" * 400
+    feats = _features(
+        [
+            (
+                "n1",
+                {"shop": "supermarket", "opening_hours": "Mo\x00-Fr\n08:00", "phone": long},
+                Point(50, 50),
+            ),
+        ]
+    )
+    fac, _ = facilities.build(feats, _ways(), CATS, AP, ["opening_hours", "phone"])
+    tags = json.loads(fac.set_index("facility_id").loc["n1", "tags"])
+    assert tags["opening_hours"] == "Mo -Fr 08:00"  # NUL and newline replaced, never raw
+    assert len(tags["phone"]) == facilities.MAX_TAG_LEN

@@ -136,6 +136,8 @@ categories:
 access_points:
   spacing_m: 50
   max_points: 20
+  # Park outlines kept for display are simplified with this tolerance (m); display only.
+  outline_simplify_m: 2
   # OSM highway values of the walkable ways whose crossings with a park boundary are access points.
   walkable_highways:
     [footway, path, pedestrian, steps, living_street, residential, service, track, cycleway,

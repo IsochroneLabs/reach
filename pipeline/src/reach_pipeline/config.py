@@ -117,6 +117,8 @@ class AccessPoints(_Model):
     spacing_m: float = Field(gt=0)
     max_points: int = Field(ge=1)
     walkable_highways: list[str] = Field(min_length=1)
+    # Tolerance (m) of the park outline kept for display only (never used for routing or counts).
+    outline_simplify_m: float = Field(default=2.0, gt=0)
 
 
 class DateRange(_Model):

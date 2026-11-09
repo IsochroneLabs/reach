@@ -108,6 +108,8 @@ interface Props {
   budgetMin: number | null
   /** All facilities of the selected category with park outlines and access points (or null). */
   facilities: Facilities | null
+  /** Facilities of the category that are parks (area outline), for the park note. */
+  areaIds: Set<string>
   /** Facility picked in the list or on the map, and the one under the pointer in the list. */
   selectedFacility: string | null
   hoveredFacility: string | null
@@ -251,7 +253,7 @@ function popupContent(props: Record<string, unknown>): HTMLElement {
 export default function MapView(props: Props) {
   const { cells, classes, transit, districts, selectedDistrict, inspect, marker, routeCategory, recommendations } = props
   const { selectedCandidate, catchment, pinMode, settings, reverseIsochrone } = props
-  const { budgetMin, selectedFacility, hoveredFacility, facilityRoute, facilities } = props
+  const { budgetMin, selectedFacility, hoveredFacility, facilityRoute, facilities, areaIds } = props
   const container = useRef<HTMLDivElement>(null)
   const mapRef = useRef<MapLibreMap | null>(null)
   const markerRef = useRef<Marker | null>(null)
@@ -707,12 +709,11 @@ export default function MapView(props: Props) {
         type: 'FeatureCollection',
         features: (facilities?.features ?? []).filter((f) => f.properties.kind === kind),
       }) as FeatureCollection
-    return { facility: kinds('facility'), area: kinds('area'), access: kinds('access') }
-  }, [facilities])
-  const areaIds = useMemo(
-    () => new Set(byKind.area.features.map((f) => String(f.properties?.facility_id))),
-    [byKind],
-  )
+    const points = kinds('facility')
+    // the park note of the hover popup needs to know which points are parks
+    for (const f of points.features) f.properties = { ...f.properties, area: areaIds.has(String(f.properties?.facility_id)) }
+    return { facility: points, area: kinds('area'), access: kinds('access') }
+  }, [facilities, areaIds])
   useEffect(() => {
     if (!ready) return
     source('facility-all')?.setData(byKind.facility)
