@@ -7,6 +7,7 @@ import {
   getRecommendations,
   postCandidateCatchment,
   postInspect,
+  postIsochrone,
 } from './api'
 import Controls from './components/Controls'
 import DataPage from './components/DataPage'
@@ -18,7 +19,7 @@ import SettingsPanel from './components/SettingsPanel'
 import { FACILITY_CLASSES, TRANSIT } from './palette'
 import { routeHash, useRoute } from './route'
 import { cardOpen, useSettings } from './settings'
-import type { Cells, Districts, Meta, RecommendationProps, Recommendations } from './types'
+import type { Cells, Districts, IsochroneAnswer, Meta, RecommendationProps, Recommendations } from './types'
 
 // Scored cells answer in < 100 ms: show the spinner only for slower (live) answers.
 const SPINNER_DELAY_MS = 300
@@ -213,6 +214,26 @@ function Main({ meta, districts }: { meta: Meta; districts: Districts }) {
     () => [...new Set(shownInspect?.isochrone.features.map((f) => f.properties.contour_min) ?? [])].sort((a, b) => a - b),
     [shownInspect],
   )
+  // Reverse isochrone of the inspected cell, requested only when the settings ask for it.
+  const wantReverse = settings.isochroneDirection !== 'forward'
+  // from the shown answer, so the reverse isochrone stays with the forward one while a new pin loads
+  const inspectedOrigin = shownInspect?.cell.origin ?? null
+  const reverseKey = inspectedOrigin && wantReverse ? `${inspectedOrigin.join(',')}|${profile.profile_id}` : null
+  const [reverse, setReverse] = useState<{ key: string; data: IsochroneAnswer | null; error?: string } | null>(null)
+  useEffect(() => {
+    if (!reverseKey || !inspectedOrigin) return
+    const controller = new AbortController()
+    postIsochrone(inspectedOrigin[0], inspectedOrigin[1], profile.profile_id, 'reverse', controller.signal).then(
+      (data) => setReverse({ key: reverseKey, data }),
+      (err: unknown) => !controller.signal.aborted && setReverse({ key: reverseKey, data: null, error: errorMessage(err) }),
+    )
+    return () => controller.abort()
+    // the key covers origin and profile
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reverseKey])
+  const reverseOfPin = pin && reverse && reverse.key === reverseKey ? reverse : null
+  const reverseIsochrone = reverseOfPin?.data?.isochrone ?? null
+
   const card = (id: string) => ({
     open: cardOpen(settings, id),
     onToggle: (open: boolean) => setCard(id, open),
@@ -265,6 +286,8 @@ function Main({ meta, districts }: { meta: Meta; districts: Districts }) {
               onClose={closeInspector}
               card={card('inspector')}
               coloursWithPin={settings.coloursWithPin}
+              direction={settings.isochroneDirection}
+              reverseError={reverseOfPin?.error ?? null}
               onColoursWithPin={(on) => updateSettings({ coloursWithPin: on })}
             />
             <RecommendationsPanel
@@ -293,6 +316,7 @@ function Main({ meta, districts }: { meta: Meta; districts: Districts }) {
             districts={districts}
             selectedDistrict={district}
             inspect={shownInspect}
+            reverseIsochrone={reverseIsochrone}
             marker={marker}
             pinMode={pin !== null}
             settings={settings}
@@ -313,7 +337,7 @@ function Main({ meta, districts }: { meta: Meta; districts: Districts }) {
               onChange={updateSettings}
               onReset={resetSettings}
               rings={rings}
-              directionAvailable={false}
+              directionAvailable
             />
           </MapView>
           {pin && (

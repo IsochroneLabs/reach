@@ -1,7 +1,16 @@
 // Thin client for the reach API. Read endpoints send `Cache-Control: no-cache` and an ETag per
 // run, so the browser's HTTP cache revalidates them with `If-None-Match` and reuses the body on
 // 304; nothing is cached here on top of that.
-import type { CandidateCatchment, Cells, DistrictScores, Districts, Inspect, Meta, Recommendations } from './types'
+import type {
+  CandidateCatchment,
+  Cells,
+  DistrictScores,
+  Districts,
+  Inspect,
+  IsochroneAnswer,
+  Meta,
+  Recommendations,
+} from './types'
 
 const API_BASE: string = import.meta.env.VITE_API_BASE
 
@@ -68,6 +77,20 @@ export const postInspect = (lon: number, lat: number, profile: string, signal?: 
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ lon, lat, profile }),
+    signal,
+  })
+
+export const postIsochrone = (
+  lon: number,
+  lat: number,
+  profile: string,
+  direction: 'forward' | 'reverse',
+  signal?: AbortSignal,
+) =>
+  request<IsochroneAnswer>('/isochrone', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ lon, lat, profile, direction }),
     signal,
   })
 

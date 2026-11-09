@@ -17,7 +17,7 @@ University of Tübingen, winter term 2026/27), Topic 9 "The 15-Minute City".
 > `publish` loads each validated run into PostGIS and switches the `current` views to it, the
 > API serves the results as GeoJSON plus live isochrones and routes, and the web app shows the
 > class map, a pin-drop inspector, recommended sites with their catchments, district statistics,
-> map settings (layers, cell opacity, isochrone rings, minimum residents, pin mode) and the data &
+> map settings (layers, cell opacity, isochrone rings and direction, minimum residents, pin mode) and the data &
 > validation page. The app iteration on 18 feedback points (plan in PR #34) is in
 > progress. The validation experiments V1–V11 run with `make experiments`
 > and are interpreted in [`docs/validation_report.md`](docs/validation_report.md) (V7 and V9

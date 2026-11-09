@@ -86,6 +86,13 @@ export const RECOMMENDATION_COLOURS = {
   catchment: '#1f3b70',
 }
 
+/** Isochrones: forward in the accent blue (dashed), reverse in a darker plum (dotted), so the
+ * two differ by line pattern as well as by hue. */
+export const ISOCHRONE_COLOURS = {
+  forward: '#1f3b70',
+  reverse: '#5b2a6e',
+}
+
 /** Map overlays outside the class ramps: cell grid, the inspected cell, the click dot, the pin. */
 export const MAP_COLOURS = {
   cellOutline: 'rgba(0, 0, 0, 0.18)',

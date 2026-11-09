@@ -15,7 +15,7 @@ import asyncio
 import json
 import logging
 from collections.abc import Awaitable, Callable
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Response
 from pydantic import BaseModel, Field, model_validator
@@ -38,6 +38,11 @@ class Point(BaseModel):
     lon: float = Field(ge=-180, le=180)
     lat: float = Field(ge=-90, le=90)
     profile: str
+
+
+class IsochroneRequest(Point):
+    # forward: where you get from the cell; reverse: from where people reach the cell
+    direction: Literal["forward", "reverse"] = "forward"
 
 
 class CatchmentRequest(BaseModel):
@@ -214,6 +219,29 @@ async def _inspect(d: Deps, run: Run, p: Profile, loc: Location) -> dict[str, An
             for c in categories
         ],
     }
+
+
+@router.post("/isochrone")
+async def isochrone(body: IsochroneRequest, d: DepsDep) -> Response:
+    """Isochrone of the cell origin in one direction (display only, rule 9): `forward` = where
+    you get within the contours, `reverse` = from where the origin is reached; on slopes the two
+    differ. `/api/inspect` always carries the forward one."""
+    run = await current_run(d)
+    p = run.profile(body.profile)
+    loc = await _locate(d, body.lon, body.lat)
+    key = (run.run_id, "isochrone", loc.cell_id, p.profile_id, body.direction)
+
+    async def build() -> dict[str, Any]:
+        iso = await _isochrone(d, (loc.lon, loc.lat), p, reverse=body.direction == "reverse")
+        return {
+            "run_id": run.run_id,
+            "profile_id": p.profile_id,
+            "cell": _cell(loc),
+            "direction": body.direction,
+            "isochrone": iso,
+        }
+
+    return await _serve(d.live_cache, key, build)
 
 
 @router.post("/catchment")

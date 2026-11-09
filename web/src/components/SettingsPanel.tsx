@@ -146,7 +146,11 @@ export default function SettingsPanel({ settings, onChange, onReset, rings, dire
                 </label>
               ))}
             </div>
-            {!directionAvailable && <p className="muted small">Reverse isochrones are not available yet.</p>}
+            {directionAvailable ? (
+              <p className="muted small">Forward: where you get. Reverse: from where people reach the pin.</p>
+            ) : (
+              <p className="muted small">Reverse isochrones are not available yet.</p>
+            )}
           </fieldset>
           <fieldset>
             <legend>Layers</legend>

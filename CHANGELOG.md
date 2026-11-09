@@ -7,6 +7,12 @@ adds a line under `Unreleased`.
 
 ## [Unreleased]
 
+### Added (API and web app, W2 isochrone direction)
+- `POST /api/isochrone` {`lon`, `lat`, `profile`, `direction`}: forward or reverse isochrone of
+  the cell origin, cached per direction (data contract v0.11, architecture v0.19 §9).
+- Map settings choose *Forward / Reverse / Both*; the reverse isochrone is dotted in its own
+  colour (forward stays dashed) and is requested only when chosen.
+
 ### Added (web app, W1 map usability)
 - Map settings (gear button below the zoom buttons): cells on/off, cell opacity, minimum
   residents per cell (legend says "X of Y cells shown"), isochrone rings one by one, district

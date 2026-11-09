@@ -1,6 +1,6 @@
 # Data contract — reach
 
-> **Status:** draft v0.10 (6 Nov 2026), from `implementation_plan.md` §3. Binding for the tables
+> **Status:** draft v0.11 (9 Nov 2026), from `implementation_plan.md` §3. Binding for the tables
 > and files exchanged between pipeline and API once a phase implements them; every change needs
 > confirmation (AGENTS.md) and a data-contract test. Tables marked *(planned, Pn)* do not exist yet.
 
@@ -129,6 +129,7 @@ property `contour_min` (5, 10, 15), sorted ascending; display only.
 |---|---|---|
 | `POST /api/inspect` | {`lon`, `lat`, `profile`} | `run_id`, `profile_id`, `cell`, `source` (`precomputed` for scored cells: list from `current.reachable`; `live` for grid cells without residents: live matrix), `precomputed` ({`categories` [{`category`, `count`, `nearest_min`, `class`, `deficit`}], `transit` {`departures`, `stops_count`, `nearest_stop_min`, `class`} or null} or null for unscored cells), `weakest_category` (worst class, then largest deficit; null if all sufficient or unscored), `isochrone`, `categories` [{`category`, `name`, `count` (precomputed for scored cells, live for unscored), `count_source` (`precomputed`/`live`), `reachable` (from `current.reachable`, or the live matrix for unscored cells) [{`facility_id`, `name`, `time_s`, `time_min`}] nearest first, `nearest_route` (Feature LineString, properties `time_s`, `length_m` of /route; display only: for scored cells it goes to the facility's routing point nearest to the origin by straight line, so its `time_s` can differ from the listed matrix time, mostly for parks) or null}], `cached` |
 | `POST /api/catchment` | {`facility_id`, `profile`}, {`lon`, `lat`, `profile`} or {`candidate_id`, `category`, `profile`} (a recommended zone; 404 if it is not recommended for that category and profile) | `run_id`, `profile_id`, `target` ({`kind`: `facility`, `facility_id`, `name`, `categories`}, {`kind`: `cell`, …`cell`} or {`kind`: `candidate`, `candidate_id`, `category`, `rank`, `population_gain`, `residents_gaining_access`, `residents_to_sufficient`, `origin` [lon, lat]}), `source` (`live`: live matrix; `precomputed`: the stored `recommendation_catchments` of the zone), `residents`, `cells`, `cell_ids` (scored cells reaching the target within the budget), `residents_by_class` {category: {class: residents}} (facility categories, or the zone's category; classes of today, before the new facility), `isochrone` (reverse: areas from which the target is reached; live), `cached` |
+| `POST /api/isochrone` | {`lon`, `lat`, `profile`, `direction`: `forward` (default) or `reverse`} | `run_id`, `profile_id`, `cell`, `direction`, `isochrone` (forward: areas reached from the cell origin; reverse: areas from which the origin is reached; live), `cached` |
 | `POST /api/expansion` | {`lon`, `lat`, `profile`} | FeatureCollection of LineStrings (property `duration` in seconds) + `run_id`, `profile_id`, `cell`, `budget_min`, `cached` |
 
 ## Files (`data/runs/<run_id>/<stage>/`)
@@ -265,3 +266,4 @@ their row counts.
 | v0.8 | 2026-11-06 | `GET /api/meta`: `profiles[].transit_budget_min` (from the config like category names; part of the meta ETag) | Transit legend in the web app (P6) |
 | v0.9 | 2026-11-06 | Report part 2: check and key `budget_flips` (flip rate per profile and direction) | Methodology V10 (matrix vs. /route) |
 | v0.10 | 2026-11-06 | `recommendations` columns (gain, residents gaining access / reaching sufficient, catchment, zone + centre) and new `recommendation_catchments`; `recommend/` files (incl. the protected areas not excluded); check and key `recommendations` in report part 2; `/api/recommendations` filled (geo+json, district of the zone); `/api/catchment` for a recommended zone and `source`; `publish` drops `current` views of relations the run does not have | P7 recommender (methodology v0.6 §5, architecture v0.18); confirmed by Rico |
+| v0.11 | 2026-11-09 | `POST /api/isochrone` (`direction` forward/reverse) | App iteration W2 (point 10), architecture v0.19 |
