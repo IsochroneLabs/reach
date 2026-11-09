@@ -733,9 +733,16 @@ def project_preflight(client: GitHub) -> tuple[str, str, dict[str, str]]:
     while True:
         data = client.graphql(
             """query($org:String!,$cursor:String) { organization(login:$org) {
-              projectsV2(first:100,after:$cursor) { nodes { id title fields(first:50) { nodes {
-                ... on ProjectV2SingleSelectField { id name options { id name } }
-              } } pageInfo { hasNextPage endCursor } } } } }""",
+              projectsV2(first:100,after:$cursor) {
+                nodes {
+                  id title
+                  fields(first:50) { nodes {
+                    ... on ProjectV2SingleSelectField { id name options { id name } }
+                  } }
+                }
+                pageInfo { hasNextPage endCursor }
+              }
+            } }""",
             {"org": client.repository.split("/")[0], "cursor": cursor},
         )
         connection = data["organization"]["projectsV2"]

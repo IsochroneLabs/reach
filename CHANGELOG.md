@@ -7,6 +7,10 @@ adds a line under `Unreleased`.
 
 ## [Unreleased]
 
+### Fixed
+- Corrected the Project preflight GraphQL connection query so `pageInfo` is requested at the
+  connection level, allowing the issue sync workflow to validate the Project.
+
 ### Added (GitHub task tracking)
 - Issue and Project sync workflow for approved iteration plans and PRs targeting `dev`, with
   stable plan task IDs, weekly milestone rollover, idempotent Project cards, dry-run dispatch,
