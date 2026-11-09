@@ -21,7 +21,7 @@ import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import type { FeatureCollection } from 'geojson'
 import { BASEMAP_ATTRIBUTION, DATA_ATTRIBUTION } from '../attribution'
-import { fillColourExpression, MAP_COLOURS, RECOMMENDATION_COLOURS as REC } from '../palette'
+import { fillColourExpression, ISOCHRONE_COLOURS as ISO, MAP_COLOURS, RECOMMENDATION_COLOURS as REC } from '../palette'
 import type { MapSettings } from '../settings'
 import type { CandidateCatchment, Cells, Districts, Inspect, Recommendations } from '../types'
 
@@ -74,6 +74,8 @@ interface Props {
   districts: Districts
   selectedDistrict: string | null
   inspect: Inspect | null
+  /** Reverse isochrone of the pin's cell (settings direction reverse or both), else null. */
+  reverseIsochrone: FeatureCollection | null
   /** Pin position: the routing origin of the inspected cell (`cell.origin`). */
   marker: [number, number] | null
   /** A pin is set (pin mode: isochrone and route, cell colours only if the settings say so). */
@@ -112,7 +114,7 @@ function recommendationPoints(recs: Recommendations): FeatureCollection {
 
 export default function MapView(props: Props) {
   const { cells, classes, transit, districts, selectedDistrict, inspect, marker, routeCategory, recommendations } = props
-  const { selectedCandidate, catchment, pinMode, settings } = props
+  const { selectedCandidate, catchment, pinMode, settings, reverseIsochrone } = props
   const container = useRef<HTMLDivElement>(null)
   const mapRef = useRef<MapLibreMap | null>(null)
   const markerRef = useRef<Marker | null>(null)
@@ -184,7 +186,7 @@ export default function MapView(props: Props) {
         // data below the basemap labels, so street and place names stay readable
         const labels = map.getStyle().layers.find((l) => l.type === 'symbol')?.id
         const sources = ['cells', 'districts', 'isochrone', 'route', 'recommendations', 'recommendation-zones']
-        sources.push('cell-selected', 'click-point')
+        sources.push('cell-selected', 'click-point', 'isochrone-reverse')
         for (const id of [...sources, 'catchment', 'catchment-isochrone'])
           map.addSource(id, { type: 'geojson', data: EMPTY })
         map.addLayer(
@@ -238,16 +240,34 @@ export default function MapView(props: Props) {
           id: 'isochrone-fill',
           type: 'fill',
           source: 'isochrone',
-          paint: { 'fill-color': '#1f3b70', 'fill-opacity': 0.07 },
+          paint: { 'fill-color': ISO.forward, 'fill-opacity': 0.07 },
         })
         map.addLayer({
           id: 'isochrone-line',
           type: 'line',
           source: 'isochrone',
           paint: {
-            'line-color': '#1f3b70',
+            'line-color': ISO.forward,
             'line-width': ['match', ['get', 'contour_min'], 5, 2.6, 10, 1.8, 1.2],
             'line-dasharray': [3, 1.5],
+          },
+        })
+        // reverse isochrone: dotted, so it differs from the dashed forward one without colour
+        map.addLayer({
+          id: 'isochrone-reverse-fill',
+          type: 'fill',
+          source: 'isochrone-reverse',
+          paint: { 'fill-color': ISO.reverse, 'fill-opacity': 0.06 },
+        })
+        map.addLayer({
+          id: 'isochrone-reverse-line',
+          type: 'line',
+          source: 'isochrone-reverse',
+          layout: { 'line-cap': 'round' },
+          paint: {
+            'line-color': ISO.reverse,
+            'line-width': ['match', ['get', 'contour_min'], 5, 2.6, 10, 1.8, 1.2],
+            'line-dasharray': [0.1, 2],
           },
         })
         map.addLayer({
@@ -370,8 +390,15 @@ export default function MapView(props: Props) {
       .filter(([, shown]) => !shown)
       .map(([m]) => Number(m))
     const rings: ExpressionSpecification = ['!', ['in', ['get', 'contour_min'], ['literal', hidden]]]
-    for (const id of ['isochrone-fill', 'isochrone-line']) map.setFilter(id, rings)
+    for (const id of ['isochrone-fill', 'isochrone-line', 'isochrone-reverse-fill', 'isochrone-reverse-line'])
+      map.setFilter(id, rings)
+    for (const id of ['isochrone-fill', 'isochrone-line'])
+      map.setLayoutProperty(id, 'visibility', visible(settings.isochroneDirection !== 'reverse'))
   }, [ready, settings, coloured])
+
+  useEffect(() => {
+    if (ready) source('isochrone-reverse')?.setData(reverseIsochrone ?? EMPTY)
+  }, [ready, reverseIsochrone])
 
   useEffect(() => {
     if (ready)

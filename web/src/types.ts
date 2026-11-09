@@ -209,3 +209,13 @@ export interface Inspect {
   categories: InspectCategory[]
   cached: boolean
 }
+
+/** POST /api/isochrone: forward (where you get) or reverse (from where people reach the cell). */
+export interface IsochroneAnswer {
+  run_id: string
+  profile_id: string
+  cell: InspectCell
+  direction: 'forward' | 'reverse'
+  isochrone: FeatureCollection<Polygon, { contour_min: number }>
+  cached: boolean
+}

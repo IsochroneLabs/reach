@@ -15,6 +15,7 @@ const API: [RegExp, string][] = [
   [/\/api\/recommendations/, 'recommendations.json'],
   [/\/api\/inspect$/, 'inspect_walking_339.json'],
   [/\/api\/catchment$/, 'catchment_candidate.json'],
+  [/\/api\/isochrone$/, 'isochrone_reverse_walking_339.json'],
 ]
 
 const BLANK_STYLE = JSON.stringify({
@@ -165,8 +166,7 @@ test('map settings switch layers, filter cells and survive a reload', async ({ p
   await expect(page.getByTestId('cells-shown')).toContainText(/^[\d,]+ of [\d,]+ cells shown$/)
   const [shown, all] = (await page.getByTestId('cells-shown').innerText()).match(/[\d,]+/g)!.map((n) => Number(n.replaceAll(',', '')))
   expect(shown).toBeLessThan(all)
-  // reverse isochrones need the live endpoint of W2
-  await expect(panel.getByLabel('Reverse')).toBeDisabled()
+  await expect(panel.getByLabel('Forward')).toBeChecked()
   await page.keyboard.press('Escape')
   await expect(panel).toHaveCount(0)
   await expect(gear).toBeFocused()
@@ -204,6 +204,34 @@ test('map settings switch layers, filter cells and survive a reload', async ({ p
   await expect(map).toHaveAttribute('data-cell-fill', '0')
   await page.getByRole('button', { name: 'Close inspector' }).click()
   await expect(map).toHaveAttribute('data-cell-fill', '0.8')
+  expect(errors).toEqual([])
+})
+
+test('shows the reverse isochrone when chosen in the settings', async ({ page }) => {
+  test.skip(live, 'checks the recorded request')
+  const errors: string[] = []
+  page.on('console', (m) => m.type() === 'error' && errors.push(m.text()))
+  page.on('pageerror', (e) => errors.push(e.message))
+  await mockNetwork(page)
+  const requests: unknown[] = []
+  page.on('request', (r) => r.url().endsWith('/api/isochrone') && requests.push(r.postDataJSON()))
+
+  await page.goto('/#/map?profile=walking_339&category=grocery')
+  await expect(page.getByTestId('map')).toHaveAttribute('data-ready', 'true', { timeout: 30_000 })
+  const { x, y } = await initialPixel(page, POINT)
+  await page.mouse.click(x, y)
+  const legend = page.getByTestId('isochrone-legend')
+  await expect(legend).toContainText('Forward (dashed)')
+  await expect(legend).not.toContainText('Reverse')
+  expect(requests).toEqual([]) // forward only: no extra request
+
+  await page.getByRole('button', { name: 'Map settings' }).click()
+  await page.getByRole('dialog', { name: 'Map settings' }).getByLabel('Both').check()
+  await expect(legend).toContainText('Reverse (dotted): from where people reach this point')
+  await expect.poll(() => requests.length).toBe(1)
+  expect(requests[0]).toMatchObject({ profile: 'walking_339', direction: 'reverse' })
+  await page.getByRole('dialog', { name: 'Map settings' }).getByLabel('Reverse').check()
+  await expect(legend).not.toContainText('Forward')
   expect(errors).toEqual([])
 })
 

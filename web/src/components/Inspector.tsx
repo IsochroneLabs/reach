@@ -2,6 +2,7 @@
 // facilities with travel times, the route to the nearest one (time first, length secondary) and the 5/10/15 min isochrone (display).
 import { CARD_HELP, classPlain } from '../labels'
 import { classColour, classLabel, TRANSIT } from '../palette'
+import type { IsochroneDirection } from '../settings'
 import type { Inspect, Meta } from '../types'
 import Card from './Card'
 
@@ -21,12 +22,13 @@ interface Props {
   card: { open: boolean; onToggle: (open: boolean) => void }
   coloursWithPin: boolean
   onColoursWithPin: (on: boolean) => void
+  direction: IsochroneDirection
 }
 
 const fmtMin = (m: number | null | undefined) => (m === null || m === undefined ? '–' : `${m.toFixed(1)} min`)
 
 export default function Inspector(props: Props) {
-  const { meta, state, districtName, category, onCategory, onClose, card, coloursWithPin, onColoursWithPin } = props
+  const { meta, state, districtName, category, onCategory, onClose, card, coloursWithPin, onColoursWithPin, direction } = props
   if (state.status === 'idle') return null
   return (
     <Card
@@ -59,7 +61,7 @@ export default function Inspector(props: Props) {
       )}
       {state.status === 'loading' && state.previous && (
         <div className="stale">
-          <InspectBody data={state.previous} meta={meta} districtName={districtName} category={category} onCategory={onCategory} />
+          <InspectBody data={state.previous} meta={meta} districtName={districtName} category={category} onCategory={onCategory} direction={direction} />
         </div>
       )}
       {state.status === 'error' && (
@@ -68,7 +70,7 @@ export default function Inspector(props: Props) {
         </p>
       )}
       {state.status === 'done' && (
-        <InspectBody data={state.data} meta={meta} districtName={districtName} category={category} onCategory={onCategory} />
+        <InspectBody data={state.data} meta={meta} districtName={districtName} category={category} onCategory={onCategory} direction={direction} />
       )}
     </Card>
   )
@@ -80,7 +82,9 @@ function InspectBody({
   districtName,
   category,
   onCategory,
+  direction,
 }: {
+  direction: IsochroneDirection
   data: Inspect
   meta: Meta
   districtName: (id: string | null) => string | null
@@ -93,6 +97,7 @@ function InspectBody({
   const weakest = data.weakest_category
   const district = districtName(data.cell.district_id)
   const budgetMin = meta.profiles.find((p) => p.profile_id === data.profile_id)?.time_budget_min ?? null
+  const rings = data.isochrone.features.map((f) => f.properties.contour_min).join('/')
 
   return (
     <div data-testid="inspect-result">
@@ -187,10 +192,11 @@ function InspectBody({
           </li>
         )}
       </ul>
-      <p className="muted small">
-        Count / needed for “sufficient” · time to the nearest. Dashed lines: area reachable in{' '}
-        {data.isochrone.features.map((f) => f.properties.contour_min).join(', ')} min (display only;
-        counts use the routing matrix).
+      <p className="muted small" data-testid="isochrone-legend">
+        Count / needed for “sufficient” · time to the nearest.{' '}
+        {direction !== 'reverse' && <>Forward (dashed): where you get in {rings} min. </>}
+        {direction !== 'forward' && <>Reverse (dotted): from where people reach this point in {rings} min. </>}
+        Display only; counts use the routing matrix.
         {data.cached && ' · cached'}
       </p>
     </div>
