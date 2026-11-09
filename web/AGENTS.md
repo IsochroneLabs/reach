@@ -13,7 +13,10 @@ Rules for agents working in `web/` (React + TypeScript + Vite + MapLibre GL JS).
   `cell.status` (texts in `labels.ts`). W4: facility pins
   of the selected category (hover popup, time label from zoom 15), the route to the next missing
   facility (`next_facility`, dashed and labelled "beyond 15 min" outside the budget), clickable
-  facility list (`POST /api/route`, zoom, highlight both ways).
+  facility list (`POST /api/route`, zoom, highlight both ways). W5: facility details from
+  `tags` (`facilityInfo.ts`: info lines, `safeUrl` for http/https only, Google Maps search link,
+  park note), layers from `GET /api/facilities` (park outlines, access points, optional all
+  facilities), fetched only with a pin or the layer on.
 - **Toolchain:** Node 24 LTS (`.nvmrc`, `engines`); npm with `package-lock.json`, exact versions
   (`--save-exact`). Not part of the uv workspace. New or upgraded packages: ask first.
 - **Layout:** `src/api.ts` (all requests, `ApiError`, user messages per status), `src/types.ts`
