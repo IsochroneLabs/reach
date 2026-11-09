@@ -291,10 +291,9 @@ test('names the status of a cell without published values', async ({ page }) => 
   test.skip(live, 'cell statuses are mocked')
   await mockNetwork(page)
   const recorded = JSON.parse(readFileSync(fixture('inspect_walking_339.json'), 'utf8'))
-  const statuses = ['unpopulated', 'outside_city']
+  let status = 'unpopulated'
   // registered after mockNetwork, so it wins for /api/inspect: the recorded answer as a live one
   await page.route('**/api/inspect', (route) => {
-    const status = statuses.shift()!
     const cell = { ...recorded.cell, scored: false, status, population: null, district_id: null }
     route.fulfill({
       contentType: 'application/json',
@@ -302,13 +301,19 @@ test('names the status of a cell without published values', async ({ page }) => 
     })
   })
 
-  await page.goto('/#/map?profile=walking_339&category=grocery')
-  await expect(page.getByTestId('map')).toHaveAttribute('data-ready', 'true', { timeout: 30_000 })
-  const { x, y } = await initialPixel(page, POINT)
-  const status = page.getByTestId('cell-status')
-  await page.mouse.click(x, y)
-  await expect(status).toHaveText('No residents in the Zensus 2022 grid — values computed live')
-  await expect(page.getByTestId('inspect-result')).toContainText('live result')
-  await page.mouse.click(x + 40, y)
-  await expect(status).toHaveText('Outside the city boundary — not scored')
+  const line = page.getByTestId('cell-status')
+  for (const [next, text] of [
+    ['unpopulated', 'No residents in the Zensus 2022 grid — values computed live'],
+    ['outside_city', 'Outside the city boundary — not scored'],
+  ]) {
+    status = next
+    // a fresh view each time, so the click never lands on a marker after the zoom to the pin
+    await page.goto('/#/map?profile=walking_339&category=grocery')
+    await page.reload()
+    await expect(page.getByTestId('map')).toHaveAttribute('data-ready', 'true', { timeout: 30_000 })
+    const { x, y } = await initialPixel(page, POINT)
+    await page.mouse.click(x, y)
+    await expect(line).toHaveText(text)
+    await expect(page.getByTestId('inspect-result')).toContainText('live result')
+  }
 })
