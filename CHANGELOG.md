@@ -7,6 +7,13 @@ adds a line under `Unreleased`.
 
 ## [Unreleased]
 
+### Added (GitHub task tracking)
+- Issue and Project sync workflow for approved iteration plans and PRs targeting `dev`, with
+  stable plan task IDs, weekly milestone rollover, idempotent Project cards, dry-run dispatch,
+  least-privilege permissions, and `PROJECTS_TOKEN` setup documentation.
+- Structured task metadata on unfinished W5–W8 and P8 plan packages; agent prompts and PR template
+  now refer to the generated tracking issue and use closing keywords only for completed tasks.
+
 ### Added (API and web app, W4 POI pins and routes)
 - `POST /api/inspect`: every reachable facility carries its routing `point`; each category with
   fewer than `k` facilities gets `next_facility` (the fastest facility not counted yet, from one live

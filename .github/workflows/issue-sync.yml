@@ -1,0 +1,94 @@
+name: Issue and Project sync
+
+on:
+  push:
+    branches: [dev]
+    paths:
+      - docs/app_iteration_plan.md
+      - docs/implementation_plan.md
+  pull_request_target:
+    branches: [dev]
+    types: [opened, edited, synchronize, reopened, closed]
+  issues:
+    types: [opened, edited, closed, reopened]
+  schedule:
+    - cron: "0 2 * * 1"
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: Sync mode
+        type: choice
+        options: [plans, bootstrap]
+        default: bootstrap
+        required: true
+      apply:
+        description: Apply changes (unchecked means dry-run)
+        type: boolean
+        default: false
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: issue-sync-IsochroneLabs-reach
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          ref: dev
+
+      - uses: actions/setup-python@v6.0.0
+        with:
+          python-version: "3.12"
+
+      - name: Determine sync mode
+        id: mode
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" == "pull_request_target" ]]; then
+            echo "mode=pr" >> "$GITHUB_OUTPUT"
+            echo "apply=true" >> "$GITHUB_OUTPUT"
+          elif [[ "${{ github.event_name }}" == "issues" ]]; then
+            echo "mode=issue" >> "$GITHUB_OUTPUT"
+            echo "apply=true" >> "$GITHUB_OUTPUT"
+          elif [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "mode=${{ inputs.mode }}" >> "$GITHUB_OUTPUT"
+            echo "apply=${{ inputs.apply }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "mode=plans" >> "$GITHUB_OUTPUT"
+            echo "apply=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Sync
+        id: sync
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PROJECTS_TOKEN: ${{ secrets.PROJECTS_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: |
+          args=(--mode '${{ steps.mode.outputs.mode }}')
+          if [[ '${{ steps.mode.outputs.apply }}' == 'true' ]]; then args+=(--apply); fi
+          python pipeline/src/reach_pipeline/github_sync.py "${args[@]}" | tee sync-summary.json
+          echo '```json' >> "$GITHUB_STEP_SUMMARY"
+          cat sync-summary.json >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Explain preflight failure
+        if: failure() && steps.sync.outcome == 'failure'
+        env:
+          PROJECTS_TOKEN: ${{ secrets.PROJECTS_TOKEN }}
+        run: |
+          if [[ -z "$PROJECTS_TOKEN" ]]; then
+            echo 'No issue or milestone changes were made. Add the `PROJECTS_TOKEN` Actions secret with organization Projects write permission, then rerun in dry-run mode.' >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo 'Project preflight or GitHub API request failed. No writes occur before Project preflight; inspect the error above and rerun after correcting access or API state.' >> "$GITHUB_STEP_SUMMARY"
+          fi
