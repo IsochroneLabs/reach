@@ -77,7 +77,8 @@ jobs:
         run: |
           args=(--mode '${{ steps.mode.outputs.mode }}')
           if [[ '${{ steps.mode.outputs.apply }}' == 'true' ]]; then args+=(--apply); fi
-          python pipeline/src/reach_pipeline/github_sync.py "${args[@]}" | tee sync-summary.json
+          python pipeline/src/reach_pipeline/github_sync.py "${args[@]}" > sync-summary.json
+          cat sync-summary.json
           echo '```json' >> "$GITHUB_STEP_SUMMARY"
           cat sync-summary.json >> "$GITHUB_STEP_SUMMARY"
           echo '```' >> "$GITHUB_STEP_SUMMARY"
