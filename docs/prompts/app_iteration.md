@@ -87,7 +87,9 @@ Package notes:
 - W8: report runtime and peak memory of the new stage.
 
 STEP 5 — VERIFY
-make up and check every visible change at http://localhost:8080 with one screenshot each.
+make up and check every visible change at http://localhost:8080 with one screenshot each,
+saved under ~/reach-shots/<package>/ (not a temp folder); list the paths for me, because images
+cannot be uploaded to the PR from the CLI.
 Measure stage runtime/peak memory (manifests) and inspect latency where the API changed.
 Check every "Done when" of the package. Then review the whole diff in a fresh subagent (or a
 careful reread) and fix what it finds.
