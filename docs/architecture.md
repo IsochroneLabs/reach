@@ -92,8 +92,9 @@ No job queue, no tile server, no self-hosted geocoder in Core (see [Section 12](
 
 **Study area: the city of Tübingen; the urban boundary shapes the map.** Every resident of
 Tübingen is scored, so no populated part of the city drops out of the results. The **urban
-(settlement) boundary** only marks where the city is built up, which matters for the map, the
-live endpoints and the recommender, not for who is scored (decision O11).
+(settlement) boundary** only marks where the city is built up, which matters for the map and the
+recommender, not for who is scored (decision O11); live endpoints accept clicks in the whole
+city (§6.5 rule 12).
 
 - **Scoring scope:** all populated census cells whose centroid lies inside the administrative
   city boundary get 15-minute accessibility scores and deficits, including isolated farms and
@@ -101,9 +102,8 @@ live endpoints and the recommender, not for who is scored (decision O11).
   ÷ residents of all populated cells that touch the city area ≥ `validation.min_scored_share`
   (0.98); excluded residents are listed per district in the validation report.
 - **Urban boundary:** derived in the pipeline from the OSM extract and stored per run
-  (definition: decision O17). It determines only the area drawn as the city on the map, the
-  boundary check of the live endpoints (9) and where recommender candidates may lie
-  (`methodology.md` §5).
+  (definition: decision O17). It determines only the area drawn as the city on the map and
+  where recommender candidates may lie (`methodology.md` §5).
 - **Routing buffer:** the routing network and the facilities are taken from the city boundary
   plus a **4 km buffer** (covers the maximum cycling reach of 3.75 km, see 6.1), so residents at
   the edge can reach facilities outside it, including neighbouring municipalities. The config
@@ -566,7 +566,7 @@ documented here in the same branch (see `AGENTS.md`).
 
 | Version | Date | Change | Why |
 |---|---|---|---|
-| v0.20 | 2026-11-09 | §6.5 rule 12, §9, O11: live endpoints accept points inside the city boundary (point or cell centre) or a scored cell, no longer the urban boundary + margin; every live answer has `cell.status` | App iteration W3 (points 12, 13): populated cells outside the city and unpopulated cells in the city were both shown as "no residents"; clicks anywhere in the city (E5, confirmed by Rico) |
+| v0.20 | 2026-11-09 | §4, §6.5 rule 12, §9, O11: live endpoints accept points inside the city boundary (point or cell centre) or a scored cell, no longer the urban boundary + margin; every live answer has `cell.status` | App iteration W3 (points 12, 13): populated cells outside the city and unpopulated cells in the city were both shown as "no residents"; clicks anywhere in the city (E5, confirmed by Rico) |
 | v0.19 | 2026-11-09 | §9: `POST /api/isochrone` with `direction` forward/reverse | App iteration W2 (point 10: choose forward or reverse isochrone); confirmed by Rico (plan v0.1) |
 | v0.18 | 2026-11-06 | §6.4: candidates = grid cells near deficits, land-use filter without industrial, protected areas of nature classes only, catchments per profile, stored catchments of the picks; §7 `recommend` row; §8 `recommendations` columns and new `recommendation_catchments`; §9 catchment of a recommended zone | P7 recommender; decisions by Rico (6 Nov 2026): store the catchments (numbers in the app match the recommendation), keep industrial land use; methodology v0.6 |
 | v0.17 | 2026-11-06 | §6.1: wheelchair profile avoids steps only; `max_grade` excludes no edges in Valhalla 3.9.1, steep sections stay in wheelchair routes (known limitation) | N11 evidence: four steep routes give the same route, time and length for every `max_grade` value; the old text ("avoids steps and steep sections") overstated the profile; no change to counts or config values |

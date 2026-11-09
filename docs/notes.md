@@ -115,6 +115,11 @@ carry `cell.status` (`scored`, `unpopulated`, `outside_city`) and the live endpo
 point if it or its cell centre lies inside the city boundary (architecture v0.20, rule 12), no
 longer the urban boundary + `api.boundary_margin_m`. That key stays in `config.yaml` but is not
 read any more; removing it is open (needs a "yes", AGENTS.md: removing config keys).
+The city test uses the union of the published districts as the city boundary. `validate`
+checks gaps inside the city and overlaps (`district_coverage`), not district area outside the
+city. Checked on run `20261106T142630Z`: gap 0.000 %, no populated unscored Zensus cell has its
+centre inside the districts, and every scored cell origin lies inside them. If that ever
+changes, publish the city boundary itself (open).
 
 ## N4. Valhalla keeps ~0.5–1.4 GB per worker thread after matrix requests
 
