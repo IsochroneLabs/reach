@@ -209,6 +209,8 @@ function InspectBody({
                   </p>
                 )}
               </details>
+              {/* outside the details, so a pick on the map shows its route with the list collapsed */}
+              {c.category === category && <FacilityRouteInfo state={facility.route} budgetMin={budgetMin} />}
             </li>
           )
         })}
@@ -228,7 +230,6 @@ function InspectBody({
           </li>
         )}
       </ul>
-      <FacilityRouteInfo state={facility.route} budgetMin={budgetMin} />
       <p className="muted small" data-testid="isochrone-legend">
         Count / needed for “sufficient” · time to the nearest.{' '}
         {direction !== 'reverse' && <>Forward (dashed): where you get in {rings} min. </>}

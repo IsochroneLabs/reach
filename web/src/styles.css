@@ -420,6 +420,10 @@ code {
   margin: 0 0 0.4rem 2.2rem;
 }
 
+.cat-list > li > .route-info {
+  margin: 0.2rem 0 0.4rem 2.2rem;
+}
+
 /* a facility name that picks the facility; the picked entry is marked without colour alone */
 .facility-btn {
   text-align: left;

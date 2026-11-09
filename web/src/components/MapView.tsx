@@ -167,6 +167,19 @@ function routeLine(
   }
 }
 
+/** The label of the route as a point halfway along it (a label along a winding line is hidden by
+ * MapLibre where the line bends too much). */
+function routeLabelPoint(route: FeatureCollection): FeatureCollection {
+  const f = route.features[0]
+  if (!f || f.geometry.type !== 'LineString') return EMPTY
+  const line = f.geometry.coordinates
+  const middle = line[Math.floor(line.length / 2)]
+  return {
+    type: 'FeatureCollection',
+    features: [{ type: 'Feature', properties: { label: f.properties?.label }, geometry: { type: 'Point', coordinates: middle } }],
+  }
+}
+
 /** Popup content as DOM nodes (OSM names are untrusted text, never HTML). */
 function popupContent(props: Record<string, unknown>): HTMLElement {
   const root = document.createElement('div')
@@ -276,7 +289,7 @@ export default function MapView(props: Props) {
         // data below the basemap labels, so street and place names stay readable
         const labels = map.getStyle().layers.find((l) => l.type === 'symbol')?.id
         const sources = ['cells', 'districts', 'isochrone', 'route', 'recommendations', 'recommendation-zones']
-        sources.push('cell-selected', 'click-point', 'isochrone-reverse', 'poi-pins')
+        sources.push('cell-selected', 'click-point', 'isochrone-reverse', 'poi-pins', 'route-label')
         for (const id of [...sources, 'catchment', 'catchment-isochrone'])
           map.addSource(id, { type: 'geojson', data: EMPTY })
         map.addLayer(
@@ -391,13 +404,15 @@ export default function MapView(props: Props) {
           map.addLayer({
             id: 'route-label',
             type: 'symbol',
-            source: 'route',
+            source: 'route-label',
             layout: {
-              'symbol-placement': 'line-center',
               'text-field': ['get', 'label'],
               'text-size': 12,
               'text-font': ['Noto Sans Bold'],
+              'text-anchor': 'top',
+              'text-offset': [0, 0.8],
               'text-allow-overlap': true,
+              'text-ignore-placement': true,
             },
             paint: { 'text-color': POI.route, 'text-halo-color': POI.routeCasing, 'text-halo-width': 2 },
           })
@@ -581,6 +596,7 @@ export default function MapView(props: Props) {
     if (!ready) return
     source('poi-pins')?.setData(pins)
     source('route')?.setData(route)
+    source('route-label')?.setData(routeLabelPoint(route))
   }, [ready, pins, route])
 
   // highlighted pins: the one under the pointer (list or map) and the picked one
