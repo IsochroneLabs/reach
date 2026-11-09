@@ -1,5 +1,7 @@
 import { expect, test, type Page } from '@playwright/test'
 import { readFileSync } from 'node:fs'
+import { decodeParams, DEFAULT_PARAMS, encodeParams, isDefault, scoreCells } from '../src/score'
+import type { Cells, CellTimes, Meta } from '../src/types'
 
 const live = Boolean(process.env.E2E_LIVE)
 // Scored, well-served cell in the old town (Metzgergasse); the inspect fixture was recorded here.
@@ -12,6 +14,7 @@ const API: [RegExp, string][] = [
   [/\/api\/meta$/, 'meta.json'],
   [/\/api\/districts$/, 'districts.json'],
   [/\/api\/districts\/[^/]+\/scores/, 'district_scores.json'],
+  [/\/api\/cells\/times/, 'cells_times_walking_339.json'],
   [/\/api\/cells/, 'cells_grocery_walking_339.json'],
   [/\/api\/recommendations/, 'recommendations.json'],
   [/\/api\/inspect$/, 'inspect_walking_339.json'],
@@ -474,4 +477,91 @@ test('the data page explains how parks are measured', async ({ page }) => {
   await mockNetwork(page)
   await page.goto('/#/data')
   await expect(page.getByText('nearest park entrance')).toBeVisible()
+})
+
+
+// --- W7b: flexible score --------------------------------------------------------------------
+
+const recorded = <T>(name: string) => JSON.parse(readFileSync(fixture(name), 'utf8')) as T
+
+test('default score of one category equals 100 · (1 − deficit / residents) of /api/cells', () => {
+  const meta = recorded<Meta>('meta.json')
+  const cells = recorded<Cells>('cells_grocery_walking_339.json')
+  const times = recorded<CellTimes>('cells_times_walking_339.json')
+  const grocery = meta.categories.filter((c) => c.id === 'grocery')
+  const scored = scoreCells(cells, times, grocery, DEFAULT_PARAMS, 15)
+  expect(scored.features).toHaveLength(cells.features.length)
+  for (const f of scored.features) {
+    const original = cells.features.find((o) => o.properties.cell_id === f.properties.cell_id)!.properties
+    expect(f.properties.score).toBeCloseTo(100 * (1 - (original.deficit ?? 0) / original.population), 6)
+  }
+})
+
+test('score parameters round-trip through the URL and thresholds only lower the score', () => {
+  expect(isDefault(DEFAULT_PARAMS) && encodeParams(DEFAULT_PARAMS) === null).toBe(true)
+  const params = { t: 10, cats: { grocery: { k: 1, t: 8 }, pharmacy: { w: 2 } } }
+  expect(encodeParams(params)).toBe('t=10;grocery.t=8;grocery.k=1;pharmacy.w=2')
+  expect(decodeParams(encodeParams(params))).toEqual(params)
+  expect(decodeParams('t=abc;x.y=1;grocery.k=-3;;pharmacy.w=1')).toEqual({ t: null, cats: { pharmacy: { w: 1 } } })
+
+  const meta = recorded<Meta>('meta.json')
+  const cells = recorded<Cells>('cells_grocery_walking_339.json')
+  const times = recorded<CellTimes>('cells_times_walking_339.json')
+  const three = meta.categories.filter((c) => ['grocery', 'pharmacy', 'doctors'].includes(c.id))
+  const base = scoreCells(cells, times, three, DEFAULT_PARAMS, 15)
+  const tight = scoreCells(cells, times, three, { t: 5, cats: {} }, 15)
+  base.features.forEach((f, i) => expect(tight.features[i].properties.score!).toBeLessThanOrEqual(f.properties.score! + 1e-9))
+  // sliders must stay interactive on the whole city (~1,700 cells): recompute well under 100 ms
+  const many: Cells = { ...cells, features: Array.from({ length: 4 }, () => cells.features).flat() }
+  const manyTimes: CellTimes = { ...times, cells: Array.from({ length: 4 }, () => times.cells).flat() }
+  const started = performance.now()
+  scoreCells(many, manyTimes, three, { t: 7, cats: { grocery: { k: 1 } } }, 15)
+  expect(performance.now() - started).toBeLessThan(100)
+})
+
+test('several categories give the score view; one category with defaults stays the class map', async ({ page }) => {
+  test.skip(live, 'uses the recorded fixtures')
+  const requests: string[] = []
+  page.on('request', (r) => requests.push(new URL(r.url()).pathname))
+  const errors: string[] = []
+  page.on('pageerror', (e) => errors.push(e.message))
+  await mockNetwork(page)
+
+  await page.goto('/#/map?profile=walking_339&category=grocery')
+  await expect(page.getByTestId('map')).toHaveAttribute('data-ready', 'true', { timeout: 30_000 })
+  await expect(page.getByTestId('cells-summary')).toContainText('scored 100 m cells')
+  await expect(page.getByTestId('score-legend')).toHaveCount(0)
+  expect(requests).not.toContain('/api/cells/times') // the class map needs no times
+
+  const picker = page.getByRole('group', { name: 'Health' })
+  await picker.getByLabel('Pharmacy').check()
+  await page.getByRole('group', { name: 'Health' }).getByLabel('Doctors').check()
+  await expect(page.getByTestId('score-legend')).toBeVisible()
+  await expect(page.getByTestId('score-full-share')).toContainText('of residents reach everything selected')
+  await expect(page).toHaveURL(/category=doctors%2Cgrocery%2Cpharmacy|category=doctors,grocery,pharmacy/)
+  expect(requests.filter((p) => p === '/api/cells/times')).toHaveLength(1)
+
+  // sliders change the map without a request; a link keeps the parameters
+  const before = requests.length
+  const panel = page.getByRole('region', { name: 'Score settings' })
+  await panel.getByLabel('Time within reach (minutes)').fill('10')
+  await expect(panel.getByTestId('score-threshold')).toHaveText('10 min')
+  await expect(page).toHaveURL(/score=t(%3D|=)10/)
+  await panel.getByLabel('Grocery: facilities needed').fill('1')
+  await expect(page).toHaveURL(/grocery\.k(%3D|=)1/)
+  expect(requests.length).toBe(before)
+  await page.screenshot({ path: 'test-results/w7b-score-three-categories.png' })
+
+  // a shared link reproduces the view
+  await page.reload()
+  await expect(page.getByTestId('map')).toHaveAttribute('data-ready', 'true', { timeout: 30_000 })
+  await expect(panel.getByTestId('score-threshold')).toHaveText('10 min')
+  await expect(page.getByTestId('score-legend')).toBeVisible()
+
+  // back to defaults: one category and no custom values is the class map again
+  await panel.getByRole('button', { name: 'Reset score settings' }).click()
+  await page.getByRole('group', { name: 'Health' }).getByLabel('Pharmacy').uncheck()
+  await page.getByRole('group', { name: 'Health' }).getByLabel('Doctors').uncheck()
+  await expect(page.getByTestId('score-legend')).toHaveCount(0)
+  expect(errors).toEqual([])
 })

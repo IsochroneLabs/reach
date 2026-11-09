@@ -10,7 +10,9 @@ this file wins where it is more specific.
   `reachable[].point`, the next missing facility per category (`next_facility`, `next_note`,
   one live matrix, `api.next_facility.*`) and `POST /api/route` to one facility. W5: `tags` and
   `osm_url` per facility, `GET /api/facilities` (`db.facilities_geojson`; `tags`/`area_geom` are
-  detected per run in `information_schema`, so older runs still work).
+  detected per run in `information_schema`, so older runs still work). W7b: `GET /api/cells/times`
+  (`db.cell_times`, sorted times per cell and category, `api.score.max_times_per_category`) and
+  `group` per category in `/api/meta`.
 - **Layout:** `main.py` (`create_app(deps)`, lifespan builds pool and client from the
   environment, error mapping), `settings.py` (env + `api` section of the config), `db.py` (all
   SQL, `Database` protocol), `valhalla.py` (async client), `deps.py` (shared state, run context,

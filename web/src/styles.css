@@ -830,3 +830,52 @@ code {
 .facility-info dt { flex: 0 0 6.5rem; color: var(--muted, #666); }
 .facility-info dd { margin: 0; overflow-wrap: anywhere; }
 .facility-links { margin: 0.25rem 0 0; }
+
+/* W7b: category picker and score settings */
+.picker {
+  border: 0;
+  margin: 0.5rem 0 0;
+  padding: 0;
+}
+.picker legend {
+  font-size: 0.8rem;
+  color: var(--muted, #555);
+  padding: 0;
+  margin-bottom: 0.25rem;
+}
+.picker-group {
+  margin-top: 0.35rem;
+}
+.picker-title {
+  font-weight: 600;
+}
+.picker .check {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.1rem 0;
+}
+.score-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+  margin: 0.4rem 0;
+}
+.score-table th,
+.score-table td {
+  text-align: left;
+  padding: 0.15rem 0.25rem;
+  font-weight: 400;
+}
+.score-table thead th {
+  font-weight: 600;
+}
+.score-table input[type='number'] {
+  width: 3.6rem;
+}
+.swatch-full {
+  display: inline-block;
+  box-sizing: border-box;
+  border: 2px solid #17473a;
+  background: transparent;
+}

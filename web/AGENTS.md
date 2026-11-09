@@ -16,12 +16,15 @@ Rules for agents working in `web/` (React + TypeScript + Vite + MapLibre GL JS).
   facility list (`POST /api/route`, zoom, highlight both ways). W5: facility details from
   `tags` (`facilityInfo.ts`: info lines, `safeUrl` for http/https only, Google Maps search link,
   park note), layers from `GET /api/facilities` (park outlines, access points, optional all
-  facilities), fetched only with a pin or the layer on.
+  facilities), fetched only with a pin or the layer on. W7b: grouped category checkboxes; several
+  categories (or changed score settings) give the score view (`score.ts`, `ScorePanel`,
+  `GET /api/cells/times`), recommendations and facility pins only with one category.
 - **Toolchain:** Node 24 LTS (`.nvmrc`, `engines`); npm with `package-lock.json`, exact versions
   (`--save-exact`). Not part of the uv workspace. New or upgraded packages: ask first.
 - **Layout:** `src/api.ts` (all requests, `ApiError`, user messages per status), `src/types.ts`
   (response shapes of `docs/data_contract.md`), `src/palette.ts` (class and overlay colours,
-  legend rules), `src/route.ts` (view and selection in the URL hash), `src/settings.ts` (map
+  legend rules), `src/route.ts` (view and selection in the URL hash), `src/score.ts` (score
+  definition, URL encoding), `src/settings.ts` (map
   display settings, `useSettings()`, localStorage), `src/labels.ts` (profile and plain class
   labels, card explanations, route time labels), `src/attribution.ts`, `src/components/` (`MapView`, `Card`,
   `SettingsPanel`, `Controls`, `Inspector`, `RecommendationsPanel`, `DistrictPanel`,
@@ -29,7 +32,10 @@ Rules for agents working in `web/` (React + TypeScript + Vite + MapLibre GL JS).
 - **Settings vs. URL:** the selection (view, profile, category) lives in the URL hash so a link
   reproduces it; display settings (`settings.ts`) live in `localStorage`, every access in
   `try/catch`, and change only layer visibility, paint and filters (no data reload).
-- **Read the API, do not re-derive.** Categories, names, `k`, profiles (incl. the transit
+- **Read the API, do not re-derive.** The one exception is the flexible score (methodology §4b):
+  a defined display computation in `src/score.ts` from `/api/cells/times` and `/api/meta` (`k`,
+  budget, `group`), never stored or ranked; with one category and the defaults it must equal the
+  API's deficit (Playwright test). Categories, names, `k`, profiles (incl. the transit
   budget), transit class bounds and run data come from `/api/meta`; classes, deficits and
   district shares from the API. Only display aggregates (e.g. residents per class in the
   legend) are summed here. Pins, the next missing facility and its route are drawn from the

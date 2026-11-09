@@ -15,6 +15,8 @@ interface Props {
   category: string
   onSelect: (id: string | null) => void
   onCategory: (id: string) => void
+  /** Score view: population-weighted mean score of the selected district (null = not shown). */
+  scoreMean?: number | null
   card: { open: boolean; onToggle: (open: boolean) => void }
 }
 
@@ -22,7 +24,7 @@ type Loaded = { key: string; data: DistrictScores } | { key: string; error: stri
 
 const pct = (v: number | null) => (v === null ? '–' : `${Math.round(v * 100)} %`)
 
-export default function DistrictPanel({ meta, districts, selected, profile, category, onSelect, onCategory, card }: Props) {
+export default function DistrictPanel({ meta, districts, selected, profile, category, onSelect, onCategory, scoreMean, card }: Props) {
   const [loaded, setLoaded] = useState<Loaded | null>(null)
   const key = selected ? `${selected}|${profile}` : null
 
@@ -71,6 +73,11 @@ export default function DistrictPanel({ meta, districts, selected, profile, cate
               ?.properties.residents.toLocaleString('en')}{' '}
             residents · rank 1 = largest deficit of {current.data.scores[0]?.districts_ranked ?? '–'} districts
           </p>
+          {scoreMean != null && (
+            <p className="small" data-testid="district-score">
+              Mean accessibility score of the selected categories: <strong>{Math.round(scoreMean)}</strong> of 100 (weighted by residents)
+            </p>
+          )}
           <table className="district-table">
             <thead>
               <tr>
