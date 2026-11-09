@@ -84,6 +84,7 @@ def test_outside_boundary_rejected_before_valhalla(
         ("/api/inspect", INSPECT),
         ("/api/expansion", INSPECT),
         ("/api/catchment", INSPECT),
+        ("/api/isochrone", {**INSPECT, "direction": "reverse"}),
     ]:
         r = client.post(path, json=body)
         assert r.status_code == 422, path
@@ -263,3 +264,34 @@ def test_forwarded_for_ignored_from_untrusted_peer(
             c.post("/api/inspect", json=INSPECT, headers={"X-Forwarded-For": "2.2.2.2"}).status_code
             == 429
         )
+
+
+def test_isochrone_directions(
+    client: TestClient, valhalla: respx.MockRouter, rec: dict[str, Any]
+) -> None:
+    reverse = client.post("/api/isochrone", json={**INSPECT, "direction": "reverse"})
+    assert reverse.status_code == 200
+    body = reverse.json()
+    assert body["direction"] == "reverse" and body["cell"]["cell_id"] == CELL
+    assert body["cached"] is False
+    assert json.loads(valhalla["isochrone"].calls.last.request.content)["reverse"] is True
+    assert len(body["isochrone"]["features"]) == len(rec["isochrone_reverse"]["features"])
+    assert [f["properties"]["contour_min"] for f in body["isochrone"]["features"]] == [
+        5.0,
+        10.0,
+        15.0,
+    ]
+    # forward is the default and cached separately from reverse
+    forward = client.post("/api/isochrone", json=INSPECT).json()
+    assert forward["direction"] == "forward" and forward["cached"] is False
+    assert forward["isochrone"] != body["isochrone"]
+    calls = valhalla["isochrone"].call_count
+    again = client.post("/api/isochrone", json={**INSPECT, "direction": "reverse"}).json()
+    assert again["cached"] is True and valhalla["isochrone"].call_count == calls
+    assert {**again, "cached": False} == body
+
+
+def test_isochrone_validation(client: TestClient, valhalla: respx.MockRouter) -> None:
+    assert client.post("/api/isochrone", json={**INSPECT, "direction": "up"}).status_code == 422
+    assert client.post("/api/isochrone", json={**INSPECT, "profile": "car"}).status_code == 422
+    assert valhalla.calls.call_count == 0

@@ -1,6 +1,6 @@
 # Architecture — reach (15-Minute City Tübingen)
 
-> **Status:** draft v0.18 (6 Nov 2026). Describes the target architecture the team builds towards.
+> **Status:** draft v0.19 (9 Nov 2026). Describes the target architecture the team builds towards.
 > Every change bumps the version and adds a line to the [Change log](#change-log).
 > Settled and open decisions are listed in [Section 13](#13-decisions); items marked **[OPEN]**
 > must be settled before the related code is written. Methodology (categories, thresholds,
@@ -400,6 +400,9 @@ Live endpoints (call Valhalla, small and fast, no queue):
   reaching it (matrix from the scored cells within the prefilter reach; for a recommended zone
   the stored `recommendation_catchments`, rule 8).
 - `POST /api/expansion` — street-level spread for visualisation.
+- `POST /api/isochrone` — isochrone of the cell origin in one `direction` (`forward`: where you
+  get; `reverse`: from where people reach the point; display only, rule 9); cached per (run,
+  cell, profile, direction). `/api/inspect` keeps the forward one.
 
 Live endpoints snap the point to its 100 m grid cell, accept it only inside the urban boundary
 (plus a small margin) or inside a scored cell (§6.5 rule 12), cache per (run, cell, profile) and
@@ -562,6 +565,7 @@ documented here in the same branch (see `AGENTS.md`).
 
 | Version | Date | Change | Why |
 |---|---|---|---|
+| v0.19 | 2026-11-09 | §9: `POST /api/isochrone` with `direction` forward/reverse | App iteration W2 (point 10: choose forward or reverse isochrone); confirmed by Rico (plan v0.1) |
 | v0.18 | 2026-11-06 | §6.4: candidates = grid cells near deficits, land-use filter without industrial, protected areas of nature classes only, catchments per profile, stored catchments of the picks; §7 `recommend` row; §8 `recommendations` columns and new `recommendation_catchments`; §9 catchment of a recommended zone | P7 recommender; decisions by Rico (6 Nov 2026): store the catchments (numbers in the app match the recommendation), keep industrial land use; methodology v0.6 |
 | v0.17 | 2026-11-06 | §6.1: wheelchair profile avoids steps only; `max_grade` excludes no edges in Valhalla 3.9.1, steep sections stay in wheelchair routes (known limitation) | N11 evidence: four steep routes give the same route, time and length for every `max_grade` value; the old text ("avoids steps and steep sections") overstated the profile; no change to counts or config values |
 | v0.16 | 2026-11-06 | §6.1: Valhalla applies elevation to every profile (pedestrian grade factor for walking and wheelchair, bicycle costing for cycling), per-profile table with evidence; §12: slope-aware walking removed from out of scope; O7 changed (slope model kept, slope-free times only for V11); §7: `validate results` checks `reachable` and calls /route (`matrix_vs_route`, `false_negatives`, budget flips, methodology V10) | N5/N9: walking and wheelchair times already included slopes (e.g. 984 s instead of 740 s uphill), the old text said "ignored for now"; `use_hills` cannot switch it off; decision by Rico: keep it, no change to counts; the §7 stage table did not mention the /route checks (N8 review) |

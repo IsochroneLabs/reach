@@ -4,7 +4,8 @@ Rules for agents working in `api/` (package `reach_api`, FastAPI). The root `AGE
 this file wins where it is more specific.
 
 - **Status:** P5 — read endpoints (`routes/read.py`) and live endpoints (`routes/live.py`) exist;
-  response formats are fixed in `docs/data_contract.md` ("API responses").
+  response formats are fixed in `docs/data_contract.md` ("API responses"). W2 added
+  `POST /api/isochrone` (forward or reverse, cached per direction).
 - **Layout:** `main.py` (`create_app(deps)`, lifespan builds pool and client from the
   environment, error mapping), `settings.py` (env + `api` section of the config), `db.py` (all
   SQL, `Database` protocol), `valhalla.py` (async client), `deps.py` (shared state, run context,

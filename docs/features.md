@@ -43,6 +43,8 @@ Residents are a secondary audience served by the same map.
 
 - Click a point: 5/10/15-minute isochrone, reachable facilities per category with travel times,
   weakest category, route line to the nearest facility per category.
+- **Isochrone direction:** forward (where you get from the point), reverse (from where people
+  reach it) or both, chosen in the map settings (`POST /api/isochrone`); on slopes they differ.
 - Values come from the precomputed cell, so map and inspector always agree
   (`architecture.md` §6.5).
 - **Spread view (Stretch-light):** street-level spread via Valhalla `expansion`, animated by time.
