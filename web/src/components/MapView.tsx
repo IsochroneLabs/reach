@@ -23,16 +23,27 @@ import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url'
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { FeatureCollection } from 'geojson'
 import { BASEMAP_ATTRIBUTION, DATA_ATTRIBUTION } from '../attribution'
+import { infoLines, PARK_NOTE } from '../facilityInfo'
 import { timeLabel } from '../labels'
 import {
   fillColourExpression,
   ISOCHRONE_COLOURS as ISO,
+  FACILITY_LAYER_COLOURS as FAC,
   MAP_COLOURS,
   POI_COLOURS as POI,
   RECOMMENDATION_COLOURS as REC,
 } from '../palette'
 import type { MapSettings } from '../settings'
-import type { CandidateCatchment, Cells, Districts, Inspect, Recommendations, RouteAnswer } from '../types'
+import type {
+  CandidateCatchment,
+  Cells,
+  Districts,
+  Facilities,
+  FacilityTags,
+  Inspect,
+  Recommendations,
+  RouteAnswer,
+} from '../types'
 
 setWorkerUrl(workerUrl)
 
@@ -41,7 +52,7 @@ const EMPTY: FeatureCollection = { type: 'FeatureCollection', features: [] }
 // the grey dot where the user clicked stays this long; the pin moves to the cell centre
 const CLICK_DOT_MS = 1500
 // layers a click selects (instead of dropping a pin); they get the pointer cursor
-const CLICKABLE_LAYERS = ['recommendations', 'poi-pins']
+const CLICKABLE_LAYERS = ['recommendations', 'poi-pins', 'facility-all']
 // facility pins show their time label from this zoom on
 const POI_LABEL_MINZOOM = 15
 
@@ -95,6 +106,8 @@ interface Props {
   routeCategory: string
   /** Facility budget of the inspected profile (minutes), for "beyond 15 min" labels. */
   budgetMin: number | null
+  /** All facilities of the selected category with park outlines and access points (or null). */
+  facilities: Facilities | null
   /** Facility picked in the list or on the map, and the one under the pointer in the list. */
   selectedFacility: string | null
   hoveredFacility: string | null
@@ -134,17 +147,37 @@ function recommendationPoints(recs: Recommendations): FeatureCollection {
 
 /** Pins of the selected category: the facilities reachable in the budget, plus the next missing
  * facility (filled pin) when the cell has fewer than needed. */
-function poiPins(inspect: Inspect | null, category: string, budgetMin: number | null): FeatureCollection {
+function poiPins(
+  inspect: Inspect | null,
+  category: string,
+  budgetMin: number | null,
+  areaIds: Set<string>,
+): FeatureCollection {
   const c = inspect?.categories.find((x) => x.category === category)
   if (!c) return EMPTY
-  const pin = (id: string, name: string | null, point: [number, number], min: number, beyond: boolean, next: boolean) => ({
+  const pin = (
+    f: { facility_id: string; name: string | null; tags: FacilityTags; point: [number, number] },
+    min: number,
+    beyond: boolean,
+    next: boolean,
+  ) => ({
     type: 'Feature' as const,
-    properties: { facility_id: id, name, category: c.name, time_min: min, time_label: timeLabel(min, budgetMin, beyond), beyond, next },
-    geometry: { type: 'Point' as const, coordinates: point },
+    properties: {
+      facility_id: f.facility_id,
+      name: f.name,
+      category: c.name,
+      tags: JSON.stringify(f.tags),
+      area: areaIds.has(f.facility_id),
+      time_min: min,
+      time_label: timeLabel(min, budgetMin, beyond),
+      beyond,
+      next,
+    },
+    geometry: { type: 'Point' as const, coordinates: f.point },
   })
-  const features = c.reachable.map((f) => pin(f.facility_id, f.name, f.point, f.time_min, false, false))
+  const features = c.reachable.map((f) => pin(f, f.time_min, false, false))
   const n = c.next_facility
-  if (n) features.push(pin(n.facility_id, n.name, n.point, n.time_min, !n.within_budget, true))
+  if (n) features.push(pin(n, n.time_min, !n.within_budget, true))
   return { type: 'FeatureCollection', features }
 }
 
@@ -187,15 +220,38 @@ function popupContent(props: Record<string, unknown>): HTMLElement {
   name.textContent = typeof props.name === 'string' && props.name ? props.name : 'Unnamed'
   const detail = document.createElement('div')
   detail.className = 'muted small'
-  detail.textContent = `${String(props.category)} · ${String(props.time_label)}${props.next ? ' · next missing' : ''}`
+  const parts = [String(props.category)]
+  if (props.time_label) parts.push(String(props.time_label))
+  if (props.next) parts.push('next missing')
+  detail.textContent = parts.join(' · ')
   root.append(name, detail)
+  // MapLibre hands nested properties over as JSON text
+  let tags: FacilityTags | null
+  try {
+    const raw = props.tags
+    tags = (typeof raw === 'string' ? JSON.parse(raw) : raw) as FacilityTags
+  } catch {
+    tags = {}
+  }
+  for (const line of infoLines(tags ?? {})) {
+    const row = document.createElement('div')
+    row.className = 'small'
+    row.textContent = `${line.label}: ${line.value}`
+    root.append(row)
+  }
+  if (props.area === true || props.area === 'true') {
+    const note = document.createElement('div')
+    note.className = 'muted small'
+    note.textContent = PARK_NOTE
+    root.append(note)
+  }
   return root
 }
 
 export default function MapView(props: Props) {
   const { cells, classes, transit, districts, selectedDistrict, inspect, marker, routeCategory, recommendations } = props
   const { selectedCandidate, catchment, pinMode, settings, reverseIsochrone } = props
-  const { budgetMin, selectedFacility, hoveredFacility, facilityRoute } = props
+  const { budgetMin, selectedFacility, hoveredFacility, facilityRoute, facilities } = props
   const container = useRef<HTMLDivElement>(null)
   const mapRef = useRef<MapLibreMap | null>(null)
   const markerRef = useRef<Marker | null>(null)
@@ -246,7 +302,9 @@ export default function MapView(props: Props) {
       // a click on a facility pin or a recommendation marker selects it; anywhere else drops the
       // inspector pin
       map.on('click', (e) => {
-        const pinHit = map?.getLayer('poi-pins') ? map.queryRenderedFeatures(e.point, { layers: ['poi-pins'] })[0] : undefined
+        const pinHit = map?.getLayer('poi-pins')
+          ? map.queryRenderedFeatures(e.point, { layers: ['poi-pins', 'facility-all'] })[0]
+          : undefined
         if (pinHit) {
           onFacility.current(String(pinHit.properties.facility_id))
           return
@@ -276,22 +334,25 @@ export default function MapView(props: Props) {
       // hover on a pin: popup with name, category and time; the list highlights the same entry
       const popup = new Popup({ closeButton: false, closeOnClick: false, offset: 10, className: 'poi-popup' })
       popupRef.current = popup
-      map.on('mouseenter', 'poi-pins', (e) => {
-        const f = e.features?.[0]
-        if (!f || !map || f.geometry.type !== 'Point') return
-        popup.setLngLat(f.geometry.coordinates as [number, number]).setDOMContent(popupContent(f.properties)).addTo(map)
-        onFacilityHover.current(String(f.properties.facility_id))
-      })
-      map.on('mouseleave', 'poi-pins', () => {
-        popup.remove()
-        onFacilityHover.current(null)
-      })
+      for (const layer of ['poi-pins', 'facility-all']) {
+        map.on('mouseenter', layer, (e) => {
+          const f = e.features?.[0]
+          if (!f || !map || f.geometry.type !== 'Point') return
+          popup.setLngLat(f.geometry.coordinates as [number, number]).setDOMContent(popupContent(f.properties)).addTo(map)
+          onFacilityHover.current(String(f.properties.facility_id))
+        })
+        map.on('mouseleave', layer, () => {
+          popup.remove()
+          onFacilityHover.current(null)
+        })
+      }
       map.on('load', () => {
         if (!map) return
         // data below the basemap labels, so street and place names stay readable
         const labels = map.getStyle().layers.find((l) => l.type === 'symbol')?.id
         const sources = ['cells', 'districts', 'isochrone', 'route', 'recommendations', 'recommendation-zones']
         sources.push('cell-selected', 'click-point', 'isochrone-reverse', 'poi-pins', 'route-label')
+        sources.push('facility-areas', 'facility-access', 'facility-all')
         for (const id of [...sources, 'catchment', 'catchment-isochrone'])
           map.addSource(id, { type: 'geojson', data: EMPTY })
         map.addLayer(
@@ -331,6 +392,27 @@ export default function MapView(props: Props) {
             source: 'districts',
             filter: ['==', ['get', 'district_id'], ''],
             paint: { 'line-color': '#111', 'line-width': 2.5 },
+          },
+          labels,
+        )
+        // park outlines (display note: measured to the access points on their boundary)
+        map.addLayer(
+          {
+            id: 'facility-areas-fill',
+            type: 'fill',
+            source: 'facility-areas',
+            layout: { visibility: 'none' },
+            paint: { 'fill-color': FAC.area, 'fill-opacity': 0.14 },
+          },
+          labels,
+        )
+        map.addLayer(
+          {
+            id: 'facility-areas-line',
+            type: 'line',
+            source: 'facility-areas',
+            layout: { visibility: 'none' },
+            paint: { 'line-color': FAC.area, 'line-width': 1.4 },
           },
           labels,
         )
@@ -470,6 +552,32 @@ export default function MapView(props: Props) {
             },
             paint: { 'text-color': pick('', REC.selectedText, REC.ring) },
           })
+        // every facility of the category (switched on in the settings), below the pins
+        map.addLayer({
+          id: 'facility-all',
+          type: 'circle',
+          source: 'facility-all',
+          layout: { visibility: 'none' },
+          paint: {
+            'circle-radius': 4,
+            'circle-color': FAC.other,
+            'circle-stroke-color': POI.routeCasing,
+            'circle-stroke-width': 1,
+          },
+        })
+        // access points of parks: where a path meets the boundary and the routing point lies
+        map.addLayer({
+          id: 'facility-access',
+          type: 'circle',
+          source: 'facility-access',
+          layout: { visibility: 'none' },
+          paint: {
+            'circle-radius': 3,
+            'circle-color': FAC.access,
+            'circle-stroke-color': FAC.accessRing,
+            'circle-stroke-width': 1,
+          },
+        })
         // facility pins: small, white with a dark ring; highlighted and next-missing pins filled
         map.addLayer({
           id: 'poi-pins',
@@ -549,6 +657,10 @@ export default function MapView(props: Props) {
       map.setLayoutProperty(id, 'visibility', visible(settings.showDistricts))
     for (const id of ['route-casing', 'route-line', 'route-line-beyond', 'route-label', 'poi-pins', 'poi-labels'])
       if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', visible(settings.showPois))
+    const outlines = settings.showAllFacilities || (pinMode && settings.showPois)
+    for (const id of ['facility-areas-fill', 'facility-areas-line', 'facility-access'])
+      map.setLayoutProperty(id, 'visibility', visible(outlines))
+    map.setLayoutProperty('facility-all', 'visibility', visible(settings.showAllFacilities))
     const hidden = Object.entries(settings.isochroneRings)
       .filter(([, shown]) => !shown)
       .map(([m]) => Number(m))
@@ -557,7 +669,7 @@ export default function MapView(props: Props) {
       map.setFilter(id, rings)
     for (const id of ['isochrone-fill', 'isochrone-line'])
       map.setLayoutProperty(id, 'visibility', visible(settings.isochroneDirection !== 'reverse'))
-  }, [ready, settings, coloured])
+  }, [ready, settings, coloured, pinMode])
 
   useEffect(() => {
     if (ready) source('isochrone-reverse')?.setData(reverseIsochrone ?? EMPTY)
@@ -589,7 +701,29 @@ export default function MapView(props: Props) {
     source('isochrone')?.setData(inspect?.isochrone ?? EMPTY)
   }, [ready, inspect])
 
-  const pins = useMemo(() => poiPins(inspect, routeCategory, budgetMin), [inspect, routeCategory, budgetMin])
+  const byKind = useMemo(() => {
+    const kinds = (kind: string) =>
+      ({
+        type: 'FeatureCollection',
+        features: (facilities?.features ?? []).filter((f) => f.properties.kind === kind),
+      }) as FeatureCollection
+    return { facility: kinds('facility'), area: kinds('area'), access: kinds('access') }
+  }, [facilities])
+  const areaIds = useMemo(
+    () => new Set(byKind.area.features.map((f) => String(f.properties?.facility_id))),
+    [byKind],
+  )
+  useEffect(() => {
+    if (!ready) return
+    source('facility-all')?.setData(byKind.facility)
+    source('facility-areas')?.setData(byKind.area)
+    source('facility-access')?.setData(byKind.access)
+  }, [ready, byKind])
+
+  const pins = useMemo(
+    () => poiPins(inspect, routeCategory, budgetMin, areaIds),
+    [inspect, routeCategory, budgetMin, areaIds],
+  )
   const route = useMemo(
     () => routeLine(inspect, routeCategory, facilityRoute, budgetMin),
     [inspect, routeCategory, facilityRoute, budgetMin],
@@ -697,6 +831,7 @@ export default function MapView(props: Props) {
         // facility pins on the map, the kind of route and the highlighted pins, read by the smoke test
         data-highlighted={[...new Set([hoveredFacility, selectedFacility].filter(Boolean))].join(' ')}
         data-poi-pins={settings.showPois ? pins.features.length : 0}
+        data-facility-layers={`${byKind.facility.features.length}/${byKind.area.features.length}/${byKind.access.features.length}`}
         data-route={settings.showPois && route.features.length ? (route.features[0].properties?.beyond ? 'beyond' : 'within') : 'none'}
         role="region"
         aria-label="Map: click to inspect a location"

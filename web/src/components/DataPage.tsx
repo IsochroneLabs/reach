@@ -2,6 +2,7 @@
 // limitations, sources and attribution.
 import { BASEMAP_ATTRIBUTION, DATA_ATTRIBUTION, OSM_ATTRIBUTION } from '../attribution'
 import type { Meta } from '../types'
+import { PARK_NOTE } from '../facilityInfo'
 import { profileLabel } from '../labels'
 
 const DOCS: string = import.meta.env.VITE_DOCS_URL
@@ -26,6 +27,7 @@ const LIMITATIONS: { text: string; doc: string }[] = [
   { text: 'Facilities come from OpenStreetMap; completeness differs by category and is not yet checked against official lists.', doc: 'methodology.md' },
   { text: 'Valhalla routes by cost, not pure time: a faster profile can occasionally reach fewer facilities (the monotonicity warnings).', doc: 'notes.md' },
   { text: 'The route drawn on the map goes to the nearest access point by straight line; its time can differ slightly from the listed time.', doc: 'data_contract.md' },
+  { text: `Parks and playgrounds: ${PARK_NOTE}`, doc: 'methodology.md' },
   { text: 'Isochrones are for display only; counts always come from the routing matrix.', doc: 'architecture.md' },
   { text: 'Thresholds (k per category) and public transport classes are provisional until calibrated for Tübingen.', doc: 'methodology.md' },
 ]

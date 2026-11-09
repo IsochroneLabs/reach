@@ -99,6 +99,15 @@ export const POI_COLOURS = {
   routeCasing: '#ffffff',
 }
 
+/** Facility layers: the outline of a park (green, light fill), its access points and the other
+ * facilities of the category. Dark and grey stay legible on every class colour. */
+export const FACILITY_LAYER_COLOURS = {
+  area: '#2f6b3f',
+  access: '#111111',
+  accessRing: '#ffffff',
+  other: '#5a5a5a',
+}
+
 /** Isochrones: forward in the accent blue (dashed), reverse in a darker plum (dotted), so the
  * two differ by line pattern as well as by hue. */
 export const ISOCHRONE_COLOURS = {
