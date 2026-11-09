@@ -17,6 +17,7 @@ const API: [RegExp, string][] = [
   [/\/api\/inspect$/, 'inspect_walking_339.json'],
   [/\/api\/catchment$/, 'catchment_candidate.json'],
   [/\/api\/isochrone$/, 'isochrone_reverse_walking_339.json'],
+  [/\/api\/route$/, 'route_walking_339.json'],
 ]
 
 const BLANK_STYLE = JSON.stringify({
@@ -100,6 +101,12 @@ test('loads the class map and inspects a location', async ({ page }) => {
     await expect(route.locator('.muted')).toContainText('57 m')
   } else {
     await expect(grocery.locator('.reach-list .reach-time').first()).toContainText('min')
+  }
+
+  // green cell: the reachable facilities as pins, no route
+  if (!live) {
+    await expect(page.getByTestId('map')).toHaveAttribute('data-poi-pins', String(await grocery.locator('.reach-list li').count()))
+    await expect(page.getByTestId('map')).toHaveAttribute('data-route', 'none')
   }
 
   await page.getByRole('link', { name: 'Data & validation' }).click()
@@ -316,4 +323,103 @@ test('names the status of a cell without published values', async ({ page }) => 
     await expect(line).toHaveText(text)
     await expect(page.getByTestId('inspect-result')).toContainText('live result')
   }
+})
+
+/** Click the cell of the recorded answer `file` (served for /api/inspect) and wait for it. */
+async function inspectAnswer(page: Page, file: string) {
+  await page.route('**/api/inspect', (route) => route.fulfill({ contentType: 'application/json', path: fixture(file) }))
+  await page.goto('/#/map?profile=walking_339&category=grocery')
+  await expect(page.getByTestId('map')).toHaveAttribute('data-ready', 'true', { timeout: 30_000 })
+  const { x, y } = await initialPixel(page, POINT)
+  await page.mouse.click(x, y)
+  await expect(page.getByTestId('inspect-result')).toBeVisible()
+}
+
+test('a cell without a facility gets a dashed route beyond the budget', async ({ page }) => {
+  test.skip(live, 'uses a recorded answer')
+  await mockNetwork(page)
+  await inspectAnswer(page, 'inspect_walking_339_lack.json')
+  const map = page.getByTestId('map')
+  // nothing reachable: only the next missing facility, marked, with its route
+  await expect(map).toHaveAttribute('data-poi-pins', '1')
+  await expect(map).toHaveAttribute('data-route', 'beyond')
+  const next = page.getByTestId('next-grocery')
+  await expect(next).toContainText('Nearest')
+  await expect(next).toContainText('Aldi Süd')
+  await expect(next).toContainText('40 min · beyond 15 min')
+  // other categories keep their own answer: school has none within the budget either
+  await expect(page.getByTestId('next-school')).toContainText('beyond 15 min')
+  // the settings switch hides pins and routes
+  await page.getByRole('button', { name: 'Map settings' }).click()
+  await page.getByRole('dialog', { name: 'Map settings' }).getByLabel('Facility pins and routes').uncheck()
+  await expect(map).toHaveAttribute('data-poi-pins', '0')
+  await expect(map).toHaveAttribute('data-route', 'none')
+})
+
+test('an insufficient cell shows its pin and the route to the next facility', async ({ page }) => {
+  test.skip(live, 'uses a recorded answer')
+  await mockNetwork(page)
+  await inspectAnswer(page, 'inspect_walking_339_insufficient.json')
+  const map = page.getByTestId('map')
+  await expect(map).toHaveAttribute('data-poi-pins', '2') // the reachable one and the next missing
+  await expect(map).toHaveAttribute('data-route', 'beyond')
+  await expect(page.getByTestId('next-grocery')).toContainText('Next missing')
+})
+
+test('a facility in the list shows its route; a second click clears it', async ({ page }) => {
+  test.skip(live, 'checks the recorded request')
+  const errors: string[] = []
+  page.on('console', (m) => m.type() === 'error' && errors.push(m.text()))
+  page.on('pageerror', (e) => errors.push(e.message))
+  await mockNetwork(page)
+  const requests: unknown[] = []
+  page.on('request', (r) => r.url().endsWith('/api/route') && requests.push(r.postDataJSON()))
+  const recorded = JSON.parse(readFileSync(fixture('inspect_walking_339.json'), 'utf8'))
+  const first = recorded.categories.find((c: { category: string }) => c.category === 'grocery').reachable[0]
+
+  await page.goto('/#/map?profile=walking_339&category=grocery')
+  await expect(page.getByTestId('map')).toHaveAttribute('data-ready', 'true', { timeout: 30_000 })
+  const { x, y } = await initialPixel(page, POINT)
+  await page.mouse.click(x, y)
+  const map = page.getByTestId('map')
+  await page.getByTestId('inspect-result').locator('li.selected .cat-count').click()
+  const entry = page.getByTestId('inspect-result').locator('li.selected .reach-list li').first()
+  const button = entry.getByRole('button')
+  await expect(button).toHaveAttribute('aria-pressed', 'false')
+  expect(requests).toEqual([]) // no route request before a pick
+
+  // hover highlights the pin
+  await button.hover()
+  await expect(map).toHaveAttribute('data-highlighted', first.facility_id)
+  await page.mouse.move(0, 0)
+  await expect(map).toHaveAttribute('data-highlighted', '')
+
+  await button.click()
+  await expect(button).toHaveAttribute('aria-pressed', 'true')
+  await expect(map).toHaveAttribute('data-route', 'within')
+  await expect(page.getByTestId('facility-route')).toContainText('Route to')
+  expect(requests).toEqual([expect.objectContaining({ profile: 'walking_339', facility_id: first.facility_id })])
+  await expect(map).toHaveAttribute('data-highlighted', first.facility_id)
+
+  await button.click()
+  await expect(button).toHaveAttribute('aria-pressed', 'false')
+  await expect(map).toHaveAttribute('data-route', 'none')
+  await expect(page.getByTestId('facility-route')).toHaveCount(0)
+  expect(errors).toEqual([])
+})
+
+test('says so when the route to a picked facility fails', async ({ page }) => {
+  test.skip(live, 'the error answer is mocked')
+  await mockNetwork(page)
+  await page.route('**/api/route', (route) =>
+    route.fulfill({ status: 502, contentType: 'application/json', body: '{"detail":"valhalla down"}' }),
+  )
+  await page.goto('/#/map?profile=walking_339&category=grocery')
+  await expect(page.getByTestId('map')).toHaveAttribute('data-ready', 'true', { timeout: 30_000 })
+  const { x, y } = await initialPixel(page, POINT)
+  await page.mouse.click(x, y)
+  await page.getByTestId('inspect-result').locator('li.selected .cat-count').click()
+  await page.getByTestId('inspect-result').locator('li.selected .reach-list li').first().getByRole('button').click()
+  await expect(page.getByTestId('facility-route')).toContainText('The routing engine did not answer')
+  await expect(page.getByTestId('map')).toHaveAttribute('data-route', 'none')
 })

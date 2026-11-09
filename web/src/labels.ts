@@ -39,6 +39,13 @@ export const CELL_STATUS_TEXT: Record<Exclude<CellStatus, 'scored'>, string> = {
   outside_city: 'Outside the city boundary — not scored',
 }
 
+/** "7 min", or "23 min · beyond 15 min" for a time over the budget (route labels, popups). */
+export function timeLabel(minutes: number, budgetMin: number | null, beyond: boolean): string {
+  // beyond the budget: round up, so "15 min · beyond 15 min" cannot occur
+  const label = `${beyond ? Math.ceil(minutes) : Math.round(minutes)} min`
+  return beyond && budgetMin !== null ? `${label} · beyond ${budgetMin} min` : label
+}
+
 /** Short explanations behind the "What does this show?" toggles of the sidebar cards. */
 export const CARD_HELP = {
   map: 'Each square is a 100 m cell of the Zensus 2022 grid. Its colour says how many facilities of the chosen category its residents reach within the time budget, routed along real paths from the cell centre. "Enough" means at least the number needed for that category.',

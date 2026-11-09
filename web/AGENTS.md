@@ -10,14 +10,17 @@ Rules for agents working in `web/` (React + TypeScript + Vite + MapLibre GL JS).
   only, cell colours on request), pin at the cell centre, residents slider, collapsible cards
   with plain-language labels and short explanations. W2: forward/reverse/both isochrones
   (`POST /api/isochrone`, reverse requested only when chosen). W3: inspector line per
-  `cell.status` (texts in `labels.ts`).
+  `cell.status` (texts in `labels.ts`). W4: facility pins
+  of the selected category (hover popup, time label from zoom 15), the route to the next missing
+  facility (`next_facility`, dashed and labelled "beyond 15 min" outside the budget), clickable
+  facility list (`POST /api/route`, zoom, highlight both ways).
 - **Toolchain:** Node 24 LTS (`.nvmrc`, `engines`); npm with `package-lock.json`, exact versions
   (`--save-exact`). Not part of the uv workspace. New or upgraded packages: ask first.
 - **Layout:** `src/api.ts` (all requests, `ApiError`, user messages per status), `src/types.ts`
   (response shapes of `docs/data_contract.md`), `src/palette.ts` (class and overlay colours,
   legend rules), `src/route.ts` (view and selection in the URL hash), `src/settings.ts` (map
   display settings, `useSettings()`, localStorage), `src/labels.ts` (profile and plain class
-  labels, card explanations), `src/attribution.ts`, `src/components/` (`MapView`, `Card`,
+  labels, card explanations, route time labels), `src/attribution.ts`, `src/components/` (`MapView`, `Card`,
   `SettingsPanel`, `Controls`, `Inspector`, `RecommendationsPanel`, `DistrictPanel`,
   `DataPage`). One stylesheet, `src/styles.css`.
 - **Settings vs. URL:** the selection (view, profile, category) lives in the URL hash so a link
@@ -26,8 +29,9 @@ Rules for agents working in `web/` (React + TypeScript + Vite + MapLibre GL JS).
 - **Read the API, do not re-derive.** Categories, names, `k`, profiles (incl. the transit
   budget), transit class bounds and run data come from `/api/meta`; classes, deficits and
   district shares from the API. Only display aggregates (e.g. residents per class in the
-  legend) are summed here. No thresholds, category names, API or basemap URLs in code; fixed UI
-  text (attribution links, the transit label, the known limitations on the data page with their
+  legend) are summed here. Pins, the next missing facility and its route are drawn from the
+  `inspect` answer; whether a route is solid or dashed comes from `within_budget`. No thresholds, category names, API or basemap URLs in code; fixed
+  UI text (attribution links, the transit label, the known limitations on the data page with their
   doc links) is fine.
 - **Settings** are build-time Vite variables in `.env.development` and `.env.production`
   (committed, no secrets; keep both in sync): `VITE_API_BASE`, `VITE_BASEMAP_STYLE`,

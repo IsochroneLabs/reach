@@ -177,6 +177,19 @@ async def test_locate_scored_cell_outside_boundary(pg: PostgresDatabase) -> None
     assert transit["class"] == "medium"
 
 
+async def test_nearest_facility_points(pg: PostgresDatabase) -> None:
+    # one facility in the run: found at any distance, one row with its nearest routing point
+    rows = await pg.nearest_facility_points(510_000, 5_410_000, "grocery", [], 8)
+    assert [(r["facility_id"], r["point_id"], r["category"]) for r in rows] == [
+        ("n1", 0, "grocery")
+    ]
+    assert 8 < rows[0]["lon"] < 10 and 48 < rows[0]["lat"] < 49.5
+    # already counted facilities are left out; other categories have no facility
+    assert await pg.nearest_facility_points(510_000, 5_410_000, "grocery", ["n1"], 8) == []
+    assert await pg.nearest_facility_points(510_000, 5_410_000, "pharmacy", [], 8) == []
+    assert await pg.nearest_facility_points(510_000, 5_410_000, "grocery", [], 1) == rows
+
+
 async def test_reachable_lists_published_facilities(pg: PostgresDatabase) -> None:
     rows = await pg.reachable("b", "walk", 500_150, 5_400_050)
     assert [(r["facility_id"], r["category"], r["time_s"]) for r in rows] == [

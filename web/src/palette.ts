@@ -86,6 +86,19 @@ export const RECOMMENDATION_COLOURS = {
   catchment: '#1f3b70',
 }
 
+/** Facility pins: white with a dark ring (like the recommendation markers, but small), the
+ * highlighted pin (hover, list selection) and the next missing facility are filled; the route
+ * line and its label are dark so they read on every class colour. */
+export const POI_COLOURS = {
+  pin: '#ffffff',
+  ring: '#111111',
+  highlight: '#1f3b70',
+  next: '#111111',
+  nextRing: '#ffffff',
+  route: '#111111',
+  routeCasing: '#ffffff',
+}
+
 /** Isochrones: forward in the accent blue (dashed), reverse in a darker plum (dotted), so the
  * two differ by line pattern as well as by hue. */
 export const ISOCHRONE_COLOURS = {

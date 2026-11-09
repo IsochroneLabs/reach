@@ -47,6 +47,10 @@ class FakeDatabase:
         self.click_in_city = True
         self.recommendations: list[dict[str, Any]] | None = None
         self.scored = True
+        # published reachable facilities (the two recorded ones within 900 s), cut to the first n
+        self.reachable_n = 2
+        # categories of the recorded facilities for `nearest_facility_points`
+        self.facility_categories = {"n13105232458": "pharmacy", "w396807347": "pharmacy"}
         self.scores = [
             {
                 "category": "grocery",
@@ -171,7 +175,7 @@ class FakeDatabase:
                 "lon": p["lon"],
                 "lat": p["lat"],
             }
-            for p, t in zip(near, (145, 225), strict=True)
+            for p, t in list(zip(near, (145, 225), strict=True))[: self.reachable_n]
         ]
 
     async def facility_points_near(self, x: float, y: float, reach_m: float):
@@ -180,6 +184,20 @@ class FakeDatabase:
             {k: p[k] for k in ("facility_id", "point_id", "category", "name", "lon", "lat")}
             for p in self.rec["points"]
         ]
+
+    async def nearest_facility_points(
+        self, x: float, y: float, category: str, exclude_ids: list[str], limit: int
+    ):
+        """Recorded facilities (two of them as pharmacies, to have a category in "lack") that
+        are not excluded, in recorded order."""
+        self.calls.append("nearest_facility_points")
+        return [
+            {k: p[k] for k in ("facility_id", "point_id", "category", "name", "lon", "lat")}
+            | {"category": self.facility_categories.get(p["facility_id"], p["category"])}
+            for p in self.rec["points"]
+            if p["facility_id"] not in exclude_ids
+            and self.facility_categories.get(p["facility_id"], p["category"]) == category
+        ][:limit]
 
     async def facility(self, facility_id: str):
         p = self.rec["points"][-1]
@@ -282,9 +300,23 @@ def valhalla(rec: dict[str, Any]) -> Iterator[respx.MockRouter]:
         reverse = json.loads(request.content).get("reverse")
         return httpx.Response(200, json=rec["isochrone_reverse" if reverse else "isochrone"])
 
+    recorded_s = dict(
+        zip(
+            [(round(p["lon"], 7), round(p["lat"], 7)) for p in rec["points"]],
+            rec["matrix"]["sources_to_targets"]["durations"][0],
+            strict=True,
+        )
+    )
+
     def matrix(request: httpx.Request) -> httpx.Response:
-        sources = json.loads(request.content)["sources"]
-        return httpx.Response(200, json=rec["matrix_catchment" if len(sources) > 1 else "matrix"])
+        body = json.loads(request.content)
+        if len(body["sources"]) > 1:
+            return httpx.Response(200, json=rec["matrix_catchment"])
+        # one source: the recorded time of every requested facility point (any subset, any order)
+        durations = [[recorded_s[(t["lon"], t["lat"])] for t in body["targets"]]]
+        return httpx.Response(
+            200, json={**rec["matrix"], "sources_to_targets": {"durations": durations}}
+        )
 
     with respx.mock(base_url=VALHALLA, assert_all_called=False) as mock:
         mock.post("/isochrone", name="isochrone").mock(side_effect=isochrone)

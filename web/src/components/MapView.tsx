@@ -1,5 +1,6 @@
 // MapLibre map: basemap, class map of cells, districts, inspector overlays (isochrone and route,
-// display only), the recommendations layer (ranked zones; hidden while the run has none) and the
+// display only), facility pins and the route to the next missing facility (or to a facility picked
+// in the list), the recommendations layer (ranked zones; hidden while the run has none) and the
 // catchment of a selected zone (the cells that reach it, plus its reverse isochrone). The map
 // settings (settings.ts) switch layers, opacity, rings and the pin mode without reloading data.
 import {
@@ -7,6 +8,7 @@ import {
   Map as MapLibreMap,
   Marker,
   NavigationControl,
+  Popup,
   ScaleControl,
   setWorkerUrl,
   type ExpressionSpecification,
@@ -18,12 +20,19 @@ import 'maplibre-gl/dist/maplibre-gl.css'
 // maplibre-gl 6 resolves its worker next to its own module, which the bundle does not keep:
 // let Vite emit the worker as an asset and point MapLibre at it.
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url'
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { FeatureCollection } from 'geojson'
 import { BASEMAP_ATTRIBUTION, DATA_ATTRIBUTION } from '../attribution'
-import { fillColourExpression, ISOCHRONE_COLOURS as ISO, MAP_COLOURS, RECOMMENDATION_COLOURS as REC } from '../palette'
+import { timeLabel } from '../labels'
+import {
+  fillColourExpression,
+  ISOCHRONE_COLOURS as ISO,
+  MAP_COLOURS,
+  POI_COLOURS as POI,
+  RECOMMENDATION_COLOURS as REC,
+} from '../palette'
 import type { MapSettings } from '../settings'
-import type { CandidateCatchment, Cells, Districts, Inspect, Recommendations } from '../types'
+import type { CandidateCatchment, Cells, Districts, Inspect, Recommendations, RouteAnswer } from '../types'
 
 setWorkerUrl(workerUrl)
 
@@ -32,7 +41,9 @@ const EMPTY: FeatureCollection = { type: 'FeatureCollection', features: [] }
 // the grey dot where the user clicked stays this long; the pin moves to the cell centre
 const CLICK_DOT_MS = 1500
 // layers a click selects (instead of dropping a pin); they get the pointer cursor
-const CLICKABLE_LAYERS = ['recommendations']
+const CLICKABLE_LAYERS = ['recommendations', 'poi-pins']
+// facility pins show their time label from this zoom on
+const POI_LABEL_MINZOOM = 15
 
 // Shown when the basemap style cannot be loaded (offline demo): the data layers still work.
 const FALLBACK_STYLE: StyleSpecification = {
@@ -82,6 +93,15 @@ interface Props {
   pinMode: boolean
   settings: MapSettings
   routeCategory: string
+  /** Facility budget of the inspected profile (minutes), for "beyond 15 min" labels. */
+  budgetMin: number | null
+  /** Facility picked in the list or on the map, and the one under the pointer in the list. */
+  selectedFacility: string | null
+  hoveredFacility: string | null
+  /** Route to the picked facility (replaces the route to the next missing facility). */
+  facilityRoute: RouteAnswer | null
+  onFacility: (facilityId: string) => void
+  onFacilityHover: (facilityId: string | null) => void
   recommendations: Recommendations | null
   selectedCandidate: string | null
   catchment: CandidateCatchment | null
@@ -112,20 +132,86 @@ function recommendationPoints(recs: Recommendations): FeatureCollection {
   }
 }
 
+/** Pins of the selected category: the facilities reachable in the budget, plus the next missing
+ * facility (filled pin) when the cell has fewer than needed. */
+function poiPins(inspect: Inspect | null, category: string, budgetMin: number | null): FeatureCollection {
+  const c = inspect?.categories.find((x) => x.category === category)
+  if (!c) return EMPTY
+  const pin = (id: string, name: string | null, point: [number, number], min: number, beyond: boolean, next: boolean) => ({
+    type: 'Feature' as const,
+    properties: { facility_id: id, name, category: c.name, time_min: min, time_label: timeLabel(min, budgetMin, beyond), beyond, next },
+    geometry: { type: 'Point' as const, coordinates: point },
+  })
+  const features = c.reachable.map((f) => pin(f.facility_id, f.name, f.point, f.time_min, false, false))
+  const n = c.next_facility
+  if (n) features.push(pin(n.facility_id, n.name, n.point, n.time_min, !n.within_budget, true))
+  return { type: 'FeatureCollection', features }
+}
+
+/** The route on the map: to the picked facility, else to the next missing facility (dashed and
+ * labelled "beyond 15 min" when it is outside the budget). */
+function routeLine(
+  inspect: Inspect | null,
+  category: string,
+  picked: RouteAnswer | null,
+  budgetMin: number | null,
+): FeatureCollection {
+  const next = inspect?.categories.find((x) => x.category === category)?.next_facility
+  const route = picked ? picked.route : next?.route
+  if (!route) return EMPTY
+  const beyond = picked ? !picked.within_budget : !next!.within_budget
+  const minutes = (picked ? picked.route.properties.time_s : next!.time_s) / 60
+  return {
+    type: 'FeatureCollection',
+    features: [{ ...route, properties: { ...route.properties, beyond, label: timeLabel(minutes, budgetMin, beyond) } }],
+  }
+}
+
+/** The label of the route as a point halfway along it (a label along a winding line is hidden by
+ * MapLibre where the line bends too much). */
+function routeLabelPoint(route: FeatureCollection): FeatureCollection {
+  const f = route.features[0]
+  if (!f || f.geometry.type !== 'LineString') return EMPTY
+  const line = f.geometry.coordinates
+  const middle = line[Math.floor(line.length / 2)]
+  return {
+    type: 'FeatureCollection',
+    features: [{ type: 'Feature', properties: { label: f.properties?.label }, geometry: { type: 'Point', coordinates: middle } }],
+  }
+}
+
+/** Popup content as DOM nodes (OSM names are untrusted text, never HTML). */
+function popupContent(props: Record<string, unknown>): HTMLElement {
+  const root = document.createElement('div')
+  const name = document.createElement('strong')
+  name.textContent = typeof props.name === 'string' && props.name ? props.name : 'Unnamed'
+  const detail = document.createElement('div')
+  detail.className = 'muted small'
+  detail.textContent = `${String(props.category)} · ${String(props.time_label)}${props.next ? ' · next missing' : ''}`
+  root.append(name, detail)
+  return root
+}
+
 export default function MapView(props: Props) {
   const { cells, classes, transit, districts, selectedDistrict, inspect, marker, routeCategory, recommendations } = props
   const { selectedCandidate, catchment, pinMode, settings, reverseIsochrone } = props
+  const { budgetMin, selectedFacility, hoveredFacility, facilityRoute } = props
   const container = useRef<HTMLDivElement>(null)
   const mapRef = useRef<MapLibreMap | null>(null)
   const markerRef = useRef<Marker | null>(null)
+  const popupRef = useRef<Popup | null>(null)
   const [ready, setReady] = useState(false)
   const clickTimer = useRef<number | undefined>(undefined)
   const [basemapOk, setBasemapOk] = useState(true)
   const onPick = useRef(props.onPick)
   const onRecommendation = useRef(props.onRecommendation)
+  const onFacility = useRef(props.onFacility)
+  const onFacilityHover = useRef(props.onFacilityHover)
   useEffect(() => {
     onPick.current = props.onPick
     onRecommendation.current = props.onRecommendation
+    onFacility.current = props.onFacility
+    onFacilityHover.current = props.onFacilityHover
   })
 
   // Create the map once; districts are loaded before the map is mounted (initial bounds).
@@ -157,8 +243,14 @@ export default function MapView(props: Props) {
       )
       // Tile hiccups of the basemap must not end up as console errors or break the app.
       map.on('error', (e) => console.warn('map:', e.error?.message ?? e))
-      // a click on a recommendation marker selects it; anywhere else drops the inspector pin
+      // a click on a facility pin or a recommendation marker selects it; anywhere else drops the
+      // inspector pin
       map.on('click', (e) => {
+        const pinHit = map?.getLayer('poi-pins') ? map.queryRenderedFeatures(e.point, { layers: ['poi-pins'] })[0] : undefined
+        if (pinHit) {
+          onFacility.current(String(pinHit.properties.facility_id))
+          return
+        }
         const hit = map?.getLayer('recommendations')
           ? map.queryRenderedFeatures(e.point, { layers: ['recommendations'] })[0]
           : undefined
@@ -181,12 +273,25 @@ export default function MapView(props: Props) {
           if (map) map.getCanvas().style.cursor = ''
         })
       }
+      // hover on a pin: popup with name, category and time; the list highlights the same entry
+      const popup = new Popup({ closeButton: false, closeOnClick: false, offset: 10, className: 'poi-popup' })
+      popupRef.current = popup
+      map.on('mouseenter', 'poi-pins', (e) => {
+        const f = e.features?.[0]
+        if (!f || !map || f.geometry.type !== 'Point') return
+        popup.setLngLat(f.geometry.coordinates as [number, number]).setDOMContent(popupContent(f.properties)).addTo(map)
+        onFacilityHover.current(String(f.properties.facility_id))
+      })
+      map.on('mouseleave', 'poi-pins', () => {
+        popup.remove()
+        onFacilityHover.current(null)
+      })
       map.on('load', () => {
         if (!map) return
         // data below the basemap labels, so street and place names stay readable
         const labels = map.getStyle().layers.find((l) => l.type === 'symbol')?.id
         const sources = ['cells', 'districts', 'isochrone', 'route', 'recommendations', 'recommendation-zones']
-        sources.push('cell-selected', 'click-point', 'isochrone-reverse')
+        sources.push('cell-selected', 'click-point', 'isochrone-reverse', 'poi-pins', 'route-label')
         for (const id of [...sources, 'catchment', 'catchment-isochrone'])
           map.addSource(id, { type: 'geojson', data: EMPTY })
         map.addLayer(
@@ -270,20 +375,49 @@ export default function MapView(props: Props) {
             'line-dasharray': [0.1, 2],
           },
         })
+        // route to the next missing facility (or the picked one): solid within the budget,
+        // dashed beyond it (the label says so as well)
+        const beyond: ExpressionSpecification = ['==', ['get', 'beyond'], true]
         map.addLayer({
           id: 'route-casing',
           type: 'line',
           source: 'route',
           layout: { 'line-cap': 'round', 'line-join': 'round' },
-          paint: { 'line-color': '#ffffff', 'line-width': 6 },
+          paint: { 'line-color': POI.routeCasing, 'line-width': 6 },
         })
         map.addLayer({
           id: 'route-line',
           type: 'line',
           source: 'route',
+          filter: ['!', beyond],
           layout: { 'line-cap': 'round', 'line-join': 'round' },
-          paint: { 'line-color': '#111111', 'line-width': 3 },
+          paint: { 'line-color': POI.route, 'line-width': 3 },
         })
+        map.addLayer({
+          id: 'route-line-beyond',
+          type: 'line',
+          source: 'route',
+          filter: beyond,
+          layout: { 'line-join': 'round' },
+          paint: { 'line-color': POI.route, 'line-width': 3, 'line-dasharray': [2, 1.5] },
+        })
+        // labels need the basemap's glyphs (not available in the offline fallback style)
+        if (map.getStyle().glyphs)
+          map.addLayer({
+            id: 'route-label',
+            type: 'symbol',
+            source: 'route-label',
+            layout: {
+              'text-field': ['get', 'label'],
+              'text-size': 12,
+              'text-font': ['Noto Sans Bold'],
+              'text-anchor': 'top',
+              'text-offset': [0, 0.8],
+              'text-allow-overlap': true,
+              'text-ignore-placement': true,
+            },
+            paint: { 'text-color': POI.route, 'text-halo-color': POI.routeCasing, 'text-halo-width': 2 },
+          })
         map.addLayer({
           id: 'catchment-line',
           type: 'line',
@@ -336,6 +470,34 @@ export default function MapView(props: Props) {
             },
             paint: { 'text-color': pick('', REC.selectedText, REC.ring) },
           })
+        // facility pins: small, white with a dark ring; highlighted and next-missing pins filled
+        map.addLayer({
+          id: 'poi-pins',
+          type: 'circle',
+          source: 'poi-pins',
+          paint: {
+            'circle-radius': ['case', ['get', 'next'], 7, 5],
+            'circle-color': ['case', ['get', 'next'], POI.next, POI.pin],
+            'circle-stroke-color': ['case', ['get', 'next'], POI.nextRing, POI.ring],
+            'circle-stroke-width': 1.5,
+          },
+        })
+        if (map.getStyle().glyphs)
+          map.addLayer({
+            id: 'poi-labels',
+            type: 'symbol',
+            source: 'poi-pins',
+            minzoom: POI_LABEL_MINZOOM,
+            layout: {
+              'text-field': ['get', 'time_label'],
+              'text-size': 11,
+              'text-font': ['Noto Sans Regular'],
+              'text-offset': [0, 1.1],
+              'text-anchor': 'top',
+              'text-optional': true,
+            },
+            paint: { 'text-color': POI.ring, 'text-halo-color': POI.routeCasing, 'text-halo-width': 1.5 },
+          })
         map.addLayer({
           id: 'click-point',
           type: 'circle',
@@ -385,7 +547,8 @@ export default function MapView(props: Props) {
     map.setFilter('cells-outline', minResidents)
     for (const id of ['districts-line', 'districts-selected'])
       map.setLayoutProperty(id, 'visibility', visible(settings.showDistricts))
-    for (const id of ['route-casing', 'route-line']) map.setLayoutProperty(id, 'visibility', visible(settings.showPois))
+    for (const id of ['route-casing', 'route-line', 'route-line-beyond', 'route-label', 'poi-pins', 'poi-labels'])
+      if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', visible(settings.showPois))
     const hidden = Object.entries(settings.isochroneRings)
       .filter(([, shown]) => !shown)
       .map(([m]) => Number(m))
@@ -405,22 +568,60 @@ export default function MapView(props: Props) {
       mapRef.current?.setFilter('districts-selected', ['==', ['get', 'district_id'], selectedDistrict ?? ''])
   }, [ready, selectedDistrict])
 
-  // Zoom to a new inspect answer once (not again when only the category changes).
-  const fitted = useRef<Inspect | null>(null)
+  // Zoom to a new inspect answer: the isochrone plus the route to the next missing facility of the
+  // selected category, which can lie far outside it. A category change zooms again only when it
+  // brings such a route; otherwise the view stays where the user left it.
+  const fitted = useRef<{ inspect: Inspect; category: string } | null>(null)
   useEffect(() => {
     const map = mapRef.current
-    if (!ready || !map || !inspect || fitted.current === inspect) return
-    fitted.current = inspect
-    if (inspect.isochrone.features.length)
-      map.fitBounds(bboxOf(inspect.isochrone), { padding: 40, maxZoom: 15, duration: 600 })
-  }, [ready, inspect])
+    if (!ready || !map || !inspect) return
+    const last = fitted.current
+    const nextRoute = inspect.categories.find((c) => c.category === routeCategory)?.next_facility?.route
+    if (last && last.inspect === inspect && (last.category === routeCategory || !nextRoute)) return
+    fitted.current = { inspect, category: routeCategory }
+    const shapes = [...inspect.isochrone.features, ...(nextRoute ? [nextRoute] : [])]
+    if (shapes.length)
+      map.fitBounds(bboxOf({ type: 'FeatureCollection', features: shapes }), { padding: 40, maxZoom: 15, duration: 600 })
+  }, [ready, inspect, routeCategory])
 
   useEffect(() => {
     if (!ready) return
     source('isochrone')?.setData(inspect?.isochrone ?? EMPTY)
-    const route = inspect?.categories.find((c) => c.category === routeCategory)?.nearest_route
-    source('route')?.setData(route ? { type: 'FeatureCollection', features: [route] } : EMPTY)
-  }, [ready, inspect, routeCategory])
+  }, [ready, inspect])
+
+  const pins = useMemo(() => poiPins(inspect, routeCategory, budgetMin), [inspect, routeCategory, budgetMin])
+  const route = useMemo(
+    () => routeLine(inspect, routeCategory, facilityRoute, budgetMin),
+    [inspect, routeCategory, facilityRoute, budgetMin],
+  )
+  useEffect(() => {
+    if (!ready) return
+    // a pin that goes away under the pointer fires no mouseleave: close its popup
+    popupRef.current?.remove()
+    source('poi-pins')?.setData(pins)
+    source('route')?.setData(route)
+    source('route-label')?.setData(routeLabelPoint(route))
+  }, [ready, pins, route])
+
+  // highlighted pins: the one under the pointer (list or map) and the picked one
+  useEffect(() => {
+    const map = mapRef.current
+    if (!ready || !map) return
+    const ids = [hoveredFacility, selectedFacility].filter((id): id is string => id !== null)
+    const lit: ExpressionSpecification = ['in', ['get', 'facility_id'], ['literal', ids]]
+    map.setPaintProperty('poi-pins', 'circle-color', ['case', lit, POI.highlight, ['get', 'next'], POI.next, POI.pin])
+    map.setPaintProperty('poi-pins', 'circle-radius', ['case', lit, 8, ['get', 'next'], 7, 5])
+  }, [ready, hoveredFacility, selectedFacility])
+
+  // a facility picked in the list: fly to it
+  useEffect(() => {
+    const map = mapRef.current
+    const target = selectedFacility ? pins.features.find((f) => f.properties?.facility_id === selectedFacility) : undefined
+    if (!ready || !map || !target || target.geometry.type !== 'Point') return
+    map.flyTo({ center: target.geometry.coordinates as [number, number], zoom: Math.max(map.getZoom(), POI_LABEL_MINZOOM), duration: 600 })
+    // only a new pick flies; the pins are re-derived whenever the answer changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready, selectedFacility])
 
   useEffect(() => {
     const map = mapRef.current
@@ -493,6 +694,10 @@ export default function MapView(props: Props) {
         data-ready={ready && cells ? 'true' : 'false'}
         // effective cell fill (0 = no colours), read by the smoke test
         data-cell-fill={settings.showCells && coloured ? settings.cellOpacity : 0}
+        // facility pins on the map, the kind of route and the highlighted pins, read by the smoke test
+        data-highlighted={[...new Set([hoveredFacility, selectedFacility].filter(Boolean))].join(' ')}
+        data-poi-pins={settings.showPois ? pins.features.length : 0}
+        data-route={settings.showPois && route.features.length ? (route.features[0].properties?.beyond ? 'beyond' : 'within') : 'none'}
         role="region"
         aria-label="Map: click to inspect a location"
       />

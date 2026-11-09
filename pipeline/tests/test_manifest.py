@@ -111,7 +111,7 @@ def test_require_ok_checks_config_sections(tmp_path: Path) -> None:
     write_manifest(manifest, tmp_path / "demo")
     assert manifest.inputs[0].path == "config:profiles"
 
-    api_changed = cfg.model_copy(update={"api": {**cfg.api, "boundary_margin_m": 250}})
+    api_changed = cfg.model_copy(update={"api": {**cfg.api, "resolve_interval_s": 250}})
     assert require_ok(tmp_path / "demo", "demo", api_changed).status == "ok"
 
     profiles = {**cfg.profiles}
@@ -190,7 +190,7 @@ def test_stage_reruns_only_when_its_sections_change(config_path: Path, demo: Non
     # The api section (read by reach_api only) and sections the stage does not use, in the
     # parent file: the stage stays a no-op and keeps its manifest.
     def unrelated(d: dict) -> None:
-        d["api"]["boundary_margin_m"] = 250
+        d["api"]["resolve_interval_s"] = 250
         d["cleanup"]["keep_published_runs"] = 5
 
     _edit_yaml(config_path, unrelated)

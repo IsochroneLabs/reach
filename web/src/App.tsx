@@ -8,11 +8,12 @@ import {
   postCandidateCatchment,
   postInspect,
   postIsochrone,
+  postRoute,
 } from './api'
 import Controls from './components/Controls'
 import DataPage from './components/DataPage'
 import DistrictPanel from './components/DistrictPanel'
-import Inspector, { type InspectState } from './components/Inspector'
+import Inspector, { type FacilityRouteState, type InspectState } from './components/Inspector'
 import MapView from './components/MapView'
 import RecommendationsPanel, { type CatchmentState } from './components/RecommendationsPanel'
 import SettingsPanel from './components/SettingsPanel'
@@ -76,6 +77,9 @@ function Main({ meta, districts }: { meta: Meta; districts: Districts }) {
   const [pin, setPin] = useState<[number, number] | null>(null)
   const [inspect, setInspect] = useState<InspectState>({ status: 'idle' })
   const [district, setDistrict] = useState<string | null>(null)
+  // facility picked in the list or on the map (route to exactly this one) and the hovered one
+  const [selectedFacility, setSelectedFacility] = useState<string | null>(null)
+  const [hoveredFacility, setHoveredFacility] = useState<string | null>(null)
   const inspectAbort = useRef<AbortController | null>(null)
   // catchment of a recommended zone; it belongs to the selection it was loaded for
   const [catchment, setCatchment] = useState<{ key: string; state: CatchmentState }>({
@@ -144,6 +148,9 @@ function Main({ meta, districts }: { meta: Meta; districts: Districts }) {
   }, [])
 
   const select = (next: { profile?: string; category?: string }) => {
+    // the pins and routes belong to the category and profile they were picked in
+    setSelectedFacility(null)
+    setHoveredFacility(null)
     const profileId = next.profile ?? profile.profile_id
     navigate({ view: 'map', profile: profileId, category: next.category ?? category })
     // the inspect answer covers all categories; only a new profile needs a new one
@@ -151,6 +158,8 @@ function Main({ meta, districts }: { meta: Meta; districts: Districts }) {
   }
 
   const pick = (lon: number, lat: number) => {
+    setSelectedFacility(null)
+    setHoveredFacility(null)
     setPin([lon, lat])
     // a new pin always shows its answer, even if the card was collapsed before
     setCard('inspector', true)
@@ -185,7 +194,14 @@ function Main({ meta, districts }: { meta: Meta; districts: Districts }) {
   )
   const cellsCurrent = cellsResult.key === viewKey
   const cellsFailed = cellsError?.key === viewKey && !cellsCurrent
+  // a facility from the list or a pin: its category becomes the selected one, so its pin is shown
+  const pickFacility = (facilityId: string | null, facilityCategory: string) => {
+    if (facilityCategory !== category) select({ category: facilityCategory })
+    setSelectedFacility(facilityId)
+  }
   const closeInspector = () => {
+    setSelectedFacility(null)
+    setHoveredFacility(null)
     inspectAbort.current?.abort()
     setPin(null)
     setInspect({ status: 'idle' })
@@ -233,6 +249,25 @@ function Main({ meta, districts }: { meta: Meta; districts: Districts }) {
   }, [reverseKey])
   const reverseOfPin = pin && reverse && reverse.key === reverseKey ? reverse : null
   const reverseIsochrone = reverseOfPin?.data?.isochrone ?? null
+
+  // Route to the picked facility, from the origin of the shown answer; one request per pick
+  // (cached by the API), aborted when the pick changes.
+  const facilityKey = inspectedOrigin && selectedFacility ? `${inspectedOrigin.join(',')}|${profile.profile_id}|${selectedFacility}` : null
+  const [picked, setPicked] = useState<{ key: string; state: FacilityRouteState } | null>(null)
+  useEffect(() => {
+    if (!facilityKey || !inspectedOrigin || !selectedFacility) return
+    const controller = new AbortController()
+    postRoute(inspectedOrigin[0], inspectedOrigin[1], profile.profile_id, selectedFacility, controller.signal).then(
+      (data) => !controller.signal.aborted && setPicked({ key: facilityKey, state: { status: 'done', data } }),
+      (err: unknown) =>
+        !controller.signal.aborted && setPicked({ key: facilityKey, state: { status: 'error', message: errorMessage(err) } }),
+    )
+    return () => controller.abort()
+    // the key covers origin, profile and facility
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [facilityKey])
+  const facilityRoute: FacilityRouteState = !facilityKey ? { status: 'idle' } : picked?.key === facilityKey ? picked.state : { status: 'loading' }
+  const budgetMin = meta.profiles.find((p) => p.profile_id === shownInspect?.profile_id)?.time_budget_min ?? null
 
   const card = (id: string) => ({
     open: cardOpen(settings, id),
@@ -288,6 +323,7 @@ function Main({ meta, districts }: { meta: Meta; districts: Districts }) {
               coloursWithPin={settings.coloursWithPin}
               direction={settings.isochroneDirection}
               reverseError={reverseOfPin?.error ?? null}
+              facility={{ selected: selectedFacility, route: facilityRoute, onSelect: pickFacility, onHover: setHoveredFacility }}
               onColoursWithPin={(on) => updateSettings({ coloursWithPin: on })}
             />
             <RecommendationsPanel
@@ -321,6 +357,12 @@ function Main({ meta, districts }: { meta: Meta; districts: Districts }) {
             pinMode={pin !== null}
             settings={settings}
             routeCategory={category}
+            budgetMin={budgetMin}
+            selectedFacility={selectedFacility}
+            hoveredFacility={hoveredFacility}
+            facilityRoute={facilityRoute.status === 'done' ? facilityRoute.data : null}
+            onFacility={(id) => pickFacility(id === selectedFacility ? null : id, category)}
+            onFacilityHover={setHoveredFacility}
             recommendations={currentRecommendations}
             selectedCandidate={catchmentState.status === 'idle' ? null : catchmentState.candidateId}
             catchment={catchmentState.status === 'done' ? catchmentState.data : null}

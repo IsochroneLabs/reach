@@ -50,6 +50,10 @@ Residents are a secondary audience served by the same map.
 - **Click area and cell status:** clicks are accepted anywhere in the city; the inspector says
   whether the cell is scored (its residents), has no residents in the Zensus grid (values
   computed live) or lies outside the city boundary (not scored).
+- **POI pins and routes:** the facilities reachable in the selected category show as pins with
+  name and time on hover. A cell with fewer than the required number also gets a route to the
+  *next* missing facility, dashed and labelled "beyond 15 min" when it is outside the budget. The
+  facility list is clickable (zoom, pin highlight, route to exactly this facility).
 - **Spread view (Stretch-light):** street-level spread via Valhalla `expansion`, animated by time.
 
 ## 5. Recommendations (Core)

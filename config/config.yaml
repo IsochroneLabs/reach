@@ -364,10 +364,6 @@ cleanup:
 # API (arch. §6.5 rules 8–12, §9), read by reach_api.settings; the pipeline ignores this section.
 # URLs and the database DSN come from .env (VALHALLA_URL, DATABASE_URL_API), never from here.
 api:
-  # No longer read (W3): live endpoints accept a point whose position or cell centre lies inside
-  # the city boundary, or inside a scored cell (rule 12, architecture v0.20). Removing the key is
-  # a separate decision (notes N3).
-  boundary_margin_m: 100
   # One isochrone call with these contours in minutes (rule 9); display only, never counted.
   isochrone:
     contours_min: [5, 10, 15]
@@ -375,6 +371,14 @@ api:
     # small islands); checked on Valhalla 3.9.1 (P5).
     generalize_m: 20
     denoise: 0.5
+  # Next missing facility (W4): for every category where a cell has fewer than `k` facilities within
+  # the budget, `/api/inspect` finds the fastest facility not yet counted. The `candidates` nearest
+  # ones by straight line per category go into one live matrix (all categories together, from the
+  # cell origin; arch. §6.5 rule 8), the fastest one gets a route, also beyond the 15-minute
+  # budget. Facilities slower than `max_time_min` are not offered (answer: no facility, with a note).
+  next_facility:
+    candidates: 8
+    max_time_min: 60
   # In-process LRU caches of serialized JSON bodies, keyed by run, endpoint, cell (or facility)
   # and profile (rule 10). Sizes measured in P5: worst case ~26 + 14 + 22 MB, within the API's
   # ~0.2 GB share of the server (arch. §11).
