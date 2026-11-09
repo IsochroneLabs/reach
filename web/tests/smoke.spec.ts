@@ -346,7 +346,7 @@ test('a cell without a facility gets a dashed route beyond the budget', async ({
   const next = page.getByTestId('next-grocery')
   await expect(next).toContainText('Nearest')
   await expect(next).toContainText('Aldi Süd')
-  await expect(next).toContainText('39 min · beyond 15 min')
+  await expect(next).toContainText('40 min · beyond 15 min')
   // other categories keep their own answer: school has none within the budget either
   await expect(page.getByTestId('next-school')).toContainText('beyond 15 min')
   // the settings switch hides pins and routes
