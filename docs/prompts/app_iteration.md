@@ -11,6 +11,112 @@ logged in. Do not auto-approve `git push --force`, `rm` or `docker system prune`
 
 ---
 
+## 0. All-in-one prompt (one paste, builds W1–W8 step by step)
+
+Self-contained: approvals, order, procedure and stop points in one block. Change the two lines
+marked `EDIT` if you decide E5 or E6 differently. Sections 1–3 below are the modular version of
+the same rules.
+
+```text
+You are the implementation agent for IsochroneLabs/reach, working on behalf of Rico (GitHub
+RicoS03). Build ALL work packages of docs/app_iteration_plan.md, step by step, in this order:
+W1 → W2 → W3 → W4 → W5 → W6 → W7a → W7b → W8. One package = one branch + one draft PR into dev.
+Reply to me in German; everything in the repository in English.
+
+STEP 0 — READ (at the start and in every new session)
+AGENTS.md, pipeline/AGENTS.md, api/AGENTS.md, web/AGENTS.md, CONTRIBUTING.md,
+docs/app_iteration_plan.md (all), docs/osm_tagging.md, docs/architecture.md §6.5 §7 §8 §9,
+docs/methodology.md §1–§5, docs/data_contract.md, docs/glossary.md, docs/notes.md N3 N4 N12 N13 N14.
+If the plan is not on dev yet: git show origin/docs/rico-app-iteration-plan:docs/app_iteration_plan.md
+(same for docs/osm_tagging.md). All AGENTS.md rules apply.
+
+APPROVALS (my explicit "yes" in the sense of AGENTS.md, for exactly these items)
+- docs/app_iteration_plan.md v0.1 confirmed for W1–W8: the folders, files, contract changes and
+  new config keys each package names.
+- E1 point 5 = easier to understand, more intuitive. E2 flexible 0–100 score (W7b), methodology
+  new §4b, wording of the web/AGENTS.md rule "Read the API, do not re-derive". E3 school types from
+  OSM tags only. E4 no GP split. E7 housing potential as in W8, methodology §5b, new stage
+  `housing` in architecture.md.
+- W2 architecture §9 (POST /api/isochrone). W4 architecture §6.5 live matrix beyond the budget,
+  keys api.next_facility.*. W5 methodology §2 sentence on parks, columns facilities.tags/area_geom.
+  W7a methodology §2 (new categories, k, access rule), changing the existing `categories` values,
+  keys group/require/exclude.
+- EDIT E5: approved — clicks allowed inside the whole city boundary (W3, architecture §6.5 rule 12).
+- EDIT E6: approved — cycling recommendations on if recommend <= 10 min and Valhalla peak
+  <= 2.5 GB, else try cycling candidate_spacing_m 200, else leave off and document (W6).
+- Stacking: a package may branch from an unmerged prerequisite branch.
+NOT approved (always stop and ask): new or upgraded dependencies, compose*.yaml, CI workflows,
+removing config keys, merging, marking PRs ready, tags, releases, deleting branches, pushing to
+dev/main, editing OSM.
+
+STEP 1 — FIND THE NEXT PACKAGE (start of every session and after every PR)
+git fetch --all --prune. For each package take its branch from plan §3 and run
+gh pr list --repo IsochroneLabs/reach --state all --head <branch> --json number,state,url
+merged = done, open = built, none = to build. Next = first package without a PR. Show me the
+table in a few lines, then continue.
+
+STEP 2 — BRANCH
+Prerequisites: W4←W3, W5←W4, W7a←W5, W7b←W7a, W8←W7b; W1, W2, W3, W6 have none.
+Prerequisite merged → branch from origin/dev. Only an open PR → branch from its branch, first line
+of the PR body "Depends on #<n>"; rebase onto origin/dev once it is merged (--force-with-lease,
+own branch only).
+
+STEP 3 — RESTATE
+Five lines: goal, the 18 points it closes, files, contract changes, approvals used. Then build
+without waiting, unless a stop point applies.
+
+STEP 4 — BUILD IN SMALL COMMITS
+Each commit leaves the touched package green:
+web: cd web && npm ci && npm run lint && npm run build && npx playwright test
+python: uv run ruff check . && uv run ruff format --check . && uv run pytest
+pipeline: make refresh REACH_CONFIG=config/test_clip.yaml; schema changes also
+REACH_TEST_DATABASE_URL=<superuser URL> uv run pytest -m db.
+API response changes: docs/data_contract.md (version + change log), web/src/types.ts, API tests
+with recorded Valhalla answers (no network in unit tests), re-recorded web fixtures (< 1 MB).
+Conventional Commits with the co-author trailer from AGENTS.md.
+Package notes:
+- W1 only web/; labels in web/src/labels.ts, colours only in palette.ts.
+- W7a gate: share of amenity=school features in the city carrying school, school:de or
+  isced:level in the newest data/runs/<run>/validate/osm/facilities.geojsonseq (run
+  make pipeline STAGE=validate first if the run is older than 3 days). >= 95 % → full W7a;
+  below → W7a without the school split, list the untagged schools in the PR.
+- W7b: no new dependency; without Vitest test web/src/score.ts via Playwright.
+- W8: report runtime and peak memory of the new stage.
+
+STEP 5 — VERIFY
+make up and check every visible change at http://localhost:8080 with one screenshot each.
+Measure stage runtime/peak memory (manifests) and inspect latency where the API changed.
+Check every "Done when" of the package. Then review the whole diff in a fresh subagent (or a
+careful reread) and fix what it finds.
+
+STEP 6 — DOCS
+Same branch: README.md, CHANGELOG.md (Unreleased), folder AGENTS.md, glossary/notes as needed;
+architecture.md/methodology.md only where approved, with version bump and change-log line.
+
+STEP 7 — PR
+Push your branch; open a draft PR into dev (REST if GraphQL is blocked:
+gh api repos/IsochroneLabs/reach/pulls -f title=... -f head=<branch> -f base=dev -F draft=true -F body=@<file>).
+Title = Conventional Commit; body = CONTRIBUTING.md §4 template + points closed, commands with
+results, measurements, screenshots, "Prepared by Claude on behalf of @RicoS03."
+
+STEP 8 — REPORT AND CONTINUE
+Tell me in German: package, PR link, what works, open points. Then go back to STEP 1.
+
+STOP AND ASK ME (in German, with your proposal) when:
+- an item needs approval not listed above;
+- the plan conflicts with the repository or with architecture.md/methodology.md;
+- a prerequisite is neither merged nor stackable;
+- checks still fail after three focused attempts, or passing would need disabling a test, lint
+  rule or validation check;
+- a stage exceeds the CX23 budget (> 15 min or Valhalla > 2.5 GB);
+- a merge conflict touches open code of Socke or Juju;
+- the context is getting full: finish the commit, push, leave a handoff comment on the PR (done /
+  next) and tell me to start a new session with this same prompt;
+- all packages have PRs: show the final table and stop.
+```
+
+---
+
 ## 1. Approvals (edit before pasting)
 
 The plan names "ask first" items per package. Everything checked here counts as the explicit
