@@ -70,6 +70,7 @@ async def meta(request: Request, d: DepsDep) -> Response:
     run = await current_run(d)
     m = await d.db.meta(run.run_id)
     names = {c.id: c.name for c in d.config.categories}
+    groups = {c.id: c.group for c in d.config.categories}
     transit_budget = d.config.time_budgets_min.transit
     checks = m["checks"]
     counts = {s: sum(1 for c in checks if c["status"] == s) for s in ("ok", "warn", "fail")}
@@ -91,7 +92,8 @@ async def meta(request: Request, d: DepsDep) -> Response:
             for p in run.profiles.values()
         ],
         "categories": [
-            {"id": c, "name": names.get(c, c), "k": k} for c, k in run.categories.items()
+            {"id": c, "name": names.get(c, c), "k": k, "group": groups.get(c)}
+            for c, k in run.categories.items()
         ],
         "transit_classes": [
             {"class": t["class"], "lower": t["lower"], "upper": t["upper"]}
@@ -101,7 +103,7 @@ async def meta(request: Request, d: DepsDep) -> Response:
     }
     # Category names and the transit budget come from the config, not the run: they are part
     # of the version.
-    tagged = {"names": names, "transit_budget_min": transit_budget}
+    tagged = {"names": names, "groups": groups, "transit_budget_min": transit_budget}
     names_tag = hashlib.sha256(json.dumps(tagged, sort_keys=True).encode()).hexdigest()[:8]
     return _json(request, _etag(run.run_id, "meta", names_tag), _jsonable(content))
 
@@ -152,6 +154,28 @@ async def cells(
         (run.run_id, "cells", category, profile),
         GEOJSON,
         lambda: d.db.cells_geojson(run.run_id, category, profile),
+    )
+
+
+@router.api_route("/cells/times", methods=GET_HEAD)
+async def cell_times(
+    request: Request,
+    d: DepsDep,
+    profile: Annotated[str, Query()],
+) -> Response:
+    """Per scored cell: residents, district and, per facility category, the sorted times (s) of
+    the nearest facilities within the budget (at most `api.score.max_times_per_category`). The
+    app computes the flexible accessibility score from them (methodology §4b); cell polygons
+    come from `/api/cells`."""
+    run = await current_run(d)
+    run.profile(profile)
+    limit = d.config.api.score.max_times_per_category
+    return await _cached_body(
+        request,
+        d,
+        (run.run_id, "cell_times", profile, str(limit)),
+        "application/json",
+        lambda: d.db.cell_times(run.run_id, profile, limit),
     )
 
 

@@ -421,6 +421,11 @@ api:
   next_facility:
     candidates: 8
     max_time_min: 60
+  # Flexible score (W7b): `GET /api/cells/times` lists, per scored cell and category, the sorted
+  # times (seconds) of this many nearest facilities within the budget; the app computes the score
+  # from them in the browser. Keep it at least max k + 2 (largest k is 2).
+  score:
+    max_times_per_category: 5
   # In-process LRU caches of serialized JSON bodies, keyed by run, endpoint, cell (or facility)
   # and profile (rule 10). Sizes measured in P5: worst case ~26 + 14 + 22 MB, within the API's
   # ~0.2 GB share of the server (arch. §11).
