@@ -45,6 +45,8 @@ APPROVALS (my explicit "yes" in the sense of AGENTS.md, for exactly these items)
 - EDIT E6: approved — cycling recommendations on if recommend <= 10 min and Valhalla peak
   <= 2.5 GB, else try cycling candidate_spacing_m 200, else leave off and document (W6).
 - Stacking: a package may branch from an unmerged prerequisite branch.
+- W3 follow-up: remove the unused config key api.boundary_margin_m (loader, tests, comments,
+  notes N3) in the next package that touches api/.
 NOT approved (always stop and ask): new or upgraded dependencies, compose*.yaml, CI workflows,
 removing config keys, merging, marking PRs ready, tags, releases, deleting branches, pushing to
 dev/main, editing OSM.
@@ -83,6 +85,8 @@ Package notes:
   isced:level in the newest data/runs/<run>/validate/osm/facilities.geojsonseq (run
   make pipeline STAGE=validate first if the run is older than 3 days). >= 95 % → full W7a;
   below → W7a without the school split, list the untagged schools in the PR.
+- W4: re-record ALL web fixtures (meta, cells, districts, recommendations, inspect, catchment)
+  from one current run, so they belong together.
 - W7b: no new dependency; without Vitest test web/src/score.ts via Playwright.
 - W8: report runtime and peak memory of the new stage.
 
