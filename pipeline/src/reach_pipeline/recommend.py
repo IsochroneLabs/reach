@@ -23,12 +23,14 @@ import shapely
 
 from reach_pipeline.zensus import CELL_SIZE_M, GRID_CRS, METRIC_CRS
 
+GRID_ID_PREFIX = "CRS3035RES100mN"
+
 
 def grid_id(north: np.ndarray, east: np.ndarray) -> np.ndarray:
     """Zensus grid ids from the lower-left corners (EPSG:3035, whole metres)."""
     n = pd.Series(np.asarray(north, dtype=np.int64)).astype(str)
     e = pd.Series(np.asarray(east, dtype=np.int64)).astype(str)
-    return ("CRS3035RES100mN" + n + "E" + e).to_numpy(dtype=object)
+    return (GRID_ID_PREFIX + n + "E" + e).to_numpy(dtype=object)
 
 
 def candidate_grid(area: shapely.Geometry, spacing_m: int) -> gpd.GeoDataFrame:
@@ -59,8 +61,12 @@ def candidate_grid(area: shapely.Geometry, spacing_m: int) -> gpd.GeoDataFrame:
 
 
 def on_spacing(candidate_ids: np.ndarray, spacing_m: int) -> np.ndarray:
-    """Mask of candidates whose grid-id corner lies on a `spacing_m` grid (EPSG:3035)."""
-    parts = pd.Series(candidate_ids).str.removeprefix("CRS3035RES100mN").str.split("E", expand=True)
+    """Mask of candidates whose grid-id corner lies on a `spacing_m` grid (EPSG:3035).
+
+    Accepts only ids made by `grid_id`."""
+    if len(candidate_ids) == 0:
+        return np.zeros(0, dtype=bool)
+    parts = pd.Series(candidate_ids).str.removeprefix(GRID_ID_PREFIX).str.split("E", expand=True)
     corners = parts.to_numpy(dtype=np.int64)
     return (corners % spacing_m == 0).all(axis=1)
 

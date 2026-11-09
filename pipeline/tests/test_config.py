@@ -76,6 +76,11 @@ def _set(data: dict[str, Any], dotted: str, value: Any) -> dict[str, Any]:
             {"cycling_15": {"candidate_spacing_m": 150}},
             "must be a multiple of candidate_spacing_m",
         ),
+        (
+            "recommend.profile_overrides",
+            {"nope": {"candidate_spacing_m": 200}},
+            "profile_overrides: unknown profiles",
+        ),
         ("transit_classes.2.lower", 100, "increase without gaps"),
         ("transit_classes.3.upper", 5000, "open-ended"),
         (

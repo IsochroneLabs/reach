@@ -63,6 +63,7 @@ def test_on_spacing_thins_the_grid_like_a_coarser_grid() -> None:
     mask = rec.on_spacing(grid["candidate_id"].to_numpy(), 200)
     assert set(grid["candidate_id"][mask]) == set(coarse["candidate_id"])
     assert rec.on_spacing(grid["candidate_id"].to_numpy(), 100).all()
+    assert len(rec.on_spacing(np.array([], dtype=object), 200)) == 0
 
 
 def test_outside_and_near_any() -> None:
@@ -218,7 +219,9 @@ def stage_ctx(tmp_path: Path) -> RunContext:
     data["data_dir"] = str(tmp_path / "data")
     data["profiles"] = {k: data["profiles"][k] for k in ("walking_339", "walking_500")}
     data["validation"]["results"]["monotonic"] = []
-    data["recommend"].update(profiles=["walking_339", "walking_500"], min_gain=1, top_n=3)
+    data["recommend"].update(
+        profiles=["walking_339", "walking_500"], profile_overrides={}, min_gain=1, top_n=3
+    )
     data["valhalla"].update(url="http://valhalla.test", backoff_s=0, max_matrix_pairs=500)
     cfg_path = tmp_path / "config.yaml"
     cfg_path.write_text(yaml.safe_dump(data, allow_unicode=True), encoding="utf-8")

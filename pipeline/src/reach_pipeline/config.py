@@ -435,6 +435,13 @@ class Config(_Model):
         return self
 
     @model_validator(mode="after")
+    def _override_profiles_exist(self):
+        unknown = sorted(set(self.recommend.profile_overrides) - self.profiles.keys())
+        if unknown:
+            raise ValueError(f"recommend.profile_overrides: unknown profiles {unknown}")
+        return self
+
+    @model_validator(mode="after")
     def _buffer_covers_reach(self):
         # Routing buffer >= largest prefilter reach of all profiles and their budgets (O20).
         budgets = self.time_budgets_min
