@@ -13,6 +13,8 @@ export interface MapSettings {
   /** Isochrone rings by contour minute; a ring is shown unless set to false. */
   isochroneRings: Record<string, boolean>
   isochroneDirection: IsochroneDirection
+  /** Facility layers on the map (plan W1); until W4 adds POI pins this is the route to the
+   * nearest facility of the selected category. */
   showPois: boolean
   showRecommendations: boolean
   /** With a pin: keep the cell colours (default off: isochrone and route only). */

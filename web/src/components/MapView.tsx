@@ -352,11 +352,11 @@ export default function MapView(props: Props) {
   }, [ready, districts])
 
   // Display settings: visibility, opacity and filters only, the data stays loaded.
+  const coloured = !pinMode || settings.coloursWithPin
   useEffect(() => {
     const map = mapRef.current
     if (!ready || !map) return
     const visible = (on: boolean) => (on ? 'visible' : 'none')
-    const coloured = !pinMode || settings.coloursWithPin
     const minResidents: ExpressionSpecification = ['>=', ['get', 'population'], settings.minResidents]
     map.setLayoutProperty('cells-fill', 'visibility', visible(settings.showCells))
     map.setPaintProperty('cells-fill', 'fill-opacity', coloured ? settings.cellOpacity : 0)
@@ -371,7 +371,7 @@ export default function MapView(props: Props) {
       .map(([m]) => Number(m))
     const rings: ExpressionSpecification = ['!', ['in', ['get', 'contour_min'], ['literal', hidden]]]
     for (const id of ['isochrone-fill', 'isochrone-line']) map.setFilter(id, rings)
-  }, [ready, settings, pinMode])
+  }, [ready, settings, coloured])
 
   useEffect(() => {
     if (ready)
@@ -401,8 +401,11 @@ export default function MapView(props: Props) {
     const show = Boolean(settings.showRecommendations && recommendations?.available && recommendations.features.length)
     source('recommendations')?.setData(show && recommendations ? recommendationPoints(recommendations) : EMPTY)
     source('recommendation-zones')?.setData(show && recommendations ? recommendations : EMPTY)
-    for (const id of ['recommendations', 'recommendations-rank'])
+    // the catchment of a selected zone belongs to the recommendations: hidden with them
+    for (const id of ['recommendations', 'recommendations-rank', 'catchment-line', 'catchment-isochrone'])
       if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', show ? 'visible' : 'none')
+    // a hidden layer fires no mouseleave: drop the pointer cursor it may have set
+    if (!show) map.getCanvas().style.cursor = ''
   }, [ready, recommendations, settings.showRecommendations])
 
   useEffect(() => {
@@ -461,6 +464,8 @@ export default function MapView(props: Props) {
         className="map"
         data-testid="map"
         data-ready={ready && cells ? 'true' : 'false'}
+        // effective cell fill (0 = no colours), read by the smoke test
+        data-cell-fill={settings.showCells && coloured ? settings.cellOpacity : 0}
         role="region"
         aria-label="Map: click to inspect a location"
       />

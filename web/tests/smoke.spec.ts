@@ -157,7 +157,10 @@ test('map settings switch layers, filter cells and survive a reload', async ({ p
   await gear.click()
   await expect(gear).toHaveAttribute('aria-expanded', 'true')
   const panel = page.getByRole('dialog', { name: 'Map settings' })
+  const map = page.getByTestId('map')
+  await expect(map).toHaveAttribute('data-cell-fill', '0.8')
   await panel.getByLabel('Show cells').uncheck()
+  await expect(map).toHaveAttribute('data-cell-fill', '0')
   await panel.getByLabel(/Minimum residents per cell/).fill('10')
   await expect(page.getByTestId('cells-shown')).toContainText(/^[\d,]+ of [\d,]+ cells shown$/)
   const [shown, all] = (await page.getByTestId('cells-shown').innerText()).match(/[\d,]+/g)!.map((n) => Number(n.replaceAll(',', '')))
@@ -188,11 +191,19 @@ test('map settings switch layers, filter cells and survive a reload', async ({ p
   await expect(result).toContainText('Measured from the centre of this 100 m cell')
   const colours = page.getByRole('region', { name: 'Inspector' }).getByLabel('Show cell colours')
   await expect(colours).not.toBeChecked()
+  await expect(map).toHaveAttribute('data-cell-fill', '0') // pin mode hides the colours
   await colours.check()
+  await expect(map).toHaveAttribute('data-cell-fill', '0.8')
   await gear.click()
   await expect(page.getByRole('dialog', { name: 'Map settings' }).getByLabel('Show cell colours')).toBeChecked()
   // the rings of the isochrone can be switched one by one
   await expect(page.getByRole('dialog', { name: 'Map settings' }).getByLabel('15 min')).toBeChecked()
+  await page.keyboard.press('Escape')
+  // closing the pin brings the colours back
+  await colours.uncheck()
+  await expect(map).toHaveAttribute('data-cell-fill', '0')
+  await page.getByRole('button', { name: 'Close inspector' }).click()
+  await expect(map).toHaveAttribute('data-cell-fill', '0.8')
   expect(errors).toEqual([])
 })
 
