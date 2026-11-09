@@ -6,14 +6,21 @@ Rules for agents working in `web/` (React + TypeScript + Vite + MapLibre GL JS).
 - **Status:** P7 — class map, profile/category selector, legend, pin-drop inspector, district
   statistics, data & validation page; recommended sites (panel + ranked markers, click →
   stored catchment via `/api/catchment`), hidden while `/api/recommendations` has no features
-  for the selection.
+  for the selection. W1 (app iteration): map settings panel, pin mode (isochrone and route
+  only, cell colours on request), pin at the cell centre, residents slider, collapsible cards
+  with plain-language labels and short explanations.
 - **Toolchain:** Node 24 LTS (`.nvmrc`, `engines`); npm with `package-lock.json`, exact versions
   (`--save-exact`). Not part of the uv workspace. New or upgraded packages: ask first.
 - **Layout:** `src/api.ts` (all requests, `ApiError`, user messages per status), `src/types.ts`
-  (response shapes of `docs/data_contract.md`), `src/palette.ts` (class colours and legend
-  rules), `src/route.ts` (view and selection in the URL hash), `src/labels.ts`,
-  `src/attribution.ts`, `src/components/` (`MapView`, `Controls`, `Inspector`,
-  `RecommendationsPanel`, `DistrictPanel`, `DataPage`). One stylesheet, `src/styles.css`.
+  (response shapes of `docs/data_contract.md`), `src/palette.ts` (class and overlay colours,
+  legend rules), `src/route.ts` (view and selection in the URL hash), `src/settings.ts` (map
+  display settings, `useSettings()`, localStorage), `src/labels.ts` (profile and plain class
+  labels, card explanations), `src/attribution.ts`, `src/components/` (`MapView`, `Card`,
+  `SettingsPanel`, `Controls`, `Inspector`, `RecommendationsPanel`, `DistrictPanel`,
+  `DataPage`). One stylesheet, `src/styles.css`.
+- **Settings vs. URL:** the selection (view, profile, category) lives in the URL hash so a link
+  reproduces it; display settings (`settings.ts`) live in `localStorage`, every access in
+  `try/catch`, and change only layer visibility, paint and filters (no data reload).
 - **Read the API, do not re-derive.** Categories, names, `k`, profiles (incl. the transit
   budget), transit class bounds and run data come from `/api/meta`; classes, deficits and
   district shares from the API. Only display aggregates (e.g. residents per class in the

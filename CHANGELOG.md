@@ -7,6 +7,22 @@ adds a line under `Unreleased`.
 
 ## [Unreleased]
 
+### Added (web app, W1 map usability)
+- Map settings (gear button below the zoom buttons): cells on/off, cell opacity, minimum
+  residents per cell (legend says "X of Y cells shown"), isochrone rings one by one, district
+  boundaries, facilities and routes, recommended sites, cell colours with a pin; remembered per
+  browser, "Reset to defaults".
+- Pin mode: with a pin the map shows the isochrone, route and a thin cell grid instead of the
+  colours (switch "Show cell colours" in the inspector).
+
+### Changed (web app, W1 map usability)
+- The pin moves to the cell centre where routing starts (the click point shows briefly), the
+  inspected cell is outlined and the inspector says "Measured from the centre of this 100 m cell".
+- Sidebar easier to understand: one-sentence intro, plain-language class labels ("None within
+  15 min", "Fewer than needed", "Enough") next to the technical ones, profile names such as
+  "Walking (slow, 3.4 km/h)", collapsible cards with a "What does this show?" explanation.
+- Pointer cursor over the recommendation markers.
+
 ### Added (validation report, P7)
 - Validation experiments V1–V11 (methodology §6) as `reach_pipeline.experiments` and
   `make experiments [RUN_ID=…]`: matrix vs. isochrone counts (V1), OSM completeness of childcare
