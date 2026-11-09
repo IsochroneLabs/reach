@@ -56,6 +56,15 @@ def test_candidate_grid_uses_zensus_ids_and_centres() -> None:
     assert len(coarse) <= len(grid) / 3
 
 
+def test_on_spacing_thins_the_grid_like_a_coarser_grid() -> None:
+    area = shapely.box(X0, Y0, X0 + 450, Y0 + 350)
+    grid = rec.candidate_grid(area, 100)
+    coarse = rec.candidate_grid(area, 200)
+    mask = rec.on_spacing(grid["candidate_id"].to_numpy(), 200)
+    assert set(grid["candidate_id"][mask]) == set(coarse["candidate_id"])
+    assert rec.on_spacing(grid["candidate_id"].to_numpy(), 100).all()
+
+
 def test_outside_and_near_any() -> None:
     pts = gpd.GeoSeries(shapely.points([[0, 0], [10, 10], [50, 50]]), crs=CRS)
     poly = gpd.GeoSeries([shapely.box(5, 5, 20, 20)], crs=CRS)

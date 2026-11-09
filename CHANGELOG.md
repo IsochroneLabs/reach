@@ -7,6 +7,11 @@ adds a line under `Unreleased`.
 
 ## [Unreleased]
 
+### Added (pipeline, W6 cycling recommendations)
+- Optional config key `recommend.profile_overrides.<profile>.candidate_spacing_m` (coarser
+  candidate grid for one profile). Cycling recommendations were measured with and without it and
+  stay off: Valhalla peaks at 3.9 GiB (limit 2.5 GiB), numbers in notes N12.
+
 ### Added (API and web app, W4 POI pins and routes)
 - `POST /api/inspect`: every reachable facility carries its routing `point`; each category with
   fewer than `k` facilities gets `next_facility` (the fastest facility not counted yet, from one live

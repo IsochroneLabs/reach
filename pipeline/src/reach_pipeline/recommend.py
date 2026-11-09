@@ -58,6 +58,13 @@ def candidate_grid(area: shapely.Geometry, spacing_m: int) -> gpd.GeoDataFrame:
     )
 
 
+def on_spacing(candidate_ids: np.ndarray, spacing_m: int) -> np.ndarray:
+    """Mask of candidates whose grid-id corner lies on a `spacing_m` grid (EPSG:3035)."""
+    parts = pd.Series(candidate_ids).str.removeprefix("CRS3035RES100mN").str.split("E", expand=True)
+    corners = parts.to_numpy(dtype=np.int64)
+    return (corners % spacing_m == 0).all(axis=1)
+
+
 def no_candidates() -> gpd.GeoDataFrame:
     """Empty candidate frame with the columns of `candidate_grid`."""
     return gpd.GeoDataFrame(

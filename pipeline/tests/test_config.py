@@ -43,6 +43,12 @@ def test_test_clip_extends_repo_config() -> None:
     assert cfg.study_area.routing_buffer_m == load_config(CONFIG).study_area.routing_buffer_m
 
 
+def test_recommend_spacing_override() -> None:
+    cfg = load_config(CONFIG).recommend
+    assert cfg.spacing_m("walking_339") == cfg.candidate_spacing_m
+    assert cfg.spacing_m("cycling_15") == cfg.profile_overrides["cycling_15"].candidate_spacing_m
+
+
 def _set(data: dict[str, Any], dotted: str, value: Any) -> dict[str, Any]:
     data = copy.deepcopy(data)
     *parents, last = dotted.split(".")
@@ -65,6 +71,11 @@ def _set(data: dict[str, Any], dotted: str, value: Any) -> dict[str, Any]:
         ("categories.1.id", "grocery", "duplicate category ids: ['grocery']"),
         ("categories.0.tags", [], "categories.0.tags"),
         ("categories.0.tags", [{"shop": ""}], "non-empty key: value pair"),
+        (
+            "recommend.profile_overrides",
+            {"cycling_15": {"candidate_spacing_m": 150}},
+            "must be a multiple of candidate_spacing_m",
+        ),
         ("transit_classes.2.lower", 100, "increase without gaps"),
         ("transit_classes.3.upper", 5000, "open-ended"),
         (

@@ -234,7 +234,9 @@ async def _recommend_all(
         for pid in cfg.recommend.profiles:
             profile = cfg.profiles[pid]
             needy = np.isin(cell_ids, deficit_cells(access, cfg, pid))
-            idx = np.flatnonzero(rec.near_any(c_xy, o_xy[needy], profile.prefilter_reach_m(budget)))
+            on_grid = rec.on_spacing(cand["candidate_id"].to_numpy(), cfg.recommend.spacing_m(pid))
+            near = rec.near_any(c_xy, o_xy[needy], profile.prefilter_reach_m(budget))
+            idx = np.flatnonzero(near & on_grid)
             pairs, stats[pid] = await catchments_profile(
                 client,
                 targets,
