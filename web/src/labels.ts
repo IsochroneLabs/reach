@@ -1,5 +1,5 @@
 import { TRANSIT } from './palette'
-import type { Meta, Profile } from './types'
+import type { CellStatus, Meta, Profile } from './types'
 
 const modeOf = (p: Profile) => p.profile_id.split('_')[0]
 const fmtSpeed = (kmh: number) => `${Number(kmh.toFixed(1))} km/h`
@@ -30,6 +30,13 @@ export function classPlain(cls: string, budgetMin: number | null, transit = fals
     )
   if (cls === 'lack') return budgetMin === null ? 'None within reach' : `None within ${budgetMin} min`
   return { insufficient: 'Fewer than needed', sufficient: 'Enough' }[cls] ?? cls
+}
+
+/** Inspector line for a cell that is not in the published run (W3); scored cells show their
+ * residents instead. */
+export const CELL_STATUS_TEXT: Record<Exclude<CellStatus, 'scored'>, string> = {
+  unpopulated: 'No residents in the Zensus 2022 grid — values computed live',
+  outside_city: 'Outside the city boundary — not scored',
 }
 
 /** Short explanations behind the "What does this show?" toggles of the sidebar cards. */

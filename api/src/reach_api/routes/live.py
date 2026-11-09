@@ -2,8 +2,8 @@
 
 Every point is snapped to the centre of the 100 m Zensus grid cell under it, scored or not, so
 answers are cached per (run, cell, profile) and polygons, routes and counts describe the same
-start (rule 8). The point must lie inside the urban boundary plus a margin or inside a scored
-cell; anything else is rejected before any Valhalla call (rule 12). Scored cells take their
+start (rule 8). The point (or its cell centre) must lie inside the city boundary, or inside a
+scored cell; anything else is rejected before any Valhalla call (rule 12). Scored cells take their
 reachable facilities from `current.reachable`; live matrices (grid cells without residents,
 catchments) use the costing options of `current.profiles`, the prefilter of the count stage
 (O20) and their own client with the timeout and concurrency of `api.live_matrix`.
@@ -66,13 +66,9 @@ class CatchmentRequest(BaseModel):
 
 
 async def _locate(d: Deps, lon: float, lat: float) -> Location:
-    loc = await d.db.locate(lon, lat, d.config.api.boundary_margin_m)
+    loc = await d.db.locate(lon, lat)
     if not loc.allowed:
-        raise HTTPException(
-            422,
-            "point outside the urban boundary (plus "
-            f"{d.config.api.boundary_margin_m:.0f} m) and outside every scored cell",
-        )
+        raise HTTPException(422, "point outside the city boundary and outside every scored cell")
     return loc
 
 
@@ -90,6 +86,7 @@ def _cell(loc: Location) -> dict[str, Any]:
     return {
         "cell_id": loc.cell_id,
         "scored": loc.scored,
+        "status": loc.status,
         "population": loc.population,
         "district_id": loc.district_id,
         "origin": [round(loc.lon, 6), round(loc.lat, 6)],

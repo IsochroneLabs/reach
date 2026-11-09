@@ -159,9 +159,14 @@ export interface CandidateCatchment {
   cached: boolean
 }
 
+/** `scored`: in the published run; `unpopulated`: centre in the city, no residents in the
+ * Zensus grid; `outside_city`: centre outside the city boundary, never scored. */
+export type CellStatus = 'scored' | 'unpopulated' | 'outside_city'
+
 export interface InspectCell {
   cell_id: string
   scored: boolean
+  status: CellStatus
   population: number | null
   district_id: string | null
   origin: [number, number]

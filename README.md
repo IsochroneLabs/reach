@@ -29,8 +29,9 @@ University of Tübingen, winter term 2026/27), Topic 9 "The 15-Minute City".
 - **Accessibility map** — 15-minute reachability per facility category and travel profile on the
   official Zensus 2022 100 m grid, aggregated to city districts.
 - **Public transport supply** — scheduled weekday departures at stops within a 10-minute walk.
-- **Pin-drop inspector** — click anywhere in the city: what is reachable, how long it takes, and
-  which category is the weakest.
+- **Pin-drop inspector** — click anywhere in the city: what is reachable, how long it takes,
+  which category is the weakest, and whether the cell is scored, has no residents or lies outside
+  the city boundary.
 - **Recommendations** — 100 m zones for one new facility per category and profile (walking,
   wheelchair), ranked by the reduction of unmet demand (greedy, methodology §5); a click shows
   the residents who would reach it within 15 minutes.
@@ -155,8 +156,8 @@ curl -s -X POST http://127.0.0.1:8080/api/expansion -H 'content-type: applicatio
 ```
 
 The API image is built from `infra/api.Dockerfile` by `make up`; locally `api/src` and
-`config/` are mounted and uvicorn reloads on changes. Tunable values (boundary margin, cache
-sizes, rate limit, isochrone contours) live in the `api` section of `config/config.yaml`.
+`config/` are mounted and uvicorn reloads on changes. Tunable values (cache sizes, rate limit,
+isochrone contours) live in the `api` section of `config/config.yaml`.
 
 Test clip: `make refresh REACH_CONFIG=config/test_clip.yaml` (own data and tile directory under
 `data/test_clip/`, tiles without elevation), then `uv run --env-file .env pytest -m integration`

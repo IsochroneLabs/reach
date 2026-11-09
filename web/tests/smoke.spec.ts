@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
+import { readFileSync } from 'node:fs'
 
 const live = Boolean(process.env.E2E_LIVE)
 // Scored, well-served cell in the old town (Metzgergasse); the inspect fixture was recorded here.
@@ -284,4 +285,35 @@ test('labels slow answers and explains timeouts and rate limits', async ({ page 
   await page.mouse.click(centre.x + 10, centre.y)
   await expect(page.getByRole('alert')).toContainText('wait 7 seconds')
   expect(errors).toEqual([])
+})
+
+test('names the status of a cell without published values', async ({ page }) => {
+  test.skip(live, 'cell statuses are mocked')
+  await mockNetwork(page)
+  const recorded = JSON.parse(readFileSync(fixture('inspect_walking_339.json'), 'utf8'))
+  let status = 'unpopulated'
+  // registered after mockNetwork, so it wins for /api/inspect: the recorded answer as a live one
+  await page.route('**/api/inspect', (route) => {
+    const cell = { ...recorded.cell, scored: false, status, population: null, district_id: null }
+    route.fulfill({
+      contentType: 'application/json',
+      body: JSON.stringify({ ...recorded, cell, source: 'live', precomputed: null, weakest_category: null }),
+    })
+  })
+
+  const line = page.getByTestId('cell-status')
+  for (const [next, text] of [
+    ['unpopulated', 'No residents in the Zensus 2022 grid — values computed live'],
+    ['outside_city', 'Outside the city boundary — not scored'],
+  ]) {
+    status = next
+    // a fresh view each time, so the click never lands on a marker after the zoom to the pin
+    await page.goto('/#/map?profile=walking_339&category=grocery')
+    await page.reload()
+    await expect(page.getByTestId('map')).toHaveAttribute('data-ready', 'true', { timeout: 30_000 })
+    const { x, y } = await initialPixel(page, POINT)
+    await page.mouse.click(x, y)
+    await expect(line).toHaveText(text)
+    await expect(page.getByTestId('inspect-result')).toContainText('live result')
+  }
 })

@@ -109,6 +109,18 @@ defines the map area, the live-endpoint check and the recommender candidates; it
 **Result:** 1,699 scored cells, 90,355 of 90,443 residents scored (99.90 %); 88 excluded (edge
 cells, most in Unterjesingen); urban boundary 12 parts, 16.6 km²; routing area 345.6 km².
 
+**Addendum (W3, 9 Nov 2026):** the inspector said "No residents in this 100 m cell" for every
+cell without a row in `cells`, also for the excluded edge cells with residents. Live answers now
+carry `cell.status` (`scored`, `unpopulated`, `outside_city`) and the live endpoints accept a
+point if it or its cell centre lies inside the city boundary (architecture v0.20, rule 12), no
+longer the urban boundary + `api.boundary_margin_m`. That key stays in `config.yaml` but is not
+read any more; removing it is open (needs a "yes", AGENTS.md: removing config keys).
+The city test uses the union of the published districts as the city boundary. `validate`
+checks gaps inside the city and overlaps (`district_coverage`), not district area outside the
+city. Checked on run `20261106T142630Z`: gap 0.000 %, no populated unscored Zensus cell has its
+centre inside the districts, and every scored cell origin lies inside them. If that ever
+changes, publish the city boundary itself (open).
+
 ## N4. Valhalla keeps ~0.5–1.4 GB per worker thread after matrix requests
 
 **Status:** open · **Added:** 3 Nov 2026 · **Related:** `architecture.md` §6.5 rule 15, §11

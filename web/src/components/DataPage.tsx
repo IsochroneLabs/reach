@@ -21,7 +21,7 @@ function fmtDate(iso: string | null): string {
 // Known limitations of the method (docs/methodology.md, docs/notes.md); the measured effect of
 // each is in the validation issues above it.
 const LIMITATIONS: { text: string; doc: string }[] = [
-  { text: 'Only residents inside the urban boundary are scored; outlying residents appear as totals in the validation report.', doc: 'notes.md' },
+  { text: 'Only residents in cells whose centre lies inside the city boundary are scored; the few edge cells outside appear as totals in the validation report.', doc: 'notes.md' },
   { text: 'Each 100 m Zensus cell is routed from its centre point, not from the buildings in it.', doc: 'notes.md' },
   { text: 'Facilities come from OpenStreetMap; completeness differs by category and is not yet checked against official lists.', doc: 'methodology.md' },
   { text: 'Valhalla routes by cost, not pure time: a faster profile can occasionally reach fewer facilities (the monotonicity warnings).', doc: 'notes.md' },

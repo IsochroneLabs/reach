@@ -76,10 +76,10 @@ def test_cache_hit_avoids_second_call(client: TestClient, valhalla: respx.MockRo
     assert {**second, "cached": False} == first
 
 
-def test_outside_boundary_rejected_before_valhalla(
+def test_outside_city_rejected_before_valhalla(
     client: TestClient, db: FakeDatabase, valhalla: respx.MockRouter
 ) -> None:
-    db.allowed = False
+    db.scored = db.in_city = db.click_in_city = False
     for path, body in [
         ("/api/inspect", INSPECT),
         ("/api/expansion", INSPECT),
@@ -88,8 +88,27 @@ def test_outside_boundary_rejected_before_valhalla(
     ]:
         r = client.post(path, json=body)
         assert r.status_code == 422, path
-        assert "outside the urban boundary" in r.json()["detail"]
+        assert "outside the city boundary" in r.json()["detail"]
     assert valhalla.calls.call_count == 0
+
+
+def test_cell_status(client: TestClient, db: FakeDatabase, valhalla: respx.MockRouter) -> None:
+    # scored (Marktplatz), unpopulated (field near Hagelloch: centre in the city, no residents),
+    # outside_city (edge cell in Unterjesingen: click in the city, centre outside); each answered
+    for scored, in_city, status, source in [
+        (True, True, "scored", "precomputed"),
+        (False, True, "unpopulated", "live"),
+        (False, False, "outside_city", "live"),
+    ]:
+        db.scored, db.in_city = scored, in_city
+        inspect = client.post("/api/inspect", json=INSPECT).json()
+        assert inspect["cell"]["status"] == status and inspect["source"] == source
+        iso = client.post("/api/isochrone", json=INSPECT).json()
+        assert iso["cell"]["status"] == status
+    # a cell whose centre lies in the city is accepted even if the click is just outside
+    db.click_in_city = False
+    db.in_city = True
+    assert client.post("/api/inspect", json=INSPECT).json()["cell"]["status"] == "unpopulated"
 
 
 def test_unscored_cell_snapped_and_cached(

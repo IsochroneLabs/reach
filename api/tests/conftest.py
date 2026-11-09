@@ -42,7 +42,9 @@ class FakeDatabase:
         self.cell = CELL
         self.calls: list[str] = []
         self.run: str | None = RUN_ID
-        self.allowed = True
+        # cell centre / clicked point inside the city boundary (status and rule 12)
+        self.in_city = True
+        self.click_in_city = True
         self.recommendations: list[dict[str, Any]] | None = None
         self.scored = True
         self.scores = [
@@ -127,11 +129,15 @@ class FakeDatabase:
             return None
         return {"district_id": "r1", "name": "Altstadt", "admin_level": 11, "scores": []}
 
-    async def locate(self, lon: float, lat: float, margin_m: float) -> Location:
+    async def locate(self, lon: float, lat: float) -> Location:
         self.calls.append("locate")
         lon0, lat0 = self.rec["origin"]
         return Location(
-            cell_id=CELL if self.scored else "CRS3035RES100mN2823900E4251200",
+            cell_id=CELL
+            if self.scored
+            else "CRS3035RES100mN2823900E4251200"
+            if self.in_city
+            else "CRS3035RES100mN2822900E4249800",
             scored=self.scored,
             population=163 if self.scored else None,
             district_id="r1" if self.scored else None,
@@ -139,7 +145,8 @@ class FakeDatabase:
             lat=lat0,
             x=503_000.0,
             y=5_374_000.0,
-            allowed=self.allowed,
+            in_city=self.in_city,
+            click_in_city=self.click_in_city,
         )
 
     async def cell_values(self, cell_id: str, profile_id: str):

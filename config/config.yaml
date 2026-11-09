@@ -364,8 +364,9 @@ cleanup:
 # API (arch. §6.5 rules 8–12, §9), read by reach_api.settings; the pipeline ignores this section.
 # URLs and the database DSN come from .env (VALHALLA_URL, DATABASE_URL_API), never from here.
 api:
-  # Live endpoints accept a point inside the urban boundary buffered by this distance, or inside
-  # a scored cell (rule 12, architecture v0.14).
+  # No longer read (W3): live endpoints accept a point whose position or cell centre lies inside
+  # the city boundary, or inside a scored cell (rule 12, architecture v0.20). Removing the key is
+  # a separate decision (notes N3).
   boundary_margin_m: 100
   # One isochrone call with these contours in minutes (rule 9); display only, never counted.
   isochrone:
