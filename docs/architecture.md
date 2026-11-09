@@ -1,6 +1,6 @@
 # Architecture — reach (15-Minute City Tübingen)
 
-> **Status:** draft v0.21 (9 Nov 2026). Describes the target architecture the team builds towards.
+> **Status:** draft v0.22 (9 Nov 2026). Describes the target architecture the team builds towards.
 > Every change bumps the version and adds a line to the [Change log](#change-log).
 > Settled and open decisions are listed in [Section 13](#13-decisions); items marked **[OPEN]**
 > must be settled before the related code is written. Methodology (categories, thresholds,
@@ -248,7 +248,7 @@ serves all categories (rule 7). The catchments of the recommended zones are stor
 
 ### 6.5 Using Valhalla efficiently
 
-The server has 4 GB RAM, so every Valhalla call must be cheap. Rules:
+The server has 8 GB RAM (shared by PostGIS, Valhalla, API and pipeline), so every Valhalla call must be cheap. Rules:
 
 **Batch counting (pipeline)**
 
@@ -434,9 +434,9 @@ always visible.
 
 | Topic | Choice |
 |---|---|
-| Host | External VPS, **Hetzner Cloud CX23** (2 vCPU, 4 GB RAM, 40 GB, x86), Ubuntu LTS, Docker Engine + Compose, 2–4 GB swap |
-| Budget | 20 € in total. CX23 ≈ 7.13 €/month incl. VAT and IPv4 (hourly billing, monthly cap). 20 € ≈ 2.8 months → **start the server around 1 Dec** (interim presentation on 25 Nov is shown locally or on a short-lived test server) and **delete it right after grading** (target mid-Feb). Test servers are created and deleted the same day |
-| Memory budget (estimate, measure on first deploy **[VERIFY]**) | PostGIS ≈ 0.5 GB, Valhalla (memory-mapped clip) ≈ 0.5 GB, API ≈ 0.2 GB, Caddy < 0.1 GB, pipeline run ≈ 1–2 GB peak; plus 2–4 GB swap as safety margin |
+| Host | External VPS, **Hetzner Cloud x86 plan with ≥ 8 GB RAM** (CX33 or comparable; was CX23 with 2 vCPU and 4 GB until v0.21; exact plan **[VERIFY]**), Ubuntu LTS, Docker Engine + Compose, 2–4 GB swap |
+| Budget | 20 € in total. **[VERIFY]** the 8 GB plan costs more than the CX23 (≈ 7.13 €/month incl. VAT and IPv4); check price and start date against the 20 € before ordering. The rest of this row was calculated for the CX23 (hourly billing, monthly cap): 20 € ≈ 2.8 months → **start the server around 1 Dec** (interim presentation on 25 Nov is shown locally or on a short-lived test server) and **delete it right after grading** (target mid-Feb). Test servers are created and deleted the same day |
+| Memory budget (estimate, measure on first deploy **[VERIFY]**) | PostGIS ≈ 0.5 GB, Valhalla (memory-mapped clip) ≈ 0.5 GB, API ≈ 0.2 GB, Caddy < 0.1 GB, pipeline run ≈ 1–2 GB peak; Valhalla during a full `count` peaks at 3–4 GB (notes N4) and is restarted after `count` or limited to fewer threads; ≈ 8 GB RAM in total, plus 2–4 GB swap as safety margin |
 | Images | Built by GitHub Actions for `linux/amd64`, pushed to GHCR, tagged with git SHA and release tag |
 | Deploy | `make deploy`: SSH → `docker compose -f compose.prod.yaml pull && up -d` (manual trigger) |
 | Valhalla tiles | See 11.1 |
@@ -480,7 +480,7 @@ H3 aggregation, second region, Prefect/Dagster, monitoring stack.
 
 | ID | Decision |
 |---|---|
-| O1 | Budget 20 € in total → Hetzner CX23 (4 GB), started when needed, deleted after grading |
+| O1 | Budget 20 € in total → Hetzner x86 VPS with ≥ 8 GB RAM (changed 9 Nov 2026, v0.22; was CX23 with 4 GB), started when needed, deleted after grading; plan and price still to be checked against the budget |
 | O2 | No own domain for now; free hostname (`sslip.io`) for HTTPS |
 | O3 | Valhalla runs permanently on the server (live pin-drop, isochrones) |
 | O4 | Tiles built on the server for the clipped area by the one-shot `valhalla-build` (started by `make refresh`, O19); bwUniCluster for heavy or experimental builds (Section 11.1) |
@@ -578,6 +578,7 @@ documented here in the same branch (see `AGENTS.md`).
 
 | Version | Date | Change | Why |
 |---|---|---|---|
+| v0.22 | 2026-11-09 | §6.5, §11, O1: production server target raised from 4 GB (CX23) to ≥ 8 GB RAM (plan and price to verify against the 20 € budget); memory row notes Valhalla's 3–4 GB peak during `count` | Wish of Juju (9 Nov 2026): cycling recommendations and larger matrices need more headroom than 4 GB |
 | v0.21 | 2026-11-09 | §6.5 rules 8 and 11, §9: the inspector also looks for the next missing facility beyond the budget (one live matrix from the cell origin to the nearest candidates of all categories with fewer than `k`, `api.next_facility.*`) and draws its route; `POST /api/route` for one facility | App iteration W4 (points 4, 6, 16); confirmed by Rico (plan v0.1) |
 | v0.20 | 2026-11-09 | §4, §6.5 rule 12, §9, O11: live endpoints accept points inside the city boundary (point or cell centre) or a scored cell, no longer the urban boundary + margin; every live answer has `cell.status` | App iteration W3 (points 12, 13): populated cells outside the city and unpopulated cells in the city were both shown as "no residents"; clicks anywhere in the city (E5, confirmed by Rico) |
 | v0.19 | 2026-11-09 | §9: `POST /api/isochrone` with `direction` forward/reverse | App iteration W2 (point 10: choose forward or reverse isochrone); confirmed by Rico (plan v0.1) |

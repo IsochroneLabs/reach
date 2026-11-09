@@ -7,6 +7,9 @@ adds a line under `Unreleased`.
 
 ## [Unreleased]
 
+### Changed (docs, server target)
+- Production server target raised from 2 vCPU / 4 GB (CX23) to at least 8 GB RAM (architecture v0.22 §6.5, §11, O1; `AGENTS.md`). Plan and price are still to be checked against the 20 € budget.
+
 ### Fixed
 - Corrected the Project preflight GraphQL connection query so `pageInfo` is requested at the
   connection level, allowing the issue sync workflow to validate the Project.
