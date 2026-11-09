@@ -8,7 +8,8 @@ Rules for agents working in `web/` (React + TypeScript + Vite + MapLibre GL JS).
   stored catchment via `/api/catchment`), hidden while `/api/recommendations` has no features
   for the selection. W1 (app iteration): map settings panel, pin mode (isochrone and route
   only, cell colours on request), pin at the cell centre, residents slider, collapsible cards
-  with plain-language labels and short explanations.
+  with plain-language labels and short explanations. W2: forward/reverse/both isochrones
+  (`POST /api/isochrone`, reverse requested only when chosen).
 - **Toolchain:** Node 24 LTS (`.nvmrc`, `engines`); npm with `package-lock.json`, exact versions
   (`--save-exact`). Not part of the uv workspace. New or upgraded packages: ask first.
 - **Layout:** `src/api.ts` (all requests, `ApiError`, user messages per status), `src/types.ts`
