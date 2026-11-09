@@ -34,6 +34,18 @@ def recorded() -> dict[str, Any]:
     return json.loads((FIXTURES / "valhalla" / "marktplatz_walking_339.json").read_text())
 
 
+def osm_url(facility_id: str) -> str:
+    kind = {"n": "node", "w": "way", "r": "relation"}[facility_id[0]]
+    return f"https://www.openstreetmap.org/{kind}/{facility_id[1:]}"
+
+
+# informative tags of two recorded facilities (the others have none)
+TAGS = {
+    "n2978948434": {"opening_hours": "Mo-Sa 07:00-20:00", "wheelchair": "yes"},
+    "n5183783736": {"addr:street": "Neckargasse", "addr:housenumber": "5"},
+}
+
+
 class FakeDatabase:
     """`Database` answering from the recorded fixture; `calls` lists the methods used."""
 
@@ -174,6 +186,8 @@ class FakeDatabase:
                 "time_s": t,
                 "lon": p["lon"],
                 "lat": p["lat"],
+                "tags": TAGS.get(p["facility_id"], {}),
+                "osm_url": osm_url(p["facility_id"]),
             }
             for p, t in list(zip(near, (145, 225), strict=True))[: self.reachable_n]
         ]
@@ -182,6 +196,7 @@ class FakeDatabase:
         self.calls.append("facility_points_near")
         return [
             {k: p[k] for k in ("facility_id", "point_id", "category", "name", "lon", "lat")}
+            | {"tags": TAGS.get(p["facility_id"], {}), "osm_url": osm_url(p["facility_id"])}
             for p in self.rec["points"]
         ]
 
@@ -193,7 +208,11 @@ class FakeDatabase:
         self.calls.append("nearest_facility_points")
         return [
             {k: p[k] for k in ("facility_id", "point_id", "category", "name", "lon", "lat")}
-            | {"category": self.facility_categories.get(p["facility_id"], p["category"])}
+            | {
+                "category": self.facility_categories.get(p["facility_id"], p["category"]),
+                "tags": TAGS.get(p["facility_id"], {}),
+                "osm_url": osm_url(p["facility_id"]),
+            }
             for p in self.rec["points"]
             if p["facility_id"] not in exclude_ids
             and self.facility_categories.get(p["facility_id"], p["category"]) == category
@@ -209,8 +228,42 @@ class FakeDatabase:
             "lon": p["lon"],
             "lat": p["lat"],
             "categories": [p["category"]],
+            "tags": TAGS.get(p["facility_id"], {}),
+            "osm_url": osm_url(p["facility_id"]),
             "points": [{"x": p["x"], "y": p["y"], "lon": p["lon"], "lat": p["lat"]}],
         }
+
+    async def facilities_geojson(self, run_id: str, category: str, with_area: bool) -> str:
+        self.calls.append("facilities_geojson")
+        feats = [
+            {
+                "type": "Feature",
+                "id": p["facility_id"],
+                "geometry": {"type": "Point", "coordinates": [p["lon"], p["lat"]]},
+                "properties": {
+                    "kind": "facility",
+                    "facility_id": p["facility_id"],
+                    "name": p["name"],
+                    "category": p["category"],
+                    "tags": TAGS.get(p["facility_id"], {}),
+                    "osm_url": osm_url(p["facility_id"]),
+                },
+            }
+            for p in self.rec["points"]
+            if p["category"] == category
+        ]
+        if with_area:
+            ring = [[9.0, 48.5], [9.001, 48.5], [9.001, 48.501], [9.0, 48.5]]
+            feats.append(
+                {
+                    "type": "Feature",
+                    "id": "w1/area",
+                    "geometry": {"type": "MultiPolygon", "coordinates": [[ring]]},
+                    "properties": {"kind": "area", "facility_id": "w1", "category": category},
+                }
+            )
+        body = {"type": "FeatureCollection", "run_id": run_id, "category": category}
+        return json.dumps({**body, "features": feats})
 
     async def cells_near(self, points_xy, reach_m: float):
         return [

@@ -180,7 +180,7 @@ second `make up` replaces the containers of the first (images `reach-api:dev` an
 
 | Source | Used for | Licence |
 |---|---|---|
-| [Geofabrik](https://download.geofabrik.de/europe/germany/baden-wuerttemberg/tuebingen-regbez.html) OpenStreetMap extract | Street network, facilities, boundaries, land use | ODbL 1.0 |
+| [Geofabrik](https://download.geofabrik.de/europe/germany/baden-wuerttemberg/tuebingen-regbez.html) OpenStreetMap extract | Street network, facilities (with opening hours, wheelchair access, address and contact tags as displayed information), boundaries, land use | ODbL 1.0 |
 | [NVBW](https://www.nvbw.de/open-data/fahrplandaten) GTFS (naldo) | Public transport stops and departures | dl-de/by-2-0, ODbL |
 | [Destatis Zensus 2022](https://www.zensus2022.de/) 100 m grid | Residents per cell | dl-de/by-2-0 |
 | Elevation tiles via Valhalla | Slopes (per-profile setting) | per source |

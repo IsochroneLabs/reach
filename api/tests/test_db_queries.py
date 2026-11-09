@@ -190,6 +190,30 @@ async def test_nearest_facility_points(pg: PostgresDatabase) -> None:
     assert await pg.nearest_facility_points(510_000, 5_410_000, "grocery", [], 1) == rows
 
 
+async def test_facilities_with_tags_and_links(pg: PostgresDatabase) -> None:
+    body = json.loads(await pg.facilities_geojson(RUN_ID, "grocery", False))
+    assert body["category"] == "grocery"
+    (feature,) = body["features"]
+    assert feature["geometry"]["type"] == "Point"
+    assert feature["properties"] == {
+        "kind": "facility",
+        "facility_id": "n1",
+        "name": "Shop",
+        "category": "grocery",
+        "tags": {"opening_hours": "Mo-Fr 08:00-18:00"},
+        "osm_url": "https://www.openstreetmap.org/node/1",
+    }
+    # a point facility has neither outline nor access points
+    with_area = json.loads(await pg.facilities_geojson(RUN_ID, "grocery", True))
+    assert [f["properties"]["kind"] for f in with_area["features"]] == ["facility"]
+    assert json.loads(await pg.facilities_geojson(RUN_ID, "pharmacy", True))["features"] == []
+    # the lists of the live endpoints carry the same tags and link
+    rows = await pg.nearest_facility_points(510_000, 5_410_000, "grocery", [], 8)
+    assert rows[0]["tags"] == {"opening_hours": "Mo-Fr 08:00-18:00"}
+    assert rows[0]["osm_url"].endswith("/node/1")
+    assert (await pg.facility("n1"))["tags"]["opening_hours"] == "Mo-Fr 08:00-18:00"
+
+
 async def test_reachable_lists_published_facilities(pg: PostgresDatabase) -> None:
     rows = await pg.reachable("b", "walk", 500_150, 5_400_050)
     assert [(r["facility_id"], r["category"], r["time_s"]) for r in rows] == [

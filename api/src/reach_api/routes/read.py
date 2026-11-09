@@ -7,7 +7,7 @@ from __future__ import annotations
 import hashlib
 import json
 from collections.abc import Awaitable, Callable
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from fastapi.responses import JSONResponse
@@ -179,6 +179,28 @@ async def recommendations(
 
     key = (run.run_id, "recommendations", category or "*", profile or "*")
     return await _cached_body(request, d, key, GEOJSON, build)
+
+
+@router.api_route("/facilities", methods=GET_HEAD)
+async def facilities(
+    request: Request,
+    d: DepsDep,
+    category: Annotated[str, Query()],
+    geometry: Annotated[Literal["point", "area"], Query()] = "point",
+) -> Response:
+    """All facilities of a category as GeoJSON points with their informative OSM tags and OSM
+    link; `geometry=area` adds the outlines of area facilities (parks) and their access points,
+    the routing points the times are measured to (methodology §2)."""
+    run = await current_run(d)
+    if category not in run.categories:
+        raise HTTPException(422, f"unknown category {category!r}; known: {sorted(run.categories)}")
+    return await _cached_body(
+        request,
+        d,
+        (run.run_id, "facilities", category, geometry),
+        GEOJSON,
+        lambda: d.db.facilities_geojson(run.run_id, category, geometry == "area"),
+    )
 
 
 def _jsonable(value: Any) -> Any:
