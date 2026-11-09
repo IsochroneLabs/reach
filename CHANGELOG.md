@@ -7,6 +7,23 @@ adds a line under `Unreleased`.
 
 ## [Unreleased]
 
+### Added (API and web app, W4 POI pins and routes)
+- `POST /api/inspect`: every reachable facility carries its routing `point`; each category with
+  fewer than `k` facilities gets `next_facility` (the fastest facility not counted yet, from one live
+  matrix, with its route, also beyond the 15-minute budget) or a `next_note` (data contract v0.13,
+  architecture v0.21 §6.5 rules 8 and 11, §9). New config keys `api.next_facility.candidates`
+  and `api.next_facility.max_time_min`.
+- `POST /api/route` {`lon`, `lat`, `profile`, `facility_id`}: route from the cell origin to one
+  facility, cached per cell, profile and facility.
+- Map: facility pins of the selected category (name, category and time on hover, time label from
+  zoom 15); a green cell shows pins only, an insufficient cell pins and the route to the next
+  missing facility, a cell in lack the route (dashed and labelled "beyond 15 min" outside the
+  budget). The facility list in the inspector is clickable: zoom to the pin, route to exactly this
+  facility, second click clears, hover highlights the pin and vice versa. The settings switch
+  "Facility pins and routes" replaces "Route to the nearest facility".
+- Web test fixtures re-recorded from one run, plus recorded answers for a cell in lack, an
+  insufficient cell and a route.
+
 ### Removed
 - Unused config key `api.boundary_margin_m` (loader, `config.yaml`, tests); live endpoints use the
   city boundary since W3 (notes N3).

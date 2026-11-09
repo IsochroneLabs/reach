@@ -17,8 +17,9 @@ University of Tübingen, winter term 2026/27), Topic 9 "The 15-Minute City".
 > `publish` loads each validated run into PostGIS and switches the `current` views to it, the
 > API serves the results as GeoJSON plus live isochrones and routes, and the web app shows the
 > class map, a pin-drop inspector, recommended sites with their catchments, district statistics,
-> map settings (layers, cell opacity, isochrone rings and direction, minimum residents, pin mode) and the data &
-> validation page. The app iteration on 18 feedback points (plan: [`docs/app_iteration_plan.md`](docs/app_iteration_plan.md)) is in
+> map settings (layers, cell opacity, isochrone rings and direction, minimum residents, pin mode),
+> facility pins with a route to the next missing facility (also beyond 15 minutes) and a clickable
+> facility list, and the data & validation page. The app iteration on 18 feedback points (plan: [`docs/app_iteration_plan.md`](docs/app_iteration_plan.md)) is in
 > progress. The validation experiments V1–V11 run with `make experiments`
 > and are interpreted in [`docs/validation_report.md`](docs/validation_report.md) (V7 and V9
 > need people and are not run yet); progress:
@@ -151,6 +152,8 @@ curl -s -X POST http://127.0.0.1:8080/api/inspect -H 'content-type: application/
      -d '{"lon": 9.0568, "lat": 48.5204, "profile": "walking_339"}'      # pin-drop inspector
 curl -s -X POST http://127.0.0.1:8080/api/catchment -H 'content-type: application/json' \
      -d '{"facility_id": "n12004391663", "profile": "walking_339"}'      # residents reaching it
+curl -s -X POST http://127.0.0.1:8080/api/route -H 'content-type: application/json' \
+     -d '{"lon": 9.0568, "lat": 48.5204, "profile": "walking_339", "facility_id": "n12004391663"}'  # route to one facility
 curl -s -X POST http://127.0.0.1:8080/api/expansion -H 'content-type: application/json' \
      -d '{"lon": 9.0568, "lat": 48.5204, "profile": "walking_339"}'      # street spread
 ```
