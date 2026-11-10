@@ -24,7 +24,7 @@ import geopandas as gpd
 import numpy as np
 import pandas as pd
 
-from reach_pipeline import count, housing, landuse
+from reach_pipeline import count, housing, landuse, zensus
 from reach_pipeline.config import Config
 from reach_pipeline.context import RunContext
 from reach_pipeline.manifest import (
@@ -38,8 +38,8 @@ from reach_pipeline.manifest import (
     write_manifest,
 )
 from reach_pipeline.metrics import measure
+from reach_pipeline.stages import acquire, score, tiles, validate
 from reach_pipeline.stages import count as count_stage
-from reach_pipeline.stages import score, tiles, validate
 from reach_pipeline.valhalla.client import ValhallaClient
 
 STAGE = "housing"
@@ -52,6 +52,7 @@ CONFIG_SECTIONS = (
     "housing",
     "profiles",
     "recommend",
+    "sources",
     "time_budgets_min",
     "valhalla",
 )
@@ -63,6 +64,10 @@ REPORT = "report_housing.json"
 log = logging.getLogger(__name__)
 
 
+def _zensus_csv(ctx: RunContext):
+    return acquire.raw_path(ctx.raw_dir, "zensus", ctx.config.sources.zensus.members[0])
+
+
 def candidates(ctx: RunContext) -> tuple[gpd.GeoDataFrame, dict[str, Any]]:
     """Housing candidates (see module docstring) and statistics."""
     vdir = ctx.stage_dir(validate.STAGE)
@@ -70,9 +75,11 @@ def candidates(ctx: RunContext) -> tuple[gpd.GeoDataFrame, dict[str, Any]]:
     urban = gpd.read_parquet(vdir / "urban_boundary.parquet")
     area = urban.geometry.union_all().buffer(cfg.housing.edge_buffer_m)
     polygons, protected = landuse.excluded(ctx, STAGE, cfg.housing.exclude_tags)
-    cells = pd.read_parquet(vdir / "cells.parquet", columns=["cell_id"])
+    # every Zensus cell with residents, also outside the scoring scope (neighbouring
+    # municipalities in the margin, cells dropped by the scope): none of them is a candidate
+    grid = zensus.read_grid(_zensus_csv(ctx), validate._bbox(area, "EPSG:3035"))
     districts = gpd.read_parquet(vdir / "districts.parquet")
-    frame, stats = housing.candidate_cells(area, cells["cell_id"].to_numpy(), polygons, districts)
+    frame, stats = housing.candidate_cells(area, grid["cell_id"].to_numpy(), polygons, districts)
     return frame, {**stats, "excluded_polygons": len(polygons), **protected}
 
 
@@ -128,7 +135,7 @@ def _input_paths(ctx: RunContext) -> list:
     return [
         *([tiles.effective_config(ctx)] if ctx.config.housing.profiles else []),
         vdir / validate.ROUTING_PBF,
-        vdir / "cells.parquet",
+        _zensus_csv(ctx),
         vdir / "districts.parquet",
         vdir / "urban_boundary.parquet",
         vdir / "facilities.parquet",

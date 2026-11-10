@@ -485,4 +485,6 @@ OSM does not tag as an excluded land use.
 - **Land use:** `landuse=retail`, `landuse=education`, `amenity=hospital` and sports pitches are
   not excluded (only industrial, cemetery, park in addition to the recommender's list); candidates
   inside them would show up in the Top 10. Decide after looking at the map.
+- **Neighbouring municipalities:** the 200 m margin reaches into Kusterdingen, Ammerbuch and
+  Rottenburg; empty cells there are candidates too (no district, shown as "Outside the districts").
 - **No merging into sites:** neighbouring cells with the same score are separate entries.

@@ -182,8 +182,8 @@ depend on $k_c$ and OSM completeness.
 recommender (§5): there a facility is placed where people lack access, here people are placed where
 access is good — the *Innenentwicklung* question.
 
-**Candidates.** 100 m Zensus grid cells **without residents** (not in the scored cells, i.e. no
-residents in the 2022 census), whose centre lies inside the urban boundary grown by
+**Candidates.** 100 m Zensus grid cells **without residents** (no residents in the 2022 census: every Zensus cell with residents is
+excluded, also outside the scoring scope, e.g. in neighbouring municipalities), whose centre lies inside the urban boundary grown by
 `housing.edge_buffer_m` (200 m, so that the edge of town counts), outside the OSM land use of
 the recommender's exclusion list (water, forest, farmland, nature reserves, protected areas of a
 nature class) and, in addition, outside industrial areas, cemeteries and parks

@@ -21,7 +21,7 @@ from reach_pipeline import recommend as rec
 from reach_pipeline.config import load_config
 from reach_pipeline.context import RunContext
 from reach_pipeline.manifest import Manifest, read_manifest, write_manifest
-from reach_pipeline.stages import count, score, tiles, validate
+from reach_pipeline.stages import acquire, count, score, tiles, validate
 from reach_pipeline.stages import housing as stage
 
 REPO = Path(__file__).resolve().parents[2]
@@ -107,6 +107,17 @@ def stage_ctx(tmp_path: Path) -> RunContext:
         geometry=gpd.GeoSeries(pop["zone_geom"].values, crs=CRS),
         crs=CRS,
     ).to_parquet(vdir / "cells.parquet")
+    # Zensus CSV: the six scored cells plus one populated cell outside the scoring scope (not in
+    # cells.parquet, e.g. a neighbouring municipality): it must not become a candidate either
+    outside = grid["candidate_id"].iat[6]
+    ids = [*pop["candidate_id"], outside]
+    csv = acquire.raw_path(ctx.raw_dir, "zensus", cfg_members(ctx))
+    csv.parent.mkdir(parents=True)
+    rows = ["GITTER_ID_100m;x_mp_100m;y_mp_100m;Einwohner"]
+    for cid in ids:
+        n, e = cid.removeprefix("CRS3035RES100mN").split("E")
+        rows.append(f"{cid};{int(e) + 50};{int(n) + 50};7")
+    csv.write_text("\n".join(rows) + "\n", encoding="utf-8")
     _districts().to_parquet(vdir / "districts.parquet")
     gpd.GeoDataFrame({"part_id": [1], "name": [None]}, geometry=[AREA], crs=CRS).to_parquet(
         vdir / "urban_boundary.parquet"
@@ -151,6 +162,10 @@ def stage_ctx(tmp_path: Path) -> RunContext:
     return ctx
 
 
+def cfg_members(ctx: RunContext) -> str:
+    return ctx.config.sources.zensus.members[0]
+
+
 def _fake_matrix(request: httpx.Request) -> httpx.Response:
     body = json.loads(request.content)
     opts = next(iter(body["costing_options"].values()))
@@ -180,6 +195,10 @@ def test_housing_stage_matches_brute_force(stage_ctx: RunContext) -> None:
     )
     # unpopulated cells only; one row per cell x configured category
     assert len(cells) > 0 and not set(cells["cell_id"]) & populated
+    # a populated cell outside the scoring scope is no candidate
+    assert report["candidates"]["populated"] == 7
+    grid_ids = rec.candidate_grid(AREA, 100)["candidate_id"].tolist()
+    assert grid_ids[6] not in set(cells["cell_id"])
     assert len(counts) == len(cells) * len(stage_ctx.config.categories)
     assert set(counts["profile_id"]) == {"walking_339"}
     # brute force: straight-line time = distance / speed, budget 15 min

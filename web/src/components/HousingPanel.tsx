@@ -42,7 +42,7 @@ export default function HousingPanel({ state, categories, onPick, card }: Props)
         <p className="muted small">This run has no housing potential (published without the housing stage).</p>
       )}
       {housing?.available && !top.length && (
-        <p className="muted small">No cells for this profile: the housing potential is computed for the walking profiles only.</p>
+        <p className="muted small">No cells to show: this profile has no housing potential (walking profiles only), or all weights are 0.</p>
       )}
       {top.length > 0 && (
         <>
