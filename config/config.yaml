@@ -98,7 +98,8 @@ profiles:
 # tags: OSM key/value pairs; a feature matching any pair belongs to the category.
 # location: "point" = node as is, polygon -> representative point;
 #           "access_points" = access points on the boundary (parks and playgrounds, see below).
-# Each category: `group` (food, health, education, green; the app combines categories per group),
+# Each category: `group` (food, health, education, green, sport, services; the app shows one
+# collapsible block per group),
 # `tags` (any one defines the category), optional `require` (list of alternative `key: value`
 # conditions, at least one must hold) and `exclude` (conditions that drop a feature). In
 # conditions `;`-separated OSM values match if any part matches (docs/osm_tagging.md §3, §4).
@@ -149,6 +150,69 @@ categories:
     tags: [{leisure: playground}]
     location: access_points
     exclude: [{access: private}, {access: "no"}, {access: customers}]
+  # Extended categories (methodology §2, M1; tag counts checked on the Geofabrik extract of
+  # 9 Nov 2026). k = 1 everywhere: presence within reach, no evidence for a higher number yet.
+  - id: bakery
+    name: Bakery
+    group: food
+    k: 1
+    tags: [{shop: bakery}]
+    location: point
+  - id: restaurant
+    name: Restaurants & cafés
+    group: food
+    k: 1
+    tags: [{amenity: restaurant}, {amenity: cafe}]
+    location: point
+  - id: dentist
+    name: Dentist
+    group: health
+    k: 1
+    tags: [{amenity: dentist}]
+    location: point
+  # Homes for older people: nursing homes, assisted living and senior group homes. Facilities
+  # for other groups (juvenile, migrant, …) or without social_facility:for are not counted.
+  - id: senior_care
+    name: Senior care
+    group: health
+    k: 1
+    tags: [{social_facility: nursing_home}, {social_facility: assisted_living},
+           {social_facility: group_home}]
+    location: point
+    require: [{"social_facility:for": senior}]
+  - id: library
+    name: Library
+    group: education
+    k: 1
+    tags: [{amenity: library}]
+    location: point
+  - id: gym
+    name: Gym
+    group: sport
+    k: 1
+    tags: [{leisure: fitness_centre}]
+    location: point
+  # Pitches and sports centres, each at one representative point. Most carry no access tag
+  # (about 87 % of the pitches), so club and school grounds count unless tagged otherwise.
+  - id: sports_grounds
+    name: Sports grounds
+    group: sport
+    k: 1
+    tags: [{leisure: pitch}, {leisure: sports_centre}]
+    location: point
+    exclude: [{access: private}, {access: "no"}, {access: customers}]
+  - id: post
+    name: Post office
+    group: services
+    k: 1
+    tags: [{amenity: post_office}]
+    location: point
+  - id: bank
+    name: Bank & ATM
+    group: services
+    k: 1
+    tags: [{amenity: bank}, {amenity: atm}]
+    location: point
 
 # Access points for categories with location "access_points" (meth. §2): intersections of
 # walkable ways with the boundary; fallback points every spacing_m along the boundary; at most

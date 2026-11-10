@@ -94,8 +94,8 @@ class Category(_Model):
     id: str = Field(pattern=r"^[a-z][a-z0-9_]*$")
     name: str = Field(min_length=1)
     k: int = Field(ge=1)
-    # Thematic group (food, health, education, green); the app combines categories per group.
-    group: Literal["food", "health", "education", "green"]
+    # Thematic group; the app shows one collapsible block of categories per group.
+    group: Literal["food", "health", "education", "green", "sport", "services"]
     tags: list[dict[str, str]] = Field(min_length=1)
     location: Literal["point", "access_points"]
     # Conditions on the matched features, each one `key: value`; `;`-separated OSM values match

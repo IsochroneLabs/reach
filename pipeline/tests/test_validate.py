@@ -37,12 +37,14 @@ def _result(**overrides: Any) -> dict[str, Any]:
         geometry=[box(450, 450, 550, 550)],
         crs=CRS,
     )
-    categories = ["grocery", "pharmacy", "doctors", "childcare", "school", "parks", "playgrounds"]
+    # one facility of every configured category
+    categories = [c.id for c in load_config(REPO / "config" / "config.yaml").categories]
+    n = len(categories)
     layers = {
         "cells": cells,
         "facilities": gpd.GeoDataFrame(
-            {"facility_id": [f"n{i}" for i in range(7)], "category": categories},
-            geometry=[Point(100, 100)] * 7,
+            {"facility_id": [f"n{i}" for i in range(n)], "category": categories},
+            geometry=[Point(100, 100)] * n,
             crs=CRS,
         ),
         "facility_points": gpd.GeoDataFrame(

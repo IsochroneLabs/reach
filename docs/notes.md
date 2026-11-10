@@ -488,3 +488,29 @@ OSM does not tag as an excluded land use.
 - **Neighbouring municipalities:** the 200 m margin reaches into Kusterdingen, Ammerbuch and
   Rottenburg; empty cells there are candidates too (no district, shown as "Outside the districts").
 - **No merging into sites:** neighbouring cells with the same score are separate entries.
+
+## N16. Extended categories: open points after the config change
+
+**Status:** open · **Added:** 11 Nov 2026 · **Related:** `methodology.md` §2 (v0.11), `architecture.md` O8, N4, N12, N15
+
+Nine extended categories were added to `config/config.yaml` (16 in total). On the routing extract
+of run `20261110T223016Z` the facility build gives **2,010 facilities with 2,581 routing points**
+(the seven Core categories: 853 facilities); sports grounds alone are 566. All 16 categories
+have at least one facility inside the test clip. Unit tests and the browser tests pass; **no
+pipeline run with the new categories has been made yet**.
+
+**Open:**
+- **Runtime and memory not measured.** Matrix targets grow about 2.4-fold; `count` for cycling
+  (1.13 M pairs before) and Valhalla's memory (N4) grow with them. Run `make refresh` and record
+  the figures; if too heavy, drop `leisure=pitch` and keep `leisure=sports_centre` (138 features).
+- **`architecture.md` O8** still says "coarse facility categories (≈ 7) in Core". The Core list is
+  unchanged, the extended list is new; the decision text needs a line (ask first).
+- **"All" and the housing default score** (§4b, §5b) now average over 16 categories, including
+  restaurants and gyms. Decide whether the defaults should use the Core categories only.
+- **Recommender** produces zones for every category; for sports grounds and senior care a
+  100 m zone is hardly meaningful. Consider a per-category switch.
+- **Completeness** of the extended categories is unchecked (V2 covers childcare and schools);
+  sports grounds are optimistic (no `access` tag on about 87 % of the pitches).
+- **Web fixtures** (`web/tests/fixtures/meta.json`) still hold the seven Core categories;
+  re-record after the first run with the new config.
+

@@ -1,6 +1,6 @@
 # Methodology — reach
 
-> **Status:** draft v0.10 (10 Nov 2026). Binding definition of **what** is measured, scored,
+> **Status:** draft v0.11 (11 Nov 2026). Binding definition of **what** is measured, scored,
 > recommended and validated. `architecture.md` describes **how** the system computes it. Every
 > change bumps the version and adds a line to the [Change log](#change-log). Items marked
 > **[M#]** are open methodology questions (Section 7).
@@ -38,7 +38,8 @@ travel profiles, and a recommender for new facility locations.
 
 ## 2. Facility categories **[M1]**
 
-Coarse categories in Core (proposed, to be confirmed with a completeness check per category):
+Core categories (the seven coarse ones of the paper's logic, to be confirmed with a completeness
+check per category):
 
 | Category | OSM tags | $k_c$ | Rationale |
 |---|---|---|---|
@@ -51,11 +52,29 @@ Coarse categories in Core (proposed, to be confirmed with a completeness check p
 | Playgrounds | `leisure=playground`; not `access` in `private`, `no`, `customers` | 1 | Presence within reach |
 | Public transport | GTFS stops (departures, see §3) | – | Own classes, see §3 |
 
+**Extended categories** (v0.11, requested by Juju). They widen the picture of everyday
+destinations beyond the Core list; $k_c = 1$ for all of them (presence within reach), because
+there is no evidence for a higher number yet. None of them has a completeness check (V2 covers
+childcare and schools only), so their results are indicative. Facilities in the routing area on
+the OSM extract of 9 Nov 2026 in brackets.
+
+| Category | Group | OSM tags | $k_c$ | Note |
+|---|---|---|---|---|
+| Bakery (90) | food | `shop=bakery` | 1 | Daily food besides supermarkets |
+| Restaurants & cafés (279) | food | `amenity=restaurant`, `amenity=cafe` | 1 | Social amenity, not a basic need; no fast food, bars or pubs |
+| Dentist (52) | health | `amenity=dentist` | 1 | |
+| Senior care (22) | health | `social_facility` = `nursing_home`, `assisted_living` or `group_home`, and `social_facility:for=senior` | 1 | Homes for older people; a destination for visitors and staff, capacity is not measured |
+| Library (30) | education | `amenity=library` | 1 | Public bookcases are not counted |
+| Gym (13) | sport | `leisure=fitness_centre` | 1 | Commercial offer |
+| Sports grounds (566) | sport | `leisure=pitch`, `leisure=sports_centre`; not `access` in `private`, `no`, `customers` | 1 | About 87 % of the pitches carry no `access` tag, so club and school grounds count as well: optimistic |
+| Post office (25) | services | `amenity=post_office` | 1 | Parcel lockers and post boxes are not counted |
+| Bank & ATM (80) | services | `amenity=bank`, `amenity=atm` | 1 | |
+
 **Access rule.** Only facilities the public can use count. Parks and playgrounds with
 `access=private`, `access=no` or `access=customers` are dropped; schools, childcare, shops and
 practices are not filtered by `access` (there the tag describes the grounds or the customers, not
-who may enrol or visit). Every category carries a thematic `group` (food, health, education,
-green) and may restrict its tag match with `require` and `exclude` conditions in the config; the
+who may enrol or visit). The same rule applies to sports grounds. Every category carries a
+thematic `group` (food, health, education, green, sport, services) and may restrict its tag match with `require` and `exclude` conditions in the config; the
 validation report lists the features dropped per category. Schools stay one category until at
 least 95 % of the schools in the city carry a type tag (`school`, `school:de` or `isced:level`;
 check `facility_subtypes_complete`, `docs/osm_tagging.md`); then `primary_school` and
@@ -74,8 +93,10 @@ contact, speciality; `facility_tags` in the config) are displayed as stored and 
 count.
 
 Tag mapping lives in `config/config.yaml`. Higher-order facilities (hospitals, universities,
-specialised shops) are excluded. Bars, gyms and similar amenities are not part of 15-minute
-compliance. Finer categories (discounters, GPs, school types) are Stretch, added only where OSM
+specialised shops) are excluded. Bars, pubs and fast food are not counted. Restaurants, cafés,
+gyms and the other extended categories are shown as additional layers; they are not part of the
+Core list the paper's 15-minute compliance rests on, and the combined score (§4b) includes them
+only when they are selected. Finer categories (discounters, GPs, school types) are Stretch, added only where OSM
 completeness allows.
 
 ## 3. Public transport supply
@@ -239,6 +260,7 @@ wheelchair as well as cycling (`architecture.md` §6.1, notes N5); its effect on
 
 | Version | Date | Change | Why |
 |---|---|---|---|
+| v0.11 | 2026-11-11 | §2: nine extended categories (bakery, restaurants & cafés, dentist, senior care, library, gym, sports grounds, post office, bank & ATM; k = 1 each), new groups `sport` and `services`; restaurants, cafés and gyms are no longer excluded but stay outside the Core list; schools stay one category | Requested and approved by Juju (10 Nov 2026); tag counts checked on the extract of 9 Nov 2026; 2 of 129 schools around the city carry `isced:level`, so no primary/secondary split |
 | v0.10 | 2026-11-10 | New §5b: housing potential (unpopulated grid cells inside the urban boundary + 200 m, land-use filtered, counted like resident cells for walking 3.39/5.0, scored with §4b); display only | App iteration W8 (point 12, E7); confirmed by Juju (plan v0.1) |
 | v0.9 | 2026-11-10 | New §4b: flexible accessibility score (weighted mean of per-category coverage with time threshold, facilities needed and weight; defaults equal the deficit coverage); display only, computed in the browser from `/api/cells/times` | App iteration W7b (points 1, 3); approved by Juju (10 Nov 2026) |
 | v0.8 | 2026-11-10 | §2: parks and playgrounds are separate categories (k = 1 each); access rule (private, no, customers dropped for parks and playgrounds only); category groups and `require`/`exclude` conditions; school split waits for the 95 % type-tag gate | App iteration W7a (points 1, 2, access fix); approved by Juju (10 Nov 2026); 1 of 42 schools in the city carries a type tag, so no school split yet |
