@@ -179,6 +179,32 @@ async def cell_times(
     )
 
 
+@router.api_route("/housing", methods=GET_HEAD)
+async def housing(
+    request: Request,
+    d: DepsDep,
+    profile: Annotated[str, Query()],
+) -> Response:
+    """Housing potential (methodology §5b): unpopulated grid cells as GeoJSON polygons with the
+    sorted times (s) of their nearest facilities per category (as `/api/cells/times`, for the
+    flexible score of §4b), the default `score` and the district. `available: false` for a run
+    published without the housing stage; a profile outside `housing.profiles` has no features."""
+    run = await current_run(d)
+    run.profile(profile)
+    limit = d.config.api.score.max_times_per_category
+
+    async def build() -> str:
+        body = await d.db.housing_geojson(run.run_id, profile, limit)
+        if body is None:
+            empty = {"type": "FeatureCollection", "run_id": run.run_id, "available": False}
+            return json.dumps({**empty, "features": []})
+        return body
+
+    return await _cached_body(
+        request, d, (run.run_id, "housing", profile, str(limit)), GEOJSON, build
+    )
+
+
 @router.api_route("/recommendations", methods=GET_HEAD)
 async def recommendations(
     request: Request,

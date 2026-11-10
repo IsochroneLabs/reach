@@ -58,6 +58,7 @@ class FakeDatabase:
         self.in_city = True
         self.click_in_city = True
         self.recommendations: list[dict[str, Any]] | None = None
+        self.housing: list[dict[str, Any]] | None = None  # None = run without housing stage
         self.scored = True
         # published reachable facilities (the two recorded ones within 900 s), cut to the first n
         self.reachable_n = 2
@@ -294,6 +295,15 @@ class FakeDatabase:
 
     async def residents_by_class(self, cell_ids, category: str, profile_id: str):
         return {"sufficient": 400}
+
+    async def housing_geojson(self, run_id: str, profile_id: str, limit: int):
+        self.calls.append("housing_geojson")
+        if self.housing is None:
+            return None
+        body = {"type": "FeatureCollection", "run_id": run_id, "profile_id": profile_id}
+        return json.dumps(
+            {**body, "available": True, "max_times_per_category": limit, "features": self.housing}
+        )
 
     async def recommendations_geojson(self, run_id: str, category, profile_id):
         self.calls.append("recommendations_geojson")
