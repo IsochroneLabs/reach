@@ -332,6 +332,20 @@ recommend:
   # protect_class; recommend reports their count and area (decision by Rico, 6 Nov 2026).
   exclude_protect_classes: ["1", "2", "3", "4", "7"]
 
+# Housing potential (methodology §5b): where would new homes already have good 15-minute access?
+# Candidates are Zensus grid cells without residents (not in `cells`), counted like residents.
+housing:
+  # Profiles with a housing potential. Empty list = no housing layer in this run.
+  profiles: [walking_339, walking_500]
+  # Candidates: centre inside the urban boundary grown by this distance (m), so that the
+  # edge of town counts (decision E7, 9 Nov 2026).
+  edge_buffer_m: 200
+  # Land use excluded in addition to recommend.exclude_tags (a polygon containing the centre).
+  exclude_tags:
+    - {landuse: industrial}
+    - {landuse: cemetery}
+    - {leisure: park}
+
 # Validation thresholds (arch. §7 "validate inputs").
 validation:
   # Allowed relative deviation of the summed Zensus population from the official city total.

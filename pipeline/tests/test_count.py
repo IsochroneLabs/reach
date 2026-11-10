@@ -155,6 +155,7 @@ def stage_ctx(tmp_path: Path) -> RunContext:
         {"higher": "cycling_15", "lower": "walking_339", "warn_above": 0.05, "fail_above": None}
     ]
     data["recommend"]["profiles"] = ["walking_339"]
+    data["housing"]["profiles"] = ["walking_339"]
     data["count"]["block_size_m"] = 300
     data["valhalla"].update(url="http://valhalla.test", backoff_s=0, max_matrix_pairs=500)
     cfg_path = tmp_path / "config.yaml"

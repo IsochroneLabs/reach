@@ -40,7 +40,15 @@ from reach_pipeline.manifest import (
     write_manifest,
 )
 from reach_pipeline.metrics import measure
-from reach_pipeline.stages import acquire, count, recommend, score, validate, validate_results
+from reach_pipeline.stages import (
+    acquire,
+    count,
+    housing,
+    recommend,
+    score,
+    validate,
+    validate_results,
+)
 from reach_pipeline.valhalla.client import costing_options
 
 STAGE = "publish"
@@ -69,6 +77,9 @@ def _paths(ctx: RunContext) -> dict[str, Path]:
         "reachable": c / count.REACHABLE,
         "transit_supply": c / count.TRANSIT,
         "thresholds": ctx.stage_dir(score.STAGE) / score.THRESHOLDS,
+        "housing_cells": ctx.stage_dir(housing.STAGE) / housing.CELLS,
+        "housing_counts": ctx.stage_dir(housing.STAGE) / housing.COUNTS,
+        "housing_reachable": ctx.stage_dir(housing.STAGE) / housing.REACHABLE,
         "recommendations": ctx.stage_dir(recommend.STAGE) / recommend.RECOMMENDATIONS,
         "recommendation_catchments": ctx.stage_dir(recommend.STAGE) / recommend.REC_CATCHMENTS,
         "report_inputs": v / validate.REPORT_JSON,
@@ -127,6 +138,15 @@ def recommendations_frame(path: Path) -> pd.DataFrame:
     )
 
 
+def housing_cells_frame(path: Path) -> pd.DataFrame:
+    """`housing_cells`: cell polygon (`geom`) and centre (`origin_geom`) as hex EWKB."""
+    layer = gpd.read_parquet(path)
+    return pd.DataFrame(layer[["cell_id", "district_id"]]).assign(
+        geom=db.ewkb(layer.geometry),
+        origin_geom=db.ewkb(layer.set_geometry("origin_geom").geometry),
+    )
+
+
 def report_frame(*reports: dict[str, Any]) -> pd.DataFrame:
     """`validation_report` rows from report parts 1 and 2."""
     rows = [c for r in reports for c in r["checks"]]
@@ -154,6 +174,9 @@ def tables(ctx: RunContext) -> dict[str, pd.DataFrame]:
         "reachable": pd.read_parquet(p["reachable"]),
         "transit_supply": pd.read_parquet(p["transit_supply"]),
         "thresholds": pd.read_parquet(p["thresholds"]),
+        "housing_cells": housing_cells_frame(p["housing_cells"]),
+        "housing_counts": pd.read_parquet(p["housing_counts"]),
+        "housing_reachable": pd.read_parquet(p["housing_reachable"]),
         "recommendations": recommendations_frame(p["recommendations"]),
         "recommendation_catchments": pd.read_parquet(p["recommendation_catchments"]),
         "validation_report": report_frame(part1, part2),

@@ -306,6 +306,31 @@ class Recommend(_Model):
         return v
 
 
+class Housing(_Model):
+    """Housing potential (methodology §5b): unpopulated grid cells scored like residents."""
+
+    # Profiles the housing stage routes for; empty = no housing potential in this run.
+    profiles: list[str]
+    # Candidates: centre inside the urban boundary grown by this distance (m).
+    edge_buffer_m: float = Field(ge=0)
+    # Land use excluded in addition to recommend.exclude_tags (polygon contains the centre).
+    exclude_tags: list[dict[str, str]]
+
+    @field_validator("profiles")
+    @classmethod
+    def _unique_profiles(cls, v: list[str]):
+        if len(set(v)) != len(v):
+            raise ValueError(f"housing.profiles must be unique, got {v}")
+        return v
+
+    @field_validator("exclude_tags")
+    @classmethod
+    def _one_pair_per_tag(cls, v: list[dict[str, str]]):
+        if any(len(tag) != 1 for tag in v):
+            raise ValueError("each exclude_tags entry must be exactly one key: value pair")
+        return v
+
+
 class Monotonic(_Model):
     """Expected order of two profiles: counts (and departures) of `higher` >= those of `lower`."""
 
@@ -420,6 +445,7 @@ class Config(_Model):
     valhalla: Valhalla
     count: Count
     recommend: Recommend
+    housing: Housing
     validation: Validation
     database: Database
     cleanup: Cleanup
@@ -468,6 +494,13 @@ class Config(_Model):
         unknown = sorted(set(self.recommend.profile_overrides) - self.profiles.keys())
         if unknown:
             raise ValueError(f"recommend.profile_overrides: unknown profiles {unknown}")
+        return self
+
+    @model_validator(mode="after")
+    def _housing_profiles_exist(self):
+        unknown = sorted(set(self.housing.profiles) - self.profiles.keys())
+        if unknown:
+            raise ValueError(f"housing.profiles: unknown profiles {unknown}")
         return self
 
     @model_validator(mode="after")

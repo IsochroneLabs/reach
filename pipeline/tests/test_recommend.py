@@ -23,7 +23,7 @@ from reach_pipeline import zensus
 from reach_pipeline.config import load_config
 from reach_pipeline.context import RunContext
 from reach_pipeline.manifest import Manifest, read_manifest, write_manifest
-from reach_pipeline.stages import count, score, tiles, validate
+from reach_pipeline.stages import count, housing, score, tiles, validate
 from reach_pipeline.stages import recommend as stage
 
 REPO = Path(__file__).resolve().parents[2]
@@ -222,6 +222,7 @@ def stage_ctx(tmp_path: Path) -> RunContext:
     data["recommend"].update(
         profiles=["walking_339", "walking_500"], profile_overrides={}, min_gain=1, top_n=3
     )
+    data["housing"]["profiles"] = []
     data["valhalla"].update(url="http://valhalla.test", backoff_s=0, max_matrix_pairs=500)
     cfg_path = tmp_path / "config.yaml"
     cfg_path.write_text(yaml.safe_dump(data, allow_unicode=True), encoding="utf-8")
@@ -271,7 +272,7 @@ def stage_ctx(tmp_path: Path) -> RunContext:
         cdir / count.ACCESS
     )
     now = datetime.now(UTC)
-    for name in (validate.STAGE, count.STAGE, score.STAGE):
+    for name in (validate.STAGE, count.STAGE, score.STAGE, housing.STAGE):
         write_manifest(
             Manifest(
                 stage=name,
