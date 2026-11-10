@@ -15,6 +15,13 @@ adds a line under `Unreleased`.
   candidate grid for one profile). Cycling recommendations were measured with and without it and
   stay off: Valhalla peaks at 3.9 GiB (limit 2.5 GiB), numbers in notes N12.
 
+### Added (config and web app, more categories in collapsible groups)
+- Nine extended categories (methodology v0.11 §2): bakery, restaurants & cafés, dentist, senior
+  care, library, gym, sports grounds, post office, bank & ATM (k = 1 each); new groups `sport`
+  and `services`. They appear after the next pipeline run; no table or API change.
+- Web app: the category picker shows one collapsible block per group with a checkbox for the
+  whole group and a count of selected categories; groups with a selection start open.
+
 ### Added (housing potential, W8)
 - Pipeline stage `housing` between `score` and `recommend` (methodology v0.10 §5b, architecture
   v0.23): 100 m Zensus grid cells without residents inside the urban boundary + 200 m, outside

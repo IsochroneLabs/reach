@@ -16,7 +16,9 @@ Residents are a secondary audience served by the same map.
 
 - Map of the urban area of Tübingen on the Zensus 100 m grid, aggregated to city districts.
 - **Profile selector:** walking (3.39 km/h inclusive, 5.0 km/h comparison), cycling, wheelchair.
-- **Category layers:** one layer per Core category (`methodology.md` §2).
+- **Category layers:** one layer per category (`methodology.md` §2: seven Core and nine extended
+  categories), chosen in collapsible groups (food, health & care, education, green space, sport,
+  services).
 - **Class view:** lack / insufficient / sufficient per category; a "lack only" view.
 - **Combined score (W7b):** tick several categories (grouped, with "All") for one accessibility
   score per cell, with time threshold, facilities needed and weight per category (`methodology.md`

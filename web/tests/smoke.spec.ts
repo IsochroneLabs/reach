@@ -534,7 +534,13 @@ test('several categories give the score view; one category with defaults stays t
   await expect(page.getByTestId('score-legend')).toHaveCount(0)
   expect(requests).not.toContain('/api/cells/times') // the class map needs no times
 
+  // groups with a selected category start open, the others are collapsed
   const picker = page.getByRole('group', { name: 'Health' })
+  await expect(page.getByRole('group', { name: 'Food' }).getByLabel('Grocery')).toBeVisible()
+  await expect(picker.getByLabel('Pharmacy')).toBeHidden()
+  await expect(page.getByTestId('picker-count')).toHaveText('1 of 7 selected')
+  await picker.getByRole('button', { name: /Health & care/ }).click()
+  await page.screenshot({ path: 'test-results/map-card-category-groups.png' })
   await picker.getByLabel('Pharmacy').check()
   await page.getByRole('group', { name: 'Health' }).getByLabel('Doctors').check()
   await expect(page.getByTestId('score-legend')).toBeVisible()
@@ -564,6 +570,17 @@ test('several categories give the score view; one category with defaults stays t
   await page.getByRole('group', { name: 'Health' }).getByLabel('Pharmacy').uncheck()
   await page.getByRole('group', { name: 'Health' }).getByLabel('Doctors').uncheck()
   await expect(page.getByTestId('score-legend')).toHaveCount(0)
+
+  // the group checkbox selects and clears a whole group; the last category stays selected
+  const education = page.getByRole('group', { name: 'Education' })
+  await education.getByLabel('Whole group: Education').check()
+  await expect(page.getByTestId('picker-count')).toHaveText('3 of 7 selected')
+  await education.getByRole('button', { name: /Education/ }).click()
+  await expect(education.getByLabel('School')).toBeChecked()
+  await education.getByLabel('Whole group: Education').uncheck()
+  await expect(page.getByTestId('picker-count')).toHaveText('1 of 7 selected')
+  await page.getByRole('group', { name: 'Food' }).getByLabel('Whole group: Food').click()
+  await expect(page.getByRole('group', { name: 'Food' }).getByLabel('Grocery')).toBeChecked()
   expect(errors).toEqual([])
 })
 
