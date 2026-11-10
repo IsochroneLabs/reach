@@ -1,0 +1,217 @@
+{
+ "type": "FeatureCollection",
+ "run_id": "20260101T000000Z",
+ "profile_id": "walking_339",
+ "available": true,
+ "max_times_per_category": 5,
+ "features": [
+  {
+   "type": "Feature",
+   "id": "CRS3035RES100mN2830100E4250100",
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       9.052,
+       48.52
+      ],
+      [
+       9.052,
+       48.520900000000005
+      ],
+      [
+       9.0533,
+       48.520900000000005
+      ],
+      [
+       9.0533,
+       48.52
+      ],
+      [
+       9.052,
+       48.52
+      ]
+     ]
+    ]
+   },
+   "properties": {
+    "cell_id": "CRS3035RES100mN2830100E4250100",
+    "district_id": "r1",
+    "district_name": "Altstadt",
+    "score": 100.0,
+    "times": {
+     "grocery": [
+      60,
+      120
+     ]
+    }
+   }
+  },
+  {
+   "type": "Feature",
+   "id": "CRS3035RES100mN2830200E4250100",
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       9.05356,
+       48.521080000000005
+      ],
+      [
+       9.05356,
+       48.521980000000006
+      ],
+      [
+       9.05486,
+       48.521980000000006
+      ],
+      [
+       9.05486,
+       48.521080000000005
+      ],
+      [
+       9.05356,
+       48.521080000000005
+      ]
+     ]
+    ]
+   },
+   "properties": {
+    "cell_id": "CRS3035RES100mN2830200E4250100",
+    "district_id": "r1",
+    "district_name": "Altstadt",
+    "score": 50.0,
+    "times": {
+     "grocery": [
+      300
+     ]
+    }
+   }
+  },
+  {
+   "type": "Feature",
+   "id": "CRS3035RES100mN2830300E4250100",
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       9.055119999999999,
+       48.52
+      ],
+      [
+       9.055119999999999,
+       48.520900000000005
+      ],
+      [
+       9.05642,
+       48.520900000000005
+      ],
+      [
+       9.05642,
+       48.52
+      ],
+      [
+       9.055119999999999,
+       48.52
+      ]
+     ]
+    ]
+   },
+   "properties": {
+    "cell_id": "CRS3035RES100mN2830300E4250100",
+    "district_id": null,
+    "district_name": null,
+    "score": 0.0,
+    "times": {}
+   }
+  },
+  {
+   "type": "Feature",
+   "id": "CRS3035RES100mN2830400E4250200",
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       9.05668,
+       48.521080000000005
+      ],
+      [
+       9.05668,
+       48.521980000000006
+      ],
+      [
+       9.05798,
+       48.521980000000006
+      ],
+      [
+       9.05798,
+       48.521080000000005
+      ],
+      [
+       9.05668,
+       48.521080000000005
+      ]
+     ]
+    ]
+   },
+   "properties": {
+    "cell_id": "CRS3035RES100mN2830400E4250200",
+    "district_id": "r2",
+    "district_name": "S\u00fcdstadt",
+    "score": 100.0,
+    "times": {
+     "grocery": [
+      500,
+      880
+     ]
+    }
+   }
+  },
+  {
+   "type": "Feature",
+   "id": "CRS3035RES100mN2830500E4250200",
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       9.05824,
+       48.52
+      ],
+      [
+       9.05824,
+       48.520900000000005
+      ],
+      [
+       9.05954,
+       48.520900000000005
+      ],
+      [
+       9.05954,
+       48.52
+      ],
+      [
+       9.05824,
+       48.52
+      ]
+     ]
+    ]
+   },
+   "properties": {
+    "cell_id": "CRS3035RES100mN2830500E4250200",
+    "district_id": "r2",
+    "district_name": "S\u00fcdstadt",
+    "score": 50.0,
+    "times": {
+     "grocery": [
+      700
+     ]
+    }
+   }
+  }
+ ]
+}

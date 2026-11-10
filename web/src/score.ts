@@ -2,7 +2,7 @@
 // times of `GET /api/cells/times`, so the sliders need no request. With the defaults and one
 // category it equals 100 · (1 − deficit / population) of `/api/cells`.
 import { SCORE_CLASSES } from './palette'
-import type { Category, CellTimes, Cells } from './types'
+import type { Category, CellTimes, Cells, Housing } from './types'
 
 /** Per-category overrides; a missing field means "default". */
 export interface CategoryParams {
@@ -156,4 +156,31 @@ export function districtMean(cells: Cells | null, districtId: string): number | 
     total += f.properties.population
   }
   return total > 0 ? sum / total : null
+}
+
+/** The housing cells scored like residents' cells with the same parameters (methodology §5b):
+ * `score`, `class` and `full` for the selection. Cells without a score (all weights 0) are dropped. */
+export function scoreHousing(housing: Housing, categories: Category[], params: ScoreParams, budgetMin: number): Housing {
+  const maxK = housing.max_times_per_category ?? DEFAULT_MAX_K
+  const eff: [string, Effective][] = categories.map((c) => [c.id, effective(params, c, budgetMin, maxK)])
+  const features = housing.features.flatMap((f) => {
+    const raw = scoreOf(f.properties.times, eff)
+    if (raw === null) return []
+    const score = Math.round(raw * 1e6) / 1e6
+    return [{ ...f, properties: { ...f.properties, score, class: SCORE_CLASSES[binOf(score)], full: score >= 100 } }]
+  })
+  return { ...housing, features }
+}
+
+/** The best `n` housing cells: highest score first, ties by cell id (stable). */
+export function topHousing(housing: Housing | null, n: number): Housing['features'] {
+  return [...(housing?.features ?? [])]
+    .sort((a, b) => b.properties.score - a.properties.score || a.properties.cell_id.localeCompare(b.properties.cell_id))
+    .slice(0, n)
+}
+
+/** Centre of a housing cell (mean of the ring vertices without the closing one), [lon, lat]. */
+export function cellCentre(ring: number[][]): [number, number] {
+  const pts = ring.slice(0, -1)
+  return [pts.reduce((s, p) => s + p[0], 0) / pts.length, pts.reduce((s, p) => s + p[1], 0) / pts.length]
 }

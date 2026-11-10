@@ -15,6 +15,7 @@ const API: [RegExp, string][] = [
   [/\/api\/districts$/, 'districts.json'],
   [/\/api\/districts\/[^/]+\/scores/, 'district_scores.json'],
   [/\/api\/cells\/times/, 'cells_times_walking_339.json'],
+  [/\/api\/housing/, 'housing_walking_339.json'],
   [/\/api\/cells/, 'cells_grocery_walking_339.json'],
   [/\/api\/recommendations/, 'recommendations.json'],
   [/\/api\/inspect$/, 'inspect_walking_339.json'],
@@ -579,4 +580,36 @@ test('score settings from a shared link are kept inside what the data can show',
   // no prototype keys from the URL
   expect(Object.keys(decodeParams('__proto__.k=1').cats)).toEqual([])
   expect(isDefault(decodeParams('__proto__.k=1'))).toBe(true)
+})
+
+test('housing potential: top cells scored with the selection, a click drops the pin', async ({ page }) => {
+  test.skip(live, 'uses the recorded housing fixture')
+  await mockNetwork(page)
+  await page.goto('/#/map?profile=walking_339&category=grocery')
+  await expect(page.getByTestId('map')).toHaveAttribute('data-ready', 'true', { timeout: 30_000 })
+  await expect(page.getByTestId('housing-top')).toHaveCount(0)
+
+  await page.getByRole('button', { name: 'Map settings' }).click()
+  await page.getByLabel('Housing potential (cells without residents)').check()
+  const top = page.getByTestId('housing-top').locator('li')
+  // grocery needs 2: two facilities within 15 min = 100, one = 50, none = 0; ties by cell id
+  await expect(top).toHaveCount(5)
+  await expect(top.nth(0)).toContainText('Altstadt')
+  await expect(top.nth(0)).toContainText('score 100')
+  await expect(top.nth(1)).toContainText('Südstadt')
+  await expect(top.nth(1)).toContainText('score 100')
+  await expect(top.nth(2)).toContainText('score 50')
+  await expect(top.nth(4)).toContainText('Outside the districts')
+  await expect(top.nth(4)).toContainText('score 0')
+
+  // one threshold for grocery at 1 facility: the one-facility cells reach 100 as well
+  await page.goto('/#/map?profile=walking_339&category=grocery&score=grocery.k%3D1')
+  await expect(top.nth(3)).toContainText('score 100')
+  await expect(top.nth(4)).toContainText('score 0')
+
+  const request = page.waitForRequest((r) => r.url().endsWith('/api/inspect'))
+  await top.nth(0).getByRole('button').click()
+  const body = (await request).postDataJSON() as { lon: number; lat: number }
+  expect(body.lon).toBeGreaterThan(9.05)
+  await expect(page.getByTestId('inspect-result')).toBeVisible({ timeout: 30_000 })
 })

@@ -5,6 +5,7 @@ import {
   getCellTimes,
   getDistricts,
   getFacilities,
+  getHousing,
   getMeta,
   getRecommendations,
   postCandidateCatchment,
@@ -15,6 +16,7 @@ import {
 import Controls from './components/Controls'
 import DataPage from './components/DataPage'
 import DistrictPanel from './components/DistrictPanel'
+import HousingPanel, { type HousingState } from './components/HousingPanel'
 import Inspector, { type FacilityRouteState, type InspectState } from './components/Inspector'
 import MapView from './components/MapView'
 import RecommendationsPanel, { type CatchmentState } from './components/RecommendationsPanel'
@@ -22,9 +24,9 @@ import SettingsPanel from './components/SettingsPanel'
 import ScorePanel from './components/ScorePanel'
 import { FACILITY_CLASSES, SCORE_CLASSES, TRANSIT } from './palette'
 import { routeHash, useRoute } from './route'
-import { decodeParams, districtMean, effective, encodeParams, isEffectiveDefault, scoreCells, summarise, type ScoreParams } from './score'
+import { decodeParams, districtMean, effective, encodeParams, isEffectiveDefault, scoreCells, scoreHousing, summarise, type ScoreParams } from './score'
 import { cardOpen, useSettings } from './settings'
-import type { CellTimes, Cells, Districts, Facilities, IsochroneAnswer, Meta, RecommendationProps, Recommendations } from './types'
+import type { CellTimes, Cells, Districts, Facilities, Housing, IsochroneAnswer, Meta, RecommendationProps, Recommendations } from './types'
 
 // Scored cells answer in < 100 ms: show the spinner only for slower (live) answers.
 const SPINNER_DELAY_MS = 300
@@ -254,6 +256,45 @@ function Main({ meta, districts }: { meta: Meta; districts: Districts }) {
     [scoreMode, cells, times, profile.profile_id, profile.time_budget_min, selectedCategories, params],
   )
   const mapCells = scoreMode ? scored : cells
+
+  // Housing potential (methodology §5b): unpopulated cells, scored with the same selection and
+  // parameters; one request per profile, scored here. Facility categories only (no transit).
+  const wantHousing = settings.showHousing && category !== TRANSIT
+  const [housingResult, setHousingResult] = useState<{ profile: string; data: Housing } | null>(null)
+  const [housingError, setHousingError] = useState<{ profile: string; message: string } | null>(null)
+  const [housingAttempt, setHousingAttempt] = useState(0)
+  const haveHousing = housingResult?.profile === profile.profile_id
+  useEffect(() => {
+    if (!wantHousing || haveHousing) return
+    let cancelled = false
+    getHousing(profile.profile_id).then(
+      (data) => !cancelled && setHousingResult({ profile: profile.profile_id, data }),
+      (err: unknown) => !cancelled && setHousingError({ profile: profile.profile_id, message: errorMessage(err) }),
+    )
+    return () => {
+      cancelled = true
+    }
+  }, [wantHousing, haveHousing, profile.profile_id, housingAttempt])
+  const housingScored = useMemo(
+    () =>
+      wantHousing && housingResult?.profile === profile.profile_id && housingResult.data.available
+        ? scoreHousing(housingResult.data, selectedCategories, params, profile.time_budget_min)
+        : null,
+    [wantHousing, housingResult, profile.profile_id, profile.time_budget_min, selectedCategories, params],
+  )
+  const housingState: HousingState =
+    housingResult?.profile === profile.profile_id
+      ? { status: 'done', housing: housingScored ?? housingResult.data }
+      : housingError?.profile === profile.profile_id
+        ? {
+            status: 'error',
+            message: housingError.message,
+            onRetry: () => {
+              setHousingError(null)
+              setHousingAttempt((a) => a + 1)
+            },
+          }
+        : { status: 'loading' }
   // residents slider: the legend counts the cells shown on the map (the map filters itself)
   const shownCells = useMemo(
     () =>
@@ -420,6 +461,9 @@ function Main({ meta, districts }: { meta: Meta; districts: Districts }) {
               facility={{ selected: selectedFacility, route: facilityRoute, onSelect: pickFacility, onHover: setHoveredFacility, areaIds }}
               onColoursWithPin={(on) => updateSettings({ coloursWithPin: on })}
             />
+            {wantHousing && (
+              <HousingPanel state={housingState} categories={selectedCategories} onPick={pick} card={card('housing')} />
+            )}
             <RecommendationsPanel
               meta={meta}
               category={category}
@@ -461,6 +505,7 @@ function Main({ meta, districts }: { meta: Meta; districts: Districts }) {
             onFacility={(id) => pickFacility(id === selectedFacility ? null : id, category)}
             onFacilityHover={setHoveredFacility}
             recommendations={currentRecommendations}
+            housing={housingScored}
             selectedCandidate={catchmentState.status === 'idle' ? null : catchmentState.candidateId}
             catchment={catchmentState.status === 'done' ? catchmentState.data : null}
             onPick={pick}

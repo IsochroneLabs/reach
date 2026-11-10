@@ -18,6 +18,8 @@ export interface MapSettings {
   /** Every facility of the selected category (also those out of reach), not only the pins. */
   showAllFacilities: boolean
   showRecommendations: boolean
+  /** Housing potential: cells without residents, scored like the residents' cells. */
+  showHousing: boolean
   /** With a pin: keep the cell colours (default off: isochrone and route only). */
   coloursWithPin: boolean
   /** Cells with fewer residents are hidden on the map and left out of the legend shares. */
@@ -35,6 +37,7 @@ export const DEFAULT_SETTINGS: MapSettings = {
   showPois: true,
   showAllFacilities: false,
   showRecommendations: true,
+  showHousing: false,
   coloursWithPin: false,
   minResidents: 0,
   openCards: {},
