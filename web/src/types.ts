@@ -107,7 +107,7 @@ export interface CellProps {
   nearest_stop_min?: number | null
   /** Accessibility score 0–100 (score view only, computed in the browser: `score.ts`). */
   score?: number
-  /** Score 100: every selected category fulfilled (outline on the map). */
+  /** Score 100: every selected category fulfilled (counted in the legend share). */
   full?: boolean
 }
 

@@ -28,7 +28,6 @@ import { timeLabel } from '../labels'
 import {
   fillColourExpression,
   SCORE_CLASSES,
-  SCORE_FULL_OUTLINE,
   ISOCHRONE_COLOURS as ISO,
   FACILITY_LAYER_COLOURS as FAC,
   MAP_COLOURS,
@@ -383,17 +382,6 @@ export default function MapView(props: Props) {
           },
           labels,
         )
-        // score view: cells where everything selected is within reach (score 100)
-        map.addLayer(
-          {
-            id: 'cells-full',
-            type: 'line',
-            source: 'cells',
-            filter: ['==', ['get', 'full'], true],
-            paint: { 'line-color': SCORE_FULL_OUTLINE, 'line-width': 1.4 },
-          },
-          labels,
-        )
         // housing potential: cells without residents, same score colours, dashed outline
         map.addLayer(
           {
@@ -698,10 +686,8 @@ export default function MapView(props: Props) {
     const visible = (on: boolean) => (on ? 'visible' : 'none')
     const minResidents: ExpressionSpecification = ['>=', ['get', 'population'], settings.minResidents]
     map.setLayoutProperty('cells-fill', 'visibility', visible(settings.showCells))
-    map.setLayoutProperty('cells-full', 'visibility', visible(settings.showCells && coloured))
     map.setPaintProperty('cells-fill', 'fill-opacity', coloured ? settings.cellOpacity : 0)
     map.setFilter('cells-fill', minResidents)
-    map.setFilter('cells-full', ['all', ['==', ['get', 'full'], true], minResidents])
     map.setLayoutProperty('cells-outline', 'visibility', visible(settings.showCells && !coloured))
     map.setFilter('cells-outline', minResidents)
     for (const id of ['districts-line', 'districts-selected'])

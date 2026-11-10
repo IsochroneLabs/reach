@@ -33,7 +33,7 @@ adds a line under `Unreleased`.
   their `group` (data contract v0.16).
 - Web app: grouped category checkboxes with "All"; several categories give an accessibility score
   per cell (methodology v0.9 §4b: time threshold, facilities needed and weight per category,
-  computed in the browser, parameters in the URL), a five-bin ramp, outline for score 100, share
+  computed in the browser, parameters in the URL), a five-bin ramp, share
   of residents who reach everything, mean score per district. One category with the defaults is
   the unchanged class map.
 
