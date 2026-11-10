@@ -35,6 +35,7 @@ Project vocabulary used in code, docs, issues and prompts. People and roles ("yo
 | **reachable** | Facilities a cell reaches within the time budget per profile, with matrix time (`reachable` table, written by `count`); the list behind `count (A)`, read by the inspector. |
 | **catchment** | Cells that reach a facility or candidate site within the time budget. |
 | **candidate (zone)** | 100 m Zensus grid cell inside the urban boundary, outside excluded land use, where the recommender may place one new facility; identified by its grid id (`candidate_id`); recommendations name zones, not exact sites (`methodology.md` §5). |
+| **housing potential** | Access of grid cells without residents (not in `cells`), counted like resident cells (`housing` stage, `methodology.md` §5b): where new homes would already have good 15-minute access. Display only; accessibility, not zoning. |
 | **gain (ΔW)** | Reduction of the deficit sum of a category and profile if one facility is added at a candidate: residents of its catchment weighted by the share of *k* the new facility fills (`methodology.md` §5). |
 | **grid cell (snapping)** | The 100 m Zensus grid cell under a clicked point, populated or not; its id is computed from EPSG:3035 and live endpoints start from its centre, so answers are cached per (run, cell, profile) (`architecture.md` §6.5 rule 8). |
 | **live endpoint** | API endpoint that calls Valhalla (`inspect`, `catchment`, `expansion`); boundary check first, cached, rate-limited. Read endpoints only read `current`. |
@@ -47,7 +48,7 @@ Project vocabulary used in code, docs, issues and prompts. People and roles ("yo
 | **facility tags** | Informative OSM tags kept per facility (`facility_tags` in the config: opening hours, wheelchair, address, contact, speciality); displayed as stored, never used for counting. |
 | **expansion** | Valhalla list of reached street segments with times; visualisation only. |
 | **run / `run_id`** | One complete pipeline execution on one data snapshot; results are published as DB schema `run_<id>`. |
-| **stage** | One pipeline step: acquire, validate inputs, build tiles, count, score, recommend, validate results, publish, cleanup. |
+| **stage** | One pipeline step: acquire, validate inputs, build tiles, count, score, housing, recommend, validate results, publish, cleanup. |
 | **manifest** | File written by each stage listing inputs, outputs, row counts and status. |
 | **validation report (part 1 / part 2)** | Part 1 (`validate`): checks of the inputs; part 2 (`validate_results`): checks of the results (completeness, totals, monotonicity, sample cells). Any failed check stops the run before `publish`; both parts are published as `validation_report`. |
 | **monotonicity check** | Part-2 check that a "faster" profile reaches at least as many facilities as a "slower" one (`validation.results.monotonic`); reported as share of violating cells with warn/fail limits, because Valhalla routes by cost, not time (`notes.md` N6). |

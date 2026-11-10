@@ -72,6 +72,7 @@ Residents are a secondary audience served by the same map.
   > "A pharmacy in zone Z would give about N residents who currently have none within a
   > 15-minute walk access to one. OSM data from <date>; zoning, parcels and capacity not considered."
 - Stated limits on every recommendation view.
+- **Housing potential:** layer and "Top 10 cells for new homes" for cells without residents inside the urban boundary (+ 200 m), scored like the map (`methodology.md` §5b); accessibility only, limits shown.
 - Equity mode (worst-served first) after the efficiency mode works (`methodology.md` M4).
 
 **Acceptance:** validation experiments V3–V5 (`methodology.md` §6) are run and reported.

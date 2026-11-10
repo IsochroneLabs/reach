@@ -463,3 +463,26 @@ in the city 58 private and 10 customers playgrounds, 1 private and 1 closed park
 `20261109T175743Z`). Share of residents with a park or playground within 15 minutes (walking
 3.39 km/h) 97.5 % before, 97.2 % after; wheelchair 95.8 % → 94.8 %. Parks alone: 69.2 % (walking
 3.39), playgrounds alone: 95.8 %.
+
+
+## N15. Housing potential: first run and open points
+
+**Status:** open · **Added:** 10 Nov 2026 · **Related:** `methodology.md` §5b, `docs/app_iteration_plan.md` W8
+
+**First run (scratch copy of `20261109T175743Z`, OSM 2026-11-01, local laptop):** 3,211 grid
+cells in the urban boundary + 200 m; 1,642 are resident cells, 739 lie in excluded land use, **830
+candidates remain** (2 outside every district). `housing` takes **14.9 s** (walking 3.39: 4.6 s,
+5.0: 9.4 s; 159 + 162 matrix requests), peak RSS 1.7 GB. With the default score, 86 candidates
+score ≥ 80 and 149 score 0 (walking 3.39). The Top 10 sit in Südstadt and Gartenstadt and are
+cells with all seven categories within reach (not checked on a map). Whether a
+cell is buildable is not known: some of them may be hospital, university or sports grounds that
+OSM does not tag as an excluded land use.
+
+**Open:**
+- **Plausibility on areas built after the 2022 census** (plan W8): the team has to name three
+  areas; the pipeline cannot know which grid cells were built up since. Until then
+  `validation_report.md` carries only the first-run figures above.
+- **Land use:** `landuse=retail`, `landuse=education`, `amenity=hospital` and sports pitches are
+  not excluded (only industrial, cemetery, park in addition to the recommender's list); candidates
+  inside them would show up in the Top 10. Decide after looking at the map.
+- **No merging into sites:** neighbouring cells with the same score are separate entries.

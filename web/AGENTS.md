@@ -18,7 +18,9 @@ Rules for agents working in `web/` (React + TypeScript + Vite + MapLibre GL JS).
   park note), layers from `GET /api/facilities` (park outlines, access points, optional all
   facilities), fetched only with a pin or the layer on. W7b: grouped category checkboxes; several
   categories (or changed score settings) give the score view (`score.ts`, `ScorePanel`,
-  `GET /api/cells/times`), recommendations and facility pins only with one category.
+  `GET /api/cells/times`), recommendations and facility pins only with one category. W8: housing layer and "Top 10
+  cells for new homes" (`GET /api/housing`, `scoreHousing` in `score.ts`, `HousingPanel`; off by default,
+  setting `showHousing`; a click on an entry drops the pin, the inspector shows the live values).
 - **Toolchain:** Node 24 LTS (`.nvmrc`, `engines`); npm with `package-lock.json`, exact versions
   (`--save-exact`). Not part of the uv workspace. New or upgraded packages: ask first.
 - **Layout:** `src/api.ts` (all requests, `ApiError`, user messages per status), `src/types.ts`

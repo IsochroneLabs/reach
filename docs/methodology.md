@@ -1,6 +1,6 @@
 # Methodology — reach
 
-> **Status:** draft v0.9 (10 Nov 2026). Binding definition of **what** is measured, scored,
+> **Status:** draft v0.10 (10 Nov 2026). Binding definition of **what** is measured, scored,
 > recommended and validated. `architecture.md` describes **how** the system computes it. Every
 > change bumps the version and adds a line to the [Change log](#change-log). Items marked
 > **[M#]** are open methodology questions (Section 7).
@@ -176,6 +176,33 @@ guarantee.
 capacity and statutory planning (e.g. *Bedarfsplanung* for doctors) are not considered; results
 depend on $k_c$ and OSM completeness.
 
+## 5b. Housing potential (display only)
+
+**Question.** Where would new homes already have good 15-minute access? The counterpart of the
+recommender (§5): there a facility is placed where people lack access, here people are placed where
+access is good — the *Innenentwicklung* question.
+
+**Candidates.** 100 m Zensus grid cells **without residents** (not in the scored cells, i.e. no
+residents in the 2022 census), whose centre lies inside the urban boundary grown by
+`housing.edge_buffer_m` (200 m, so that the edge of town counts), outside the OSM land use of
+the recommender's exclusion list (water, forest, farmland, nature reserves, protected areas of a
+nature class) and, in addition, outside industrial areas, cemeteries and parks
+(`housing.exclude_tags`). A cell the census shows empty can be built up since; the app says so.
+
+**Counting.** Like a resident cell (§1, §4): the Valhalla matrix from the candidate's centre to
+the facility points within the facility budget, counts $A_{i,c}$ and nearest times per category,
+for the profiles in `housing.profiles` (walking 3.39 and 5.0 km/h). Transit supply is not
+counted. Counts and times are stored raw; classes (as `scores`) and the score are derived.
+
+**Score.** The accessibility score of §4b with the same selection and parameters as the map
+(default: all weights 1, $k_c$ from the config), so a housing cell and a residents' cell with the
+same facilities get the same score. The app lists the ten best cells.
+
+**Stated limits (shown in the app):** accessibility only; ownership, zoning (*Bebauungsplan*,
+*Flächennutzungsplan*), noise, flood risk, soil and nature protection other than the listed classes
+are not considered; adjacent cells with the same score are separate entries (no merging into
+sites).
+
 ## 6. Validation of results
 
 Validation is a graded criterion; these experiments are part of the deliverable.
@@ -212,6 +239,7 @@ wheelchair as well as cycling (`architecture.md` §6.1, notes N5); its effect on
 
 | Version | Date | Change | Why |
 |---|---|---|---|
+| v0.10 | 2026-11-10 | New §5b: housing potential (unpopulated grid cells inside the urban boundary + 200 m, land-use filtered, counted like resident cells for walking 3.39/5.0, scored with §4b); display only | App iteration W8 (point 12, E7); confirmed by Juju (plan v0.1) |
 | v0.9 | 2026-11-10 | New §4b: flexible accessibility score (weighted mean of per-category coverage with time threshold, facilities needed and weight; defaults equal the deficit coverage); display only, computed in the browser from `/api/cells/times` | App iteration W7b (points 1, 3); approved by Juju (10 Nov 2026) |
 | v0.8 | 2026-11-10 | §2: parks and playgrounds are separate categories (k = 1 each); access rule (private, no, customers dropped for parks and playgrounds only); category groups and `require`/`exclude` conditions; school split waits for the 95 % type-tag gate | App iteration W7a (points 1, 2, access fix); approved by Juju (10 Nov 2026); 1 of 42 schools in the city carries a type tag, so no school split yet |
 | v0.7 | 2026-11-09 | §2: the app shows park areas and access points with a sentence on how parks are measured; informative OSM tags are displayed only, never counted | App iteration W5 (points 16, 17); confirmed by Rico (plan v0.1) |

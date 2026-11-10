@@ -30,7 +30,8 @@ this file wins where it is more specific.
   `current.districts`) or scored cell before any
   call, one isochrone call for all contours; scored cells list reachable facilities from
   `current.reachable` (no matrix), catchments of recommended zones come from
-  `current.recommendation_catchments` (no matrix), only grid cells without residents, other
+  `current.recommendation_catchments` (no matrix), `GET /api/housing` reads `current.housing_*`
+  (times per category like `/api/cells/times`; `available: false` for older runs), only grid cells without residents, other
   catchments and the next missing facility (categories below `k`, one matrix for all of them; a
   failing matrix leaves the rest of the answer intact) send a live matrix through the `live_matrix` client (`api.live_matrix`: timeout, concurrency; costing from
   `current.profiles`, prefilter as in `count`), cache per (run, cell, profile) as serialized

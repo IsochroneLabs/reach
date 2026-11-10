@@ -427,6 +427,24 @@ cannot exclude steep edges this way; the methodology's known limitation stands.
 **Limitations.** Valhalla's slope model is one model (no calibration against measured walking
 times); flat tiles only remove elevation, the graph is identical.
 
+## Housing potential (methodology §5b) — first run, plausibility open
+
+Not one of V1–V11; run `20261109T175743Z` (OSM 1 Nov 2026), stage `housing`, walking 3.39 km/h.
+
+| Figure | Value |
+|---|---|
+| Grid cells in the urban boundary + 200 m | 3,211 |
+| Resident cells among them (dropped) | 1,642 |
+| Dropped by land use (recommender list + industrial, cemetery, park) | 739 |
+| Candidates | 830 (2 outside every district) |
+| Score ≥ 80 / score 0 (default score, seven categories) | 86 / 149 |
+| Runtime, peak memory of the stage | 14.9 s, 1.7 GB |
+
+`validate_results` checks that no housing cell is a resident cell and that counts are complete
+(`housing_consistent`). Not done yet: the plausibility check on three areas built after the 2022
+census (plan W8). The pipeline cannot tell which cells were built up since; the team names the
+areas, then their cells are looked up in the Top 10 and in `housing_counts` (open point N15).
+
 ## Runtime and memory
 
 `make experiments RUN_ID=20261106T142630Z` on a MacBook (arm64), demo stack running:
