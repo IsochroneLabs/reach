@@ -1,7 +1,7 @@
 """Housing potential (methodology §5b): unpopulated grid cells as candidates for new homes.
 
-A candidate is a 100 m Zensus grid cell that is not in `cells` (no residents in the 2022 census),
-whose centre lies inside the urban boundary grown by `housing.edge_buffer_m` and outside
+A candidate is a 100 m Zensus grid cell without residents in the Zensus 2022 CSV (also none
+outside the scoring scope), whose centre lies inside the urban boundary grown by `housing.edge_buffer_m` and outside
 excluded land use. It is counted like a resident cell (matrix from its centre to the facilities),
 so the result is directly comparable with `access_counts`.
 """

@@ -26,6 +26,8 @@ adds a line under `Unreleased`.
 - API: `GET /api/housing?profile=` (cells with times per category, default score, district).
 - Web app: layer "Housing potential" (settings), scored with the selection and parameters of the
   score card, dashed outline, and a card with the ten best cells and the limits (click drops the pin).
+- Housing candidates exclude every Zensus cell with residents, also outside the scoring scope
+  (neighbouring municipalities in the 200 m margin).
 
 ### Added (API and web app, W7b flexible score)
 - `GET /api/cells/times?profile=`: per scored cell the sorted times of the nearest facilities per

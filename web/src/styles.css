@@ -873,9 +873,3 @@ code {
 .score-table input[type='number'] {
   width: 3.6rem;
 }
-.swatch-full {
-  display: inline-block;
-  box-sizing: border-box;
-  border: 2px solid #17473a;
-  background: transparent;
-}

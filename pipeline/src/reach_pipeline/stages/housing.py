@@ -77,7 +77,9 @@ def candidates(ctx: RunContext) -> tuple[gpd.GeoDataFrame, dict[str, Any]]:
     polygons, protected = landuse.excluded(ctx, STAGE, cfg.housing.exclude_tags)
     # every Zensus cell with residents, also outside the scoring scope (neighbouring
     # municipalities in the margin, cells dropped by the scope): none of them is a candidate
-    grid = zensus.read_grid(_zensus_csv(ctx), validate._bbox(area, "EPSG:3035"))
+    grid = zensus.read_grid(
+        _zensus_csv(ctx), validate._bbox(area.buffer(zensus.CELL_SIZE_M), "EPSG:3035")
+    )
     districts = gpd.read_parquet(vdir / "districts.parquet")
     frame, stats = housing.candidate_cells(area, grid["cell_id"].to_numpy(), polygons, districts)
     return frame, {**stats, "excluded_polygons": len(polygons), **protected}
