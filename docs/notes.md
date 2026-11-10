@@ -489,28 +489,36 @@ OSM does not tag as an excluded land use.
   Rottenburg; empty cells there are candidates too (no district, shown as "Outside the districts").
 - **No merging into sites:** neighbouring cells with the same score are separate entries.
 
-## N16. Extended categories: open points after the config change
+## N16. Extended categories: first runs and open points
 
-**Status:** open · **Added:** 11 Nov 2026 · **Related:** `methodology.md` §2 (v0.11), `architecture.md` O8, N4, N12, N15
+**Status:** open · **Added:** 11 Nov 2026 · **Related:** `methodology.md` §2 (v0.11), `architecture.md` O8, N4, N6, N12, N15
 
-Nine extended categories were added to `config/config.yaml` (16 in total). On the routing extract
-of run `20261110T223016Z` the facility build gives **2,010 facilities with 2,581 routing points**
-(the seven Core categories: 853 facilities); sports grounds alone are 566. All 16 categories
-have at least one facility inside the test clip. Unit tests and the browser tests pass; **no
-pipeline run with the new categories has been made yet**.
+**First run with 16 categories** (run `20261110T232338Z`, incl. restaurants & cafés and
+`leisure=pitch`; 2,010 facilities): `validate_results` failed, nothing was published.
+`monotonic_walking_500_ge_walking_339` found 19 of 1,699 cells (1.12 %, limit 1 %): walking at
+5.0 km/h reached fewer facilities than at 3.39 km/h (the effect of N6). The check counts a cell
+if any category differs, so it grows with the number of categories and facilities: restaurants
+and sports grounds caused 7 of the 25 cell × category pairs each. `count` took 341 s (cycling
+242 s, 1.86 M pairs).
+
+**Decision (Juju, 11 Nov 2026):** the validation is not changed. Restaurants & cafés were
+removed and sport was narrowed to `leisure=sports_centre`.
+
+**Run with 15 categories** (run `20261110T233930Z`, published, local laptop): 1,238 facilities,
+1,810 routing points. The check warns with 10 of 1,699 cells (0.59 %; 11 pairs, 1 transit row).
+`count` 254 s (cycling 175 s, 1.38 M pairs; before the change 205 s and 1.13 M), peak RSS 375 MB.
 
 **Open:**
-- **Runtime and memory not measured.** Matrix targets grow about 2.4-fold; `count` for cycling
-  (1.13 M pairs before) and Valhalla's memory (N4) grow with them. Run `make refresh` and record
-  the figures; if too heavy, drop `leisure=pitch` and keep `leisure=sports_centre` (138 features).
+- **Margin of the monotonicity check:** 10 cells of at most 16 allowed. Every further category
+  or a denser OSM extract moves the run towards the limit; a check per cell × category pair
+  would not depend on the number of categories (team decision, not done).
 - **`architecture.md` O8** still says "coarse facility categories (≈ 7) in Core". The Core list is
   unchanged, the extended list is new; the decision text needs a line (ask first).
-- **"All" and the housing default score** (§4b, §5b) now average over 16 categories, including
-  restaurants and gyms. Decide whether the defaults should use the Core categories only.
-- **Recommender** produces zones for every category; for sports grounds and senior care a
-  100 m zone is hardly meaningful. Consider a per-category switch.
-- **Completeness** of the extended categories is unchecked (V2 covers childcare and schools);
-  sports grounds are optimistic (no `access` tag on about 87 % of the pitches).
+- **"All" and the housing default score** (§4b, §5b) now average over 15 categories, including
+  gyms and senior care. Decide whether the defaults should use the Core categories only.
+- **Recommender** produces zones for every category; for senior care a 100 m zone is hardly
+  meaningful. Consider a per-category switch.
+- **Completeness** of the extended categories is unchecked (V2 covers childcare and schools).
+- **Valhalla memory** after `count` (N4) was not measured with the larger matrices.
 - **Web fixtures** (`web/tests/fixtures/meta.json`) still hold the seven Core categories;
-  re-record after the first run with the new config.
-
+  re-record from the local API.

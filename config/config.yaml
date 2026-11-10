@@ -158,12 +158,6 @@ categories:
     k: 1
     tags: [{shop: bakery}]
     location: point
-  - id: restaurant
-    name: Restaurants & cafés
-    group: food
-    k: 1
-    tags: [{amenity: restaurant}, {amenity: cafe}]
-    location: point
   - id: dentist
     name: Dentist
     group: health
@@ -192,13 +186,14 @@ categories:
     k: 1
     tags: [{leisure: fitness_centre}]
     location: point
-  # Pitches and sports centres, each at one representative point. Most carry no access tag
-  # (about 87 % of the pitches), so club and school grounds count unless tagged otherwise.
-  - id: sports_grounds
-    name: Sports grounds
+  # Sports centres at one representative point. Single pitches (leisure=pitch) are left out:
+  # about 87 % carry no access tag, and with them and restaurants the walking monotonicity
+  # check of validate_results failed (notes N16).
+  - id: sports_centre
+    name: Sports centre
     group: sport
     k: 1
-    tags: [{leisure: pitch}, {leisure: sports_centre}]
+    tags: [{leisure: sports_centre}]
     location: point
     exclude: [{access: private}, {access: "no"}, {access: customers}]
   - id: post
