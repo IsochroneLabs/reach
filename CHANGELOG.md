@@ -75,6 +75,13 @@ adds a line under `Unreleased`.
 - `docs/deployment_proposal.md`: non-binding proposal for Cloudflare Pages frontend hosting,
   backend host options, private team access, and questions for supervisor review.
 
+### Added (slides)
+- `slides/`: LaTeX (beamer) deck for the interim presentation (25 Nov 2026) with a shared theme
+  (workshop rules: action titles, section tracer, numbered slides, source lines, app class
+  colours), TikZ figures (isochrone definition and the polygon over-count of V1, pipeline,
+  architecture), all numbers in `slides/common/facts.tex`; `make slides` builds every deck;
+  writing rules for agents in `slides/AGENTS.md`.
+
 ### Fixed
 - Corrected the Project preflight GraphQL connection query so `pageInfo` is requested at the
   connection level, allowing the issue sync workflow to validate the Project.

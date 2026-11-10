@@ -63,6 +63,7 @@ with Docker Compose on one small server. Details: [`docs/architecture.md`](docs/
 | Path | Content | Status |
 |---|---|---|
 | `docs/` | Architecture, deployment proposal, methodology, validation report (with `figures/`), features, glossary, notes, team decisions | ✅ |
+| `slides/` | LaTeX (beamer) decks for the presentations: interim deck (draft), shared theme and figures; final deck planned | partial |
 | `AGENTS.md`, `CLAUDE.md` | Rules for coding agents | ✅ |
 | `CONTRIBUTING.md` | Branches, commits, pull requests, releases | ✅ |
 | `CHANGELOG.md` | Change history | ✅ |
@@ -81,7 +82,7 @@ Requirements: [uv](https://docs.astral.sh/uv/), Docker (Desktop) with Compose,
 [osmium-tool](https://osmcode.org/osmium-tool/) ≥ 1.16 for the pipeline and its tests (tested with
 1.19.1 from Homebrew and 1.16 from Ubuntu 24.04 apt: `brew install osmium-tool` /
 `sudo apt-get install osmium-tool`), Node.js 24 LTS for frontend development (`web/.nvmrc`; `make up`
-builds the app in Docker without it). Without uv:
+builds the app in Docker without it), TeX Live with `latexmk` only for `make slides`. Without uv:
 `pip install -r requirements.txt` (exported from `uv.lock`).
 
 ```bash
@@ -108,6 +109,7 @@ make experiments        # validation experiments V1–V11 on the latest run (RUN
                         # fetches the city's Kita and school pages once (cached in data/reference/),
                         # V11 builds and serves a temporary elevation-free tile set on port 8005
 make down               # stop the stack
+make slides             # presentation slides (LaTeX, needs TeX Live with latexmk) → slides/build/
 ```
 
 **Open the app:** after `make up` and a published run (`make refresh`), open

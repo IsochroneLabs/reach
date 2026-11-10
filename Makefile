@@ -21,8 +21,10 @@ VALHALLA_STAGES = run tiles count housing recommend validate_results
 # latest run. One process per experiment, so each result.json reports its own peak RSS.
 EXPERIMENTS ?= v01 v02 v03 v04 v05 v06 v07 v08 v09 v10 v11
 EXPERIMENT = uv run $(if $(wildcard .env),--env-file .env) python -m reach_pipeline.experiments
+# LaTeX decks (slides/<deck>.tex, settings in slides/.latexmkrc); DECK=interim builds one.
+DECKS = $(or $(DECK),$(basename $(notdir $(wildcard slides/*.tex))))
 
-.PHONY: help up down logs pipeline migrate refresh tiles-build valhalla-config experiments test lint format
+.PHONY: help up down logs pipeline migrate refresh tiles-build valhalla-config experiments test lint format slides
 
 help: ## list targets
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-10s %s\n", $$1, $$2}'
@@ -101,3 +103,8 @@ lint: ## lint and format check
 
 format: ## apply formatting and safe lint fixes
 	uv run ruff format . && uv run ruff check --fix .
+
+slides: ## build the LaTeX slides into slides/build/ (every deck, or one with DECK=interim)
+	@command -v latexmk >/dev/null || { echo "latexmk not found: install TeX Live (MacTeX)" >&2; exit 1; }
+	@cd slides && for d in $(DECKS); do latexmk -interaction=nonstopmode -halt-on-error $$d.tex || exit $$?; done
+	@echo "slides: $(foreach d,$(DECKS),slides/build/$(d).pdf)"

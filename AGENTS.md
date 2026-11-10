@@ -2,8 +2,9 @@
 
 Instructions for coding agents (Claude Code, Codex, Copilot, Cursor, …) working in this repository.
 They apply to every agent session, on behalf of any team member. Humans: see `README.md` and
-`CONTRIBUTING.md`. Folder-specific rules live in `pipeline/AGENTS.md`, `api/AGENTS.md` and
-`web/AGENTS.md`; the nearest `AGENTS.md` to the file you edit takes precedence.
+`CONTRIBUTING.md`. Folder-specific rules live in `pipeline/AGENTS.md`, `api/AGENTS.md`,
+`web/AGENTS.md` and `slides/AGENTS.md`; the nearest `AGENTS.md` to the file you edit takes
+precedence.
 
 **Project:** `reach` measures 15-minute accessibility (walking, cycling, wheelchair) for all residents
 of the city of Tübingen, finds underserved areas and recommends sites for new facilities. Course project
@@ -64,6 +65,7 @@ Run from the repository root.
 | DB contract tests (disposable PostGIS) | `REACH_TEST_DATABASE_URL=<superuser URL> uv run pytest -m db` |
 | DB roles + migrations | `make migrate` (needs `DATABASE_URL_ADMIN` in `.env`) |
 | Frontend | `cd web && npm ci && npm run dev` · checks: `npm run lint && npm run build` |
+| Slides (LaTeX, needs TeX Live) | `make slides` · one deck: `make slides DECK=interim` |
 | Add Python dependency | `uv add --package pipeline <pkg>` / `--package api` / `--dev` |
 
 ## Stack
@@ -85,6 +87,7 @@ MapLibre GL JS · Docker Compose · GitHub Actions. Exact versions live in `pypr
 | `infra/` | Dockerfiles, Caddyfile, DB roles/migrations, systemd timer |
 | `tests/integration/`, `tests/fixtures/` | End-to-end test on the test clip; small shared fixtures |
 | `docs/` | Architecture, methodology, glossary, notes, features, team decisions |
+| `slides/` | LaTeX (beamer) presentation decks, shared theme, `facts.tex` with every number shown |
 | `CHANGELOG.md` | Project change history (`Unreleased`, then one section per release) |
 | `data/` | Local data, **git-ignored**, never committed |
 
