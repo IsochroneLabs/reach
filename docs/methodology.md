@@ -63,10 +63,10 @@ the OSM extract of 9 Nov 2026 in brackets.
 | Bakery (90) | food | `shop=bakery` | 1 | Daily food besides supermarkets |
 | Dentist (52) | health | `amenity=dentist` | 1 | |
 | Senior care (22) | health | `social_facility` = `nursing_home`, `assisted_living` or `group_home`, and `social_facility:for=senior` | 1 | Homes for older people; a destination for visitors and staff, capacity is not measured |
-| Library (30) | education | `amenity=library` | 1 | Public bookcases are not counted |
-| Gym (13) | sport | `leisure=fitness_centre` | 1 | Commercial offer |
-| Sports centre | sport | `leisure=sports_centre`; not `access` in `private`, `no`, `customers` | 1 | Single pitches (`leisure=pitch`) are not counted: about 87 % carry no `access` tag |
-| Post office (25) | services | `amenity=post_office` | 1 | Parcel lockers and post boxes are not counted |
+| Library (30) | education | `amenity=library` | 1 | University and institute libraries count on purpose (open to everybody; 15 of the 20 in the city); public bookcases are not counted |
+| Gym (12) | sport | `leisure=fitness_centre` | 1 | Commercial offer. As tagged in OSM: 3 of the 10 in the city are yoga studios, and 2 fitness clubs tagged `leisure=sports_centre` count as sports centres instead |
+| Sports centre (75) | sport | `leisure=sports_centre`; not `access` in `private`, `no`, `customers` | 1 | As tagged in OSM, not filtered by sport or operator: club grounds, school and university halls, shooting ranges, riding grounds, a boules pitch and a boat landing are included, 9 of the 42 in the city have no name; optimistic. Single pitches (`leisure=pitch`) are not counted: about 87 % carry no `access` tag |
+| Post office (25) | services | `amenity=post_office` | 1 | Partner agencies and parcel shops of other carriers (Hermes, GLS; 3 of the 12 in the city) count on purpose; parcel lockers and post boxes are not counted |
 | Bank & ATM (80) | services | `amenity=bank`, `amenity=atm` | 1 | |
 
 **Access rule.** Only facilities the public can use count. Parks and playgrounds with
@@ -260,7 +260,7 @@ wheelchair as well as cycling (`architecture.md` §6.1, notes N5); its effect on
 
 | Version | Date | Change | Why |
 |---|---|---|---|
-| v0.11 | 2026-11-11 | §2: eight extended categories (bakery, dentist, senior care, library, gym, sports centre, post office, bank & ATM; k = 1 each), new groups `sport` and `services`; gyms are no longer excluded but stay outside the Core list; restaurants & cafés and single pitches were tried and dropped (monotonicity check failed); schools stay one category | Requested and approved by Juju (10 Nov 2026); tag counts checked on the extract of 9 Nov 2026; 2 of 129 schools around the city carry `isced:level`, so no primary/secondary split |
+| v0.11 | 2026-11-11 | §2 (checked against the published run on 11 Nov 2026: libraries incl. university ones and parcel shops count on purpose, notes on gym and sports centre): eight extended categories (bakery, dentist, senior care, library, gym, sports centre, post office, bank & ATM; k = 1 each), new groups `sport` and `services`; gyms are no longer excluded but stay outside the Core list; restaurants & cafés and single pitches were tried and dropped (monotonicity check failed); schools stay one category | Requested and approved by Juju (10 Nov 2026); tag counts checked on the extract of 9 Nov 2026; 2 of 129 schools around the city carry `isced:level`, so no primary/secondary split |
 | v0.10 | 2026-11-10 | New §5b: housing potential (unpopulated grid cells inside the urban boundary + 200 m, land-use filtered, counted like resident cells for walking 3.39/5.0, scored with §4b); display only | App iteration W8 (point 12, E7); confirmed by Juju (plan v0.1) |
 | v0.9 | 2026-11-10 | New §4b: flexible accessibility score (weighted mean of per-category coverage with time threshold, facilities needed and weight; defaults equal the deficit coverage); display only, computed in the browser from `/api/cells/times` | App iteration W7b (points 1, 3); approved by Juju (10 Nov 2026) |
 | v0.8 | 2026-11-10 | §2: parks and playgrounds are separate categories (k = 1 each); access rule (private, no, customers dropped for parks and playgrounds only); category groups and `require`/`exclude` conditions; school split waits for the 95 % type-tag gate | App iteration W7a (points 1, 2, access fix); approved by Juju (10 Nov 2026); 1 of 42 schools in the city carries a type tag, so no school split yet |

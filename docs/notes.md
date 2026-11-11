@@ -519,6 +519,14 @@ removed and sport was narrowed to `leisure=sports_centre`.
 - **Recommender** produces zones for every category; for senior care a 100 m zone is hardly
   meaningful. Consider a per-category switch.
 - **Completeness** of the extended categories is unchecked (V2 covers childcare and schools).
+- **Content check of the published run** (11 Nov 2026, facility names in the city). Decided by
+  Juju: university libraries (15 of 20) and parcel shops of Hermes and GLS (3 of 12 post
+  offices) stay. Not changed, only noted in `methodology.md` §2: sports centres are unfiltered
+  (shooting ranges, riding grounds, a boules pitch, a boat landing, school halls, 9 unnamed);
+  gyms include 3 yoga studios and miss 2 fitness clubs tagged `leisure=sports_centre`. An ATM
+  next to its branch counts as a second facility (6 pairs; no effect on classes with k = 1).
+- **Lists not grouped:** the Location card and the score settings list categories
+  alphabetically, not by the groups of the picker.
 - **Valhalla memory** after `count` (N4) was not measured with the larger matrices.
 - **Web fixtures** (`web/tests/fixtures/meta.json`) still hold the seven Core categories;
   re-record from the local API.

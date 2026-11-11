@@ -174,19 +174,23 @@ categories:
            {social_facility: group_home}]
     location: point
     require: [{"social_facility:for": senior}]
+  # University and institute libraries count on purpose: they are open to everybody.
   - id: library
     name: Library
     group: education
     k: 1
     tags: [{amenity: library}]
     location: point
+  # As tagged in OSM: yoga studios with leisure=fitness_centre count; fitness clubs tagged
+  # leisure=sports_centre count as sports centres instead (methodology §2).
   - id: gym
     name: Gym
     group: sport
     k: 1
     tags: [{leisure: fitness_centre}]
     location: point
-  # Sports centres at one representative point. Single pitches (leisure=pitch) are left out:
+  # Sports centres at one representative point, as tagged in OSM and not filtered by sport or
+  # operator (club grounds, school halls, shooting ranges, … are included; methodology §2). Single pitches (leisure=pitch) are left out:
   # about 87 % carry no access tag, and with them and restaurants the walking monotonicity
   # check of validate_results failed (notes N16).
   - id: sports_centre
@@ -196,6 +200,7 @@ categories:
     tags: [{leisure: sports_centre}]
     location: point
     exclude: [{access: private}, {access: "no"}, {access: customers}]
+  # Partner agencies and parcel shops of other carriers (Hermes, GLS) count on purpose.
   - id: post
     name: Post office
     group: services
