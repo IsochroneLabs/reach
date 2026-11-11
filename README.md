@@ -66,7 +66,7 @@ with Docker Compose on one small server. Details: [`docs/architecture.md`](docs/
 | `CHANGELOG.md` | Change history | ✅ |
 | `pipeline/` | Data pipeline (Python, uv workspace member): stages `acquire`, `validate`, `tiles`, `count`, `score`, `recommend`, `validate_results`, `publish`, `cleanup`; validation experiments V1–V11 (`reach_pipeline.experiments`) | ✅ |
 | `api/` | FastAPI backend (Python, uv workspace member): read endpoints from `current`, live endpoints via Valhalla | ✅ |
-| `web/` | React + TypeScript + MapLibre frontend (npm): class map, inspector, recommended sites with catchments, districts, map settings, data & validation page | ✅ |
+| `web/` | React + TypeScript + MapLibre frontend (npm): class map and combined accessibility score, inspector, recommended sites with catchments, districts, map settings, data & validation page | ✅ |
 | `config/` | Study area, profiles, categories, thresholds (`config.yaml`), test clip, Valhalla service config (`valhalla.json`), validation experiments (`experiments.yaml`) | ✅ |
 | `infra/` | Caddyfile; `api.Dockerfile`, `web.Dockerfile` (web build in the Caddy image); `db/`: roles, migrations, run schema template; pipeline image, scheduler planned | partial |
 | `Makefile`, `compose.yaml`, `.env.example` | Local stack (incl. Valhalla and its one-shot tile build) and command wrappers | ✅ |

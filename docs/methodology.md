@@ -1,6 +1,6 @@
 # Methodology — reach
 
-> **Status:** draft v0.8 (10 Nov 2026). Binding definition of **what** is measured, scored,
+> **Status:** draft v0.9 (10 Nov 2026). Binding definition of **what** is measured, scored,
 > recommended and validated. `architecture.md` describes **how** the system computes it. Every
 > change bumps the version and adds a line to the [Change log](#change-log). Items marked
 > **[M#]** are open methodology questions (Section 7).
@@ -111,6 +111,32 @@ and by share of residents in "lack" (relative need).
 
 Thresholds are stored with each run; changing them never requires re-routing.
 
+### 4b. Flexible accessibility score (display only)
+
+The app can combine several categories into one score per cell. For cell *i*, profile *m*, the
+selected categories *S* and, per category, a time threshold $t_c$ (minutes, at most the facility
+budget), the facilities needed $k_c \ge 1$ and a weight $w_c \ge 0$:
+
+$$A_{ic}(t_c) = \#\{\text{facilities of } c \text{ reached from } i \text{ within } t_c\},\qquad
+\text{coverage}_{ic} = \min\!\left(1, \frac{A_{ic}(t_c)}{k_c}\right),\qquad
+\text{score}_i = 100 \cdot \frac{\sum_{c \in S} w_c \,\text{coverage}_{ic}}{\sum_{c \in S} w_c}.$$
+
+- **Defaults:** $t_c$ = the facility budget (15 min), $k_c$ from the config, $w_c = 1$. With the
+  defaults, one category gives $100\,(1 - U_{ic}/P_i)$, the saturating coverage of the deficit
+  (§4), so map, deficit and recommender stay consistent; the class map is the special case
+  "one category, defaults" and stays the default view.
+- **Threshold:** the routing stores only facilities within the budget, so $t_c$ cannot exceed it
+  (sliders stop there). Times are minimum travel times over a facility's routing points.
+- **Data:** per cell and category the sorted times of the nearest facilities
+  (`GET /api/cells/times`, at most `api.score.max_times_per_category`, default 5); the browser
+  computes the score, so changing a parameter needs no request. $k_c$ is capped at that number.
+- **Display:** five bins (0–19, 20–39, 40–59, 60–79, 80–100); score 100 (everything selected
+  fulfilled) is outlined; the legend gives the share of residents per bin and the share who reach
+  everything selected; a district shows the resident-weighted mean score.
+- **Not part of the score (yet):** public transport (own supply classes, §3). The score is a
+  display aggregate: it is never stored, ranked or used by the recommender (§5), which works per
+  category.
+
 ## 5. Recommender
 
 **Objective.** For a new facility of category *c* at candidate site *x* with catchment
@@ -186,6 +212,7 @@ wheelchair as well as cycling (`architecture.md` §6.1, notes N5); its effect on
 
 | Version | Date | Change | Why |
 |---|---|---|---|
+| v0.9 | 2026-11-10 | New §4b: flexible accessibility score (weighted mean of per-category coverage with time threshold, facilities needed and weight; defaults equal the deficit coverage); display only, computed in the browser from `/api/cells/times` | App iteration W7b (points 1, 3); approved by Juju (10 Nov 2026) |
 | v0.8 | 2026-11-10 | §2: parks and playgrounds are separate categories (k = 1 each); access rule (private, no, customers dropped for parks and playgrounds only); category groups and `require`/`exclude` conditions; school split waits for the 95 % type-tag gate | App iteration W7a (points 1, 2, access fix); approved by Juju (10 Nov 2026); 1 of 42 schools in the city carries a type tag, so no school split yet |
 | v0.7 | 2026-11-09 | §2: the app shows park areas and access points with a sentence on how parks are measured; informative OSM tags are displayed only, never counted | App iteration W5 (points 16, 17); confirmed by Rico (plan v0.1) |
 | v0.6 | 2026-11-06 | §5: ΔW = reduction of the deficit sum; candidates = 100 m grid cells inside the urban boundary, land-use filter without industrial and with protected areas only of nature classes (1–4, 7), only candidates within reach of a deficit routed; catchment per profile; greedy with top-*N* and minimum gain, each zone once (no spacing); output fields | P7 recommender; decisions by Rico (6 Nov 2026): keep industrial land use (supermarkets, doctors), pure objective for k ≥ 2, protected areas only of nature classes (heritage protection excluded the Altstadt) |

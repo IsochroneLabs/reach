@@ -5,7 +5,10 @@ import { useCallback, useEffect, useState } from 'react'
 export interface Route {
   view: 'map' | 'data'
   profile: string | null
+  /** One category id, or several separated by commas (score view). */
   category: string | null
+  /** Non-default score parameters (`score.ts`), null = defaults. */
+  score: string | null
 }
 
 function parse(hash: string): Route {
@@ -15,6 +18,7 @@ function parse(hash: string): Route {
     view: path === 'data' ? 'data' : 'map',
     profile: params.get('profile'),
     category: params.get('category'),
+    score: params.get('score'),
   }
 }
 
@@ -23,6 +27,7 @@ export function routeHash(route: Route): string {
   const params = new URLSearchParams()
   if (route.profile) params.set('profile', route.profile)
   if (route.category) params.set('category', route.category)
+  if (route.score) params.set('score', route.score)
   const search = params.toString()
   return `#/${route.view}${search ? `?${search}` : ''}`
 }

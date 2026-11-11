@@ -15,6 +15,16 @@ adds a line under `Unreleased`.
   candidate grid for one profile). Cycling recommendations were measured with and without it and
   stay off: Valhalla peaks at 3.9 GiB (limit 2.5 GiB), numbers in notes N12.
 
+### Added (API and web app, W7b flexible score)
+- `GET /api/cells/times?profile=`: per scored cell the sorted times of the nearest facilities per
+  category (config `api.score.max_times_per_category`, default 5); `/api/meta` categories carry
+  their `group` (data contract v0.16).
+- Web app: grouped category checkboxes with "All"; several categories give an accessibility score
+  per cell (methodology v0.9 §4b: time threshold, facilities needed and weight per category,
+  computed in the browser, parameters in the URL), a five-bin ramp, outline for score 100, share
+  of residents who reach everything, mean score per district. One category with the defaults is
+  the unchanged class map.
+
 ### Changed (config and pipeline, W7a categories from OSM tags)
 - Parks and playgrounds are separate categories (`parks`, `playgrounds`, k = 1 each); the app lists
   seven categories. Parks and playgrounds with `access` private, no or customers no longer count

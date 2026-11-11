@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } fr
 import {
   errorMessage,
   getCells,
+  getCellTimes,
   getDistricts,
   getFacilities,
   getMeta,
@@ -18,10 +19,12 @@ import Inspector, { type FacilityRouteState, type InspectState } from './compone
 import MapView from './components/MapView'
 import RecommendationsPanel, { type CatchmentState } from './components/RecommendationsPanel'
 import SettingsPanel from './components/SettingsPanel'
-import { FACILITY_CLASSES, TRANSIT } from './palette'
+import ScorePanel from './components/ScorePanel'
+import { FACILITY_CLASSES, SCORE_CLASSES, TRANSIT } from './palette'
 import { routeHash, useRoute } from './route'
+import { decodeParams, districtMean, effective, encodeParams, isEffectiveDefault, scoreCells, summarise, type ScoreParams } from './score'
 import { cardOpen, useSettings } from './settings'
-import type { Cells, Districts, Facilities, IsochroneAnswer, Meta, RecommendationProps, Recommendations } from './types'
+import type { CellTimes, Cells, Districts, Facilities, IsochroneAnswer, Meta, RecommendationProps, Recommendations } from './types'
 
 // Scored cells answer in < 100 ms: show the spinner only for slower (live) answers.
 const SPINNER_DELAY_MS = 300
@@ -66,9 +69,23 @@ function Main({ meta, districts }: { meta: Meta; districts: Districts }) {
   const [route, navigate] = useRoute()
   const { settings, update: updateSettings, setCard, reset: resetSettings } = useSettings()
   const profile = meta.profiles.find((p) => p.profile_id === route.profile) ?? meta.profiles[0]
-  const validCategory = (id: string | null) =>
-    id !== null && (meta.categories.some((c) => c.id === id) || (id === TRANSIT && profile.transit))
-  const category = validCategory(route.category) ? route.category! : meta.categories[0].id
+  // `category` in the URL is one id or several separated by commas (score view); public transport
+  // only alone. `categories` keeps the order of `meta`, so the hash is canonical.
+  const requested = (route.category ?? '').split(',')
+  const wantsTransit = requested.length === 1 && requested[0] === TRANSIT && profile.transit
+  const selectedFacilities = meta.categories.filter((c) => requested.includes(c.id))
+  const selected = wantsTransit ? [TRANSIT] : (selectedFacilities.length ? selectedFacilities : [meta.categories[0]]).map((c) => c.id)
+  const selectedKey = selected.join(',')
+  const category = selected[0]
+  const multi = selected.length > 1
+  const params = useMemo(() => decodeParams(route.score), [route.score])
+  const scoreKey = encodeParams(params)
+  const selectedCategories = useMemo(
+    () => meta.categories.filter((c) => selectedKey.split(',').includes(c.id)),
+    [meta.categories, selectedKey],
+  )
+  // one category with the default settings is today's class map; everything else is the score view
+  const scoreMode = category !== TRANSIT && (multi || !isEffectiveDefault(params, selectedCategories, profile.time_budget_min))
 
   const viewKey = `${category}|${profile.profile_id}`
   // Results carry the selection they belong to; the previous cells stay visible while loading.
@@ -92,9 +109,12 @@ function Main({ meta, districts }: { meta: Meta; districts: Districts }) {
 
   // Normalise the hash once (defaults or an unknown profile/category in a shared link).
   useEffect(() => {
-    if (route.view === 'map' && (route.profile !== profile.profile_id || route.category !== category))
-      navigate({ view: 'map', profile: profile.profile_id, category })
-  }, [route, profile.profile_id, category, navigate])
+    if (
+      route.view === 'map' &&
+      (route.profile !== profile.profile_id || route.category !== selectedKey || route.score !== scoreKey)
+    )
+      navigate({ view: 'map', profile: profile.profile_id, category: selectedKey, score: scoreKey })
+  }, [route, profile.profile_id, selectedKey, scoreKey, navigate])
 
   useEffect(() => {
     let cancelled = false
@@ -109,7 +129,7 @@ function Main({ meta, districts }: { meta: Meta; districts: Districts }) {
 
   // Recommendations: layer and panel stay hidden while the run has none for the selection.
   useEffect(() => {
-    if (category === TRANSIT) return
+    if (category === TRANSIT || multi) return
     let cancelled = false
     getRecommendations(category, profile.profile_id).then(
       (data) => !cancelled && setRecommendations({ key: viewKey, data }),
@@ -118,11 +138,11 @@ function Main({ meta, districts }: { meta: Meta; districts: Districts }) {
     return () => {
       cancelled = true
     }
-  }, [category, profile.profile_id, viewKey])
+  }, [category, multi, profile.profile_id, viewKey])
 
   // Facilities of the category (points, park outlines, access points): only once they are drawn,
   // i.e. with a pin or with the "all facilities" layer on.
-  const wantFacilities = category !== TRANSIT && (pin !== null || settings.showAllFacilities)
+  const wantFacilities = category !== TRANSIT && !multi && (pin !== null || settings.showAllFacilities)
   useEffect(() => {
     if (!wantFacilities) return
     let cancelled = false
@@ -169,12 +189,12 @@ function Main({ meta, districts }: { meta: Meta; districts: Districts }) {
       .finally(() => window.clearTimeout(timer))
   }, [])
 
-  const select = (next: { profile?: string; category?: string }) => {
+  const select = (next: { profile?: string; categories?: string[] }) => {
     // the pins and routes belong to the category and profile they were picked in
     setSelectedFacility(null)
     setHoveredFacility(null)
     const profileId = next.profile ?? profile.profile_id
-    navigate({ view: 'map', profile: profileId, category: next.category ?? category })
+    navigate({ view: 'map', profile: profileId, category: (next.categories ?? selected).join(','), score: scoreKey })
     // the inspect answer covers all categories; only a new profile needs a new one
     if (pin && profileId !== profile.profile_id) runInspect(pin[0], pin[1], profileId)
   }
@@ -206,19 +226,55 @@ function Main({ meta, districts }: { meta: Meta; districts: Districts }) {
     )
   }
   const catchmentState: CatchmentState = catchment.key === viewKey ? catchment.state : { status: 'idle' }
-  const currentRecommendations = recommendations?.key === viewKey ? recommendations.data : null
+  const currentRecommendations = !multi && recommendations?.key === viewKey ? recommendations.data : null
 
   const cells = cellsResult.cells
+  // Score view: the times of the nearest facilities per cell (one request per profile); the score
+  // is computed here, so the sliders need no request.
+  const [times, setTimes] = useState<CellTimes | null>(null)
+  const [timesError, setTimesError] = useState<{ profile: string; message: string } | null>(null)
+  const [timesAttempt, setTimesAttempt] = useState(0)
+  const haveTimes = times?.profile_id === profile.profile_id
+  useEffect(() => {
+    if (!scoreMode || haveTimes) return
+    let cancelled = false
+    getCellTimes(profile.profile_id).then(
+      (data) => !cancelled && setTimes(data),
+      (err: unknown) => !cancelled && setTimesError({ profile: profile.profile_id, message: errorMessage(err) }),
+    )
+    return () => {
+      cancelled = true
+    }
+  }, [scoreMode, haveTimes, profile.profile_id, timesAttempt])
+  const scored = useMemo(
+    () =>
+      scoreMode && cells && cells.category !== TRANSIT && times?.profile_id === profile.profile_id
+        ? scoreCells(cells, times, selectedCategories, params, profile.time_budget_min)
+        : null,
+    [scoreMode, cells, times, profile.profile_id, profile.time_budget_min, selectedCategories, params],
+  )
+  const mapCells = scoreMode ? scored : cells
   // residents slider: the legend counts the cells shown on the map (the map filters itself)
   const shownCells = useMemo(
-    () => (cells && settings.minResidents > 0 ? { ...cells, features: cells.features.filter((f) => f.properties.population >= settings.minResidents) } : cells),
-    [cells, settings.minResidents],
+    () =>
+      mapCells && settings.minResidents > 0
+        ? { ...mapCells, features: mapCells.features.filter((f) => f.properties.population >= settings.minResidents) }
+        : mapCells,
+    [mapCells, settings.minResidents],
   )
+  const scoreSummary = useMemo(() => summarise(shownCells), [shownCells])
+  const timesFailed = scoreMode && timesError?.profile === profile.profile_id && !haveTimes
+  const noWeight = scoreMode && selectedCategories.every((c) => effective(params, c, profile.time_budget_min).w === 0)
+  const scoreError = timesFailed ? timesError.message : noWeight ? 'Set at least one weight above 0 in the score settings.' : null
+  const retryTimes = () => {
+    setTimesError(null)
+    setTimesAttempt((a) => a + 1)
+  }
   const cellsCurrent = cellsResult.key === viewKey
   const cellsFailed = cellsError?.key === viewKey && !cellsCurrent
   // a facility from the list or a pin: its category becomes the selected one, so its pin is shown
   const pickFacility = (facilityId: string | null, facilityCategory: string) => {
-    if (facilityCategory !== category) select({ category: facilityCategory })
+    if (facilityCategory !== category || multi) select({ categories: [facilityCategory] })
     setSelectedFacility(facilityId)
   }
   const closeInspector = () => {
@@ -238,10 +294,10 @@ function Main({ meta, districts }: { meta: Meta; districts: Districts }) {
   const districtName = (id: string | null) =>
     id ? (districts.features.find((f) => f.properties.district_id === id)?.properties.name ?? null) : null
   // colours follow the cells on the map (the previous selection stays visible while loading)
-  const transitCells = cells?.category === TRANSIT
+  const transitCells = !scoreMode && cells?.category === TRANSIT
   const classes = useMemo(
-    () => (transitCells ? meta.transit_classes.map((t) => t.class) : [...FACILITY_CLASSES]),
-    [transitCells, meta.transit_classes],
+    () => (scoreMode ? [...SCORE_CLASSES] : transitCells ? meta.transit_classes.map((t) => t.class) : [...FACILITY_CLASSES]),
+    [scoreMode, transitCells, meta.transit_classes],
   )
   const shownInspect =
     inspect.status === 'done' ? inspect.data : inspect.status === 'loading' ? inspect.previous : null
@@ -304,10 +360,10 @@ function Main({ meta, districts }: { meta: Meta; districts: Districts }) {
           <span className="muted">15-minute Tübingen</span>
         </div>
         <nav aria-label="Views">
-          <a href={routeHash({ view: 'map', profile: profile.profile_id, category })} aria-current={route.view === 'map' ? 'page' : undefined}>
+          <a href={routeHash({ view: 'map', profile: profile.profile_id, category: selectedKey, score: scoreKey })} aria-current={route.view === 'map' ? 'page' : undefined}>
             Map
           </a>
-          <a href={routeHash({ view: 'data', profile: profile.profile_id, category })} aria-current={route.view === 'data' ? 'page' : undefined}>
+          <a href={routeHash({ view: 'data', profile: profile.profile_id, category: selectedKey, score: scoreKey })} aria-current={route.view === 'data' ? 'page' : undefined}>
             Data &amp; validation
           </a>
         </nav>
@@ -324,22 +380,38 @@ function Main({ meta, districts }: { meta: Meta; districts: Districts }) {
               meta={meta}
               profile={profile}
               category={category}
+              selected={selected}
+              score={scoreMode ? { summary: scoreSummary, budgetMin: profile.time_budget_min } : null}
               cells={cellsCurrent ? shownCells : null}
               allCells={cellsCurrent ? (cells?.features.length ?? 0) : 0}
               minResidents={settings.minResidents}
               coloursHidden={pin !== null && !settings.coloursWithPin}
               card={card('map')}
-              loading={!cellsCurrent && !cellsFailed}
-              error={cellsFailed ? cellsError.message : null}
+              loading={(!cellsCurrent && !cellsFailed) || (scoreMode && !scored && !scoreError)}
+              onRetry={timesFailed ? retryTimes : undefined}
+              error={cellsFailed ? cellsError.message : scoreError}
               onProfile={(id) => select({ profile: id })}
-              onCategory={(id) => select({ category: id })}
+              onCategories={(ids) => select({ categories: ids })}
             />
+            {category !== TRANSIT && (
+              <ScorePanel
+                categories={selectedCategories}
+                params={params}
+                budgetMin={profile.time_budget_min}
+                maxK={times?.max_times_per_category ?? 5}
+                noWeight={noWeight}
+                card={card('score')}
+                onChange={(next: ScoreParams) =>
+                  navigate({ view: 'map', profile: profile.profile_id, category: selectedKey, score: encodeParams(next) })
+                }
+              />
+            )}
             <Inspector
               meta={meta}
               state={inspect}
               districtName={districtName}
               category={category}
-              onCategory={(id) => select({ category: id })}
+              onCategory={(id) => select({ categories: [id] })}
               onClose={closeInspector}
               card={card('inspector')}
               coloursWithPin={settings.coloursWithPin}
@@ -363,12 +435,13 @@ function Main({ meta, districts }: { meta: Meta; districts: Districts }) {
               profile={profile.profile_id}
               category={category}
               onSelect={setDistrict}
-              onCategory={(id) => select({ category: id })}
+              onCategory={(id) => select({ categories: [id] })}
+              scoreMean={scoreMode && scored && district ? districtMean(scored, district) : null}
               card={card('district')}
             />
           </aside>
           <MapView
-            cells={cells}
+            cells={mapCells}
             classes={classes}
             transit={transitCells}
             districts={districts}

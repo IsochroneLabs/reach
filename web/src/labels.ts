@@ -53,6 +53,8 @@ export const CARD_HELP = {
     'Everything reachable from the centre of the clicked cell, per category: how many facilities, how far the nearest one is, and the route to it. The rings show where you get in a few minutes up to the budget; they are for orientation only, counts come from the routing matrix.',
   recommendations:
     'The best 100 m zones for one new facility of the chosen category: placing it there removes the largest shortfall of residents, counted along real paths. Click a zone to see who would reach it.',
+  score:
+    'The score of a cell is 100 when everything selected is within reach: for every category, facilities within the chosen time over the number needed (at most 1), averaged with the weights. 0 means nothing selected is within reach. Moving a slider recomputes the map in your browser; a link keeps your settings.',
   district:
     'Share of residents per class in one district, the residents with no facility within the budget, and the shortfall ("deficit") used to rank districts: rank 1 is the district with the largest shortfall.',
 } as const

@@ -68,6 +68,7 @@ class Database(Protocol):
     async def categories(self) -> dict[str, int]: ...
     async def transit_profiles(self) -> list[str]: ...
     async def cells_geojson(self, run_id: str, category: str, profile_id: str) -> str: ...
+    async def cell_times(self, run_id: str, profile_id: str, limit: int) -> str: ...
     async def districts_geojson(self, run_id: str) -> str: ...
     async def district_scores(
         self, district_id: str, profile_id: str | None
@@ -141,6 +142,28 @@ SELECT json_build_object(
 FROM current.cells c
 JOIN current.scores s USING (cell_id)
 WHERE s.category = %(category)s AND s.profile_id = %(profile_id)s
+"""
+
+# Sorted times (s) of the `limit` nearest reachable facilities per scored cell and category.
+_CELL_TIMES = """
+WITH ranked AS (
+  SELECT r.cell_id, f.category, r.time_s,
+         row_number() OVER (PARTITION BY r.cell_id, f.category ORDER BY r.time_s) AS rn
+  FROM current.reachable r JOIN current.facilities f ON f.facility_id = r.facility_id
+  WHERE r.profile_id = %(profile_id)s
+), per_category AS (
+  SELECT cell_id, category, json_agg(time_s ORDER BY rn) AS times
+  FROM ranked WHERE rn <= %(limit)s GROUP BY cell_id, category
+), per_cell AS (
+  SELECT cell_id, json_object_agg(category, times) AS times FROM per_category GROUP BY cell_id
+)
+SELECT json_build_object(
+  'run_id', %(run_id)s::text, 'profile_id', %(profile_id)s::text,
+  'max_times_per_category', %(limit)s::int,
+  'cells', coalesce(json_agg(json_build_object(
+    'cell_id', c.cell_id, 'population', c.population, 'district_id', c.district_id,
+    'times', coalesce(p.times, '{}'::json)) ORDER BY c.cell_id), '[]'::json))::text AS body
+FROM current.cells c LEFT JOIN per_cell p USING (cell_id)
 """
 
 _TRANSIT_CELLS = f"""
@@ -479,6 +502,12 @@ class PostgresDatabase:
         query = _TRANSIT_CELLS if category == TRANSIT else _CELLS
         params = {"run_id": run_id, "category": category, "profile_id": profile_id}
         row = await self._one(query, params)
+        return row["body"]
+
+    async def cell_times(self, run_id: str, profile_id: str, limit: int) -> str:
+        row = await self._one(
+            _CELL_TIMES, {"run_id": run_id, "profile_id": profile_id, "limit": limit}
+        )
         return row["body"]
 
     async def districts_geojson(self, run_id: str) -> str:

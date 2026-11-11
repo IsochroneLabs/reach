@@ -124,6 +124,22 @@ class FakeDatabase:
     async def transit_profiles(self) -> list[str]:
         return ["walking_339"]
 
+    async def cell_times(self, run_id: str, profile_id: str, limit: int) -> str:
+        self.calls.append("cell_times")
+        cell = {
+            "cell_id": CELL,
+            "population": 62,
+            "district_id": "r2830772",
+            "times": {"grocery": [146, 301], "pharmacy": []},
+        }
+        body = {
+            "run_id": run_id,
+            "profile_id": profile_id,
+            "max_times_per_category": limit,
+            "cells": [cell],
+        }
+        return json.dumps(body)
+
     async def cells_geojson(self, run_id: str, category: str, profile_id: str) -> str:
         self.calls.append("cells_geojson")
         feature = {

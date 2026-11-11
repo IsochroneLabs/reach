@@ -21,6 +21,7 @@ Project vocabulary used in code, docs, issues and prompts. People and roles ("yo
 | **category** | Facility type defined in `config/config.yaml` (e.g. grocery, pharmacy, school); see `methodology.md` §2. |
 | **profile** | Travel mode with its settings: walking 3.39 km/h, walking 5.0 km/h, cycling, wheelchair. |
 | **reach** | Maximum straight-line distance of a profile (speed × time budget); the prefilter uses speed × speed factor × budget + margin (`architecture.md` §6.3). |
+| **accessibility score** | Display value 0–100 per cell from several categories: weighted mean of min(1, facilities within the time / facilities needed) × 100 (methodology §4b). Computed in the browser from `/api/cells/times`, never stored. |
 | **category group** | Thematic group of a category in `config.yaml` (`food`, `health`, `education`, `green`); the app combines categories per group. |
 | **require / exclude** | Optional conditions of a category (`key: value`, `;`-separated OSM values match if any part matches): a feature needs at least one `require` and is dropped by any `exclude` (e.g. `access=private` for parks and playgrounds). |
 | **access point** | Routing point of a park or playground where a walkable way crosses its boundary (fallback: points along the boundary); a park counts once, with the minimum time over its access points. |

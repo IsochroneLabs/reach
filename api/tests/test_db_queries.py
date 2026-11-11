@@ -116,6 +116,17 @@ async def test_cells_geojson(pg: PostgresDatabase) -> None:
     ]
 
 
+async def test_cell_times(pg: PostgresDatabase) -> None:
+    body = json.loads(await pg.cell_times(RUN_ID, "walk", 5))
+    assert body["run_id"] == RUN_ID and body["max_times_per_category"] == 5
+    cells = {c["cell_id"]: c for c in body["cells"]}
+    assert len(cells) == 5  # 4 fixture cells + the real one
+    # a cell without reachable facilities has no times; the others the one recorded grocery
+    assert cells["a"]["times"] == {} and cells["a"]["population"] == 10
+    assert {json.dumps(c["times"]) for c in cells.values()} == {"{}", '{"grocery": [270]}'}
+    assert json.loads(await pg.cell_times(RUN_ID, "walk", 1))["max_times_per_category"] == 1
+
+
 async def test_districts(pg: PostgresDatabase) -> None:
     body = json.loads(await pg.districts_geojson(RUN_ID))
     assert {f["id"]: f["properties"]["residents"] for f in body["features"]} == {"d1": 30, "d2": 30}

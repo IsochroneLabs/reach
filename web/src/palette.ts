@@ -25,10 +25,25 @@ const TRANSIT_COLOURS: Record<string, string> = {
   high: '#9ad6c6',
 }
 
+// Score bins of the score view (methodology §4b): 0–19, 20–39, 40–59, 60–79, 80–100. Five steps,
+// so its own ramp; L* 20/42/59/77/85, simulated deuteranopia/protanopia/tritanopia (Machado 2009):
+// min. ΔE76 ≥ 16 between neighbours (the bins also carry their range and share in the legend).
+export const SCORE_CLASSES = ['s0', 's1', 's2', 's3', 's4'] as const
+const SCORE_COLOURS: Record<string, string> = {
+  s0: '#5f0f3a',
+  s1: '#a8402e',
+  s2: '#d8723f',
+  s3: '#eab36a',
+  s4: '#a2dfd2',
+}
+export const SCORE_RANGES = ['0–19', '20–39', '40–59', '60–79', '80–100'] as const
+/** Cells where every selected category is fulfilled (score 100) get this outline. */
+export const SCORE_FULL_OUTLINE = '#17473a'
+
 export const NO_CLASS_COLOUR = '#bdbdbd'
 
 export const classColour = (cls: string | null | undefined, transit = false) =>
-  (cls && (transit ? TRANSIT_COLOURS : FACILITY_COLOURS)[cls]) || NO_CLASS_COLOUR
+  (cls && (transit ? TRANSIT_COLOURS : { ...FACILITY_COLOURS, ...SCORE_COLOURS })[cls]) || NO_CLASS_COLOUR
 
 export const classLabel = (cls: string) => cls.charAt(0).toUpperCase() + cls.slice(1)
 

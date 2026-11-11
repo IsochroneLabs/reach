@@ -3,6 +3,7 @@
 // 304; nothing is cached here on top of that.
 import type {
   CandidateCatchment,
+  CellTimes,
   Cells,
   DistrictScores,
   Facilities,
@@ -58,6 +59,7 @@ export const getDistrictScores = (id: string, profile: string) =>
   request<DistrictScores>(`/districts/${encodeURIComponent(id)}/scores?${query({ profile })}`)
 export const getCells = (category: string, profile: string) =>
   request<Cells>(`/cells?${query({ category, profile })}`)
+export const getCellTimes = (profile: string) => request<CellTimes>(`/cells/times?${query({ profile })}`)
 export const getFacilities = (category: string) =>
   request<Facilities>(`/facilities?${query({ category, geometry: 'area' })}`)
 export const getRecommendations = (category: string, profile: string) =>

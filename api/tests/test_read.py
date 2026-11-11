@@ -35,6 +35,25 @@ def test_cells_geojson_shape_and_etag(client: TestClient, db: FakeDatabase) -> N
     assert db.calls.count("cells_geojson") == 1  # body cached per run
 
 
+def test_cell_times_shape_etag_and_cache(client: TestClient, db: FakeDatabase) -> None:
+    r = client.get("/api/cells/times", params={"profile": "walking_339"})
+    assert r.status_code == 200 and r.headers["content-type"] == "application/json"
+    body = r.json()
+    assert body["run_id"] == RUN_ID and body["max_times_per_category"] == 5
+    cell = body["cells"][0]
+    assert cell["times"]["grocery"] == [146, 301] and cell["population"] == 62
+    assert r.headers["etag"] == f'W/"{RUN_ID}:cell_times:walking_339:5"'
+    again = client.get(
+        "/api/cells/times",
+        params={"profile": "walking_339"},
+        headers={"If-None-Match": r.headers["etag"]},
+    )
+    assert again.status_code == 304
+    client.get("/api/cells/times", params={"profile": "walking_339"})
+    assert db.calls.count("cell_times") == 1
+    assert client.get("/api/cells/times", params={"profile": "nope"}).status_code == 422
+
+
 def test_new_run_changes_etag(client: TestClient, db: FakeDatabase) -> None:
     params = {"category": "grocery", "profile": "walking_339"}
     old = client.get("/api/cells", params=params).headers["etag"]
@@ -73,7 +92,7 @@ def test_meta(client: TestClient) -> None:
     assert body["run"]["run_id"] == RUN_ID
     assert body["validation"]["ok"] == 1 and body["validation"]["warn"] == 1
     assert [i["check"] for i in body["validation"]["issues"]] == ["monotonic"]
-    assert {"id": "grocery", "name": "Grocery", "k": 2} in body["categories"]
+    assert {"id": "grocery", "name": "Grocery", "k": 2, "group": "food"} in body["categories"]
     assert body["transit_classes"] == [{"class": "lack", "lower": 0, "upper": 0}]
     assert {p["profile_id"]: p["transit"] for p in body["profiles"]} == {
         "walking_339": True,

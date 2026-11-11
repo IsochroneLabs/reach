@@ -18,6 +18,9 @@ Residents are a secondary audience served by the same map.
 - **Profile selector:** walking (3.39 km/h inclusive, 5.0 km/h comparison), cycling, wheelchair.
 - **Category layers:** one layer per Core category (`methodology.md` §2).
 - **Class view:** lack / insufficient / sufficient per category; a "lack only" view.
+- **Combined score (W7b):** tick several categories (grouped, with "All") for one accessibility
+  score per cell, with time threshold, facilities needed and weight per category (`methodology.md`
+  §4b); settings live in the URL, one category with the defaults stays the class map.
 - **Statistics panel:** residents and share per class, per category and district
   (e.g. "12 % of residents have no pharmacy within a 15-minute walk").
 - **Data transparency:** data sources, snapshot dates and validation warnings on every view;

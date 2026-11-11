@@ -1,1 +1,157 @@
-{"run":{"run_id":"20261109T170623Z","started_at":"2026-11-09T17:06:23.492435+00:00","finished_at":"2026-11-09T17:11:39.083121+00:00","status":"published","osm_snapshot":"2026-11-08T21:21:00+00:00","gtfs_valid_from":"2026-07-12","gtfs_valid_to":"2026-12-12","reference_weekday":"2026-11-10","config_hash":"ca61fcd88bc0013341147d97b47a4d91e182303472c51d61652b4dffb6c87a78"},"data_sources":[{"source":"gtfs","url":"https://www.nvbw.de/fileadmin/user_upload/service/open_data/fahrplandaten_mit_liniennetz/naldo.zip","retrieved_at":"2026-11-02T22:34:59.228414+00:00","checksum":"17ba02452bb28b37d505ce66bc5218971ee4f824d15c5777d72eda8e07cddf4e","licence":"dl-de/by-2-0, ODbL"},{"source":"osm","url":"https://download.geofabrik.de/europe/germany/baden-wuerttemberg/tuebingen-regbez-latest.osm.pbf","retrieved_at":"2026-11-09T14:05:39.467038+00:00","checksum":"b066ff72e275043a07c8ee4366319a9aeaef718e72ff1921cd82c19a81d744a5","licence":"ODbL 1.0"},{"source":"zensus","url":"https://www.destatis.de/static/DE/zensus/gitterdaten/Zensus2022_Bevoelkerungszahl.zip","retrieved_at":"2026-11-02T22:35:20.974055+00:00","checksum":"1a8428d31eab264c8717bfdcbf40fbd66c217edb2e2a98d0e67741bd8a1a941a","licence":"dl-de/by-2-0"}],"validation":{"ok":21,"warn":2,"fail":0,"issues":[{"check":"monotonic_walking_339_ge_wheelchair_339","stage":"validate_results","status":"warn","value":0.062978,"message":"107 of 1699 cells (6.30%; warn > 5.00%, never fails): 100 cell × category pairs, 39 transit rows; e.g. CRS3035RES100mN2819600E4246900/school, CRS3035RES100mN2821800E4250700/parks, CRS3035RES100mN2821800E4251100/parks, CRS3035RES100mN2822100E4250800/parks, CRS3035RES100mN2822200E4250800/parks"},{"check":"monotonic_walking_500_ge_walking_339","stage":"validate_results","status":"warn","value":0.003531,"message":"6 of 1699 cells (0.35%; warn > 0.00%, fail > 1.00%): 6 cell × category pairs, 1 transit rows; e.g. CRS3035RES100mN2824200E4245300/parks, CRS3035RES100mN2824300E4250200/childcare, CRS3035RES100mN2824500E4250200/childcare, CRS3035RES100mN2824600E4251600/grocery, CRS3035RES100mN2828000E4251400/childcare"}]},"profiles":[{"profile_id":"cycling_15","costing":"bicycle","speed_kmh":15.0,"time_budget_min":15.0,"transit":false,"transit_budget_min":null},{"profile_id":"walking_339","costing":"pedestrian","speed_kmh":3.39,"time_budget_min":15.0,"transit":true,"transit_budget_min":10.0},{"profile_id":"walking_500","costing":"pedestrian","speed_kmh":5.0,"time_budget_min":15.0,"transit":true,"transit_budget_min":10.0},{"profile_id":"wheelchair_339","costing":"pedestrian","speed_kmh":3.39,"time_budget_min":15.0,"transit":true,"transit_budget_min":10.0}],"categories":[{"id":"childcare","name":"Childcare","k":2},{"id":"doctors","name":"Doctors","k":2},{"id":"grocery","name":"Grocery","k":2},{"id":"parks","name":"Parks & playgrounds","k":1},{"id":"pharmacy","name":"Pharmacy","k":1},{"id":"school","name":"School","k":1}],"transit_classes":[{"class":"lack","lower":0,"upper":0},{"class":"insufficient","lower":1,"upper":150},{"class":"medium","lower":151,"upper":1000},{"class":"high","lower":1001,"upper":null}]}
+{
+  "run": {
+    "run_id": "20261109T170623Z",
+    "started_at": "2026-11-09T17:06:23.492435+00:00",
+    "finished_at": "2026-11-09T17:11:39.083121+00:00",
+    "status": "published",
+    "osm_snapshot": "2026-11-08T21:21:00+00:00",
+    "gtfs_valid_from": "2026-07-12",
+    "gtfs_valid_to": "2026-12-12",
+    "reference_weekday": "2026-11-10",
+    "config_hash": "ca61fcd88bc0013341147d97b47a4d91e182303472c51d61652b4dffb6c87a78"
+  },
+  "data_sources": [
+    {
+      "source": "gtfs",
+      "url": "https://www.nvbw.de/fileadmin/user_upload/service/open_data/fahrplandaten_mit_liniennetz/naldo.zip",
+      "retrieved_at": "2026-11-02T22:34:59.228414+00:00",
+      "checksum": "17ba02452bb28b37d505ce66bc5218971ee4f824d15c5777d72eda8e07cddf4e",
+      "licence": "dl-de/by-2-0, ODbL"
+    },
+    {
+      "source": "osm",
+      "url": "https://download.geofabrik.de/europe/germany/baden-wuerttemberg/tuebingen-regbez-latest.osm.pbf",
+      "retrieved_at": "2026-11-09T14:05:39.467038+00:00",
+      "checksum": "b066ff72e275043a07c8ee4366319a9aeaef718e72ff1921cd82c19a81d744a5",
+      "licence": "ODbL 1.0"
+    },
+    {
+      "source": "zensus",
+      "url": "https://www.destatis.de/static/DE/zensus/gitterdaten/Zensus2022_Bevoelkerungszahl.zip",
+      "retrieved_at": "2026-11-02T22:35:20.974055+00:00",
+      "checksum": "1a8428d31eab264c8717bfdcbf40fbd66c217edb2e2a98d0e67741bd8a1a941a",
+      "licence": "dl-de/by-2-0"
+    }
+  ],
+  "validation": {
+    "ok": 21,
+    "warn": 2,
+    "fail": 0,
+    "issues": [
+      {
+        "check": "monotonic_walking_339_ge_wheelchair_339",
+        "stage": "validate_results",
+        "status": "warn",
+        "value": 0.062978,
+        "message": "107 of 1699 cells (6.30%; warn > 5.00%, never fails): 100 cell × category pairs, 39 transit rows; e.g. CRS3035RES100mN2819600E4246900/school, CRS3035RES100mN2821800E4250700/parks, CRS3035RES100mN2821800E4251100/parks, CRS3035RES100mN2822100E4250800/parks, CRS3035RES100mN2822200E4250800/parks"
+      },
+      {
+        "check": "monotonic_walking_500_ge_walking_339",
+        "stage": "validate_results",
+        "status": "warn",
+        "value": 0.003531,
+        "message": "6 of 1699 cells (0.35%; warn > 0.00%, fail > 1.00%): 6 cell × category pairs, 1 transit rows; e.g. CRS3035RES100mN2824200E4245300/parks, CRS3035RES100mN2824300E4250200/childcare, CRS3035RES100mN2824500E4250200/childcare, CRS3035RES100mN2824600E4251600/grocery, CRS3035RES100mN2828000E4251400/childcare"
+      }
+    ]
+  },
+  "profiles": [
+    {
+      "profile_id": "cycling_15",
+      "costing": "bicycle",
+      "speed_kmh": 15.0,
+      "time_budget_min": 15.0,
+      "transit": false,
+      "transit_budget_min": null
+    },
+    {
+      "profile_id": "walking_339",
+      "costing": "pedestrian",
+      "speed_kmh": 3.39,
+      "time_budget_min": 15.0,
+      "transit": true,
+      "transit_budget_min": 10.0
+    },
+    {
+      "profile_id": "walking_500",
+      "costing": "pedestrian",
+      "speed_kmh": 5.0,
+      "time_budget_min": 15.0,
+      "transit": true,
+      "transit_budget_min": 10.0
+    },
+    {
+      "profile_id": "wheelchair_339",
+      "costing": "pedestrian",
+      "speed_kmh": 3.39,
+      "time_budget_min": 15.0,
+      "transit": true,
+      "transit_budget_min": 10.0
+    }
+  ],
+  "categories": [
+    {
+      "id": "childcare",
+      "name": "Childcare",
+      "k": 2,
+      "group": "education"
+    },
+    {
+      "id": "doctors",
+      "name": "Doctors",
+      "k": 2,
+      "group": "health"
+    },
+    {
+      "id": "grocery",
+      "name": "Grocery",
+      "k": 2,
+      "group": "food"
+    },
+    {
+      "id": "parks",
+      "name": "Parks",
+      "k": 1,
+      "group": "green"
+    },
+    {
+      "id": "pharmacy",
+      "name": "Pharmacy",
+      "k": 1,
+      "group": "health"
+    },
+    {
+      "id": "playgrounds",
+      "name": "Playgrounds",
+      "k": 1,
+      "group": "green"
+    },
+    {
+      "id": "school",
+      "name": "School",
+      "k": 1,
+      "group": "education"
+    }
+  ],
+  "transit_classes": [
+    {
+      "class": "lack",
+      "lower": 0,
+      "upper": 0
+    },
+    {
+      "class": "insufficient",
+      "lower": 1,
+      "upper": 150
+    },
+    {
+      "class": "medium",
+      "lower": 151,
+      "upper": 1000
+    },
+    {
+      "class": "high",
+      "lower": 1001,
+      "upper": null
+    }
+  ]
+}

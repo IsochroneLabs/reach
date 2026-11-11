@@ -43,6 +43,8 @@ export interface Category {
   id: string
   name: string
   k: number
+  /** Thematic group from the config (food, health, education, green). */
+  group: string | null
 }
 
 export interface TransitClass {
@@ -103,6 +105,10 @@ export interface CellProps {
   departures?: number
   stops_count?: number
   nearest_stop_min?: number | null
+  /** Accessibility score 0–100 (score view only, computed in the browser: `score.ts`). */
+  score?: number
+  /** Score 100: every selected category fulfilled (outline on the map). */
+  full?: boolean
 }
 
 export type Cells = FeatureCollection<Polygon, CellProps> & {
@@ -278,4 +284,13 @@ export type FacilityFeatureProps =
 export type Facilities = FeatureCollection<Point | MultiPolygon, FacilityFeatureProps> & {
   run_id: string
   category: string
+}
+
+/** `GET /api/cells/times`: per scored cell the sorted times (s) of the nearest facilities per
+ * category within the budget (at most `max_times_per_category`). Input of the score view. */
+export interface CellTimes {
+  run_id: string
+  profile_id: string
+  max_times_per_category: number
+  cells: { cell_id: string; population: number; district_id: string | null; times: Record<string, number[]> }[]
 }

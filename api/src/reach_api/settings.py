@@ -48,6 +48,12 @@ class NextFacility(_Model):
     max_time_min: float = Field(gt=0)  # slower facilities are not offered as "next"
 
 
+class Score(_Model):
+    # Sorted times of the nearest facilities per cell and category in `/api/cells/times`; at
+    # least max k + 2 so the score can show "needs k, has fewer within t".
+    max_times_per_category: int = Field(ge=1)
+
+
 class Cache(_Model):
     live_entries: int = Field(ge=1)
     expansion_entries: int = Field(ge=1)
@@ -75,6 +81,7 @@ class DbPool(_Model):
 class Api(_Model):
     isochrone: Isochrone
     next_facility: NextFacility
+    score: Score
     cache: Cache
     rate_limit: RateLimit
     trusted_proxies: list[str]
@@ -92,6 +99,7 @@ class Prefilter(_Shared):
 class CategoryName(_Shared):
     id: str
     name: str
+    group: str
 
 
 class TimeBudgets(_Shared):
