@@ -121,6 +121,19 @@ CONTRACT = {
         ("cell_id", "text"),
         ("time_s", "smallint"),
     ],
+    "housing_cells": [
+        ("cell_id", "text"),
+        ("district_id", "text"),
+        ("geom", POLY),
+        ("origin_geom", POINT),
+    ],
+    "housing_counts": ACCESS_COLS,
+    "housing_reachable": [
+        ("cell_id", "text"),
+        ("profile_id", "text"),
+        ("facility_id", "text"),
+        ("time_s", "smallint"),
+    ],
     "thresholds": [
         ("category", "text"),
         ("k", "integer"),
@@ -136,6 +149,8 @@ CONTRACT = {
         ("message", "text"),
     ],
     "scores": [*ACCESS_COLS, ("class", "text"), ("deficit", DOUBLE)],
+    "housing_scores": [*ACCESS_COLS, ("class", "text")],
+    "housing_default_scores": [("cell_id", "text"), ("profile_id", "text"), ("score", DOUBLE)],
     "transit_scores": [("cell_id", "text"), ("profile_id", "text"), ("class", "text")],
     "district_scores": [
         ("district_id", "text"),
@@ -334,6 +349,31 @@ def run_tables(grocery_a: int = 0) -> dict[str, pd.DataFrame]:
                 "time_s": [120, 480],
             }
         ),
+        # two unpopulated cells: h1 has no grocery and one pharmacy, h2 the reverse
+        "housing_cells": pd.DataFrame(
+            {
+                "cell_id": ["h1", "h2"],
+                "district_id": ["d1", None],
+                "geom": _geo([_square(500_300, 5_400_000, 100), _square(500_400, 5_400_000, 100)]),
+                "origin_geom": _geo(
+                    [shapely.Point(500_350, 5_400_050), shapely.Point(500_450, 5_400_050)]
+                ),
+            }
+        ),
+        "housing_counts": pd.DataFrame(
+            [
+                {"cell_id": c, "category": cat, "profile_id": "walk", "count": n, "nearest_min": m}
+                for c, cat, n, m in [
+                    ("h1", "grocery", 0, None),
+                    ("h1", "pharmacy", 1, 6.0),
+                    ("h2", "grocery", 1000, 2.0),
+                    ("h2", "pharmacy", 0, None),
+                ]
+            ]
+        ),
+        "housing_reachable": pd.DataFrame(
+            {"cell_id": ["h2"], "profile_id": ["walk"], "facility_id": ["n1"], "time_s": [120]}
+        ),
         "validation_report": pd.DataFrame(
             {
                 "check": ["crs", "monotonic_x"],
@@ -487,6 +527,40 @@ def test_recommendations(published: str) -> None:
         for row in [("z", "walk", "zz", 1), ("z", "car", "a", 1), ("z", "walk", "a", -1)]:
             with pytest.raises(psycopg.errors.IntegrityError), conn.transaction():
                 conn.execute(f"INSERT INTO {table} VALUES (%s, %s, %s, %s)", row)
+
+
+def test_housing_scores(published: str) -> None:
+    k = dict(_rows(published, "SELECT category, k FROM current.thresholds WHERE class IS NULL"))
+    rows = _rows(
+        published,
+        "SELECT cell_id, category, class FROM current.housing_scores ORDER BY cell_id, category",
+    )
+    assert rows == [
+        ("h1", "grocery", "lack"),
+        ("h1", "pharmacy", "sufficient" if k["pharmacy"] <= 1 else "insufficient"),
+        ("h2", "grocery", "sufficient"),
+        ("h2", "pharmacy", "lack"),
+    ]
+    # default score of methodology §4b: 100 * mean of min(1, A / k) over the categories
+    scores = dict(_rows(published, "SELECT cell_id, score FROM current.housing_default_scores"))
+    assert scores["h1"] == pytest.approx(100 * min(1, 1 / k["pharmacy"]) / 2)
+    assert scores["h2"] == pytest.approx(50.0)
+    # housing cells never overlap resident cells
+    (overlap,) = _rows(
+        published,
+        "SELECT count(*) FROM current.housing_cells h "
+        "JOIN current.cells c ON c.cell_id = h.cell_id",
+    )
+    assert overlap == (0,)
+    table = f"{db.schema_name(RUN_A)}.housing_counts"
+    with _as(published, "pipeline_write") as conn:
+        for row in [("zz", "grocery", "walk", 1), ("h1", "grocery", "car", 1)]:
+            with pytest.raises(psycopg.errors.IntegrityError), conn.transaction():
+                conn.execute(
+                    f"INSERT INTO {table} (cell_id, category, profile_id, count) "
+                    "VALUES (%s, %s, %s, %s)",
+                    row,
+                )
 
 
 def test_meta_and_validation_report(published: str) -> None:

@@ -10,13 +10,13 @@ export REACH_CONFIG
 # variables already set in the shell or on the make command line win.
 PIPELINE = uv run $(if $(wildcard .env),--env-file .env) python -m reach_pipeline
 # Stages after `tiles verify` in `make refresh` (O19).
-REFRESH_STAGES = count score recommend validate_results publish cleanup
+REFRESH_STAGES = count score housing recommend validate_results publish cleanup
 # data_dir of the selected config; Valhalla tiles live in <data_dir>/valhalla (host bind mount).
 DATA_DIR = $(shell uv run --quiet python -c "from reach_pipeline.config import load_config; print(load_config('$(REACH_CONFIG)').data_dir)")
 VALHALLA_DIR = $(abspath $(DATA_DIR)/valhalla)
 COMPOSE = VALHALLA_DIR=$(VALHALLA_DIR) docker compose
 # Stages that call Valhalla: `make pipeline` first makes sure it runs with config/valhalla.json.
-VALHALLA_STAGES = run tiles count recommend validate_results
+VALHALLA_STAGES = run tiles count housing recommend validate_results
 # Validation experiments (methodology §6, config/experiments.yaml); RUN_ID defaults to the
 # latest run. One process per experiment, so each result.json reports its own peak RSS.
 EXPERIMENTS ?= v01 v02 v03 v04 v05 v06 v07 v08 v09 v10 v11

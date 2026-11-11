@@ -8,6 +8,7 @@ import type {
   DistrictScores,
   Facilities,
   Districts,
+  Housing,
   Inspect,
   IsochroneAnswer,
   Meta,
@@ -60,6 +61,7 @@ export const getDistrictScores = (id: string, profile: string) =>
 export const getCells = (category: string, profile: string) =>
   request<Cells>(`/cells?${query({ category, profile })}`)
 export const getCellTimes = (profile: string) => request<CellTimes>(`/cells/times?${query({ profile })}`)
+export const getHousing = (profile: string) => request<Housing>(`/housing?${query({ profile })}`)
 export const getFacilities = (category: string) =>
   request<Facilities>(`/facilities?${query({ category, geometry: 'area' })}`)
 export const getRecommendations = (category: string, profile: string) =>

@@ -127,6 +127,19 @@ async def test_cell_times(pg: PostgresDatabase) -> None:
     assert json.loads(await pg.cell_times(RUN_ID, "walk", 1))["max_times_per_category"] == 1
 
 
+async def test_housing(pg: PostgresDatabase) -> None:
+    body = json.loads(await pg.housing_geojson(RUN_ID, "walk", 5))
+    assert body["available"] is True and body["max_times_per_category"] == 5
+    by_id = {f["id"]: f for f in body["features"]}
+    assert sorted(by_id) == ["h1", "h2"] and by_id["h1"]["geometry"]["type"] == "Polygon"
+    h1, h2 = by_id["h1"]["properties"], by_id["h2"]["properties"]
+    assert h1["district_name"] == "One" and h2["district_id"] is None
+    assert h1["times"] == {} and h2["times"] == {"grocery": [120]}
+    assert h2["score"] == 50.0 and 0 < h1["score"] <= 50.0
+    # a profile without housing counts has no cells
+    assert json.loads(await pg.housing_geojson(RUN_ID, "bike", 5))["features"] == []
+
+
 async def test_districts(pg: PostgresDatabase) -> None:
     body = json.loads(await pg.districts_geojson(RUN_ID))
     assert {f["id"]: f["properties"]["residents"] for f in body["features"]} == {"d1": 30, "d2": 30}

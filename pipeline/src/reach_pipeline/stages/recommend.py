@@ -28,7 +28,7 @@ import geopandas as gpd
 import numpy as np
 import pandas as pd
 
-from reach_pipeline import count, osm
+from reach_pipeline import count, landuse
 from reach_pipeline import recommend as rec
 from reach_pipeline.config import Config, Profile
 from reach_pipeline.context import RunContext
@@ -45,14 +45,14 @@ from reach_pipeline.manifest import (
 )
 from reach_pipeline.metrics import measure
 from reach_pipeline.stages import count as count_stage
-from reach_pipeline.stages import score, tiles, validate
+from reach_pipeline.stages import housing, tiles, validate
 from reach_pipeline.valhalla.client import ValhallaClient, costing_options
 
 STAGE = "recommend"
 # Config sections this stage uses; only they are part of its inputs (see
 # manifest.config_input): k per category, profiles and budget, the recommender, Valhalla.
 CONFIG_SECTIONS = ("categories", "profiles", "recommend", "time_budgets_min", "valhalla")
-PREVIOUS = score.STAGE
+PREVIOUS = housing.STAGE
 CANDIDATES, CATCHMENTS = "candidates.parquet", "catchments.parquet"
 RECOMMENDATIONS, REC_CATCHMENTS = "recommendations.parquet", "recommendation_catchments.parquet"
 REPORT = "report_recommend.json"
@@ -71,33 +71,11 @@ REC_COLUMNS = [
 log = logging.getLogger(__name__)
 
 
-def excluded_landuse(ctx: RunContext) -> tuple[gpd.GeoSeries, dict[str, Any]]:
-    """Polygons of `recommend.exclude_tags` and of protected areas with a listed
-    `protect_class` (`recommend.exclude_protect_classes`) from validate's clipped PBF
-    (EPSG:25832), plus statistics of the protected areas that stay allowed."""
-    r = ctx.config.recommend
-    exprs = osm.tag_expressions(r.exclude_tags, "wr")
-    if r.exclude_protect_classes:
-        exprs.append(f"wr/{rec.PROTECTED[0]}={rec.PROTECTED[1]}")
-    if not exprs:
-        return gpd.GeoSeries([], crs=validate.METRIC_CRS), {}
-    work = ctx.stage_dir(STAGE) / "osm"
-    work.mkdir(parents=True, exist_ok=True)
-    pbf = ctx.stage_dir(validate.STAGE) / validate.ROUTING_PBF
-    filtered = osm.tags_filter(pbf, work / "exclude.osm.pbf", exprs)
-    exported = osm.export(filtered, work / "exclude.geojsonseq", ["polygon"])
-    polygons, stats = rec.exclusions(
-        osm.read_export(exported), r.exclude_tags, r.exclude_protect_classes
-    )
-    log.info("protected areas not excluded (by protect_class): %s", stats)
-    return polygons, stats
-
-
 def candidates(ctx: RunContext) -> tuple[gpd.GeoDataFrame, dict[str, Any]]:
     """Grid candidates inside the urban boundary minus excluded land use, sorted by id."""
     urban = gpd.read_parquet(ctx.stage_dir(validate.STAGE) / "urban_boundary.parquet")
     grid = rec.candidate_grid(urban.geometry.union_all(), ctx.config.recommend.candidate_spacing_m)
-    polygons, stats = excluded_landuse(ctx)
+    polygons, stats = landuse.excluded(ctx, STAGE)
     keep = rec.outside(grid.geometry, polygons)
     out = grid[keep].sort_values("candidate_id").reset_index(drop=True)
     return out, {

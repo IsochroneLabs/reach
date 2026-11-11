@@ -13,6 +13,7 @@ University of Tübingen, winter term 2026/27), Topic 9 "The 15-Minute City".
 > and the web app exist: `acquire` downloads OSM, GTFS and Zensus data, `validate` turns them
 > into checked layers, `make refresh` builds the Valhalla routing graph, `count` computes
 > reachable facilities per cell, category and profile plus public transport departures,
+> `housing` counts unpopulated grid cells like residents (housing potential),
 > `recommend` ranks 100 m zones for new facilities, `validate_results` checks the results,
 > `publish` loads each validated run into PostGIS and switches the `current` views to it, the
 > API serves the results as GeoJSON plus live isochrones and routes, and the web app shows the
@@ -64,9 +65,9 @@ with Docker Compose on one small server. Details: [`docs/architecture.md`](docs/
 | `AGENTS.md`, `CLAUDE.md` | Rules for coding agents | ✅ |
 | `CONTRIBUTING.md` | Branches, commits, pull requests, releases | ✅ |
 | `CHANGELOG.md` | Change history | ✅ |
-| `pipeline/` | Data pipeline (Python, uv workspace member): stages `acquire`, `validate`, `tiles`, `count`, `score`, `recommend`, `validate_results`, `publish`, `cleanup`; validation experiments V1–V11 (`reach_pipeline.experiments`) | ✅ |
+| `pipeline/` | Data pipeline (Python, uv workspace member): stages `acquire`, `validate`, `tiles`, `count`, `score`, `housing`, `recommend`, `validate_results`, `publish`, `cleanup`; validation experiments V1–V11 (`reach_pipeline.experiments`) | ✅ |
 | `api/` | FastAPI backend (Python, uv workspace member): read endpoints from `current`, live endpoints via Valhalla | ✅ |
-| `web/` | React + TypeScript + MapLibre frontend (npm): class map and combined accessibility score, inspector, recommended sites with catchments, districts, map settings, data & validation page | ✅ |
+| `web/` | React + TypeScript + MapLibre frontend (npm): class map and combined accessibility score, inspector, recommended sites with catchments, housing potential (cells without residents), districts, map settings, data & validation page | ✅ |
 | `config/` | Study area, profiles, categories, thresholds (`config.yaml`), test clip, Valhalla service config (`valhalla.json`), validation experiments (`experiments.yaml`) | ✅ |
 | `infra/` | Caddyfile; `api.Dockerfile`, `web.Dockerfile` (web build in the Caddy image); `db/`: roles, migrations, run schema template; pipeline image, scheduler planned | partial |
 | `Makefile`, `compose.yaml`, `.env.example` | Local stack (incl. Valhalla and its one-shot tile build) and command wrappers | ✅ |
@@ -96,7 +97,7 @@ make up                 # start PostGIS, API, Caddy with the web app (+ Valhalla
 make migrate            # once: DB roles (passwords from .env), meta schema, migrations
 make refresh            # new run: acquire (~350 MB) → validate → build Valhalla tiles if the
                         # clipped OSM changed → swap + restart Valhalla → tiles verify → count
-                        # → score → recommend → validate_results → publish → cleanup
+                        # → score → housing → recommend → validate_results → publish → cleanup
 make pipeline STAGE=count     # one stage against the running Valhalla (latest run)
 make pipeline           # all stages without a tile rebuild (needs the tiles of a first refresh)
 make valhalla-config    # recreate Valhalla if config/valhalla.json changed (up, refresh and

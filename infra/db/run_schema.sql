@@ -117,6 +117,34 @@ CREATE TABLE recommendation_catchments (
     PRIMARY KEY (candidate_id, profile_id, cell_id)
 );
 
+-- Housing potential (methodology §5b, housing stage): 100 m grid cells without residents (not in
+-- `cells`) counted like resident cells. geom = the grid cell, origin_geom = its centre (the
+-- routing source). district_id = district containing the centre, null outside every district.
+CREATE TABLE housing_cells (
+    cell_id     text PRIMARY KEY,
+    district_id text,
+    geom        geometry(Polygon, 25832) NOT NULL,
+    origin_geom geometry(Point, 25832) NOT NULL
+);
+
+CREATE TABLE housing_counts (
+    cell_id     text NOT NULL REFERENCES housing_cells,
+    category    text NOT NULL,
+    profile_id  text NOT NULL REFERENCES profiles,
+    count       integer NOT NULL CHECK (count >= 0),
+    nearest_min double precision,
+    PRIMARY KEY (cell_id, category, profile_id)
+);
+
+-- As `reachable`, for the housing cells (flexible score, methodology §4b); no primary key for
+-- the same reason.
+CREATE TABLE housing_reachable (
+    cell_id     text NOT NULL REFERENCES housing_cells,
+    profile_id  text NOT NULL REFERENCES profiles,
+    facility_id text NOT NULL,
+    time_s      smallint NOT NULL CHECK (time_s >= 0)
+);
+
 -- Category rows: k set, class/lower/upper null. Transit rows: category 'transit', class and
 -- bounds set, k null (upper null = open-ended).
 CREATE TABLE thresholds (
@@ -150,6 +178,8 @@ CREATE INDEX ON stops USING gist (geom);
 CREATE INDEX ON access_counts (category, profile_id);
 CREATE INDEX ON reachable (cell_id, profile_id);
 CREATE INDEX ON recommendations USING gist (geom);
+CREATE INDEX ON housing_cells USING gist (geom);
+CREATE INDEX ON housing_reachable (cell_id, profile_id);
 
 -- methodology §4: lack A = 0, insufficient 0 < A < k, sufficient A >= k;
 -- deficit U = P * max(0, 1 - A / k).
@@ -168,6 +198,31 @@ SELECT a.cell_id,
 FROM access_counts a
 JOIN thresholds t ON t.category = a.category AND t.class IS NULL
 JOIN cells c ON c.cell_id = a.cell_id;
+
+-- Housing potential: class per category as in `scores` (no deficit: nobody lives there) and the
+-- default score of methodology §4b (all weights 1, k_c = the category's k):
+-- 100 * mean_c min(1, A_c / k_c).
+CREATE VIEW housing_scores AS
+SELECT a.cell_id,
+       a.category,
+       a.profile_id,
+       a.count,
+       a.nearest_min,
+       CASE
+           WHEN a.count = 0 THEN 'lack'
+           WHEN a.count < t.k THEN 'insufficient'
+           ELSE 'sufficient'
+       END AS class
+FROM housing_counts a
+JOIN thresholds t ON t.category = a.category AND t.class IS NULL;
+
+CREATE VIEW housing_default_scores AS
+SELECT a.cell_id,
+       a.profile_id,
+       100 * avg(least(1, a.count::double precision / t.k)) AS score
+FROM housing_counts a
+JOIN thresholds t ON t.category = a.category AND t.class IS NULL
+GROUP BY a.cell_id, a.profile_id;
 
 -- methodology §3: class of the summed departures S_i (bounds inclusive, upper null = open).
 CREATE VIEW transit_scores AS

@@ -37,8 +37,6 @@ const SCORE_COLOURS: Record<string, string> = {
   s4: '#a2dfd2',
 }
 export const SCORE_RANGES = ['0–19', '20–39', '40–59', '60–79', '80–100'] as const
-/** Cells where every selected category is fulfilled (score 100) get this outline. */
-export const SCORE_FULL_OUTLINE = '#17473a'
 
 export const NO_CLASS_COLOUR = '#bdbdbd'
 

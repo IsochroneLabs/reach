@@ -33,6 +33,9 @@ class Tables:
     facilities: pd.DataFrame | None = None  # facility_id, category
     recommendations: pd.DataFrame | None = None  # recommend stage (without geometries)
     recommendation_catchments: pd.DataFrame | None = None  # candidate_id, profile_id, cell_id
+    housing_cells: pd.DataFrame | None = None  # housing stage: cell_id (no geometries)
+    housing_counts: pd.DataFrame | None = None  # as access, for the housing cells
+    housing_reachable: pd.DataFrame | None = None  # as reachable, for the housing cells
 
 
 @dataclass
@@ -505,6 +508,44 @@ def budget_flips(
     )
     check = Check("budget_flips", "warn" if above else "ok", round(worst, 4), message)
     return check, {"warn_above": bf.warn_above, "profiles": per_profile}
+
+
+def housing_consistent(cfg: Config, t: Tables) -> Check:
+    """Housing potential (methodology §5b): no housing cell is a resident cell, and the counts
+    are exactly housing cells × categories × `housing.profiles` (unique keys, known cells only);
+    reachable facilities belong to housing cells and profiles."""
+    name = "housing_consistent"
+    cells, counts, rch = t.housing_cells, t.housing_counts, t.housing_reachable
+    if cells is None or counts is None or rch is None:
+        return Check(name, "fail", None, "housing outputs missing")
+    ids = set(cells["cell_id"])
+    problems: list[str] = []
+    if cells["cell_id"].duplicated().any():
+        problems.append("duplicate housing cells")
+    if overlap := ids & set(t.cells["cell_id"]):
+        problems.append(f"{len(overlap)} housing cells are resident cells")
+    keys = ["cell_id", "category", "profile_id"]
+    if counts.duplicated(keys).any():
+        problems.append(f"{int(counts.duplicated(keys).sum())} duplicate count keys")
+    if unknown := set(counts["cell_id"]) - ids:
+        problems.append(f"{len(unknown)} counts of unknown cells")
+    if extra := set(counts["profile_id"]) - set(cfg.housing.profiles):
+        problems.append(f"profiles not in housing.profiles: {sorted(extra)}")
+    expected = len(ids) * len(cfg.housing.profiles) * len(cfg.categories)
+    if len(counts) != expected:
+        problems.append(f"{len(counts)} counts, expected {expected}")
+    if (counts["count"] < 0).any():
+        problems.append("negative counts")
+    if set(rch["cell_id"]) - ids:
+        problems.append("reachable facilities of unknown cells")
+    if set(rch["profile_id"]) - set(cfg.housing.profiles):
+        problems.append("reachable facilities of profiles not in housing.profiles")
+    return Check(
+        name,
+        "fail" if problems else "ok",
+        float(len(ids)),
+        "; ".join(problems) or f"{len(ids)} housing cells, none populated, {len(counts)} counts",
+    )
 
 
 def recommendations_consistent(cfg: Config, t: Tables) -> Check:

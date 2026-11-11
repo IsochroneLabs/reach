@@ -21,6 +21,7 @@ from reach_pipeline.stages import (
     acquire,
     cleanup,
     count,
+    housing,
     publish,
     recommend,
     score,
@@ -39,6 +40,7 @@ STAGES: dict[str, Callable[[RunContext], Manifest]] = {
     tiles.STAGE: tiles.run,  # `tiles verify`; `tiles check` is called on its own (make refresh)
     count.STAGE: count.run,
     score.STAGE: score.run,
+    housing.STAGE: housing.run,
     recommend.STAGE: recommend.run,
     validate_results.STAGE: validate_results.run,
     publish.STAGE: publish.run,

@@ -28,6 +28,7 @@ def cfg(tmp_path: Path) -> Config:
         {"higher": "fast", "lower": "walk", "warn_above": 0, "fail_above": 0.5}
     ]
     data["recommend"].update(profiles=["walk"], profile_overrides={}, min_gain=1)
+    data["housing"]["profiles"] = []
     path = tmp_path / "config.yaml"
     path.write_text(yaml.safe_dump(data), encoding="utf-8")
     return load_config(path)
@@ -392,3 +393,47 @@ def test_recommendations_consistent(cfg: Config) -> None:
     bad = _with_recommendations(cfg)
     bad.recommendations["rank"] = 2
     assert "ranks" in results.recommendations_consistent(cfg, bad).message
+
+
+def _with_housing(cfg: Config) -> tuple[Config, results.Tables]:
+    cfg = cfg.model_copy(update={"housing": cfg.housing.model_copy(update={"profiles": ["walk"]})})
+    t = _tables(cfg)
+    ids = ["h1", "h2"]
+    t.housing_cells = pd.DataFrame({"cell_id": ids})
+    t.housing_counts = pd.DataFrame(
+        [
+            {"cell_id": i, "category": c, "profile_id": "walk", "count": n, "nearest_min": None}
+            for i in ids
+            for n, c in enumerate(("grocery", "pharmacy"))
+        ]
+    ).astype({"count": "int32", "nearest_min": "float64"})
+    t.housing_reachable = pd.DataFrame(
+        {"cell_id": ["h2"], "profile_id": ["walk"], "facility_id": ["f1"], "time_s": [60]}
+    )
+    return cfg, t
+
+
+def test_housing_consistent(cfg: Config) -> None:
+    cfg, t = _with_housing(cfg)
+    assert results.housing_consistent(cfg, t).status == "ok"
+
+    _, bad = _with_housing(cfg)
+    bad.housing_cells = pd.DataFrame({"cell_id": ["h1", "a"]})  # `a` is a resident cell
+    bad.housing_counts["cell_id"] = bad.housing_counts["cell_id"].replace("h2", "a")
+    assert "resident cells" in results.housing_consistent(cfg, bad).message
+
+    _, bad = _with_housing(cfg)
+    bad.housing_counts = bad.housing_counts.iloc[:-1]
+    assert "expected" in results.housing_consistent(cfg, bad).message
+
+    _, bad = _with_housing(cfg)
+    bad.housing_counts["profile_id"] = "fast"
+    assert "housing.profiles" in results.housing_consistent(cfg, bad).message
+
+    _, bad = _with_housing(cfg)
+    bad.housing_reachable["cell_id"] = "zz"
+    assert results.housing_consistent(cfg, bad).status == "fail"
+
+    _, bad = _with_housing(cfg)
+    bad.housing_cells = None
+    assert results.housing_consistent(cfg, bad).message == "housing outputs missing"

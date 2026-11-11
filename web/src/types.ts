@@ -107,7 +107,7 @@ export interface CellProps {
   nearest_stop_min?: number | null
   /** Accessibility score 0–100 (score view only, computed in the browser: `score.ts`). */
   score?: number
-  /** Score 100: every selected category fulfilled (outline on the map). */
+  /** Score 100: every selected category fulfilled (counted in the legend share). */
   full?: boolean
 }
 
@@ -115,6 +115,26 @@ export type Cells = FeatureCollection<Polygon, CellProps> & {
   run_id: string
   category: string
   profile_id: string
+}
+
+/** One unpopulated grid cell of the housing potential (`GET /api/housing`, methodology §5b):
+ * the times (s) of its nearest facilities per category as in `CellTimes`, the default score
+ * and, once scored in the browser (`score.ts`), `score`, `class` and `full` for the selection. */
+export interface HousingProps {
+  cell_id: string
+  district_id: string | null
+  district_name: string | null
+  times: Record<string, number[]>
+  class?: string
+  full?: boolean
+}
+
+/** `available: false` (no features) for a run published without the housing stage. */
+export type Housing = FeatureCollection<Polygon, HousingProps & { score: number }> & {
+  run_id: string
+  available: boolean
+  profile_id?: string
+  max_times_per_category?: number
 }
 
 /** A recommended zone (100 m grid cell) for one new facility of a category (methodology §5). */

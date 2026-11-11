@@ -1,6 +1,6 @@
 # Architecture — reach (15-Minute City Tübingen)
 
-> **Status:** draft v0.22 (9 Nov 2026). Describes the target architecture the team builds towards.
+> **Status:** draft v0.23 (10 Nov 2026). Describes the target architecture the team builds towards.
 > Every change bumps the version and adds a line to the [Change log](#change-log).
 > Settled and open decisions are listed in [Section 13](#13-decisions); items marked **[OPEN]**
 > must be settled before the related code is written. Methodology (categories, thresholds,
@@ -327,7 +327,7 @@ manifest; the next stage checks the manifest before it starts.
 ```mermaid
 flowchart LR
     A[acquire] --> B[validate inputs] --> C[tiles: check, build on host, verify] --> D[count accessibility]
-    D --> E[score] --> F[recommend] --> G[validate results] --> H[publish]
+    D --> E[score] --> I[housing] --> F[recommend] --> G[validate results] --> H[publish]
 ```
 
 | Stage | Input | Output | Notes |
@@ -337,6 +337,7 @@ flowchart LR
 | `tiles` | clipped PBF, cached elevation tiles | `valhalla_tiles.tar` (with elevation) in the shared volume | The pipeline stage only checks whether a rebuild is needed and verifies the tiles after the restart; the build itself is the one-shot `valhalla-build` started by `make refresh` on the host (O19), only when the OSM snapshot changed; see below and 11.1 |
 | `count` | cells, facilities, stops, Valhalla | raw counts and nearest times per cell × category × profile | Section 6.3 |
 | `score` | raw counts, config thresholds | `thresholds` table; classes and deficits as views over the raw counts (§8) | `methodology.md` §4; the pipeline writes no derived score tables |
+| `housing` | cells, facilities, urban boundary, clipped PBF, Valhalla | housing potential: counts and reachable facilities of unpopulated grid cells (`housing_cells`, `housing_counts`, `housing_reachable`) | Candidates = grid cells without residents (Zensus CSV, `acquire` output) inside the urban boundary + `housing.edge_buffer_m`, land-use filtered; counted like `count` (§6.3, §6.5 rules 1–6, one matrix per block) for `housing.profiles`, no transit; `methodology.md` §5b |
 | `recommend` | counts, cells, urban boundary, clipped PBF, Valhalla | ranked candidate zones with population gain and their catchments | Greedy per category × profile (`recommend.profiles`), land-use filtered; §6.4 |
 | `validate results` | all results | validation report part 2 | Monotonicity, totals, sample checks; `reachable` gives exactly the counts; calls Valhalla /route for a sample of counted pairs (`matrix_vs_route`), a sample of uncounted pairs within the prefilter reach (`false_negatives`) and reports the budget flips of both (methodology V10) |
 | `publish` | validated results | new DB schema `run_<id>`, then `current` view switched | Atomic; previous run stays available |
@@ -389,6 +390,11 @@ pipeline and API):
 | `district_scores` (**materialized view**) | district × category × profile | `share_lack`, `share_sufficient`, `deficit_sum`; refreshed on publish or when thresholds change |
 | `recommendations` | recommended zone × category × profile | `rank`, `candidate_id`, `population_gain`, `residents_gaining_access`, `residents_to_sufficient`, `geom` (100 m zone), `point_geom` |
 | `recommendation_catchments` | recommended zone × profile × cell | `time_s` (cells reaching the zone centre within the budget) |
+| `housing_cells` | unpopulated grid cell (housing candidate) | `cell_id` (3035 id), `district_id`, `geom` (25832), `origin_geom` (centre) |
+| `housing_counts` | housing cell × category × profile | `count`, `nearest_min` (as `access_counts`) |
+| `housing_reachable` | housing cell × profile × facility within the budget | `time_s` (as `reachable`, for the flexible score) |
+| `housing_scores` (**view**) | housing cell × category × profile | `class` from `housing_counts` + `thresholds` (no deficit: nobody lives there) |
+| `housing_default_scores` (**view**) | housing cell × profile | default score of `methodology.md` §4b |
 | `validation_report` | check | `check`, `status`, `value`, `message` |
 
 Roles: `app_read` (API), `pipeline_write` (pipeline), `supervisor_read` (read-only, for the
@@ -400,6 +406,7 @@ Read endpoints (from `current`):
 - `GET /api/meta` — run id, data dates, validation summary.
 - `GET /api/districts`, `GET /api/districts/{id}/scores`
 - `GET /api/cells?category=&profile=` — cell results for the map as GeoJSON (PMTiles later only if the payload becomes too large)
+- `GET /api/housing?profile=` — housing potential: unpopulated cells as polygons with times per category (for the §4b score), default score, district; `available: false` for a run without the housing stage.
 - `GET /api/recommendations?category=&profile=`
 
 Live endpoints (call Valhalla, small and fast, no queue):
@@ -525,7 +532,7 @@ reach/
 ├── config/
 │   ├── config.yaml        # study area, profiles, categories + OSM tags, thresholds, validation rules
 │   └── valhalla.json      # Valhalla service limits and options
-├── pipeline/              # Python package `reach_pipeline`: acquire, validate, tiles, count, score, recommend, publish
+├── pipeline/              # Python package `reach_pipeline`: acquire, validate, tiles, count, score, housing, recommend, publish
 │   ├── AGENTS.md          # pipeline-specific notes for agents
 │   ├── pyproject.toml
 │   ├── src/reach_pipeline/
@@ -578,6 +585,7 @@ documented here in the same branch (see `AGENTS.md`).
 
 | Version | Date | Change | Why |
 |---|---|---|---|
+| v0.23 | 2026-11-10 | §7: new stage `housing` between `score` and `recommend` (housing potential, counted like `count` for unpopulated grid cells); §8: tables `housing_cells`, `housing_counts`, `housing_reachable`, views `housing_scores`, `housing_default_scores`; §9: `GET /api/housing`; `make refresh` runs the stage | App iteration W8 (point 12, E7); confirmed by Juju (plan v0.1) |
 | v0.22 | 2026-11-09 | §6.5, §11, O1: production server target raised from 4 GB (CX23) to ≥ 8 GB RAM (plan and price to verify against the 20 € budget); memory row notes Valhalla's 3–4 GB peak during `count` | Wish of Juju (9 Nov 2026): cycling recommendations and larger matrices need more headroom than 4 GB |
 | v0.21 | 2026-11-09 | §6.5 rules 8 and 11, §9: the inspector also looks for the next missing facility beyond the budget (one live matrix from the cell origin to the nearest candidates of all categories with fewer than `k`, `api.next_facility.*`) and draws its route; `POST /api/route` for one facility | App iteration W4 (points 4, 6, 16); confirmed by Rico (plan v0.1) |
 | v0.20 | 2026-11-09 | §4, §6.5 rule 12, §9, O11: live endpoints accept points inside the city boundary (point or cell centre) or a scored cell, no longer the urban boundary + margin; every live answer has `cell.status` | App iteration W3 (points 12, 13): populated cells outside the city and unpopulated cells in the city were both shown as "no residents"; clicks anywhere in the city (E5, confirmed by Rico) |

@@ -54,6 +54,34 @@ def test_cell_times_shape_etag_and_cache(client: TestClient, db: FakeDatabase) -
     assert client.get("/api/cells/times", params={"profile": "nope"}).status_code == 422
 
 
+def test_housing_without_stage_is_unavailable(client: TestClient) -> None:
+    body = client.get("/api/housing", params={"profile": "walking_339"}).json()
+    assert body["available"] is False and body["features"] == []
+
+
+def test_housing_shape_etag_and_cache(client: TestClient, db: FakeDatabase) -> None:
+    db.housing = [
+        {
+            "type": "Feature",
+            "id": "h1",
+            "geometry": {"type": "Polygon", "coordinates": []},
+            "properties": {"cell_id": "h1", "times": {"grocery": [120]}, "score": 41.0},
+        }
+    ]
+    params = {"profile": "walking_339"}
+    r = client.get("/api/housing", params=params)
+    assert r.status_code == 200 and r.headers["content-type"].startswith("application/geo+json")
+    body = r.json()
+    assert body["available"] is True and body["max_times_per_category"] == 5
+    assert body["features"][0]["properties"]["times"] == {"grocery": [120]}
+    assert r.headers["etag"] == f'W/"{RUN_ID}:housing:walking_339:5"'
+    again = client.get("/api/housing", params=params, headers={"If-None-Match": r.headers["etag"]})
+    assert again.status_code == 304
+    client.get("/api/housing", params=params)
+    assert db.calls.count("housing_geojson") == 1
+    assert client.get("/api/housing", params={"profile": "nope"}).status_code == 422
+
+
 def test_new_run_changes_etag(client: TestClient, db: FakeDatabase) -> None:
     params = {"category": "grocery", "profile": "walking_339"}
     old = client.get("/api/cells", params=params).headers["etag"]

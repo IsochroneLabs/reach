@@ -27,7 +27,7 @@ import { infoLines, PARK_NOTE } from '../facilityInfo'
 import { timeLabel } from '../labels'
 import {
   fillColourExpression,
-  SCORE_FULL_OUTLINE,
+  SCORE_CLASSES,
   ISOCHRONE_COLOURS as ISO,
   FACILITY_LAYER_COLOURS as FAC,
   MAP_COLOURS,
@@ -41,6 +41,7 @@ import type {
   Districts,
   Facilities,
   FacilityTags,
+  Housing,
   Inspect,
   Recommendations,
   RouteAnswer,
@@ -119,6 +120,8 @@ interface Props {
   onFacility: (facilityId: string) => void
   onFacilityHover: (facilityId: string | null) => void
   recommendations: Recommendations | null
+  /** Housing potential cells scored for the selection (null = layer off). */
+  housing: Housing | null
   selectedCandidate: string | null
   catchment: CandidateCatchment | null
   onPick: (lon: number, lat: number) => void
@@ -253,7 +256,7 @@ function popupContent(props: Record<string, unknown>): HTMLElement {
 
 export default function MapView(props: Props) {
   const { cells, classes, transit, districts, selectedDistrict, inspect, marker, routeCategory, recommendations } = props
-  const { selectedCandidate, catchment, pinMode, settings, reverseIsochrone } = props
+  const { selectedCandidate, catchment, pinMode, settings, reverseIsochrone, housing } = props
   const { budgetMin, selectedFacility, hoveredFacility, facilityRoute, facilities, areaIds } = props
   const container = useRef<HTMLDivElement>(null)
   const mapRef = useRef<MapLibreMap | null>(null)
@@ -353,7 +356,7 @@ export default function MapView(props: Props) {
         if (!map) return
         // data below the basemap labels, so street and place names stay readable
         const labels = map.getStyle().layers.find((l) => l.type === 'symbol')?.id
-        const sources = ['cells', 'districts', 'isochrone', 'route', 'recommendations', 'recommendation-zones']
+        const sources = ['cells', 'districts', 'isochrone', 'route', 'recommendations', 'recommendation-zones', 'housing']
         sources.push('cell-selected', 'click-point', 'isochrone-reverse', 'poi-pins', 'route-label')
         sources.push('facility-areas', 'facility-access', 'facility-all')
         for (const id of [...sources, 'catchment', 'catchment-isochrone'])
@@ -379,14 +382,24 @@ export default function MapView(props: Props) {
           },
           labels,
         )
-        // score view: cells where everything selected is within reach (score 100)
+        // housing potential: cells without residents, same score colours, dashed outline
         map.addLayer(
           {
-            id: 'cells-full',
+            id: 'housing-fill',
+            type: 'fill',
+            source: 'housing',
+            layout: { visibility: 'none' },
+            paint: { 'fill-opacity': 0.8, 'fill-color': fillColourExpression([...SCORE_CLASSES], false) },
+          },
+          labels,
+        )
+        map.addLayer(
+          {
+            id: 'housing-line',
             type: 'line',
-            source: 'cells',
-            filter: ['==', ['get', 'full'], true],
-            paint: { 'line-color': SCORE_FULL_OUTLINE, 'line-width': 1.4 },
+            source: 'housing',
+            layout: { visibility: 'none' },
+            paint: { 'line-color': '#222222', 'line-width': 0.9, 'line-dasharray': [2, 2] },
           },
           labels,
         )
@@ -655,6 +668,16 @@ export default function MapView(props: Props) {
     if (ready) source('districts')?.setData(districts)
   }, [ready, districts])
 
+  // housing potential: shown in pin mode too, since its colours are the point of the layer
+  useEffect(() => {
+    const map = mapRef.current
+    if (!ready || !map) return
+    source('housing')?.setData(housing ?? EMPTY)
+    const on = housing ? 'visible' : 'none'
+    for (const id of ['housing-fill', 'housing-line']) map.setLayoutProperty(id, 'visibility', on)
+    map.setPaintProperty('housing-fill', 'fill-opacity', settings.cellOpacity)
+  }, [ready, housing, settings.cellOpacity])
+
   // Display settings: visibility, opacity and filters only, the data stays loaded.
   const coloured = !pinMode || settings.coloursWithPin
   useEffect(() => {
@@ -663,10 +686,8 @@ export default function MapView(props: Props) {
     const visible = (on: boolean) => (on ? 'visible' : 'none')
     const minResidents: ExpressionSpecification = ['>=', ['get', 'population'], settings.minResidents]
     map.setLayoutProperty('cells-fill', 'visibility', visible(settings.showCells))
-    map.setLayoutProperty('cells-full', 'visibility', visible(settings.showCells && coloured))
     map.setPaintProperty('cells-fill', 'fill-opacity', coloured ? settings.cellOpacity : 0)
     map.setFilter('cells-fill', minResidents)
-    map.setFilter('cells-full', ['all', ['==', ['get', 'full'], true], minResidents])
     map.setLayoutProperty('cells-outline', 'visibility', visible(settings.showCells && !coloured))
     map.setFilter('cells-outline', minResidents)
     for (const id of ['districts-line', 'districts-selected'])

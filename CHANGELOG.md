@@ -15,13 +15,27 @@ adds a line under `Unreleased`.
   candidate grid for one profile). Cycling recommendations were measured with and without it and
   stay off: Valhalla peaks at 3.9 GiB (limit 2.5 GiB), numbers in notes N12.
 
+### Added (housing potential, W8)
+- Pipeline stage `housing` between `score` and `recommend` (methodology v0.10 §5b, architecture
+  v0.23): 100 m Zensus grid cells without residents inside the urban boundary + 200 m, outside
+  excluded land use (the recommender's list plus industrial, cemetery, park), counted like
+  resident cells for `housing.profiles` (walking 3.39 and 5.0; no transit). New config section
+  `housing`; the land-use filter moved to `reach_pipeline.landuse`. `make refresh` runs the stage.
+- Run tables `housing_cells`, `housing_counts`, `housing_reachable`, views `housing_scores` and
+  `housing_default_scores` (data contract v0.17); `validate_results` check `housing_consistent`.
+- API: `GET /api/housing?profile=` (cells with times per category, default score, district).
+- Web app: layer "Housing potential" (settings), scored with the selection and parameters of the
+  score card, dashed outline, and a card with the ten best cells and the limits (click drops the pin).
+- Housing candidates exclude every Zensus cell with residents, also outside the scoring scope
+  (neighbouring municipalities in the 200 m margin).
+
 ### Added (API and web app, W7b flexible score)
 - `GET /api/cells/times?profile=`: per scored cell the sorted times of the nearest facilities per
   category (config `api.score.max_times_per_category`, default 5); `/api/meta` categories carry
   their `group` (data contract v0.16).
 - Web app: grouped category checkboxes with "All"; several categories give an accessibility score
   per cell (methodology v0.9 §4b: time threshold, facilities needed and weight per category,
-  computed in the browser, parameters in the URL), a five-bin ramp, outline for score 100, share
+  computed in the browser, parameters in the URL), a five-bin ramp, share
   of residents who reach everything, mean score per district. One category with the defaults is
   the unchanged class map.
 

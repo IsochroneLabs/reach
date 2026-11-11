@@ -1,6 +1,6 @@
 # Data contract — reach
 
-> **Status:** draft v0.16 (10 Nov 2026), from `implementation_plan.md` §3. Binding for the tables
+> **Status:** draft v0.17 (10 Nov 2026), from `implementation_plan.md` §3. Binding for the tables
 > and files exchanged between pipeline and API once a phase implements them; every change needs
 > confirmation (AGENTS.md) and a data-contract test. Tables marked *(planned, Pn)* do not exist yet.
 
@@ -88,6 +88,11 @@ replaces all of them in one transaction.
 | `district_scores` (mat. view) | district × category × profile | `district_id`, `category`, `profile_id` text, `share_lack`, `share_insufficient`, `share_sufficient` double (of the district's residents), `deficit_sum` double, `residents_lack` integer; cells without district left out; refreshed by `publish` | (`district_id`, `category`, `profile_id`), unique index |
 | `recommendations` *(P7)* | recommended zone × category × profile | `category` text, `profile_id` text (FK `profiles`), `rank` integer (1 = best), `candidate_id` text (Zensus grid id of the zone), `population_gain` double (ΔW = reduction of the deficit sum, residents), `residents_gaining_access` integer (residents of catchment cells with count 0 before), `residents_to_sufficient` integer (count < k ≤ count + 1), `catchment_residents` integer, `catchment_cells` integer, `geom` Polygon (the 100 m zone), `point_geom` Point (zone centre, target of the catchment); gains assume the zones of better ranks are added first | (`category`, `profile_id`, `rank`); unique (`category`, `profile_id`, `candidate_id`); GiST on `geom` |
 | `recommendation_catchments` *(P7)* | recommended zone × profile × cell | `candidate_id` text, `profile_id` text (FK `profiles`), `cell_id` text (FK `cells`), `time_s` smallint (matrix time cell → zone centre, ≤ budget) | (`candidate_id`, `profile_id`, `cell_id`) |
+| `housing_cells` *(W8)* | grid cell without residents (housing candidate) | `cell_id` text (Zensus grid id, never in `cells`), `district_id` text null (district containing the centre), `geom` Polygon (100 m cell), `origin_geom` Point (centre, the routing source) | `cell_id` |
+| `housing_counts` *(W8)* | housing cell × category × profile | as `access_counts` (FK `housing_cells`); profiles = `housing.profiles` | (`cell_id`, `category`, `profile_id`) |
+| `housing_reachable` *(W8)* | housing cell × profile × facility within the budget | as `reachable` (FK `housing_cells`); no primary key | – |
+| `housing_scores` (view, W8) | housing cell × category × profile | `housing_counts` columns + `class` text (`lack`, `insufficient`, `sufficient`; as `scores`, no deficit) | as `housing_counts` |
+| `housing_default_scores` (view, W8) | housing cell × profile | `cell_id`, `profile_id`, `score` double (methodology §4b defaults: 100 · mean over the categories of min(1, count / k)) | (`cell_id`, `profile_id`) |
 | `validation_report` | check | `check` text, `stage` text, `status` text (`ok`, `warn`, `fail`), `value` double null, `message` text; rows of report parts 1 (`validate`) and 2 (`validate_results`) | (`stage`, `check`) |
 
 `cells.cell_id` is the Zensus `GITTER_ID_100m` (EPSG:3035 grid id, e.g. `CRS3035RES100mN2822200E4250500`; verified 2 Nov 2026);
@@ -119,6 +124,7 @@ uncached answer share one Valhalla computation and report `cached: true`.
 | `GET /api/cells/times?profile=` | JSON (`application/json`) {`run_id`, `profile_id`, `max_times_per_category` (`api.score.max_times_per_category`), `cells` [{`cell_id`, `population`, `district_id`, `times` {category: [seconds, …]}}]} for every scored cell: per facility category the sorted matrix times (s) of the nearest facilities within the facility budget, from `current.reachable` joined with `current.facilities` (a category without reachable facility is missing or empty); ETag `W/"<run_id>:cell_times:<profile>:<limit>"`, cached per run. Input of the flexible score (methodology §4b); cell polygons come from `/api/cells` |
 | `GET /api/cells?category=&profile=` | GeoJSON FeatureCollection + `run_id`, `category`, `profile_id`; feature `id` = `cell_id`, Polygon; properties `cell_id`, `population`, `district_id`, `count`, `nearest_min`, `class`, `deficit`. `category=transit` (profiles with transit only): `departures`, `stops_count`, `nearest_stop_min`, `class` instead of the count columns |
 | `GET /api/facilities?category=&geometry=` | GeoJSON FeatureCollection (`application/geo+json`) + `run_id`, `category`; `category` required (422 if unknown), `geometry` = `point` (default) or `area`. Feature `properties.kind`: `facility` (Point; `facility_id`, `name`, `category`, `tags`, `osm_url` from the `n`/`w`/`r` prefix); with `geometry=area` also `area` (MultiPolygon outline, `facility_id`, `name`, `category`) and `access` (Point, the routing points of kind `access` on the boundary, `facility_id`, `category`). Runs without `tags`/`area_geom` answer with `{}` and no areas |
+| `GET /api/housing?profile=` | GeoJSON FeatureCollection (`application/geo+json`) + `run_id`, `profile_id`, `available` (false and no features if the run has no housing tables), `max_times_per_category`; feature `id` = `cell_id`, Polygon (100 m cell); properties `cell_id`, `district_id`, `district_name` (null outside the districts), `score` (default score, one decimal), `times` {category: [seconds, …]} as in `/api/cells/times` (from `housing_reachable`). Only cells counted for the profile (`housing.profiles`); another profile gives no features; 422 for an unknown profile |
 | `GET /api/recommendations?category=&profile=` | GeoJSON FeatureCollection (`application/geo+json`) + `run_id`, `available` (false and no features if the run has no `recommendations` table); both filters optional (422 for an unknown one); feature `id` = `<profile>/<category>/<rank>`, Polygon = the 100 m zone; properties = the columns of `recommendations` without geometries, plus `district_id`, `district_name` (district containing the zone centre, null outside) and `point` [lon, lat] (zone centre); ordered by profile, category, rank |
 
 **Live endpoints** (`POST`, JSON body; token bucket per client IP; `cached` true when served
@@ -238,12 +244,23 @@ guarantee that the nearest facility was among the matrix targets.
 
 Empty `recommend.profiles` writes empty tables (the app hides the layer).
 
+### `housing/` *(implemented, W8)*
+
+| File | Grain | Columns |
+|---|---|---|
+| `housing_cells.parquet` | housing cell (GeoParquet) | `cell_id`, `district_id`, `geometry` (cell polygon), `origin_geom` (centre); sorted by id |
+| `housing_counts.parquet` | cell × category × profile | as `access_counts.parquet` |
+| `housing_reachable.parquet` | cell × profile × facility | as `reachable.parquet` |
+| `report_housing.json` | run | `valhalla` (as in `report_count.json`, null without profiles), `candidates` {`grid_in_area` (grid cells in the urban boundary + `housing.edge_buffer_m`), `populated` (dropped: every Zensus cell with residents in the area, scored or not), `excluded_landuse`, `kept`, `excluded_polygons`, `protected_area_not_excluded`}, `profiles` {profile: as `report_count.json`}, `runtime_s`, `peak_rss_mb` |
+
+Empty `housing.profiles` writes empty tables (the app says the run has no housing potential).
+
 ### Validation report part 2: `validate_results/report_results.json` + `.md` *(implemented, P4)*
 
 | Key | Content |
 |---|---|
 | `run_id`, `stage`, `status` (`ok`/`fail`), `generated_at`, `runtime_s`, `peak_rss_mb` | |
-| `checks` | rows of `validation_report`: `access_counts_complete`, `transit_supply_complete`, `value_ranges`, `thresholds_cover_categories`, `class_totals`, `reachable_matches_counts`, `monotonic_<higher>_ge_<lower>` (value = share of violating cells), `matrix_vs_route` (value = max abs. deviation in s; warn only), `false_negatives` (value = share of sampled non-reachable pairs that /route reaches within the budget), `budget_flips` (value = highest flip rate over profiles and directions; warn only), `recommendations_consistent` (value = number of recommendations; fails if ranks, profiles, `min_gain`, catchment sums or a replay of the gains on `access_counts` disagree), `sample_cells` |
+| `checks` | rows of `validation_report`: `access_counts_complete`, `transit_supply_complete`, `housing_consistent` (no housing cell is a resident cell; counts = housing cells × categories × `housing.profiles`), `value_ranges`, `thresholds_cover_categories`, `class_totals`, `reachable_matches_counts`, `monotonic_<higher>_ge_<lower>` (value = share of violating cells), `matrix_vs_route` (value = max abs. deviation in s; warn only), `false_negatives` (value = share of sampled non-reachable pairs that /route reaches within the budget), `budget_flips` (value = highest flip rate over profiles and directions; warn only), `recommendations_consistent` (value = number of recommendations; fails if ranks, profiles, `min_gain`, catchment sums or a replay of the gains on `access_counts` disagree), `sample_cells` |
 | `summary` | `residents_scored`; `access` {profile: {category: `share_lack`, `share_insufficient`, `share_sufficient`, `residents_lack`, `deficit_sum`}}; `transit` {profile: {class: share of residents}} |
 | `recommendations` | rows of `recommendations` without geometries, by profile, category, rank |
 | `samples` | per `count.evidence.sample_points` point: nearest `cell_id`, `district_id`, `population`, `values` {`profile/category`: `count`, `class`, `deficit`} |
@@ -278,3 +295,4 @@ their row counts.
 | v0.14 | 2026-11-09 | `facilities.tags` (jsonb) and `facilities.area_geom` (last columns), `facilities.parquet` with `tags` and `area_geometry`; `GET /api/facilities`; `tags` and `osm_url` per facility in `/api/inspect` and `/api/route` | App iteration W5 (points 16, 17), methodology v0.7 |
 | v0.15 | 2026-11-10 | Categories: `parks` and `playgrounds` are separate (`/api/meta` `categories`, `facilities.category`, `access_counts.category`); `report_inputs.json` `summary` gets `facilities_without_type`; new report-part-1 checks `facilities_excluded_by_access` (informative) and `facility_subtypes_complete` (warns below the 95 % gate); no table or column changes | App iteration W7a |
 | v0.16 | 2026-11-10 | `GET /api/cells/times`; `/api/meta` `categories[].group`; config key `api.score.max_times_per_category`; no table changes | App iteration W7b |
+| v0.17 | 2026-11-10 | Tables `housing_cells`, `housing_counts`, `housing_reachable`, views `housing_scores`, `housing_default_scores`; `housing/` files; `GET /api/housing`; check `housing_consistent`; config section `housing` | App iteration W8, architecture v0.23, methodology v0.10 |

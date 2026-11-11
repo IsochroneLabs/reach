@@ -50,7 +50,7 @@ export default function SettingsPanel({ settings, onChange, onReset, rings, dire
   }, [open])
 
   const check = (
-    key: 'showCells' | 'showDistricts' | 'showPois' | 'showAllFacilities' | 'showRecommendations' | 'coloursWithPin',
+    key: 'showCells' | 'showDistricts' | 'showPois' | 'showAllFacilities' | 'showRecommendations' | 'showHousing' | 'coloursWithPin',
     label: string,
   ) => (
     <label className="check">
@@ -161,6 +161,7 @@ export default function SettingsPanel({ settings, onChange, onReset, rings, dire
             {check('showPois', 'Facility pins and routes')}
             {check('showAllFacilities', 'All facilities of the category')}
             {check('showRecommendations', 'Recommended sites')}
+            {check('showHousing', 'Housing potential (cells without residents)')}
           </fieldset>
           <fieldset>
             <legend>With a pin</legend>

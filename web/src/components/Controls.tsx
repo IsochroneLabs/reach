@@ -105,8 +105,8 @@ export default function Controls(props: Props) {
         )}
         {score && score.summary.total > 0 && (
           <p className="small" data-testid="score-full-share">
-            <span className="swatch swatch-full" /> <strong>{Math.round(100 * score.summary.fullShare)} %</strong> of residents reach
-            everything selected (score 100, outlined on the map).
+            <strong>{Math.round(100 * score.summary.fullShare)} %</strong> of residents reach
+            everything selected (score 100).
           </p>
         )}
         {!score && (

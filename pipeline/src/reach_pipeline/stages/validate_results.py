@@ -41,7 +41,7 @@ from reach_pipeline.manifest import (
     write_manifest,
 )
 from reach_pipeline.metrics import measure
-from reach_pipeline.stages import count, recommend, score, validate
+from reach_pipeline.stages import count, housing, recommend, score, validate
 from reach_pipeline.valhalla.client import ValhallaClient, costing_options
 
 STAGE = results.STAGE
@@ -50,6 +50,7 @@ STAGE = results.STAGE
 CONFIG_SECTIONS = (
     "categories",
     "count",
+    "housing",
     "profiles",
     "recommend",
     "time_budgets_min",
@@ -75,6 +76,9 @@ def _paths(ctx: RunContext) -> dict[str, Any]:
         "thresholds": ctx.stage_dir(score.STAGE) / score.THRESHOLDS,
         "recommendations": ctx.stage_dir(recommend.STAGE) / recommend.RECOMMENDATIONS,
         "recommendation_catchments": ctx.stage_dir(recommend.STAGE) / recommend.REC_CATCHMENTS,
+        "housing_cells": ctx.stage_dir(housing.STAGE) / housing.CELLS,
+        "housing_counts": ctx.stage_dir(housing.STAGE) / housing.COUNTS,
+        "housing_reachable": ctx.stage_dir(housing.STAGE) / housing.REACHABLE,
     }
 
 
@@ -92,6 +96,9 @@ def load_tables(ctx: RunContext) -> tuple[results.Tables, gpd.GeoDataFrame]:
         facilities=pd.read_parquet(p["facilities"], columns=["facility_id", "category"]),
         recommendations=pd.read_parquet(p["recommendations"], columns=recommend.REC_COLUMNS),
         recommendation_catchments=pd.read_parquet(p["recommendation_catchments"]),
+        housing_cells=pd.read_parquet(p["housing_cells"], columns=["cell_id"]),
+        housing_counts=pd.read_parquet(p["housing_counts"]),
+        housing_reachable=pd.read_parquet(p["housing_reachable"]),
     )
     return tables, origins
 
@@ -232,6 +239,7 @@ def build_report(ctx: RunContext, t: results.Tables, origins: gpd.GeoDataFrame) 
         )
         checks.append(flips)
         checks.append(results.recommendations_consistent(cfg, t))
+        checks.append(results.housing_consistent(cfg, t))
         checks += results.totals(t, rows, part1["summary"].get("residents_scored"))
         checks += [results.monotonic(pair, t) for pair in cfg.validation.results.monotonic]
         out["summary"] = results.summary(t, rows)
@@ -418,6 +426,7 @@ def run(ctx: RunContext) -> Manifest:
     """Check the results of count and score; write report part 2; fail on any failed check."""
     require_ok(ctx.stage_dir(PREVIOUS), PREVIOUS, ctx.config)
     require_ok(ctx.stage_dir(count.STAGE), count.STAGE, ctx.config)
+    require_ok(ctx.stage_dir(housing.STAGE), housing.STAGE, ctx.config)
     require_count_valhalla(ctx)
     stage_dir = ctx.stage_dir(STAGE)
     inputs = [config_input(ctx.config, CONFIG_SECTIONS), *file_inputs(list(_paths(ctx).values()))]

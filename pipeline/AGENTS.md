@@ -63,6 +63,8 @@ this file adds the stage pattern (note N2) and wins where it is more specific.
 - **Tiles:** `tiles check` (flag file, no manifest) and `tiles verify` (manifest; also the step of
   `run`). Stages never call Docker; the build, swap and restart are `make refresh` (O19).
 - **Stages after count:** `score` (only `thresholds.parquet`; classes and deficits are SQL views),
+  `housing` (unpopulated grid cells counted like resident cells with `stages.count.count_profile`;
+  candidates in `housing.py`, land-use filter shared with `recommend` in `landuse.py`),
   `recommend` (candidates, catchments in candidate groups, greedy per category × profile;
   pure functions in `recommend.py`), `validate_results` (report part 2; a `fail` stops the
   run), `publish`, `cleanup`.

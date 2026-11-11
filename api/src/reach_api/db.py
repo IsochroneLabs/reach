@@ -69,6 +69,7 @@ class Database(Protocol):
     async def transit_profiles(self) -> list[str]: ...
     async def cells_geojson(self, run_id: str, category: str, profile_id: str) -> str: ...
     async def cell_times(self, run_id: str, profile_id: str, limit: int) -> str: ...
+    async def housing_geojson(self, run_id: str, profile_id: str, limit: int) -> str | None: ...
     async def districts_geojson(self, run_id: str) -> str: ...
     async def district_scores(
         self, district_id: str, profile_id: str | None
@@ -164,6 +165,38 @@ SELECT json_build_object(
     'cell_id', c.cell_id, 'population', c.population, 'district_id', c.district_id,
     'times', coalesce(p.times, '{}'::json)) ORDER BY c.cell_id), '[]'::json))::text AS body
 FROM current.cells c LEFT JOIN per_cell p USING (cell_id)
+"""
+
+# Housing potential (methodology §5b): unpopulated grid cells with the sorted times (s) of their
+# nearest reachable facilities per category (as _CELL_TIMES, from housing_reachable) and the
+# default score of §4b; only cells counted for the profile.
+_HOUSING = f"""
+WITH ranked AS (
+  SELECT r.cell_id, f.category, r.time_s,
+         row_number() OVER (PARTITION BY r.cell_id, f.category ORDER BY r.time_s) AS rn
+  FROM current.housing_reachable r JOIN current.facilities f ON f.facility_id = r.facility_id
+  WHERE r.profile_id = %(profile_id)s
+), per_category AS (
+  SELECT cell_id, category, json_agg(time_s ORDER BY rn) AS times
+  FROM ranked WHERE rn <= %(limit)s GROUP BY cell_id, category
+), per_cell AS (
+  SELECT cell_id, json_object_agg(category, times) AS times FROM per_category GROUP BY cell_id
+)
+SELECT json_build_object(
+  'type', 'FeatureCollection', 'run_id', %(run_id)s::text, 'profile_id', %(profile_id)s::text,
+  'available', true, 'max_times_per_category', %(limit)s::int,
+  'features', coalesce(json_agg(json_build_object(
+    'type', 'Feature', 'id', h.cell_id,
+    'geometry', {_GEOM.format("h.geom")},
+    'properties', json_build_object(
+      'cell_id', h.cell_id, 'district_id', h.district_id, 'district_name', d.name,
+      'score', round(ds.score::numeric, 1), 'times', coalesce(p.times, '{{}}'::json))
+  ) ORDER BY h.cell_id), '[]'::json))::text AS body
+FROM current.housing_cells h
+JOIN current.housing_default_scores ds
+  ON ds.cell_id = h.cell_id AND ds.profile_id = %(profile_id)s
+LEFT JOIN per_cell p ON p.cell_id = h.cell_id
+LEFT JOIN current.districts d ON d.district_id = h.district_id
 """
 
 _TRANSIT_CELLS = f"""
@@ -509,6 +542,14 @@ class PostgresDatabase:
             _CELL_TIMES, {"run_id": run_id, "profile_id": profile_id, "limit": limit}
         )
         return row["body"]
+
+    async def housing_geojson(self, run_id: str, profile_id: str, limit: int) -> str | None:
+        """None if the current run has no housing tables (published before the housing stage)."""
+        row = await self._one("SELECT to_regclass('current.housing_cells') IS NOT NULL AS ok")
+        if not (row and row["ok"]):
+            return None
+        params = {"run_id": run_id, "profile_id": profile_id, "limit": limit}
+        return (await self._one(_HOUSING, params))["body"]
 
     async def districts_geojson(self, run_id: str) -> str:
         row = await self._one(_DISTRICTS, {"run_id": run_id})
