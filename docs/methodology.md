@@ -73,11 +73,11 @@ the OSM extract of 9 Nov 2026 in brackets.
 `access=private`, `access=no` or `access=customers` are dropped; schools, childcare, shops and
 practices are not filtered by `access` (there the tag describes the grounds or the customers, not
 who may enrol or visit). The same rule applies to sports centres. Every category carries a
-thematic `group` (food, health, education, green, sport, services) and may restrict its tag match with `require` and `exclude` conditions in the config; the
-validation report lists the features dropped per category. Schools stay one category until at
-least 95 % of the schools in the city carry a type tag (`school`, `school:de` or `isced:level`;
-check `facility_subtypes_complete`, `docs/osm_tagging.md`); then `primary_school` and
-`secondary_school` follow.
+thematic `group` (food, health, education, green, sport, services) and may restrict its tag match
+with `require` and `exclude` conditions in the config; the validation report lists the features
+dropped per category. Schools stay one category until at least 95 % of the schools in the city
+carry a type tag (`school`, `school:de` or `isced:level`; check `facility_subtypes_complete`,
+`docs/osm_tagging.md`); then `primary_school` and `secondary_school` follow.
 
 **Facility locations.** OSM nodes are used as they are. Polygons (e.g. a supermarket building or
 a school site) are represented by one representative point inside the polygon. **Parks and
@@ -91,13 +91,14 @@ of the measurement). Informative tags of a facility (opening hours, wheelchair a
 contact, speciality; `facility_tags` in the config) are displayed as stored and never change a
 count.
 
-Tag mapping lives in `config/config.yaml`. Higher-order facilities (hospitals, universities,
-specialised shops) are excluded. Restaurants, cafés, bars and similar amenities are not part of
+Tag mapping lives in `config/config.yaml`. Higher-order facilities as destinations (hospitals,
+universities, specialised shops) are excluded; university and institute libraries count as a
+category of their own (above). Restaurants, cafés, bars and similar amenities are not part of
 15-minute compliance and are not counted: a first run with restaurants & cafés and single pitches
 failed the walking monotonicity check (19 of 1,699 cells, limit 1 %; notes N16). Gyms and the
 other extended categories are additional layers outside the Core list the paper's compliance
-rests on; the combined score (§4b) includes them only when they are selected. Finer categories (discounters, GPs, school types) are Stretch, added only where OSM
-completeness allows.
+rests on; the combined score (§4b) includes them only when they are selected. Finer categories
+(discounters, GPs, school types) are Stretch, added only where OSM completeness allows.
 
 ## 3. Public transport supply
 

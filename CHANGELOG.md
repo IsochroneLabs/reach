@@ -18,7 +18,8 @@ adds a line under `Unreleased`.
 ### Added (config and web app, more categories in collapsible groups)
 - Eight extended categories (methodology v0.11 §2): bakery, dentist, senior care, library, gym,
   sports centre, post office, bank & ATM (k = 1 each); new groups `sport`
-  and `services`. They appear after the next pipeline run; no table or API change.
+  and `services`. They appear in `/api/meta` and the map after the next pipeline run; no table or
+  schema change.
 - Web app: the category picker shows one collapsible block per group with a checkbox for the
   whole group and a count of selected categories; groups with a selection start open.
 
