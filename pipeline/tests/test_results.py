@@ -27,7 +27,7 @@ def cfg(tmp_path: Path) -> Config:
     data["validation"]["results"]["monotonic"] = [
         {"higher": "fast", "lower": "walk", "warn_above": 0, "fail_above": 0.5}
     ]
-    data["recommend"].update(profiles=["walk"], min_gain=1)
+    data["recommend"].update(profiles=["walk"], profile_overrides={}, min_gain=1)
     path = tmp_path / "config.yaml"
     path.write_text(yaml.safe_dump(data), encoding="utf-8")
     return load_config(path)

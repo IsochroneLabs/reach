@@ -117,6 +117,8 @@ class AccessPoints(_Model):
     spacing_m: float = Field(gt=0)
     max_points: int = Field(ge=1)
     walkable_highways: list[str] = Field(min_length=1)
+    # Tolerance (m) of the park outline kept for display only (never used for routing or counts).
+    outline_simplify_m: float = Field(default=2.0, gt=0)
 
 
 class DateRange(_Model):
@@ -237,6 +239,13 @@ class Count(_Model):
     evidence: Evidence
 
 
+class RecommendOverride(_Model):
+    """Per-profile replacement of a `recommend` value (only the keys set here differ)."""
+
+    # Coarser candidate grid for this profile; a multiple of recommend.candidate_spacing_m.
+    candidate_spacing_m: int = Field(ge=100)
+
+
 class Recommend(_Model):
     """Recommender (methodology §5, arch. §6.4): candidates, catchments, greedy selection."""
 
@@ -249,6 +258,13 @@ class Recommend(_Model):
     exclude_tags: list[dict[str, str]]
     # boundary=protected_area polygons excluded only with one of these protect_class values.
     exclude_protect_classes: list[str]
+    # Profile id -> overrides (e.g. a coarser candidate grid for the heavy cycling matrix).
+    profile_overrides: dict[str, RecommendOverride] = {}
+
+    def spacing_m(self, profile_id: str) -> int:
+        """Candidate spacing for the profile (override, else `candidate_spacing_m`)."""
+        override = self.profile_overrides.get(profile_id)
+        return override.candidate_spacing_m if override else self.candidate_spacing_m
 
     @field_validator("candidate_spacing_m")
     @classmethod
@@ -263,6 +279,17 @@ class Recommend(_Model):
         if len(set(v)) != len(v):
             raise ValueError(f"recommend.profiles must be unique, got {v}")
         return v
+
+    @model_validator(mode="after")
+    def _overrides_on_the_grid(self):
+        for pid, o in self.profile_overrides.items():
+            if o.candidate_spacing_m % self.candidate_spacing_m:
+                raise ValueError(
+                    f"recommend.profile_overrides.{pid}.candidate_spacing_m must be a multiple "
+                    f"of candidate_spacing_m ({self.candidate_spacing_m}), got "
+                    f"{o.candidate_spacing_m}"
+                )
+        return self
 
     @field_validator("exclude_tags")
     @classmethod
@@ -358,6 +385,8 @@ class Config(_Model):
     profiles: dict[str, Profile] = Field(min_length=1)
     categories: list[Category] = Field(min_length=1)
     access_points: AccessPoints
+    # Informative OSM keys kept per facility and shown in the app (never used for counting).
+    facility_tags: list[str] = Field(default_factory=list)
     transit_classes: list[TransitClass] = Field(min_length=1)
     reference_day: ReferenceDay
     sources: Sources
@@ -407,6 +436,13 @@ class Config(_Model):
         unknown = sorted(set(self.recommend.profiles) - self.profiles.keys())
         if unknown:
             raise ValueError(f"recommend.profiles: unknown profiles {unknown}")
+        return self
+
+    @model_validator(mode="after")
+    def _override_profiles_exist(self):
+        unknown = sorted(set(self.recommend.profile_overrides) - self.profiles.keys())
+        if unknown:
+            raise ValueError(f"recommend.profile_overrides: unknown profiles {unknown}")
         return self
 
     @model_validator(mode="after")

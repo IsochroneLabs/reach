@@ -136,10 +136,18 @@ categories:
 access_points:
   spacing_m: 50
   max_points: 20
+  # Park outlines kept for display are simplified with this tolerance (m); display only.
+  outline_simplify_m: 2
   # OSM highway values of the walkable ways whose crossings with a park boundary are access points.
   walkable_highways:
     [footway, path, pedestrian, steps, living_street, residential, service, track, cycleway,
      bridleway, unclassified, tertiary, secondary, primary]
+
+# Informative OSM keys kept per facility and shown in the app (popup, list), displayed as stored
+# (no parsing of opening_hours). They never change counts (docs/osm_tagging.md §5).
+facility_tags:
+  [opening_hours, wheelchair, website, contact:website, phone, contact:phone, addr:street,
+   addr:housenumber, addr:postcode, brand, operator, healthcare:speciality]
 
 # Public transport supply classes (meth. §3, provisional until M2): bounds on the sum of
 # weekday departures, inclusive; upper null = open-ended. Bounds must increase without gaps.
@@ -267,8 +275,9 @@ count:
 # Greedy per category and profile: gain = reduction of the deficit sum
 # sum P_i * [min(1, (A_i+1)/k) - min(1, A_i/k)] over the catchment (= ΔW, meth. §5).
 recommend:
-  # Profiles with recommendations. Cycling is left out for now (decision by Rico, 6 Nov 2026):
-  # hardly any cycling deficit, and its large costmatrix requests grow Valhalla's memory (N4).
+  # Profiles with recommendations. Cycling stays off (measured 9 Nov 2026, notes N12): even with
+  # the 200 m override below Valhalla peaks at 3.9 GiB (limit 2.5 GiB) and only ~130 cells have
+  # a cycling deficit. Add cycling_15 here to switch it on.
   # Empty list = the run has no recommendations (the app hides the layer).
   profiles: [walking_339, walking_500, wheelchair_339]
   # Ranked zones per category and profile (at most).
@@ -277,6 +286,12 @@ recommend:
   min_gain: 50
   # Candidate spacing on the Zensus grid; a multiple of 100 (100 = every grid cell).
   candidate_spacing_m: 100
+  # Per-profile overrides of the spacing (a multiple of candidate_spacing_m): the cycling reach
+  # (3.75 km) makes every group matrix large, a 200 m grid cuts the pairs to a quarter. Only
+  # used when the profile is listed in `profiles`.
+  profile_overrides:
+    cycling_15:
+      candidate_spacing_m: 200
   # Candidates are grouped in squares of this size; one matrix per group (rule 7): sources =
   # scored cells within the prefilter reach of the group, targets = the group's candidates.
   group_size_m: 500
