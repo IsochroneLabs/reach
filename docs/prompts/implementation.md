@@ -80,6 +80,10 @@ P8 Production: compose.prod.yaml, Caddy with HTTPS (sslip.io), amd64 images to G
    make deploy, systemd timer for the weekly run, backups, failure webhook.
 </phases>
 
+Before starting an unfinished phase, look up its stable task ID and generated issue in the Data
+Science Project. Include both the ID and issue reference in the PR. Use a closing keyword only if
+the PR completes that entire issue; otherwise write `Tracking issue: #N`.
+
 <working_rules>
 - Follow AGENTS.md "How to work on a task" in every phase: understand → whole-project view →
   plan and confirm → small steps → verify with evidence → docs → report.
@@ -97,6 +101,9 @@ P8 Production: compose.prod.yaml, Caddy with HTTPS (sslip.io), amd64 images to G
 - Tests never use the network; Valhalla calls are mocked with recorded responses.
 - Commit and PR rules from AGENTS.md/CONTRIBUTING.md: small Conventional Commits, CHANGELOG
   entry, README kept true, draft PRs only, never push to dev/main, never merge.
+- Before implementation, look up the generated issue for the phase in the approved plan. Include
+  its stable task ID and issue number in the PR. Use `Closes/Fixes/Resolves #N` only when the PR
+  completes that full task; otherwise use `Tracking issue: #N`.
 - Before a PR leaves draft: run a review with a fresh subagent that checks the diff against
   AGENTS.md, architecture.md, methodology.md and the data contract; fix its findings or list them.
 </working_rules>

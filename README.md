@@ -71,7 +71,7 @@ with Docker Compose on one small server. Details: [`docs/architecture.md`](docs/
 | `infra/` | Caddyfile; `api.Dockerfile`, `web.Dockerfile` (web build in the Caddy image); `db/`: roles, migrations, run schema template; pipeline image, scheduler planned | partial |
 | `Makefile`, `compose.yaml`, `.env.example` | Local stack (incl. Valhalla and its one-shot tile build) and command wrappers | ✅ |
 | `tests/integration/` | Golden travel times against a local Valhalla on the test clip | ✅ |
-| `.github/` | CI (lint + tests; PostGIS data-contract test; web lint, build and browser smoke test), PR template, CODEOWNERS | ✅ |
+| `.github/` | CI (lint + tests; PostGIS data-contract test; web lint, build and browser smoke test), issue/Project sync, PR template, CODEOWNERS | ✅ |
 
 ## Getting started
 
@@ -204,6 +204,7 @@ second `make up` replaces the containers of the first (images `reach-api:dev` an
 | [`docs/implementation_plan.md`](docs/implementation_plan.md) | Phase plan, status and decisions of the implementation (handoff between sessions) |
 | [`docs/prompts/implementation.md`](docs/prompts/implementation.md) | Prompts for building the system with a coding agent, phase by phase |
 | [`docs/prompts/app_iteration.md`](docs/prompts/app_iteration.md) | Approvals block and master prompt that let a coding agent build W1–W8 of the app iteration |
+| [`docs/github_tracking.md`](docs/github_tracking.md) | Plan task metadata, issue/Project sync permissions, and bootstrap steps |
 | [`docs/app_iteration_plan.md`](docs/app_iteration_plan.md) | Work packages W1–W8 for the app feedback round (18 points), decisions and agent prompt |
 | [`docs/osm_tagging.md`](docs/osm_tagging.md) | How facilities are tagged in OSM, which tags the pipeline reads, how we improve OSM data |
 | [`docs/project_management_decisions.md`](docs/project_management_decisions.md) | Team and course organisation |

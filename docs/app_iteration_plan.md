@@ -223,6 +223,17 @@ Unterjesingen); 422 only outside the city.
 15 min; inspect for scored cells stays under 1 s (measured, in the PR).
 
 ### W5 — POI details and parks (points 16 info, 17)
+<!-- reach-task
+id: app-iteration/W5
+owner: ricoS03
+target_date: 2026-12-04
+depends_on:
+-->
+
+## Summary
+Show informative facility details and park areas with routing access points in the map and inspector.
+
+## Package details
 
 `config/`, `pipeline/`, `infra/db/run_schema.sql`, `api/`, `web/`, data contract.
 
@@ -252,6 +263,17 @@ Unterjesingen); 422 only outside the city.
 park area, access points and route visible together in one screenshot.
 
 ### W6 — Cycling recommendations (point 11)
+<!-- reach-task
+id: app-iteration/W6
+owner: ricoS03
+target_date: 2026-12-04
+depends_on:
+-->
+
+## Summary
+Measure the runtime and memory cost of cycling recommendations and decide whether to enable them.
+
+## Package details
 
 `config/`, docs. **Ask first:** existing value `recommend.profiles`; limits E6.
 
@@ -270,6 +292,17 @@ park area, access points and route visible together in one screenshot.
 cycling.
 
 ### W7a — Categories from OSM tags (points 1, 2; access fix)
+<!-- reach-task
+id: app-iteration/W7a
+owner: ricoS03
+target_date: 2026-12-11
+depends_on: app-iteration/W5
+-->
+
+## Summary
+Split supported facility categories from OSM tags and exclude non-public parks and playgrounds.
+
+## Package details
 
 `config/`, `pipeline/`, docs. **Ask first:** methodology §2 (new categories, `k`, access rule),
 existing config values (`categories`). **Gate:** ≥ 95 % of the schools in the city carry a type
@@ -297,6 +330,17 @@ tag (`docs/osm_tagging.md` §6); until then only the parks/playgrounds split and
 playgrounds; shares per class before/after the access fix in the PR.
 
 ### W7b — Flexible accessibility score and combined view (points 1, 3; E2)
+<!-- reach-task
+id: app-iteration/W7b
+owner: ricoS03
+target_date: 2026-12-18
+depends_on: app-iteration/W7a
+-->
+
+## Summary
+Add a flexible 0–100 accessibility score for multiple selected categories and user-set thresholds.
+
+## Package details
 
 `api/`, `web/`, data contract. **Ask first:** methodology new §4b (score definition) and the
 `web/AGENTS.md` rule "Read the API, do not re-derive" (the score is a defined client-side display
@@ -348,6 +392,17 @@ identical to the class map for one category; screenshot with three categories an
 threshold.
 
 ### W8 — Housing potential (point 12 feature, E7)
+<!-- reach-task
+id: app-iteration/W8
+owner: ricoS03
+target_date: 2027-01-10
+depends_on: app-iteration/W7b
+-->
+
+## Summary
+Identify unpopulated cells with housing potential and display their existing accessibility.
+
+## Package details
 
 `config/`, `pipeline/`, `infra/db/run_schema.sql`, `api/`, `web/`, docs. **Ask first:**
 methodology §5b, architecture (new stage, §8 tables).
