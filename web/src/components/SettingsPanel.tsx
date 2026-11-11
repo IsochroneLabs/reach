@@ -49,7 +49,10 @@ export default function SettingsPanel({ settings, onChange, onReset, rings, dire
     }
   }, [open])
 
-  const check = (key: 'showCells' | 'showDistricts' | 'showPois' | 'showRecommendations' | 'coloursWithPin', label: string) => (
+  const check = (
+    key: 'showCells' | 'showDistricts' | 'showPois' | 'showAllFacilities' | 'showRecommendations' | 'coloursWithPin',
+    label: string,
+  ) => (
     <label className="check">
       <input type="checkbox" checked={settings[key]} onChange={(e) => onChange({ [key]: e.target.checked })} />
       {label}
@@ -156,6 +159,7 @@ export default function SettingsPanel({ settings, onChange, onReset, rings, dire
             <legend>Layers</legend>
             {check('showDistricts', 'District boundaries')}
             {check('showPois', 'Facility pins and routes')}
+            {check('showAllFacilities', 'All facilities of the category')}
             {check('showRecommendations', 'Recommended sites')}
           </fieldset>
           <fieldset>

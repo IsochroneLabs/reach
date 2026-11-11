@@ -54,6 +54,11 @@ Residents are a secondary audience served by the same map.
   name and time on hover. A cell with fewer than the required number also gets a route to the
   *next* missing facility, dashed and labelled "beyond 15 min" when it is outside the budget. The
   facility list is clickable (zoom, pin highlight, route to exactly this facility).
+- **Facility details and parks:** popup and picked facility show the informative OSM tags (opening
+  hours as raw text, wheelchair access, address, speciality, brand, website, phone) and links to
+  OpenStreetMap and Google Maps (search link only; no ratings). Parks are drawn with their outline
+  and access points, and the note says that the time is measured to the nearest entrance. The
+  setting "All facilities of the category" draws every facility of the selected category.
 - **Spread view (Stretch-light):** street-level spread via Valhalla `expansion`, animated by time.
 
 ## 5. Recommendations (Core)

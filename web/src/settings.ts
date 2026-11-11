@@ -15,6 +15,8 @@ export interface MapSettings {
   isochroneDirection: IsochroneDirection
   /** Facility pins of the selected category and the route to the next missing facility. */
   showPois: boolean
+  /** Every facility of the selected category (also those out of reach), not only the pins. */
+  showAllFacilities: boolean
   showRecommendations: boolean
   /** With a pin: keep the cell colours (default off: isochrone and route only). */
   coloursWithPin: boolean
@@ -31,6 +33,7 @@ export const DEFAULT_SETTINGS: MapSettings = {
   isochroneRings: {},
   isochroneDirection: 'forward',
   showPois: true,
+  showAllFacilities: false,
   showRecommendations: true,
   coloursWithPin: false,
   minResidents: 0,

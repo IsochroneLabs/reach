@@ -29,6 +29,9 @@ CREATE TABLE facilities (
     category    text NOT NULL,
     name        text,
     geom        geometry(Point, 25832) NOT NULL,
+    -- appended last: `current` views are CREATE OR REPLACE VIEW, which can only add columns
+    tags        jsonb NOT NULL DEFAULT '{}',  -- informative OSM tags (config facility_tags)
+    area_geom   geometry(MultiPolygon, 25832),  -- simplified outline of an area facility
     PRIMARY KEY (facility_id, category)
 );
 

@@ -186,11 +186,23 @@ v0.6, architecture v0.18, data contract v0.10. Validation report as its own bran
 `feature/rico-validation-report`.
 
 ### P8 — Production
+<!-- reach-task
+id: implementation/P8
+target_date: 2026-12-04
+depends_on:
+-->
+
+## Summary
+Deploy the app and weekly data refresh on the production server with HTTPS, backups, and failure reporting.
+
+## Scope
 
 `compose.prod.yaml` (GHCR images, no published DB/Valhalla ports), Caddy HTTPS via `sslip.io`,
 CI job building `linux/amd64` images tagged with git SHA, `make deploy`, systemd service + timer calling `make refresh`
 (Monday 03:00 UTC, `flock`), nightly `pg_dump`, failure webhook, server setup script, firewall
 notes. Measure memory on the CX23 (Section 4).
+
+**Done when:** the server runs the app over HTTPS, the scheduled refresh and backup complete, failure notification works, and CX23 resource measurements are recorded.
 
 ### Dependencies expected per phase (each asked before adding)
 

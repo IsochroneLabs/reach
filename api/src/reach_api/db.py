@@ -9,6 +9,7 @@ replace it with a fake.
 
 from __future__ import annotations
 
+import time
 from dataclasses import dataclass
 from typing import Any, Protocol
 
@@ -82,6 +83,7 @@ class Database(Protocol):
         self, x: float, y: float, reach_m: float
     ) -> list[dict[str, Any]]: ...
     async def facility(self, facility_id: str) -> dict[str, Any] | None: ...
+    async def facilities_geojson(self, run_id: str, category: str, with_area: bool) -> str: ...
     async def nearest_facility_points(
         self, x: float, y: float, category: str, exclude_ids: list[str], limit: int
     ) -> list[dict[str, Any]]: ...
@@ -101,6 +103,9 @@ class Database(Protocol):
 
 # Run schema that `current.cells` reads from (same lookup as reach_pipeline.db.current_schema),
 # mapped back to its run id.
+# How long the schema check of `current.facilities` is remembered (seconds).
+_DETAILS_TTL_S = 30.0
+
 _RUN_ID = """
 SELECT r.run_id FROM meta.runs r
 WHERE 'run_' || lower(r.run_id) = (
@@ -112,6 +117,13 @@ WHERE 'run_' || lower(r.run_id) = (
     JOIN pg_namespace tn ON tn.oid = t.relnamespace
     WHERE vn.nspname = 'current' AND v.relname = 'cells')
 """
+
+# Informative OSM tags and the OSM page of a facility. Runs published before W5 have no `tags`
+# column: the placeholder is then replaced by an empty object (see `_details`).
+_OSM_URL = (
+    "'https://www.openstreetmap.org/' || CASE left(f.facility_id, 1) WHEN 'n' THEN 'node' "
+    "WHEN 'w' THEN 'way' ELSE 'relation' END || '/' || substr(f.facility_id, 2)"
+)
 
 _GEOM = f"ST_AsGeoJSON(ST_Transform({{}}, 4326), {GEOJSON_DECIMALS})::json"
 
@@ -215,7 +227,7 @@ CROSS JOIN LATERAL (SELECT coalesce(c.origin_geom, cell.centre) AS origin) o
 # facility; the routing target is the facility's point nearest to the origin by straight line
 # (only used to draw the route; the time is the matrix time of the run).
 _REACHABLE = """
-SELECT r.facility_id, f.category, f.name, r.time_s,
+SELECT r.facility_id, f.category, f.name, r.time_s, __TAGS__ AS tags, __OSM_URL__ AS osm_url,
        ST_X(ST_Transform(p.geom, 4326)) AS lon, ST_Y(ST_Transform(p.geom, 4326)) AS lat
 FROM current.reachable r
 JOIN current.facilities f USING (facility_id)
@@ -232,7 +244,7 @@ ORDER BY f.category, r.time_s, r.facility_id
 # targets the count stage sends (facility_points joined to facilities by facility_id, one row
 # per point and category, O20).
 _POINTS_NEAR = """
-SELECT fp.facility_id, fp.point_id, f.category, f.name,
+SELECT fp.facility_id, fp.point_id, f.category, f.name, __TAGS__ AS tags, __OSM_URL__ AS osm_url,
        ST_X(ST_Transform(fp.geom, 4326)) AS lon, ST_Y(ST_Transform(fp.geom, 4326)) AS lat
 FROM current.facility_points fp
 JOIN current.facilities f USING (facility_id)
@@ -245,7 +257,7 @@ ORDER BY fp.facility_id, fp.point_id, f.category
 # facility beyond the budget (W4), so no reach limit applies. Every facility has at least one
 # row in `facility_points` (`count` only sees facilities through them), so the join loses none.
 _NEAREST_POINTS = """
-SELECT f.facility_id, p.point_id, f.category, f.name,
+SELECT f.facility_id, p.point_id, f.category, f.name, __TAGS__ AS tags, __OSM_URL__ AS osm_url,
        ST_X(ST_Transform(p.geom, 4326)) AS lon, ST_Y(ST_Transform(p.geom, 4326)) AS lat
 FROM current.facilities f
 CROSS JOIN LATERAL (
@@ -259,7 +271,7 @@ LIMIT %(limit)s
 """
 
 _FACILITY = """
-SELECT f.facility_id, f.name,
+SELECT f.facility_id, f.name, __TAGS__ AS tags, __OSM_URL__ AS osm_url,
        ST_X(ST_Transform(f.geom, 4326)) AS lon, ST_Y(ST_Transform(f.geom, 4326)) AS lat,
        (SELECT array_agg(c.category ORDER BY c.category) FROM current.facilities c
         WHERE c.facility_id = f.facility_id) AS categories,
@@ -333,6 +345,50 @@ WHERE r.candidate_id = %(candidate_id)s AND r.category = %(category)s
 """
 
 
+# All facilities of a category as GeoJSON features (`kind`: `facility` = the point, `area` = the
+# outline of an area facility, `access` = a routing point on its boundary); the last two only for
+# `with_area`. Points carry the informative tags and the OSM link.
+_FACILITIES = f"""
+SELECT json_build_object(
+  'type', 'FeatureCollection', 'run_id', %(run_id)s::text, 'category', %(category)s::text,
+  'features', coalesce(json_agg(x.feature ORDER BY x.ord, x.id), '[]'::json))::text AS body
+FROM (
+  SELECT 0 AS ord, f.facility_id AS id, json_build_object(
+    'type', 'Feature', 'id', f.facility_id,
+    'geometry', {_GEOM.format("f.geom")},
+    'properties', json_build_object(
+      'kind', 'facility', 'facility_id', f.facility_id, 'name', f.name,
+      'category', f.category, 'tags', __TAGS__, 'osm_url', __OSM_URL__)) AS feature
+  FROM current.facilities f WHERE f.category = %(category)s
+  UNION ALL
+  SELECT 1, f.facility_id, json_build_object(
+    'type', 'Feature', 'id', f.facility_id || '/area',
+    'geometry', {_GEOM.format("f.area_geom")},
+    'properties', json_build_object(
+      'kind', 'area', 'facility_id', f.facility_id, 'name', f.name, 'category', f.category))
+  FROM current.facilities f
+  WHERE %(with_area)s AND f.category = %(category)s AND __AREA__ IS NOT NULL
+  UNION ALL
+  SELECT 2, p.facility_id || '/' || lpad(p.point_id::text, 3, '0'), json_build_object(
+    'type', 'Feature', 'id', p.facility_id || '/' || p.point_id,
+    'geometry', {_GEOM.format("p.geom")},
+    'properties', json_build_object(
+      'kind', 'access', 'facility_id', p.facility_id, 'category', f.category))
+  FROM current.facility_points p JOIN current.facilities f USING (facility_id)
+  WHERE %(with_area)s AND f.category = %(category)s AND p.kind = 'access'
+) x
+"""
+
+
+def _fill(query: str, details: bool) -> str:
+    """The query with `tags`/`area_geom` of the run, or empty ones for a run without them."""
+    return (
+        query.replace("__TAGS__", "f.tags" if details else "'{}'::jsonb")
+        .replace("__AREA__", "f.area_geom" if details else "NULL::geometry")
+        .replace("__OSM_URL__", _OSM_URL)
+    )
+
+
 class PostgresDatabase:
     """`Database` on an async psycopg pool."""
 
@@ -344,6 +400,7 @@ class PostgresDatabase:
             open=False,
             kwargs={"autocommit": True, "row_factory": dict_row},
         )
+        self._details_cache: tuple[float, bool] | None = None
 
     async def open(self) -> None:
         await self.pool.open()
@@ -359,6 +416,22 @@ class PostgresDatabase:
     async def _one(self, query: str, params: dict[str, Any] | None = None) -> dict | None:
         rows = await self._all(query, params)
         return rows[0] if rows else None
+
+    async def _details(self) -> bool:
+        """True if `current.facilities` has the W5 columns (`tags`, `area_geom`); runs published
+        before have not. Remembered for a short time: it only changes when a run is published."""
+        now = time.monotonic()
+        cached = self._details_cache
+        if cached and now - cached[0] < _DETAILS_TTL_S:
+            return cached[1]
+        row = await self._one(
+            "SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE "
+            "table_schema = 'current' AND table_name = 'facilities' AND column_name = 'tags') "
+            "AS ok"
+        )
+        ok = bool(row and row["ok"])
+        self._details_cache = (now, ok)
+        return ok
 
     async def run_id(self) -> str | None:
         row = await self._one(_RUN_ID)
@@ -453,21 +526,28 @@ class PostgresDatabase:
         self, cell_id: str, profile_id: str, x: float, y: float
     ) -> list[dict[str, Any]]:
         params = {"cell_id": cell_id, "profile_id": profile_id, "x": x, "y": y}
-        return await self._all(_REACHABLE, params)
+        return await self._all(_fill(_REACHABLE, await self._details()), params)
 
     async def facility_points_near(
         self, x: float, y: float, reach_m: float
     ) -> list[dict[str, Any]]:
-        return await self._all(_POINTS_NEAR, {"x": x, "y": y, "reach": reach_m})
+        query = _fill(_POINTS_NEAR, await self._details())
+        return await self._all(query, {"x": x, "y": y, "reach": reach_m})
 
     async def facility(self, facility_id: str) -> dict[str, Any] | None:
-        return await self._one(_FACILITY, {"facility_id": facility_id})
+        query = _fill(_FACILITY, await self._details())
+        return await self._one(query, {"facility_id": facility_id})
+
+    async def facilities_geojson(self, run_id: str, category: str, with_area: bool) -> str:
+        params = {"run_id": run_id, "category": category, "with_area": with_area}
+        row = await self._one(_fill(_FACILITIES, await self._details()), params)
+        return row["body"]
 
     async def nearest_facility_points(
         self, x: float, y: float, category: str, exclude_ids: list[str], limit: int
     ) -> list[dict[str, Any]]:
         params = {"x": x, "y": y, "category": category, "exclude": exclude_ids, "limit": limit}
-        return await self._all(_NEAREST_POINTS, params)
+        return await self._all(_fill(_NEAREST_POINTS, await self._details()), params)
 
     async def cells_near(
         self, points_xy: list[tuple[float, float]], reach_m: float

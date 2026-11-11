@@ -11,6 +11,31 @@ adds a line under `Unreleased`.
 - Optional config key `recommend.profile_overrides.<profile>.candidate_spacing_m` (coarser
   candidate grid for one profile). Cycling recommendations were measured with and without it and
   stay off: Valhalla peaks at 3.9 GiB (limit 2.5 GiB), numbers in notes N12.
+  
+### Added (config, pipeline, API and web app, W5 facility details and parks)
+- Config key `facility_tags` (informative OSM keys: opening hours, wheelchair, website, phone,
+  address, brand/operator, speciality). `facilities` gets `tags` (jsonb) and `area_geom`
+  (MultiPolygon, 25832, simplified with 2 m; parks and other areas) as last columns (data contract
+  v0.14); runs published before W5 are read without them.
+- `GET /api/facilities?category=&geometry=point|area`: facility points with `tags` and `osm_url`;
+  with `geometry=area` also park outlines and their access points. `tags` and `osm_url` also in
+  `POST /api/inspect` and `POST /api/route`.
+- Map: popup and picked facility show opening hours, wheelchair access, address, speciality,
+  brand, website and phone, with links "View on OpenStreetMap" and "Open in Google Maps" (a search
+  link, no rating); parks show their outline and access points; settings switch "All facilities of
+  the category". Park note ("measured to the nearest park entrance") in the popup, the picked
+  facility and the data page (methodology v0.7, §2).
+
+### Fixed
+- Corrected the Project preflight GraphQL connection query so `pageInfo` is requested at the
+  connection level, allowing the issue sync workflow to validate the Project.
+
+### Added (GitHub task tracking)
+- Issue and Project sync workflow for approved iteration plans and PRs targeting `dev`, with
+  stable plan task IDs, weekly milestone rollover, idempotent Project cards, dry-run dispatch,
+  least-privilege permissions, and `PROJECTS_TOKEN` setup documentation.
+- Structured task metadata on unfinished W5–W8 and P8 plan packages; agent prompts and PR template
+  now refer to the generated tracking issue and use closing keywords only for completed tasks.
 
 ### Added (API and web app, W4 POI pins and routes)
 - `POST /api/inspect`: every reachable facility carries its routing `point`; each category with

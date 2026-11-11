@@ -186,3 +186,41 @@ def test_head_on_every_get_endpoint(client: TestClient) -> None:
 def test_every_get_route_allows_head(client: TestClient) -> None:
     routes = [r for r in client.app.routes if "GET" in getattr(r, "methods", set())]
     assert routes and all("HEAD" in r.methods for r in routes), [r.path for r in routes]
+
+
+def test_facilities_points_and_areas(client: TestClient, db: FakeDatabase) -> None:
+    r = client.get("/api/facilities", params={"category": "grocery"})
+    assert r.status_code == 200 and r.headers["content-type"] == "application/geo+json"
+    body = r.json()
+    assert body["run_id"] == RUN_ID and body["category"] == "grocery"
+    props = [f["properties"] for f in body["features"]]
+    assert {p["kind"] for p in props} == {"facility"}
+    assert all(p["osm_url"].startswith("https://www.openstreetmap.org/") for p in props)
+    assert any(p["tags"].get("opening_hours") for p in props)
+    # geometry=area adds the outline of area facilities (and access points, in the real query)
+    area = client.get("/api/facilities", params={"category": "grocery", "geometry": "area"}).json()
+    assert {f["properties"]["kind"] for f in area["features"]} == {"facility", "area"}
+    # read endpoint: ETag per run and parameters, 304 on revalidation, HEAD
+    etag = r.headers["etag"]
+    assert (
+        etag
+        != client.get(
+            "/api/facilities", params={"category": "grocery", "geometry": "area"}
+        ).headers["etag"]
+    )
+    assert (
+        client.get(
+            "/api/facilities", params={"category": "grocery"}, headers={"If-None-Match": etag}
+        ).status_code
+        == 304
+    )
+    assert client.head("/api/facilities", params={"category": "grocery"}).status_code == 200
+
+
+def test_facilities_validation(client: TestClient) -> None:
+    assert client.get("/api/facilities", params={"category": "nope"}).status_code == 422
+    assert client.get("/api/facilities").status_code == 422
+    assert (
+        client.get("/api/facilities", params={"category": "grocery", "geometry": "x"}).status_code
+        == 422
+    )

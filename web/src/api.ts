@@ -5,6 +5,7 @@ import type {
   CandidateCatchment,
   Cells,
   DistrictScores,
+  Facilities,
   Districts,
   Inspect,
   IsochroneAnswer,
@@ -57,6 +58,8 @@ export const getDistrictScores = (id: string, profile: string) =>
   request<DistrictScores>(`/districts/${encodeURIComponent(id)}/scores?${query({ profile })}`)
 export const getCells = (category: string, profile: string) =>
   request<Cells>(`/cells?${query({ category, profile })}`)
+export const getFacilities = (category: string) =>
+  request<Facilities>(`/facilities?${query({ category, geometry: 'area' })}`)
 export const getRecommendations = (category: string, profile: string) =>
   request<Recommendations>(`/recommendations?${query({ category, profile })}`)
 
