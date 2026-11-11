@@ -29,7 +29,10 @@ const BLANK_STYLE = JSON.stringify({
 async function mockNetwork(page: Page) {
   await page.route('**/api/**', (route) => {
     const path = new URL(route.request().url()).pathname
-    const hit = API.find(([re]) => re.test(path))
+    const facilities = /\/api\/facilities$/.test(path)
+      ? (new URL(route.request().url()).searchParams.get('category') === 'parks' ? 'facilities_parks.json' : 'facilities_grocery.json')
+      : null
+    const hit = facilities ? ([/./, facilities] as [RegExp, string]) : API.find(([re]) => re.test(path))
     return hit
       ? route.fulfill({ contentType: 'application/json', path: fixture(hit[1]) })
       : route.fulfill({ status: 404, contentType: 'application/json', body: '{"detail":"not mocked"}' })
@@ -422,4 +425,53 @@ test('says so when the route to a picked facility fails', async ({ page }) => {
   await page.getByTestId('inspect-result').locator('li.selected .reach-list li').first().getByRole('button').click()
   await expect(page.getByTestId('facility-route')).toContainText('The routing engine did not answer')
   await expect(page.getByTestId('map')).toHaveAttribute('data-route', 'none')
+})
+
+test('a picked facility shows its OSM details and links', async ({ page }) => {
+  test.skip(live, 'details depend on the recorded run')
+  await mockNetwork(page)
+  await page.goto('/#/map?profile=walking_339&category=grocery')
+  await expect(page.getByTestId('map')).toHaveAttribute('data-ready', 'true', { timeout: 30_000 })
+  const { x, y } = await initialPixel(page, POINT)
+  await page.mouse.click(x, y)
+  await page.getByTestId('inspect-result').locator('li.selected .cat-count').click()
+  await page.getByTestId('inspect-result').locator('li.selected .reach-list li').first().getByRole('button').click()
+  const info = page.getByTestId('facility-route')
+  await expect(info.getByTestId('facility-info')).toContainText('Opening hours')
+  const osm = info.getByRole('link', { name: 'View on OpenStreetMap' })
+  await expect(osm).toHaveAttribute('href', /^https:\/\/www\.openstreetmap\.org\/(node|way|relation)\/\d+$/)
+  await expect(osm).toHaveAttribute('target', '_blank')
+  await expect(osm).toHaveAttribute('rel', /noreferrer/)
+  const google = info.getByRole('link', { name: 'Open in Google Maps' })
+  await expect(google).toHaveAttribute('href', /^https:\/\/www\.google\.com\/maps\/search\/\?api=1&query=/)
+  // a grocery store is no park: no park note
+  await expect(info).not.toContainText('park entrance')
+})
+
+test('parks show their outline and access points, and the list pick carries the park note', async ({ page }) => {
+  test.skip(live, 'uses the recorded park fixtures')
+  await mockNetwork(page)
+  await page.route('**/api/route', (route) =>
+    route.fulfill({ contentType: 'application/json', path: fixture('route_parks_walking_339.json') }),
+  )
+  await page.goto('/#/map?profile=walking_339&category=parks')
+  const map = page.getByTestId('map')
+  await expect(map).toHaveAttribute('data-ready', 'true', { timeout: 30_000 })
+  // no pin, layer off: nothing is fetched or drawn
+  await expect(map).toHaveAttribute('data-facility-layers', '0/0/0')
+  const { x, y } = await initialPixel(page, POINT)
+  await page.mouse.click(x, y)
+  await expect(map).not.toHaveAttribute('data-facility-layers', '0/0/0')
+  const [, areas, access] = ((await map.getAttribute('data-facility-layers')) ?? '').split('/').map(Number)
+  expect(areas).toBeGreaterThan(0)
+  expect(access).toBeGreaterThan(0)
+  await page.getByTestId('inspect-result').locator('li.selected .cat-count').click()
+  await page.getByTestId('inspect-result').locator('li.selected .reach-list li').first().getByRole('button').click()
+  await expect(page.getByTestId('facility-route')).toContainText('nearest park entrance')
+})
+
+test('the data page explains how parks are measured', async ({ page }) => {
+  await mockNetwork(page)
+  await page.goto('/#/data')
+  await expect(page.getByText('nearest park entrance')).toBeVisible()
 })

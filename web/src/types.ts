@@ -1,5 +1,5 @@
 // Response shapes of the reach API (docs/data_contract.md, "API responses").
-import type { Feature, FeatureCollection, LineString, MultiPolygon, Polygon } from 'geojson'
+import type { Feature, FeatureCollection, LineString, MultiPolygon, Point, Polygon } from 'geojson'
 
 export interface Run {
   run_id: string
@@ -187,9 +187,14 @@ export interface PrecomputedTransit {
   class: string
 }
 
+/** Informative OSM tags of a facility (config `facility_tags`), as stored. */
+export type FacilityTags = Partial<Record<string, string>>
+
 export interface ReachableFacility {
   facility_id: string
   name: string | null
+  tags: FacilityTags
+  osm_url: string
   time_s: number
   time_min: number
   /** Routing point [lon, lat] the time was measured to (for parks the access point). */
@@ -203,6 +208,8 @@ export type RouteLine = Feature<LineString, { time_s: number; length_m: number }
 export interface NextFacility {
   facility_id: string
   name: string | null
+  tags: FacilityTags
+  osm_url: string
   time_s: number
   time_min: number
   point: [number, number]
@@ -249,8 +256,26 @@ export interface RouteAnswer {
   run_id: string
   profile_id: string
   cell: InspectCell
-  facility: { facility_id: string; name: string | null; categories: string[]; point: [number, number] }
+  facility: {
+    facility_id: string
+    name: string | null
+    categories: string[]
+    tags: FacilityTags
+    osm_url: string
+    point: [number, number]
+  }
   within_budget: boolean
   route: RouteLine
   cached: boolean
+}
+
+/** GET /api/facilities: `facility` points; with `geometry=area` also park outlines (`area`) and
+ * their routing points on the boundary (`access`). */
+export type FacilityFeatureProps =
+  | { kind: 'facility'; facility_id: string; name: string | null; category: string; tags: FacilityTags; osm_url: string }
+  | { kind: 'area' | 'access'; facility_id: string; name?: string | null; category: string }
+
+export type Facilities = FeatureCollection<Point | MultiPolygon, FacilityFeatureProps> & {
+  run_id: string
+  category: string
 }

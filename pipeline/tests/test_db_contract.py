@@ -66,6 +66,8 @@ CONTRACT = {
         ("category", "text"),
         ("name", "text"),
         ("geom", POINT),
+        ("tags", "jsonb"),
+        ("area_geom", MULTI),
     ],
     "facility_points": [
         ("facility_id", "text"),
@@ -262,6 +264,8 @@ def run_tables(grocery_a: int = 0) -> dict[str, pd.DataFrame]:
                 "category": ["grocery"],
                 "name": ["Shop"],
                 "geom": _geo([point]),
+                "tags": ['{"opening_hours": "Mo-Fr 08:00-18:00"}'],
+                "area_geom": [None],
             }
         ),
         "facility_points": pd.DataFrame(

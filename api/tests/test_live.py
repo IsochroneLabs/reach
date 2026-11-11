@@ -14,6 +14,7 @@ from reach_api.main import create_app
 RUN_ID = "20261105T184022Z"
 CELL = "CRS3035RES100mN2823400E4251200"
 FakeDatabase = Any  # conftest.FakeDatabase (not importable with --import-mode=importlib)
+TAGS = {"n5183783736": {"addr:street": "Neckargasse", "addr:housenumber": "5"}}
 
 INSPECT = {"lon": 9.0568, "lat": 48.5204, "profile": "walking_339"}
 
@@ -331,10 +332,8 @@ def test_reachable_facilities_carry_their_point(client: TestClient, rec: dict[st
     assert [f["point"] for f in grocery["reachable"]] == [
         [round(p["lon"], 6), round(p["lat"], 6)] for p in near
     ]
-    assert all(
-        set(f) == {"facility_id", "name", "time_s", "time_min", "point"}
-        for f in grocery["reachable"]
-    )
+    keys = {"facility_id", "name", "time_s", "time_min", "point", "tags", "osm_url"}
+    assert all(set(f) == keys for f in grocery["reachable"])
 
 
 def test_next_facility_beyond_the_budget(
@@ -480,3 +479,24 @@ def test_failed_matrix_is_not_cached_and_one_bad_point_costs_one_category(
     again = client.post("/api/inspect", json=INSPECT).json()
     assert again["cached"] is False
     assert _category(again, "pharmacy")["next_facility"]["time_s"] == 1712
+
+
+def test_informative_tags_and_osm_link_in_live_answers(
+    client: TestClient, rec: dict[str, Any]
+) -> None:
+    body = client.post("/api/inspect", json=INSPECT).json()
+    grocery = _category(body, "grocery")
+    first = grocery["reachable"][0]  # Alnatura, 145 s
+    assert first["tags"] == {"opening_hours": "Mo-Sa 07:00-20:00", "wheelchair": "yes"}
+    assert first["osm_url"] == "https://www.openstreetmap.org/node/2978948434"
+    assert grocery["reachable"][1]["tags"] == {
+        "addr:street": "Neckargasse",
+        "addr:housenumber": "5",
+    }
+    # a facility without informative tags has an empty object, a way/relation links accordingly
+    nxt = _category(body, "pharmacy")["next_facility"]
+    assert nxt["tags"] == {} and nxt["osm_url"] == "https://www.openstreetmap.org/way/396807347"
+    last = rec["points"][-1]
+    answer = client.post("/api/route", json={**INSPECT, "facility_id": last["facility_id"]}).json()
+    assert answer["facility"]["tags"] == TAGS[last["facility_id"]]
+    assert answer["facility"]["osm_url"].endswith("/node/5183783736")

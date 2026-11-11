@@ -3,6 +3,7 @@ import {
   errorMessage,
   getCells,
   getDistricts,
+  getFacilities,
   getMeta,
   getRecommendations,
   postCandidateCatchment,
@@ -20,7 +21,7 @@ import SettingsPanel from './components/SettingsPanel'
 import { FACILITY_CLASSES, TRANSIT } from './palette'
 import { routeHash, useRoute } from './route'
 import { cardOpen, useSettings } from './settings'
-import type { Cells, Districts, IsochroneAnswer, Meta, RecommendationProps, Recommendations } from './types'
+import type { Cells, Districts, Facilities, IsochroneAnswer, Meta, RecommendationProps, Recommendations } from './types'
 
 // Scored cells answer in < 100 ms: show the spinner only for slower (live) answers.
 const SPINNER_DELAY_MS = 300
@@ -74,6 +75,7 @@ function Main({ meta, districts }: { meta: Meta; districts: Districts }) {
   const [cellsResult, setCellsResult] = useState<{ key: string; cells: Cells | null }>({ key: '', cells: null })
   const [cellsError, setCellsError] = useState<{ key: string; message: string } | null>(null)
   const [recommendations, setRecommendations] = useState<{ key: string; data: Recommendations } | null>(null)
+  const [facilityLayer, setFacilityLayer] = useState<{ category: string; data: Facilities } | null>(null)
   const [pin, setPin] = useState<[number, number] | null>(null)
   const [inspect, setInspect] = useState<InspectState>({ status: 'idle' })
   const [district, setDistrict] = useState<string | null>(null)
@@ -117,6 +119,26 @@ function Main({ meta, districts }: { meta: Meta; districts: Districts }) {
       cancelled = true
     }
   }, [category, profile.profile_id, viewKey])
+
+  // Facilities of the category (points, park outlines, access points): only once they are drawn,
+  // i.e. with a pin or with the "all facilities" layer on.
+  const wantFacilities = category !== TRANSIT && (pin !== null || settings.showAllFacilities)
+  useEffect(() => {
+    if (!wantFacilities) return
+    let cancelled = false
+    getFacilities(category).then(
+      (data) => !cancelled && setFacilityLayer({ category, data }),
+      (err: unknown) => console.warn('facilities:', errorMessage(err)),
+    )
+    return () => {
+      cancelled = true
+    }
+  }, [wantFacilities, category])
+  const facilities = wantFacilities && facilityLayer?.category === category ? facilityLayer.data : null
+  const areaIds = useMemo(
+    () => new Set(facilities?.features.filter((f) => f.properties.kind === 'area').map((f) => f.properties.facility_id)),
+    [facilities],
+  )
 
   const runInspect = useCallback((lon: number, lat: number, profileId: string) => {
     inspectAbort.current?.abort()
@@ -323,7 +345,7 @@ function Main({ meta, districts }: { meta: Meta; districts: Districts }) {
               coloursWithPin={settings.coloursWithPin}
               direction={settings.isochroneDirection}
               reverseError={reverseOfPin?.error ?? null}
-              facility={{ selected: selectedFacility, route: facilityRoute, onSelect: pickFacility, onHover: setHoveredFacility }}
+              facility={{ selected: selectedFacility, route: facilityRoute, onSelect: pickFacility, onHover: setHoveredFacility, areaIds }}
               onColoursWithPin={(on) => updateSettings({ coloursWithPin: on })}
             />
             <RecommendationsPanel
@@ -358,6 +380,8 @@ function Main({ meta, districts }: { meta: Meta; districts: Districts }) {
             settings={settings}
             routeCategory={category}
             budgetMin={budgetMin}
+            facilities={facilities}
+            areaIds={areaIds}
             selectedFacility={selectedFacility}
             hoveredFacility={hoveredFacility}
             facilityRoute={facilityRoute.status === 'done' ? facilityRoute.data : null}

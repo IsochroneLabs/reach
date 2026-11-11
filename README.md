@@ -19,7 +19,8 @@ University of Tübingen, winter term 2026/27), Topic 9 "The 15-Minute City".
 > class map, a pin-drop inspector, recommended sites with their catchments, district statistics,
 > map settings (layers, cell opacity, isochrone rings and direction, minimum residents, pin mode),
 > facility pins with a route to the next missing facility (also beyond 15 minutes) and a clickable
-> facility list, and the data & validation page. The app iteration on 18 feedback points (plan: [`docs/app_iteration_plan.md`](docs/app_iteration_plan.md)) is in
+> facility list with opening hours, address and links to OpenStreetMap and Google Maps, park outlines
+> with their access points, and the data & validation page. The app iteration on 18 feedback points (plan: [`docs/app_iteration_plan.md`](docs/app_iteration_plan.md)) is in
 > progress. The validation experiments V1–V11 run with `make experiments`
 > and are interpreted in [`docs/validation_report.md`](docs/validation_report.md) (V7 and V9
 > need people and are not run yet); progress:
@@ -180,7 +181,7 @@ second `make up` replaces the containers of the first (images `reach-api:dev` an
 
 | Source | Used for | Licence |
 |---|---|---|
-| [Geofabrik](https://download.geofabrik.de/europe/germany/baden-wuerttemberg/tuebingen-regbez.html) OpenStreetMap extract | Street network, facilities, boundaries, land use | ODbL 1.0 |
+| [Geofabrik](https://download.geofabrik.de/europe/germany/baden-wuerttemberg/tuebingen-regbez.html) OpenStreetMap extract | Street network, facilities (with opening hours, wheelchair access, address and contact tags as displayed information), boundaries, land use | ODbL 1.0 |
 | [NVBW](https://www.nvbw.de/open-data/fahrplandaten) GTFS (naldo) | Public transport stops and departures | dl-de/by-2-0, ODbL |
 | [Destatis Zensus 2022](https://www.zensus2022.de/) 100 m grid | Residents per cell | dl-de/by-2-0 |
 | Elevation tiles via Valhalla | Slopes (per-profile setting) | per source |

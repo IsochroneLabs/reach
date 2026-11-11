@@ -823,3 +823,10 @@ code {
   flex-wrap: wrap;
   gap: 0.2rem 0.8rem;
 }
+
+/* picked facility: informative OSM tags and links */
+.facility-info { margin: 0.25rem 0; }
+.facility-info div { display: flex; gap: 0.5rem; }
+.facility-info dt { flex: 0 0 6.5rem; color: var(--muted, #666); }
+.facility-info dd { margin: 0; overflow-wrap: anywhere; }
+.facility-links { margin: 0.25rem 0 0; }

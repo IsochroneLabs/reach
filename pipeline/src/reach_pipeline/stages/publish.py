@@ -92,6 +92,16 @@ def _geo(path: Path, columns: list[str]) -> pd.DataFrame:
     return pd.DataFrame(layer[columns]).assign(geom=db.ewkb(geoms))
 
 
+def facilities_frame(path: Path) -> pd.DataFrame:
+    """`facilities`: point (`geom`), informative `tags` (JSON) and the area outline (`area_geom`,
+    hex EWKB, empty for points)."""
+    layer = gpd.read_parquet(path)
+    area = layer.set_geometry("area_geometry").geometry
+    frame = _geo(path, ["facility_id", "category", "name", "tags"])
+    # to_csv writes None as an empty field, which COPY reads as NULL
+    return frame.assign(area_geom=db.ewkb(area))
+
+
 def profiles_frame(cfg: Config) -> pd.DataFrame:
     """`profiles`: costing options exactly as sent to Valhalla (incl. the speed option)."""
     return pd.DataFrame(
@@ -136,7 +146,7 @@ def tables(ctx: RunContext) -> dict[str, pd.DataFrame]:
         ),
         "districts": _geo(p["districts"], ["district_id", "name", "admin_level"]),
         "urban_boundary": _geo(p["urban_boundary"], ["part_id", "name"]),
-        "facilities": _geo(p["facilities"], ["facility_id", "category", "name"]),
+        "facilities": facilities_frame(p["facilities"]),
         "facility_points": _geo(p["facility_points"], ["facility_id", "point_id", "kind"]),
         "stops": _geo(p["stops"], ["stop_id", "name", "weekday_departures"]),
         "profiles": profiles_frame(ctx.config),

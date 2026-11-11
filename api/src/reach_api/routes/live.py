@@ -125,6 +125,8 @@ def _by_category(rows: list[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:
                 "time_s": r["time_s"],
                 "time_min": round(r["time_s"] / 60, 2),
                 "point": [round(r["lon"], 6), round(r["lat"], 6)],
+                "tags": r["tags"],
+                "osm_url": r["osm_url"],
                 "_point": (r["lon"], r["lat"]),
             }
         )
@@ -325,6 +327,8 @@ async def _next_facilities(
                 "time_s": r["time_s"],
                 "time_min": round(r["time_s"] / 60, 2),
                 "point": [round(r["lon"], 6), round(r["lat"], 6)],
+                "tags": r["tags"],
+                "osm_url": r["osm_url"],
                 "within_budget": r["time_s"] <= budget_s,
                 "route": route,
             },
@@ -374,6 +378,8 @@ async def facility_route(body: RouteRequest, d: DepsDep) -> Response:
                 "facility_id": facility["facility_id"],
                 "name": facility["name"],
                 "categories": facility["categories"],
+                "tags": facility["tags"],
+                "osm_url": facility["osm_url"],
                 "point": [round(target["lon"], 6), round(target["lat"], 6)],
             },
             "within_budget": route["properties"]["time_s"] <= p.time_budget_min * 60,

@@ -1,6 +1,6 @@
 # Methodology — reach
 
-> **Status:** draft v0.6 (6 Nov 2026). Binding definition of **what** is measured, scored,
+> **Status:** draft v0.7 (9 Nov 2026). Binding definition of **what** is measured, scored,
 > recommended and validated. `architecture.md` describes **how** the system computes it. Every
 > change bumps the version and adds a line to the [Change log](#change-log). Items marked
 > **[M#]** are open methodology questions (Section 7).
@@ -56,7 +56,11 @@ playgrounds** are represented by **access points**: the intersections of walkabl
 park boundary; if there are none, points along the boundary every 50 m; at most *N* points per
 park (spacing and *N* in `config/config.yaml`). A park counts **once** if at least one of its
 access points is reachable within the budget; its travel time is the minimum over all access
-points.
+points. The app shows the park area and its access points and says so: "Measured to the nearest
+park entrance (where a path meets the boundary). A park counts once." (display only, no change
+of the measurement). Informative tags of a facility (opening hours, wheelchair access, address,
+contact, speciality; `facility_tags` in the config) are displayed as stored and never change a
+count.
 
 Tag mapping lives in `config/config.yaml`. Higher-order facilities (hospitals, universities,
 specialised shops) are excluded. Bars, gyms and similar amenities are not part of 15-minute
@@ -171,6 +175,7 @@ wheelchair as well as cycling (`architecture.md` §6.1, notes N5); its effect on
 
 | Version | Date | Change | Why |
 |---|---|---|---|
+| v0.7 | 2026-11-09 | §2: the app shows park areas and access points with a sentence on how parks are measured; informative OSM tags are displayed only, never counted | App iteration W5 (points 16, 17); confirmed by Rico (plan v0.1) |
 | v0.6 | 2026-11-06 | §5: ΔW = reduction of the deficit sum; candidates = 100 m grid cells inside the urban boundary, land-use filter without industrial and with protected areas only of nature classes (1–4, 7), only candidates within reach of a deficit routed; catchment per profile; greedy with top-*N* and minimum gain, each zone once (no spacing); output fields | P7 recommender; decisions by Rico (6 Nov 2026): keep industrial land use (supermarkets, doctors), pure objective for k ≥ 2, protected areas only of nature classes (heritage protection excluded the Altstadt) |
 | v0.5 | 2026-11-06 | §1: known limitation of the wheelchair profile (steps avoided, steep sections not; counts optimistic on hillsides) | N11: `max_grade` has no effect in Valhalla 3.9.1; architecture v0.17; no change to counts |
 | v0.4 | 2026-11-06 | §1: speeds are flat-ground speeds, Valhalla's slope model reduces them, results conservative; §6: new experiments V10 (matrix vs. /route: `matrix_vs_route`, `false_negatives`, flip rate `budget_flips`) and V11 (with vs. without slopes, P7), G1 answered | N5 settled (decision by Rico: keep the slope model, no change to counts); the matrix-vs-/route checks of N8/N9 had no V-number; architecture v0.16 |

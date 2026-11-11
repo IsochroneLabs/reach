@@ -47,6 +47,8 @@ this file adds the stage pattern (note N2) and wins where it is more specific.
   lines → GeoPandas); never read the full PBF in Python. osmium's memory grows with the highest
   node ID (about 1.7 GB per ID bitmap), not with the file size; keep the number of
   `extract`/`tags-filter` passes over the regional PBF small.
+- **Facility tags:** `facilities.build(..., tag_keys)` keeps the config `facility_tags` as JSON text
+  and the simplified outline of areas (`area_geometry`); `publish` loads them as `tags` / `area_geom`.
 - **Raw inputs:** `acquire.raw_path(raw_dir, source, file)`; later stages never download.
 - **Valhalla:** only through `valhalla/client.py` (`ValhallaClient`: async httpx, at most
   `valhalla.concurrency` requests in flight, retries on timeouts/5xx, `matrix()` with compact

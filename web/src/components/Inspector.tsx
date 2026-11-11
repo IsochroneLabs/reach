@@ -2,6 +2,7 @@
 // facilities with travel times (click: show on the map with its route), the next missing facility
 // of a category below its requirement, the route to the nearest one (time first, length
 // secondary) and the 5/10/15 min isochrone (display).
+import { googleMapsUrl, infoLines, PARK_NOTE } from '../facilityInfo'
 import { CARD_HELP, CELL_STATUS_TEXT, classPlain, timeLabel } from '../labels'
 import { classColour, classLabel, TRANSIT } from '../palette'
 import type { IsochroneDirection } from '../settings'
@@ -22,6 +23,8 @@ export interface FacilityProps {
   /** Pick a facility (a second click on it clears the pick); its category becomes the selected one. */
   onSelect: (facilityId: string | null, category: string) => void
   onHover: (facilityId: string | null) => void
+  /** Facilities of the selected category that are parks (area outline): they get the park note. */
+  areaIds: Set<string>
 }
 
 export type InspectState =
@@ -210,7 +213,7 @@ function InspectBody({
                 )}
               </details>
               {/* outside the details, so a pick on the map shows its route with the list collapsed */}
-              {c.category === category && <FacilityRouteInfo state={facility.route} budgetMin={budgetMin} />}
+              {c.category === category && <FacilityRouteInfo state={facility.route} budgetMin={budgetMin} areaIds={facility.areaIds} />}
             </li>
           )
         })}
@@ -276,7 +279,15 @@ function FacilityButton({
   )
 }
 
-function FacilityRouteInfo({ state, budgetMin }: { state: FacilityRouteState; budgetMin: number | null }) {
+function FacilityRouteInfo({
+  state,
+  budgetMin,
+  areaIds,
+}: {
+  state: FacilityRouteState
+  budgetMin: number | null
+  areaIds: Set<string>
+}) {
   if (state.status === 'idle') return null
   if (state.status === 'loading')
     return (
@@ -291,12 +302,41 @@ function FacilityRouteInfo({ state, budgetMin }: { state: FacilityRouteState; bu
       </p>
     )
   const { route, facility, within_budget } = state.data
+  const lines = infoLines(facility.tags)
   return (
-    <p className="small route-info" data-testid="facility-route">
-      Route to <strong>{facility.name ?? 'this facility'}</strong>:{' '}
-      <strong>{timeLabel(route.properties.time_s / 60, budgetMin, !within_budget)}</strong>{' '}
-      <span className="muted">· {Math.round(route.properties.length_m)} m</span>
-    </p>
+    <div className="small route-info" data-testid="facility-route">
+      <p>
+        Route to <strong>{facility.name ?? 'this facility'}</strong>:{' '}
+        <strong>{timeLabel(route.properties.time_s / 60, budgetMin, !within_budget)}</strong>{' '}
+        <span className="muted">· {Math.round(route.properties.length_m)} m</span>
+      </p>
+      <dl className="facility-info" data-testid="facility-info">
+        {lines.map((l) => (
+          <div key={l.label}>
+            <dt>{l.label}</dt>
+            <dd>
+              {l.href ? (
+                <a href={l.href} target="_blank" rel="noreferrer">
+                  {l.value}
+                </a>
+              ) : (
+                l.value
+              )}
+            </dd>
+          </div>
+        ))}
+      </dl>
+      {areaIds.has(facility.facility_id) && <p className="muted">{PARK_NOTE}</p>}
+      <p className="facility-links">
+        <a href={facility.osm_url} target="_blank" rel="noreferrer">
+          View on OpenStreetMap
+        </a>{' '}
+        ·{' '}
+        <a href={googleMapsUrl(facility.name, facility.point)} target="_blank" rel="noreferrer">
+          Open in Google Maps
+        </a>
+      </p>
+    </div>
   )
 }
 

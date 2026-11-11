@@ -8,7 +8,9 @@ this file wins where it is more specific.
   `POST /api/isochrone` (forward or reverse, cached per direction). W3: `cell.status` in every
   live answer (`scored`, `unpopulated`, `outside_city`), clicks accepted in the whole city. W4:
   `reachable[].point`, the next missing facility per category (`next_facility`, `next_note`,
-  one live matrix, `api.next_facility.*`) and `POST /api/route` to one facility.
+  one live matrix, `api.next_facility.*`) and `POST /api/route` to one facility. W5: `tags` and
+  `osm_url` per facility, `GET /api/facilities` (`db.facilities_geojson`; `tags`/`area_geom` are
+  detected per run in `information_schema`, so older runs still work).
 - **Layout:** `main.py` (`create_app(deps)`, lifespan builds pool and client from the
   environment, error mapping), `settings.py` (env + `api` section of the config), `db.py` (all
   SQL, `Database` protocol), `valhalla.py` (async client), `deps.py` (shared state, run context,

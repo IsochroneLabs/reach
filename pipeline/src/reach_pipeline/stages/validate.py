@@ -44,6 +44,7 @@ CONFIG_SECTIONS = (
     "access_points",
     "categories",
     "districts",
+    "facility_tags",
     "reference_day",
     "sources",
     "study_area",
@@ -157,7 +158,9 @@ def build_layers(ctx: RunContext, inp: Inputs, stage_dir: Path, step: _Steps) ->
             osm.export(feat_pbf, work / "ways.geojsonseq", ["linestring"]),
             where=f"highway IN ({_sql_list(walkable)})",
         )
-        fac, points = facilities.build(feats, ways.geometry, cfg.categories, cfg.access_points)
+        fac, points = facilities.build(
+            feats, ways.geometry, cfg.categories, cfg.access_points, cfg.facility_tags
+        )
         area = routing.geometry.iloc[0]
         # Only routing points inside the routing area (the graph ends there); a facility stays
         # if at least one of its points is inside.

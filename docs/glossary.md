@@ -40,6 +40,8 @@ Project vocabulary used in code, docs, issues and prompts. People and roles ("yo
 | **provenance** | Per source and run: URL, retrieval time, SHA-256, licence (`acquire/data_sources.parquet`, published to `meta.data_sources`). |
 | **matrix** | Valhalla `sources_to_targets`: travel times between many points; used for all counting. |
 | **isochrone** | Valhalla polygon of the area reachable within a time; display only. |
+| **access point** | Routing point of a park or playground on its boundary (a walkable way crossing it, else every 50 m); a park counts once, its time is the minimum over its access points. The app shows them next to the park outline. |
+| **facility tags** | Informative OSM tags kept per facility (`facility_tags` in the config: opening hours, wheelchair, address, contact, speciality); displayed as stored, never used for counting. |
 | **expansion** | Valhalla list of reached street segments with times; visualisation only. |
 | **run / `run_id`** | One complete pipeline execution on one data snapshot; results are published as DB schema `run_<id>`. |
 | **stage** | One pipeline step: acquire, validate inputs, build tiles, count, score, recommend, validate results, publish, cleanup. |
