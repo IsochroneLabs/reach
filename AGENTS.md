@@ -180,8 +180,8 @@ documentation links, team or milestones. Before every commit, check whether the 
 
 ## Writing efficient code
 
-The production server has 2 vCPU and 4 GB RAM shared by PostGIS, Valhalla, the API and the
-pipeline. Write for that.
+The production server has at least 8 GB RAM (plan to be confirmed, `docs/architecture.md` §11)
+shared by PostGIS, Valhalla, the API and the pipeline. Still write for a small machine.
 
 - **Vectorise.** pandas/GeoPandas operations, spatial joins and spatial indexes (`sjoin`,
   `sindex`, `STRtree`); no Python loops over cells or facilities.

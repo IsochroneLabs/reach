@@ -393,6 +393,11 @@ tile set. Why (option name, parsing, edge grades) is not found out; the known li
 
 What the first version (P7, branch `feature/rico-recommender`) leaves open:
 
+- **Cycling is off** (`recommend.profiles`, decision by Rico): hardly any cycling deficit, and
+  large cycling `costmatrix` requests grow Valhalla's memory (N4). Switching it on is a config
+  change; measure runtime and the Valhalla peak first (walking + wheelchair: 84 s, 1.2 GB).
+- **The 2.5 GiB Valhalla limit for cycling (E6) came from the 4 GB server.** With the 8 GB target
+  (architecture v0.22) the limit can be set again; cycling needs ~3.9 GiB for Valhalla alone.
 - **Cycling stays off** (W6, measured 9 Nov 2026 on the Tübingen run, macOS/Docker Desktop):
 
   | `recommend` variant | runtime | pipeline peak | Valhalla peak | pairs |

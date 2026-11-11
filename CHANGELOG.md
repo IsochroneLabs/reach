@@ -7,6 +7,9 @@ adds a line under `Unreleased`.
 
 ## [Unreleased]
 
+### Changed (docs, server target)
+- Production server target raised from 2 vCPU / 4 GB (CX23) to at least 8 GB RAM (architecture v0.22 §6.5, §11, O1; `AGENTS.md`). Plan and price are still to be checked against the 20 € budget.
+
 ### Added (pipeline, W6 cycling recommendations)
 - Optional config key `recommend.profile_overrides.<profile>.candidate_spacing_m` (coarser
   candidate grid for one profile). Cycling recommendations were measured with and without it and
