@@ -393,9 +393,20 @@ tile set. Why (option name, parsing, edge grades) is not found out; the known li
 
 What the first version (P7, branch `feature/rico-recommender`) leaves open:
 
-- **Cycling is off** (`recommend.profiles`, decision by Rico): hardly any cycling deficit, and
-  large cycling `costmatrix` requests grow Valhalla's memory (N4). Switching it on is a config
-  change; measure runtime and the Valhalla peak first (walking + wheelchair: 84 s, 1.2 GB).
+- **Cycling stays off** (W6, measured 9 Nov 2026 on the Tübingen run, macOS/Docker Desktop):
+
+  | `recommend` variant | runtime | pipeline peak | Valhalla peak | pairs |
+  |---|---|---|---|---|
+  | without cycling (3 profiles) | 44 s | 1.6 GB | 1.2 GiB | – |
+  | + `cycling_15`, 100 m candidates | 295 s | 2.0 GB | 4.0 GiB | 1.48 M |
+  | + `cycling_15`, 200 m candidates | 202 s | 1.7 GB | 3.9 GiB | 0.37 M |
+
+  Limit (E6): runtime ≤ 10 min and Valhalla ≤ 2.5 GiB. Runtime passes, Valhalla does not, even
+  with the 200 m grid (the memory is set by the 3.75 km source sets of the matrix requests, not
+  by the number of candidates). Cycling would add 12 zones for ~130 cells with a deficit. The
+  key `recommend.profile_overrides.<profile>.candidate_spacing_m` stays in the code; switching
+  cycling on = adding `cycling_15` to `recommend.profiles`. Ideas if wanted later: smaller
+  `group_size_m` for cycling, or fewer sources per request.
 - **osmium peak ~950 MB** for the land-use filter (`tags-filter` on the clipped PBF; the ID
   bitmaps, not the 11 MB file, set the size). Could move into `validate` pass 1 (one pass fewer
   over the regional PBF there, but a new validate output); only if the CX23 needs it (P8).
