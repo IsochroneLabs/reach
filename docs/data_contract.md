@@ -1,6 +1,6 @@
 # Data contract — reach
 
-> **Status:** draft v0.14 (9 Nov 2026), from `implementation_plan.md` §3. Binding for the tables
+> **Status:** draft v0.15 (10 Nov 2026), from `implementation_plan.md` §3. Binding for the tables
 > and files exchanged between pipeline and API once a phase implements them; every change needs
 > confirmation (AGENTS.md) and a data-contract test. Tables marked *(planned, Pn)* do not exist yet.
 
@@ -185,7 +185,7 @@ osmium intermediates in `validate/osm/`.
 | Key | Content |
 |---|---|
 | `run_id`, `stage`, `status` (`ok`/`fail`), `generated_at` | |
-| `summary` | `city`, `osm_snapshot`, `urban_boundary_parts`, `urban_area_km2`, `city_area_km2`, `routing_area_km2`, `districts`, `cells_scored`, `residents_touching_city` (coverage base), `residents_scored`, `residents_excluded`, `scored_share`, `residents_outside_urban_boundary` (scored, informative), `excluded_by_district` {district name: residents}, `facilities` {category: count}, `facility_points`, `stops`, `gtfs_valid_from`, `gtfs_valid_to`, `reference_weekday`, `active_services` |
+| `summary` | `city`, `osm_snapshot`, `urban_boundary_parts`, `urban_area_km2`, `city_area_km2`, `routing_area_km2`, `districts`, `cells_scored`, `residents_touching_city` (coverage base), `residents_scored`, `residents_excluded`, `scored_share`, `residents_outside_urban_boundary` (scored, informative), `excluded_by_district` {district name: residents}, `facilities` {category: count}, `facility_points`, `stops`, `gtfs_valid_from`, `gtfs_valid_to`, `reference_weekday`, `active_services`, `facilities_without_type` (list of `amenity=school` features in the city without a type tag, name or OSM id) |
 | `checks` | list of rows of `validation_report` (`check`, `stage`, `status`, `value`, `message`) |
 | `stages` | `stage`, `runtime_s`, `peak_rss_mb` for `acquire` and `validate` |
 | `steps` | `step`, `runtime_s`, `peak_rss_mb` (high-water mark so far) within `validate` |
@@ -271,6 +271,7 @@ their row counts.
 | v0.8 | 2026-11-06 | `GET /api/meta`: `profiles[].transit_budget_min` (from the config like category names; part of the meta ETag) | Transit legend in the web app (P6) |
 | v0.9 | 2026-11-06 | Report part 2: check and key `budget_flips` (flip rate per profile and direction) | Methodology V10 (matrix vs. /route) |
 | v0.10 | 2026-11-06 | `recommendations` columns (gain, residents gaining access / reaching sufficient, catchment, zone + centre) and new `recommendation_catchments`; `recommend/` files (incl. the protected areas not excluded); check and key `recommendations` in report part 2; `/api/recommendations` filled (geo+json, district of the zone); `/api/catchment` for a recommended zone and `source`; `publish` drops `current` views of relations the run does not have | P7 recommender (methodology v0.6 §5, architecture v0.18); confirmed by Rico |
+| v0.15 | 2026-11-10 | Categories: `parks` and `playgrounds` are separate (`/api/meta` `categories`, `facilities.category`, `access_counts.category`); `report_inputs.json` `summary` gets `facilities_without_type`; new report-part-1 checks `facilities_excluded_by_access` (informative) and `facility_subtypes_complete` (warns below the 95 % gate); no table or column changes | App iteration W7a |
 | v0.11 | 2026-11-09 | `POST /api/isochrone` (`direction` forward/reverse) | App iteration W2 (point 10), architecture v0.19 |
 | v0.12 | 2026-11-09 | Live `cell.status` (`scored`/`unpopulated`/`outside_city`); points accepted inside the city boundary instead of the urban boundary + margin | App iteration W3 (points 12, 13; E5), architecture v0.20 |
 | v0.13 | 2026-11-09 | `reachable[].point`; `categories[].next_facility` / `next_note` in `/api/inspect`; `POST /api/route` | App iteration W4 (points 4, 6, 16), architecture v0.21 |

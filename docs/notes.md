@@ -445,7 +445,7 @@ What the first validation report (branch `feature/rico-validation-report`) leave
 
 ## N14. Non-public playgrounds and parks are counted
 
-**Status:** open · **Added:** 9 Nov 2026 · **Related:** `methodology.md` §2,
+**Status:** closed (10 Nov 2026, W7a) · **Added:** 9 Nov 2026 · **Related:** `methodology.md` §2,
 `docs/osm_tagging.md` §4, `docs/app_iteration_plan.md` W7a
 
 **Finding (run `20261106T142630Z`, OSM 2026-11-01):** the pipeline ignores `access=*`. Of 349
@@ -454,6 +454,12 @@ What the first validation report (branch `feature/rico-validation-report`) leave
 `access=no`. All of them count as reachable parks & playgrounds, so the category is optimistic,
 most likely in dense housing areas.
 
-**Proposal (W7a, ask first):** exclude `access` in `[private, no, customers]` for parks and
+**Resolution (W7a):** `access` in `[private, no, customers]` is excluded for parks and
 playgrounds only (not for schools, childcare, shops or practices, where the tag describes the
-grounds or customers), and report the excluded features per category in `validate`.
+grounds or customers); a standing `warn` for `facility_subtypes_complete` is expected until the
+schools are tagged; a private polygon hides only itself (an untagged playground node inside it
+still counts); `validate` reports the dropped features (`facilities_excluded_by_access`:
+in the city 58 private and 10 customers playgrounds, 1 private and 1 closed park; run
+`20261109T175743Z`). Share of residents with a park or playground within 15 minutes (walking
+3.39 km/h) 97.5 % before, 97.2 % after; wheelchair 95.8 % → 94.8 %. Parks alone: 69.2 % (walking
+3.39), playgrounds alone: 95.8 %.

@@ -22,6 +22,7 @@ import geopandas as gpd
 import shapely
 
 from reach_pipeline import boundary, facilities, gtfs, osm, zensus
+from reach_pipeline.config import Config
 from reach_pipeline.context import RUN_ID_FORMAT, RunContext
 from reach_pipeline.errors import StageValidationError
 from reach_pipeline.manifest import (
@@ -161,6 +162,16 @@ def build_layers(ctx: RunContext, inp: Inputs, stage_dir: Path, step: _Steps) ->
         fac, points = facilities.build(
             feats, ways.geometry, cfg.categories, cfg.access_points, cfg.facility_tags
         )
+        # Informative statistics on the features inside the city (not the routing buffer).
+        in_city = feats.representative_point().within(study).to_numpy(dtype=bool)
+        city_feats = feats[in_city]
+        excluded_by_filter = facilities.exclusion_stats(city_feats, cfg.categories)
+        subtypes = cfg.validation.facility_subtypes
+        subtype_total, subtype_missing = (
+            facilities.subtype_gap(city_feats, subtypes.base, subtypes.type_keys)
+            if subtypes
+            else (0, [])
+        )
         area = routing.geometry.iloc[0]
         # Only routing points inside the routing area (the graph ends there); a facility stays
         # if at least one of its points is inside.
@@ -211,6 +222,9 @@ def build_layers(ctx: RunContext, inp: Inputs, stage_dir: Path, step: _Steps) ->
             "routing_area": routing,
         },
         "scope": study,
+        "excluded_by_filter": excluded_by_filter,
+        "subtype_total": subtype_total,
+        "subtype_missing": subtype_missing,
         "city_area_km2": city.area / 1e6,
         "district_gap": gap,
         "district_overlap": overlap,
@@ -335,6 +349,8 @@ def checks(ctx: RunContext, r: dict[str, Any]) -> list[Check]:
         )
     )
 
+    out += facility_checks(cfg, r)
+
     ref = r["reference_weekday"]
     vf, vt = r["gtfs_valid_from"], r["gtfs_valid_to"]
     if ref is None:
@@ -387,6 +403,44 @@ def checks(ctx: RunContext, r: dict[str, Any]) -> list[Check]:
     return out
 
 
+def facility_checks(cfg: Config, r: dict[str, Any]) -> list[Check]:
+    """`facilities_excluded_by_access` (informative) and `facility_subtypes_complete`."""
+    out: list[Check] = []
+    by_filter: dict[str, dict[str, int]] = r["excluded_by_filter"]
+    if by_filter:
+        total = sum(v["excluded"] for v in by_filter.values())
+        detail = "; ".join(
+            f"{cat}: " + ", ".join(f"{cond} {n}" for cond, n in v.items() if cond != "excluded")
+            for cat, v in by_filter.items()
+        )
+        out.append(
+            Check(
+                "facilities_excluded_by_access",
+                "ok",
+                total,
+                f"{total} features in the city dropped by category `exclude` conditions "
+                f"({detail}; one feature can match several)",
+            )
+        )
+    subtypes = cfg.validation.facility_subtypes
+    if subtypes:
+        ((key, value),) = subtypes.base.items()
+        total, missing = r["subtype_total"], r["subtype_missing"]
+        pct = 100 * (total - len(missing)) / total if total else 100.0
+        shown = ", ".join(missing[:10]) + (" …" if len(missing) > 10 else "")
+        out.append(
+            Check(
+                "facility_subtypes_complete",
+                "ok" if pct >= subtypes.min_typed_pct else "warn",
+                round(pct, 1),
+                f"{total - len(missing)} of {total} {key}={value} features in the city carry one "
+                f"of {subtypes.type_keys} ({pct:.1f} %, gate {subtypes.min_typed_pct:g} %)"
+                + (f"; without: {shown}" if missing else ""),
+            )
+        )
+    return out
+
+
 def _summary(ctx: RunContext, r: dict[str, Any]) -> dict[str, Any]:
     layers = r["layers"]
     counts = layers["facilities"]["category"].value_counts()
@@ -407,6 +461,7 @@ def _summary(ctx: RunContext, r: dict[str, Any]) -> dict[str, Any]:
         "excluded_by_district": r["excluded_by_district"],
         "facilities": {c.id: int(counts.get(c.id, 0)) for c in ctx.config.categories},
         "facility_points": len(layers["facility_points"]),
+        "facilities_without_type": r["subtype_missing"],
         "stops": len(layers["stops"]),
         "gtfs_valid_from": str(r["gtfs_valid_from"]),
         "gtfs_valid_to": str(r["gtfs_valid_to"]),

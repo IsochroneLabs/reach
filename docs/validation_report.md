@@ -119,6 +119,12 @@ only). The city list covers what the city lists (no Tagespflege; schools of the 
 others). Name matching misses renamed facilities. Only two categories are checked
 automatically.
 
+**Note (10 Nov 2026, W7a).** The pipeline now checks type tags itself: `facility_subtypes_complete`
+reports how many `amenity=school` features in the city carry `school`, `school:de` or
+`isced:level` (run `20261109T175743Z`: 1 of 42, 2.4 %, gate 95 %) and lists the others in
+`report_inputs.json` (`facilities_without_type`). The school split in primary and secondary
+schools waits for that tagging (`docs/osm_tagging.md` §6).
+
 ## V3 — Recommender back-test
 
 **Question.** Does the recommender find plausible sites?

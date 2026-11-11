@@ -49,6 +49,10 @@ this file adds the stage pattern (note N2) and wins where it is more specific.
   `extract`/`tags-filter` passes over the regional PBF small.
 - **Facility tags:** `facilities.build(..., tag_keys)` keeps the config `facility_tags` as JSON text
   and the simplified outline of areas (`area_geometry`); `publish` loads them as `tags` / `area_geom`.
+- **Categories:** `match_categories` applies each category's `require` / `exclude` conditions
+  (`;`-separated OSM values match if any part matches, vectorised); `exclusion_stats` and
+  `subtype_gap` feed the `validate` checks `facilities_excluded_by_access` and
+  `facility_subtypes_complete` (counts are of features, not de-duplicated).
 - **Raw inputs:** `acquire.raw_path(raw_dir, source, file)`; later stages never download.
 - **Valhalla:** only through `valhalla/client.py` (`ValhallaClient`: async httpx, at most
   `valhalla.concurrency` requests in flight, retries on timeouts/5xx, `matrix()` with compact

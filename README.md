@@ -1,7 +1,7 @@
 # reach — 15-Minute City Tübingen
 
 `reach` measures how well residents of Tübingen can reach everyday services — supermarkets,
-pharmacies, doctors, childcare, schools, parks, public transport — within 15 minutes on foot,
+pharmacies, doctors, childcare, schools, parks, playgrounds, public transport — within 15 minutes on foot,
 by bike or by wheelchair. It shows underserved areas on an interactive map and recommends
 where new facilities would help the most people.
 

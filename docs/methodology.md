@@ -1,6 +1,6 @@
 # Methodology — reach
 
-> **Status:** draft v0.7 (9 Nov 2026). Binding definition of **what** is measured, scored,
+> **Status:** draft v0.8 (10 Nov 2026). Binding definition of **what** is measured, scored,
 > recommended and validated. `architecture.md` describes **how** the system computes it. Every
 > change bumps the version and adds a line to the [Change log](#change-log). Items marked
 > **[M#]** are open methodology questions (Section 7).
@@ -47,8 +47,19 @@ Coarse categories in Core (proposed, to be confirmed with a completeness check p
 | Doctors | `amenity=doctors` | 2 | Choice and capacity; GP speciality is too sparsely tagged for a separate category |
 | Childcare | `amenity=kindergarten`, `amenity=childcare` | 2 | Choice and capacity |
 | School | `amenity=school` | 1 | Catchment-based provision |
-| Parks & playgrounds | `leisure=park`, `leisure=playground` | 1 | Presence within reach |
+| Parks | `leisure=park`; not `access` in `private`, `no`, `customers` | 1 | Presence within reach |
+| Playgrounds | `leisure=playground`; not `access` in `private`, `no`, `customers` | 1 | Presence within reach |
 | Public transport | GTFS stops (departures, see §3) | – | Own classes, see §3 |
+
+**Access rule.** Only facilities the public can use count. Parks and playgrounds with
+`access=private`, `access=no` or `access=customers` are dropped; schools, childcare, shops and
+practices are not filtered by `access` (there the tag describes the grounds or the customers, not
+who may enrol or visit). Every category carries a thematic `group` (food, health, education,
+green) and may restrict its tag match with `require` and `exclude` conditions in the config; the
+validation report lists the features dropped per category. Schools stay one category until at
+least 95 % of the schools in the city carry a type tag (`school`, `school:de` or `isced:level`;
+check `facility_subtypes_complete`, `docs/osm_tagging.md`); then `primary_school` and
+`secondary_school` follow.
 
 **Facility locations.** OSM nodes are used as they are. Polygons (e.g. a supermarket building or
 a school site) are represented by one representative point inside the polygon. **Parks and
@@ -175,6 +186,7 @@ wheelchair as well as cycling (`architecture.md` §6.1, notes N5); its effect on
 
 | Version | Date | Change | Why |
 |---|---|---|---|
+| v0.8 | 2026-11-10 | §2: parks and playgrounds are separate categories (k = 1 each); access rule (private, no, customers dropped for parks and playgrounds only); category groups and `require`/`exclude` conditions; school split waits for the 95 % type-tag gate | App iteration W7a (points 1, 2, access fix); approved by Juju (10 Nov 2026); 1 of 42 schools in the city carries a type tag, so no school split yet |
 | v0.7 | 2026-11-09 | §2: the app shows park areas and access points with a sentence on how parks are measured; informative OSM tags are displayed only, never counted | App iteration W5 (points 16, 17); confirmed by Rico (plan v0.1) |
 | v0.6 | 2026-11-06 | §5: ΔW = reduction of the deficit sum; candidates = 100 m grid cells inside the urban boundary, land-use filter without industrial and with protected areas only of nature classes (1–4, 7), only candidates within reach of a deficit routed; catchment per profile; greedy with top-*N* and minimum gain, each zone once (no spacing); output fields | P7 recommender; decisions by Rico (6 Nov 2026): keep industrial land use (supermarkets, doctors), pure objective for k ≥ 2, protected areas only of nature classes (heritage protection excluded the Altstadt) |
 | v0.5 | 2026-11-06 | §1: known limitation of the wheelchair profile (steps avoided, steep sections not; counts optimistic on hillsides) | N11: `max_grade` has no effect in Valhalla 3.9.1; architecture v0.17; no change to counts |

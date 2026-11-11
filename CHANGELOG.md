@@ -14,7 +14,17 @@ adds a line under `Unreleased`.
 - Optional config key `recommend.profile_overrides.<profile>.candidate_spacing_m` (coarser
   candidate grid for one profile). Cycling recommendations were measured with and without it and
   stay off: Valhalla peaks at 3.9 GiB (limit 2.5 GiB), numbers in notes N12.
-  
+
+### Changed (config and pipeline, W7a categories from OSM tags)
+- Parks and playgrounds are separate categories (`parks`, `playgrounds`, k = 1 each); the app lists
+  seven categories. Parks and playgrounds with `access` private, no or customers no longer count
+  (methodology v0.8 §2, notes N14 closed).
+- Config: every category has a `group` (food, health, education, green) and may set `require`
+  and `exclude` conditions (`;`-separated OSM values match if any part matches). New optional
+  `validation.facility_subtypes`.
+- `validate` adds `facilities_excluded_by_access` and `facility_subtypes_complete`: 1 of 42 schools
+  in the city carries a type tag (gate 95 %), so the school split waits for the OSM tagging.
+
 ### Added (config, pipeline, API and web app, W5 facility details and parks)
 - Config key `facility_tags` (informative OSM keys: opening hours, wheelchair, website, phone,
   address, brand/operator, speciality). `facilities` gets `tags` (jsonb) and `area_geom`
