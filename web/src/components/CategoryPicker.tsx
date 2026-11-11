@@ -40,7 +40,7 @@ function TriStateCheckbox({ label, count, total, onChange }: TriStateProps) {
   useEffect(() => {
     if (ref.current) ref.current.indeterminate = count > 0 && count < total
   }, [count, total])
-  return <input ref={ref} type="checkbox" aria-label={label} checked={count === total} onChange={(e) => onChange(e.target.checked)} />
+  return <input ref={ref} type="checkbox" aria-label={label} checked={total > 0 && count === total} onChange={(e) => onChange(e.target.checked)} />
 }
 
 export default function CategoryPicker({ categories, profile, selected, onChange }: Props) {
