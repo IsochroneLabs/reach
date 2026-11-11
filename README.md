@@ -60,7 +60,7 @@ with Docker Compose on one small server. Details: [`docs/architecture.md`](docs/
 
 | Path | Content | Status |
 |---|---|---|
-| `docs/` | Architecture, methodology, validation report (with `figures/`), features, glossary, notes, team decisions | ✅ |
+| `docs/` | Architecture, deployment proposal, methodology, validation report (with `figures/`), features, glossary, notes, team decisions | ✅ |
 | `AGENTS.md`, `CLAUDE.md` | Rules for coding agents | ✅ |
 | `CONTRIBUTING.md` | Branches, commits, pull requests, releases | ✅ |
 | `CHANGELOG.md` | Change history | ✅ |
@@ -195,6 +195,7 @@ second `make up` replaces the containers of the first (images `reach-api:dev` an
 | Document | Content |
 |---|---|
 | [`docs/architecture.md`](docs/architecture.md) | **Binding** system description, decisions and change log |
+| [`docs/deployment_proposal.md`](docs/deployment_proposal.md) | **Proposal only**: separate frontend hosting, backend host options, access needs and supervisor decisions |
 | [`docs/methodology.md`](docs/methodology.md) | **Binding** categories, thresholds, scoring, recommender, validation experiments |
 | [`docs/data_contract.md`](docs/data_contract.md) | Table and file schemas between pipeline and API (draft) |
 | [`docs/validation_report.md`](docs/validation_report.md) | Validation experiments V1–V11: method, result, interpretation, limitations |
