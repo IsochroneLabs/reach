@@ -40,18 +40,41 @@
     \draw[accent,line width=0.6pt] (vre.north) |- ($(gn.east)+(1mm,0)$);
   \end{tikzpicture}}
 
+% Components at runtime and the batch path (architecture.md §3, §7, §8): open data -> pipeline
+% (one command) -> Valhalla and PostGIS on one server -> FastAPI -> Caddy -> browser.
 \newcommand{\architecturefigure}{%
-  \begin{tikzpicture}[node distance=7mm]
-    \node[store] (src) {Open data\\OSM $\cdot$ GTFS $\cdot$ Zensus};
-    \node[stage,right=of src,minimum width=20mm] (pipe) {Pipeline\\(weekly: planned)};
-    \node[store,right=12mm of pipe,yshift=7mm] (vh) {Valhalla\\routing};
-    \node[store,right=12mm of pipe,yshift=-7mm] (db) {PostGIS};
-    \node[stage,right=12mm of db,yshift=7mm,minimum width=18mm] (api) {FastAPI};
-    \node[stage,right=of api,minimum width=18mm] (web) {Browser\\React + MapLibre};
+  \begin{tikzpicture}[
+      box/.style={draw=ink,fill=white,line width=0.6pt,rounded corners=1.5pt,font=\scriptsize,
+        align=center,inner sep=1.5mm,minimum height=10mm},
+      svc/.style={box,fill=black!5,draw=muted},
+      lab/.style={font=\tiny,text=muted,align=center}]
+    \node[svc,text width=19mm] (src) at (0,0)
+      {\textbf{Open data}\\OSM (Geofabrik)\\GTFS (NVBW)\\Zensus 2022 grid};
+    \node[box,text width=27mm] (pipe) at (30mm,0)
+      {\textbf{Pipeline} (\texttt{make refresh})\\acquire $\cdot$ {\color{accent}validate}
+      $\cdot$ tiles\\count $\cdot$ score $\cdot$ housing\\recommend $\cdot$
+      {\color{accent}validate results}\\publish};
+    \node[svc,text width=21mm] (vh) at (63mm,10mm) {\textbf{Valhalla}\\matrix, isochrone,
+      route};
+    \node[svc,text width=21mm] (db) at (63mm,-10mm) {\textbf{PostGIS}\\one schema per run,
+      view \texttt{current}};
+    \node[box,text width=17mm] (api) at (91mm,0) {\textbf{FastAPI}\\read + live
+      endpoints};
+    \node[box,text width=17mm] (caddy) at (114mm,0) {\textbf{Caddy}\\HTTPS, static web
+      build};
+    \node[box,text width=17mm] (web) at (114mm,19mm) {\textbf{Browser}\\React +
+      MapLibre};
+    \begin{scope}[on background layer]
+      \node[draw=muted,dashed,rounded corners=2pt,inner sep=2.5mm,
+        fit=(pipe)(vh)(db)(api)(caddy)] (srv) {};
+    \end{scope}
+    \node[lab,anchor=south west] at (srv.north west) {one server, Docker Compose (host:
+      open question 1)};
     \draw[flow] (src) -- (pipe);
     \draw[flow] (pipe) -- (vh);
     \draw[flow] (pipe) -- (db);
     \draw[flow] (api) -- (vh);
     \draw[flow] (api) -- (db);
-    \draw[flow] (web) -- node[above,font=\tiny,text=muted]{HTTPS} (api);
+    \draw[flow] (caddy) -- node[lab,above]{\texttt{/api}} (api);
+    \draw[flow] (web) -- node[lab,right]{HTTPS} (caddy);
   \end{tikzpicture}}
