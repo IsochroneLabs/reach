@@ -231,6 +231,11 @@ code {
   font-size: 0.9rem;
 }
 
+/* a single field (the profile select) uses the full width */
+.field-row:has(> .field:only-child) {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 /* legend */
 .legend {
   margin-top: 0.75rem;
@@ -834,26 +839,101 @@ code {
 /* W7b: category picker and score settings */
 .picker {
   border: 0;
-  margin: 0.5rem 0 0;
+  margin: 0.75rem 0 0;
   padding: 0;
+  min-width: 0;
 }
 .picker legend {
-  font-size: 0.8rem;
-  color: var(--muted, #555);
+  font-size: 0.82rem;
+  color: var(--muted);
   padding: 0;
-  margin-bottom: 0.25rem;
+  margin-bottom: 0.3rem;
 }
-.picker-group {
-  margin-top: 0.35rem;
-}
-.picker-title {
-  font-weight: 600;
-}
-.picker .check {
+.picker-head {
   display: flex;
   align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0 0.55rem 0.35rem;
+}
+.picker-all {
+  font-weight: 600;
+}
+.picker-list {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.picker-group + .picker-group {
+  border-top: 1px solid var(--line);
+}
+/* a group with a selected category carries the accent on its left edge */
+.picker-group {
+  border-left: 3px solid transparent;
+}
+.picker-group.active {
+  border-left-color: var(--accent);
+}
+.picker-row {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0 0.55rem 0 0.4rem;
+  min-height: 2.1rem;
+}
+.picker-row:hover {
+  background: var(--bg);
+}
+.picker-toggle {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 0;
+  padding: 0.4rem 0;
+  background: none;
+  border: 0;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.picker-title {
+  flex: 1;
+  font-weight: 600;
+}
+.picker-group:not(.active) .picker-title {
+  font-weight: 500;
+}
+.picker-badge {
+  padding: 0.05rem 0.4rem;
+  border-radius: 999px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
+.picker-group.active .picker-badge {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+.picker-items {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.15rem 0.5rem;
+  padding: 0.15rem 0.55rem 0.5rem 1.75rem;
+}
+.picker-items .check {
   gap: 0.4rem;
-  padding: 0.1rem 0;
+  padding: 0.12rem 0;
+  font-size: 0.9rem;
+  min-width: 0;
+}
+.picker input[type='checkbox'] {
+  accent-color: var(--accent);
+  flex: none;
 }
 .score-table {
   width: 100%;

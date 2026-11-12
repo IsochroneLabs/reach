@@ -22,8 +22,8 @@ Project vocabulary used in code, docs, issues and prompts. People and roles ("yo
 | **profile** | Travel mode with its settings: walking 3.39 km/h, walking 5.0 km/h, cycling, wheelchair. |
 | **reach** | Maximum straight-line distance of a profile (speed × time budget); the prefilter uses speed × speed factor × budget + margin (`architecture.md` §6.3). |
 | **accessibility score** | Display value 0–100 per cell from several categories: weighted mean of min(1, facilities within the time / facilities needed) × 100 (methodology §4b). Computed in the browser from `/api/cells/times`, never stored. |
-| **category group** | Thematic group of a category in `config.yaml` (`food`, `health`, `education`, `green`); the app combines categories per group. |
-| **require / exclude** | Optional conditions of a category (`key: value`, `;`-separated OSM values match if any part matches): a feature needs at least one `require` and is dropped by any `exclude` (e.g. `access=private` for parks and playgrounds). |
+| **category group** | Thematic group of a category in `config.yaml` (`food`, `health`, `education`, `green`, `sport`, `services`); the app shows one collapsible block of categories per group in the map card. |
+| **require / exclude** | Optional conditions of a category (`key: value`, `;`-separated OSM values match if any part matches): a feature needs at least one `require` and is dropped by any `exclude` (e.g. `access=private` for parks, playgrounds and sports centres). |
 | **access point** | Routing point of a park or playground where a walkable way crosses its boundary (fallback: points along the boundary); a park counts once, with the minimum time over its access points. |
 | **refresh** | `make refresh`: full weekly update on the host — acquire, validate, tile build and swap, Valhalla restart, remaining stages. |
 | **block** | Square group of cells (`count.block_size_m`, 500 m) whose origins are the sources of one matrix request per profile (`architecture.md` §6.5 rule 2). |

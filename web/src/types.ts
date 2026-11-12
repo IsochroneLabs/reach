@@ -43,7 +43,7 @@ export interface Category {
   id: string
   name: string
   k: number
-  /** Thematic group from the config (food, health, education, green). */
+  /** Thematic group from the config (food, health, education, green, sport, services). */
   group: string | null
 }
 

@@ -16,7 +16,8 @@ Rules for agents working in `web/` (React + TypeScript + Vite + MapLibre GL JS).
   facility list (`POST /api/route`, zoom, highlight both ways). W5: facility details from
   `tags` (`facilityInfo.ts`: info lines, `safeUrl` for http/https only, Google Maps search link,
   park note), layers from `GET /api/facilities` (park outlines, access points, optional all
-  facilities), fetched only with a pin or the layer on. W7b: grouped category checkboxes; several
+  facilities), fetched only with a pin or the layer on. W7b: grouped category checkboxes (`CategoryPicker`: one collapsible block per config `group`
+  with a whole-group checkbox; labels and order of the groups in `GROUP_LABEL`, unknown groups follow); several
   categories (or changed score settings) give the score view (`score.ts`, `ScorePanel`,
   `GET /api/cells/times`), recommendations and facility pins only with one category. W8: housing layer and "Top 10
   cells for new homes" (`GET /api/housing`, `scoreHousing` in `score.ts`, `HousingPanel`; off by default,

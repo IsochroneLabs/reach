@@ -488,3 +488,45 @@ OSM does not tag as an excluded land use.
 - **Neighbouring municipalities:** the 200 m margin reaches into Kusterdingen, Ammerbuch and
   Rottenburg; empty cells there are candidates too (no district, shown as "Outside the districts").
 - **No merging into sites:** neighbouring cells with the same score are separate entries.
+
+## N16. Extended categories: first runs and open points
+
+**Status:** open · **Added:** 11 Nov 2026 · **Related:** `methodology.md` §2 (v0.11), `architecture.md` O8, N4, N6, N12, N15
+
+**First run with 16 categories** (run `20261110T232338Z`, incl. restaurants & cafés and
+`leisure=pitch`; 2,010 facilities): `validate_results` failed, nothing was published.
+`monotonic_walking_500_ge_walking_339` found 19 of 1,699 cells (1.12 %, limit 1 %): walking at
+5.0 km/h reached fewer facilities than at 3.39 km/h (the effect of N6). The check counts a cell
+if any category differs, so it grows with the number of categories and facilities: restaurants
+and sports grounds caused 7 of the 25 cell × category pairs each. `count` took 341 s (cycling
+242 s, 1.86 M pairs).
+
+**Decision (Juju, 11 Nov 2026):** the validation is not changed. Restaurants & cafés were
+removed and sport was narrowed to `leisure=sports_centre`.
+
+**Run with 15 categories** (run `20261110T233930Z`, published, local laptop): 1,238 facilities,
+1,810 routing points. The check warns with 10 of 1,699 cells (0.59 %; 11 pairs, 1 transit row).
+`count` 254 s (cycling 175 s, 1.38 M pairs; before the change 205 s and 1.13 M), peak RSS 375 MB.
+
+**Open:**
+- **Margin of the monotonicity check:** 10 cells of at most 16 allowed. Every further category
+  or a denser OSM extract moves the run towards the limit; a check per cell × category pair
+  would not depend on the number of categories (team decision, not done).
+- **`architecture.md` O8** still says "coarse facility categories (≈ 7) in Core". The Core list is
+  unchanged, the extended list is new; the decision text needs a line (ask first).
+- **"All" and the housing default score** (§4b, §5b) now average over 15 categories, including
+  gyms and senior care. Decide whether the defaults should use the Core categories only.
+- **Recommender** produces zones for every category; for senior care a 100 m zone is hardly
+  meaningful. Consider a per-category switch.
+- **Completeness** of the extended categories is unchecked (V2 covers childcare and schools).
+- **Content check of the published run** (11 Nov 2026, facility names in the city). Decided by
+  Juju: university libraries (15 of 20) and parcel shops of Hermes and GLS (3 of 12 post
+  offices) stay. Not changed, only noted in `methodology.md` §2: sports centres are unfiltered
+  (shooting ranges, riding grounds, a boules pitch, a boat landing, school halls, 9 unnamed);
+  gyms include 3 yoga studios and miss 2 fitness clubs tagged `leisure=sports_centre`. An ATM
+  next to its branch counts as a second facility (6 pairs; no effect on classes with k = 1).
+- **Lists not grouped:** the Location card and the score settings list categories
+  alphabetically, not by the groups of the picker.
+- **Valhalla memory** after `count` (N4) was not measured with the larger matrices.
+- **Web fixtures** (`web/tests/fixtures/meta.json`) still hold the seven Core categories;
+  re-record from the local API.

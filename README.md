@@ -1,9 +1,10 @@
 # reach — 15-Minute City Tübingen
 
-`reach` measures how well residents of Tübingen can reach everyday services — supermarkets,
-pharmacies, doctors, childcare, schools, parks, playgrounds, public transport — within 15 minutes on foot,
-by bike or by wheelchair. It shows underserved areas on an interactive map and recommends
-where new facilities would help the most people.
+`reach` measures how well residents of Tübingen can reach everyday services — groceries,
+health care, childcare, schools, libraries, senior care, sport, post offices, banks, parks,
+playgrounds, public transport — within 15 minutes on foot, by bike or by wheelchair. It shows
+underserved areas on an interactive map and recommends where new facilities would help the most
+people.
 
 Course project for **DS500 Data Science Project** (M.Sc. Data Science in Business and Economics,
 University of Tübingen, winter term 2026/27), Topic 9 "The 15-Minute City".

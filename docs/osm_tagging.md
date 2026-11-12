@@ -24,7 +24,7 @@ and the next `make refresh`.
   - `exclude`: conditions that drop a feature, e.g. `access` in `[private, no, customers]`
     (parks and playgrounds, §4).
   Values separated by `;` in OSM (`isced:level=1;2`) match if **any** part matches. Every category
-  also has a `group` (`food`, `health`, `education`, `green`).
+  also has a `group` (`food`, `health`, `education`, `green`, `sport`, `services`).
 - **Since W5:** `facility_tags` lists the informative tags carried into the app (opening
   hours, wheelchair, address, …); they never change counts.
 
@@ -59,9 +59,10 @@ For each category: the tag that defines it, the tags that refine it, and what we
 | `opening_hours=*` | Shown in the app (W5). |
 | `wheelchair=yes\|limited\|no` | Shown in the app. |
 
-Not counted: `shop=convenience`, `shop=kiosk`, `shop=bakery`, `shop=greengrocer` (no full range).
-A small organic or village shop that is tagged `shop=convenience` but has a full range should be
-re-tagged `shop=supermarket` only if that is true on the ground.
+Not counted as groceries: `shop=convenience`, `shop=kiosk`, `shop=bakery`, `shop=greengrocer`
+(no full range); bakeries are an own category since v0.11 (§3.9). A small organic or village shop
+that is tagged `shop=convenience` but has a full range should be re-tagged `shop=supermarket` only
+if that is true on the ground.
 
 ### 3.2 Pharmacy — counted
 
@@ -85,7 +86,7 @@ Drugstores (`shop=chemist`, dm, Rossmann) are not pharmacies.
 
 Status: 35 of 164 practices have no speciality, and 3 values start with a space (`; allergology`),
 which a strict reader would miss. A GP category (decision E4) waits until most practices carry a
-speciality. Dentists are `amenity=dentist` and not counted.
+speciality. Dentists are `amenity=dentist` and an own category since v0.11 (§3.9).
 
 ### 3.4 Childcare — counted
 
@@ -156,6 +157,17 @@ park whose only entrance is not mapped is reached at the wrong place.
 Stops and departures come from the NVBW GTFS feed (methodology §3), not from OSM. OSM bus stops
 are not used, so tagging them changes nothing in `reach`.
 
+### 3.9 Extended categories — counted since v0.11
+
+Eight further categories, all with `k = 1`, defined in `config/config.yaml` and `methodology.md`
+§2: bakery (`shop=bakery`), dentist (`amenity=dentist`), senior care (`social_facility` =
+`nursing_home`, `assisted_living` or `group_home`, and `social_facility:for=senior`), library
+(`amenity=library`), gym (`leisure=fitness_centre`), sports centre (`leisure=sports_centre`), post
+office (`amenity=post_office`) and bank & ATM (`amenity=bank`, `amenity=atm`). Not counted:
+restaurants, cafés and bars, and single pitches (`leisure=pitch`) — with them the walking
+monotonicity check of `validate_results` failed (methodology §2, notes N16). Access filtering:
+§4.
+
 ## 4. Access: public or not
 
 Until W7a every feature counted regardless of `access`, which is wrong for green space: 65 private
@@ -165,6 +177,7 @@ and 15 customer-only playgrounds (plus 3 parks) were counted as reachable. Rule 
 | Category | Excluded `access` values | Why |
 |---|---|---|
 | Parks, playgrounds | `private`, `no`, `customers` | Must be usable by the public. |
+| Sports centres | `private`, `no`, `customers` | Same rule; single pitches are not counted (§3.9). |
 | School, childcare | none | `access=private` describes the grounds, not who may enrol. |
 | Grocery, pharmacy, doctors | none | `customers` is normal for shops and practices. |
 

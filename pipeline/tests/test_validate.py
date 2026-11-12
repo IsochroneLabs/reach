@@ -37,12 +37,14 @@ def _result(**overrides: Any) -> dict[str, Any]:
         geometry=[box(450, 450, 550, 550)],
         crs=CRS,
     )
-    categories = ["grocery", "pharmacy", "doctors", "childcare", "school", "parks", "playgrounds"]
+    # one facility of every configured category
+    categories = [c.id for c in load_config(REPO / "config" / "config.yaml").categories]
+    n = len(categories)
     layers = {
         "cells": cells,
         "facilities": gpd.GeoDataFrame(
-            {"facility_id": [f"n{i}" for i in range(7)], "category": categories},
-            geometry=[Point(100, 100)] * 7,
+            {"facility_id": [f"n{i}" for i in range(n)], "category": categories},
+            geometry=[Point(100, 100)] * n,
             crs=CRS,
         ),
         "facility_points": gpd.GeoDataFrame(
@@ -118,7 +120,8 @@ def test_empty_layer_wrong_crs_and_missing_category(ctx: RunContext) -> None:
     result["layers"]["stops"] = result["layers"]["stops"].iloc[0:0]
     cells = result["layers"]["cells"]
     cells["origin_geom"] = cells["origin_geom"].to_crs("EPSG:4326")
-    result["layers"]["facilities"] = result["layers"]["facilities"].iloc[1:]  # no grocery
+    facilities = result["layers"]["facilities"]
+    result["layers"]["facilities"] = facilities[facilities["category"] != "grocery"]
     checks = {c.check: c for c in validate.checks(ctx, result)}
     assert checks["non_empty"].status == "fail" and "stops" in checks["non_empty"].message
     assert checks["crs"].status == "fail" and "cells.origin_geom" in checks["crs"].message
