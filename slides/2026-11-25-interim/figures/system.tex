@@ -1,0 +1,56 @@
+% System figures (architecture.md §3, §7):
+%   \pipelinefigure      stages of one run, from open data to the published `current` views
+%   \architecturefigure  components at runtime (README "Architecture in one picture")
+
+\tikzset{
+  stage/.style={draw=ink,fill=white,line width=0.6pt,rounded corners=1.5pt,
+    font=\scriptsize,minimum height=7mm,minimum width=15mm,align=center,inner sep=1pt},
+  gate/.style={stage,draw=accent,line width=1.1pt},
+  store/.style={draw=muted,fill=black!5,font=\scriptsize,minimum height=6mm,
+    minimum width=16mm,align=center,rounded corners=1.5pt},
+  flow/.style={-{Stealth[length=1.6mm]},line width=0.6pt,ink},
+  link/.style={line width=0.5pt,muted,dashed},
+}
+
+\newcommand{\pipelinefigure}{%
+  \begin{tikzpicture}[node distance=2mm]
+    \node[stage] (acq) {acquire};
+    \node[gate,right=of acq] (val) {validate\\inputs};
+    \node[stage,right=of val] (til) {tiles};
+    \node[stage,right=of til] (cnt) {count};
+    \node[stage,right=of cnt] (sco) {score};
+    \node[stage,right=of sco] (rec) {recommend};
+    \node[gate,right=of rec] (vre) {validate\\results};
+    \node[stage,right=of vre] (pub) {publish};
+    \foreach \a/\b in {acq/val,val/til,til/cnt,cnt/sco,sco/rec,rec/vre,vre/pub}
+      \draw[flow] (\a) -- (\b);
+    % inputs
+    \node[store,above=7mm of acq,minimum width=24mm] (src) {OSM $\cdot$ GTFS $\cdot$ Zensus};
+    \draw[flow] (src) -- (acq);
+    % services
+    \node[store,below=7mm of cnt] (vh) {Valhalla};
+    \foreach \s in {til,cnt,rec,vre} \draw[link] (\s) -- (vh);
+    \node[store,below=7mm of pub] (db) {PostGIS\\\texttt{current}};
+    \draw[flow] (pub) -- (db);
+    % gate note
+    \node[font=\scriptsize,text=accent,align=left,anchor=south west] at ($(val.north)+(0,7mm)$)
+      (gn) {a failed check stops the run:\\the app keeps the last good results};
+    \draw[accent,line width=0.6pt] (val.north) -- ++(0,6.5mm);
+    \draw[accent,line width=0.6pt] (vre.north) |- ($(gn.east)+(1mm,0)$);
+  \end{tikzpicture}}
+
+\newcommand{\architecturefigure}{%
+  \begin{tikzpicture}[node distance=7mm]
+    \node[store] (src) {Open data\\OSM $\cdot$ GTFS $\cdot$ Zensus};
+    \node[stage,right=of src,minimum width=20mm] (pipe) {Pipeline\\(weekly: planned)};
+    \node[store,right=12mm of pipe,yshift=7mm] (vh) {Valhalla\\routing};
+    \node[store,right=12mm of pipe,yshift=-7mm] (db) {PostGIS};
+    \node[stage,right=12mm of db,yshift=7mm,minimum width=18mm] (api) {FastAPI};
+    \node[stage,right=of api,minimum width=18mm] (web) {Browser\\React + MapLibre};
+    \draw[flow] (src) -- (pipe);
+    \draw[flow] (pipe) -- (vh);
+    \draw[flow] (pipe) -- (db);
+    \draw[flow] (api) -- (vh);
+    \draw[flow] (api) -- (db);
+    \draw[flow] (web) -- node[above,font=\tiny,text=muted]{HTTPS} (api);
+  \end{tikzpicture}}
