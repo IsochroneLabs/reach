@@ -12,8 +12,8 @@ __pycache__/
 # local data and pipeline outputs (never committed)
 data/
 
-# slides (latexmk output)
-slides/build/
+# slides (latexmk output; the rendered PDF slides/<deck>/<deck>.pdf is committed)
+slides/*/build/
 
 # frontend
 web/node_modules/

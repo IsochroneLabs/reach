@@ -63,7 +63,7 @@ with Docker Compose on one small server. Details: [`docs/architecture.md`](docs/
 | Path | Content | Status |
 |---|---|---|
 | `docs/` | Architecture, deployment proposal, methodology, validation report (with `figures/`), features, glossary, notes, team decisions | ✅ |
-| `slides/` | LaTeX (beamer) decks: interim deck (draft), one deck per supervisor meeting (12 Nov 2026), shared theme and figures; final deck planned | partial |
+| `slides/` | LaTeX (beamer) decks, one folder per presentation (source, facts, figures, rendered PDF): supervisor meeting 12 Nov 2026, interim deck 25 Nov 2026 (draft); shared theme in `slides/theme/`; final deck planned | partial |
 | `AGENTS.md`, `CLAUDE.md` | Rules for coding agents | ✅ |
 | `CONTRIBUTING.md` | Branches, commits, pull requests, releases | ✅ |
 | `CHANGELOG.md` | Change history | ✅ |
@@ -82,7 +82,8 @@ Requirements: [uv](https://docs.astral.sh/uv/), Docker (Desktop) with Compose,
 [osmium-tool](https://osmcode.org/osmium-tool/) ≥ 1.16 for the pipeline and its tests (tested with
 1.19.1 from Homebrew and 1.16 from Ubuntu 24.04 apt: `brew install osmium-tool` /
 `sudo apt-get install osmium-tool`), Node.js 24 LTS for frontend development (`web/.nvmrc`; `make up`
-builds the app in Docker without it), TeX Live with `latexmk` only for `make slides`. Without uv:
+builds the app in Docker without it), and only for `make slides` TeX Live with latexmk and the Fira
+fonts (MacTeX full, or BasicTeX + `sudo tlmgr install fira latexmk`). Without uv:
 `pip install -r requirements.txt` (exported from `uv.lock`).
 
 ```bash
@@ -109,7 +110,8 @@ make experiments        # validation experiments V1–V11 on the latest run (RUN
                         # fetches the city's Kita and school pages once (cached in data/reference/),
                         # V11 builds and serves a temporary elevation-free tile set on port 8005
 make down               # stop the stack
-make slides             # presentation slides (LaTeX, needs TeX Live with latexmk) → slides/build/
+make slides             # every deck → slides/<deck>/<deck>.pdf (DECK=<deck> for one; fails on
+                        # overfull boxes or LaTeX errors); rules in docs/presentations.md
 ```
 
 **Open the app:** after `make up` and a published run (`make refresh`), open
@@ -205,6 +207,7 @@ second `make up` replaces the containers of the first (images `reach-api:dev` an
 | [`docs/validation_report.md`](docs/validation_report.md) | Validation experiments V1–V11: method, result, interpretation, limitations |
 | [`docs/features.md`](docs/features.md) | Features, priorities and roadmap |
 | [`docs/glossary.md`](docs/glossary.md) | Project vocabulary |
+| [`docs/presentations.md`](docs/presentations.md) | Slides: one folder per deck, freeze rule, content, storyline and design rules, build |
 | [`docs/notes.md`](docs/notes.md) | Open points and future work |
 | [`docs/implementation_plan.md`](docs/implementation_plan.md) | Phase plan, status and decisions of the implementation (handoff between sessions) |
 | [`docs/prompts/implementation.md`](docs/prompts/implementation.md) | Prompts for building the system with a coding agent, phase by phase |
