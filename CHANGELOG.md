@@ -7,6 +7,11 @@ adds a line under `Unreleased`.
 
 ## [Unreleased]
 
+### Fixed (slides, self-contained decks)
+- Every deck folder now holds its own copy of the theme (`slides/theme/` removed) and loads its
+  figures as `\input{figures/<name>}`; the `\input@path` line is gone, so `pdflatex` in the
+  folder needs no extra line, path or setting. Rendered PDFs are byte-identical.
+
 ### Fixed (slides)
 - Every deck now compiles from any TeX editor (Typeset in the main file or any fragment, or plain
   `pdflatex`) without the Makefile or TEXINPUTS; before, editors stopped with "File

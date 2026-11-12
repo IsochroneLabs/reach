@@ -87,7 +87,7 @@ MapLibre GL JS · Docker Compose · GitHub Actions. Exact versions live in `pypr
 | `infra/` | Dockerfiles, Caddyfile, DB roles/migrations, systemd timer |
 | `tests/integration/`, `tests/fixtures/` | End-to-end test on the test clip; small shared fixtures |
 | `docs/` | Architecture, methodology, glossary, notes, features, team decisions |
-| `slides/` | One folder per presentation (source, facts, figures, PDF); shared theme in `slides/theme/`; rules in `docs/presentations.md` |
+| `slides/` | One self-contained folder per presentation (source, theme copy, facts, figures, PDF); rules in `docs/presentations.md` |
 | `CHANGELOG.md` | Project change history (`Unreleased`, then one section per release) |
 | `data/` | Local data, **git-ignored**, never committed |
 
