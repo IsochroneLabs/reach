@@ -71,6 +71,10 @@ adds a line under `Unreleased`.
   the category". Park note ("measured to the nearest park entrance") in the popup, the picked
   facility and the data page (methodology v0.7, §2).
 
+### Added (docs)
+- `docs/deployment_proposal.md`: non-binding proposal for Cloudflare Pages frontend hosting,
+  backend host options, private team access, and questions for supervisor review.
+
 ### Fixed
 - Corrected the Project preflight GraphQL connection query so `pageInfo` is requested at the
   connection level, allowing the issue sync workflow to validate the Project.
