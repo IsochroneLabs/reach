@@ -7,6 +7,14 @@ adds a line under `Unreleased`.
 
 ## [Unreleased]
 
+### Changed (slides)
+- `slides/` now has one folder per presentation, `slides/YYYY-MM-DD-<topic>/`, with the deck,
+  its own `facts.tex` (only the numbers it shows), its own `figures/` and the committed rendered
+  PDF; the theme moved to `slides/theme/`, `interim.tex` became `2026-11-25-interim/`.
+  `make slides` builds every deck folder (`DECK=` for one) and runs the new `make slides-check`
+  (no overfull boxes, no LaTeX errors). The rules from `slides/AGENTS.md` and `slides/README.md`
+  moved to `docs/presentations.md`. The rendered decks are unchanged.
+
 ### Changed (docs, server target)
 - Production server target raised from 2 vCPU / 4 GB (CX23) to at least 8 GB RAM (architecture v0.22 §6.5, §11, O1; `AGENTS.md`). Plan and price are still to be checked against the 20 € budget.
 
