@@ -23,9 +23,9 @@ EXPERIMENTS ?= v01 v02 v03 v04 v05 v06 v07 v08 v09 v10 v11
 EXPERIMENT = uv run $(if $(wildcard .env),--env-file .env) python -m reach_pipeline.experiments
 # LaTeX decks: one folder per deck, slides/<deck>/<deck>.tex (docs/presentations.md);
 # DECK=2026-11-25-interim builds one. Build output goes to slides/<deck>/build/ (git-ignored);
-# the PDF is copied to slides/<deck>/<deck>.pdf and committed. Each deck finds its theme and
-# figures itself (\input@path) and the theme takes the PDF date from the deck name, so the same
-# PDF comes out of `make slides` and of a TeX editor.
+# the PDF is copied to slides/<deck>/<deck>.pdf and committed. Each deck folder holds its own
+# theme copy and figures, and the theme takes the PDF date from the deck name, so the same PDF
+# comes out of `make slides` and of a TeX editor.
 DECKS = $(strip $(or $(DECK),$(foreach d,$(notdir $(wildcard slides/*)),$(if $(wildcard slides/$(d)/$(d).tex),$(d)))))
 LATEXMK = latexmk -pdf -outdir=build -interaction=nonstopmode -halt-on-error
 PDFLATEX = pdflatex -interaction=nonstopmode -halt-on-error

@@ -63,7 +63,7 @@ with Docker Compose on one small server. Details: [`docs/architecture.md`](docs/
 | Path | Content | Status |
 |---|---|---|
 | `docs/` | Architecture, deployment proposal, methodology, validation report (with `figures/`), features, glossary, notes, team decisions | ✅ |
-| `slides/` | LaTeX (beamer) decks, one folder per presentation (source, facts, figures, rendered PDF): supervisor meeting 12 Nov 2026, interim deck 25 Nov 2026 (draft); shared theme in `slides/theme/`; final deck planned | partial |
+| `slides/` | LaTeX (beamer) decks, one folder per presentation (source, facts, figures, rendered PDF): supervisor meeting 12 Nov 2026, interim deck 25 Nov 2026 (draft); each folder has its own copy of the theme; final deck planned | partial |
 | `AGENTS.md`, `CLAUDE.md` | Rules for coding agents | ✅ |
 | `CONTRIBUTING.md` | Branches, commits, pull requests, releases | ✅ |
 | `CHANGELOG.md` | Change history | ✅ |

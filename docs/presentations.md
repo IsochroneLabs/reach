@@ -12,13 +12,14 @@ in git, together with the numbers they showed and where those numbers came from.
 ## Folder layout
 
 One folder per deck, named after the date it is shown and its topic (`YYYY-MM-DD-<topic>`). The
-folder holds everything the deck needs except the theme:
+folder holds everything the deck needs, including its copy of the theme, so `pdflatex` in the
+folder builds it with no paths or settings:
 
 ```text
 slides/
-  theme/beamerthemereach.sty          shared look of every deck (the only shared file)
   2026-11-12-supervisor/
     2026-11-12-supervisor.tex         the deck
+    beamerthemereach.sty              this deck's copy of the theme
     facts.tex                         every number of this deck, each with its source
     figures/                          TikZ (.tex) and PNG used by this deck only
     2026-11-12-supervisor.pdf         rendered PDF, committed (the record of the deck)
@@ -28,9 +29,10 @@ slides/
 
 The final presentation will be `2027-01-29-final/` (slides due 28 Jan 2027, 20:00).
 
-- **Theme:** `slides/theme/beamerthemereach.sty` holds colours, fonts, the header tracer, the
-  footer, `\source`, `\keyfigure`, `\classchip` and the chart styles. It is the only file shared
-  between decks.
+- **Theme:** `beamerthemereach.sty` holds colours, fonts, the header tracer, the footer,
+  `\source`, `\keyfigure`, `\classchip` and the chart styles. Every deck has its own copy, so a
+  frozen deck never changes when the look changes. A design change goes into the copy of every
+  deck that is not frozen yet (and is copied on by `make slides-new`).
 - **Facts:** `facts.tex` holds exactly the macros and chart tables its deck uses.
 - **Figures:** a figure used by several decks is copied into each of them, so a frozen deck never
   changes when another deck does.
@@ -45,7 +47,8 @@ Modern Sans; never present such a build.
 
 **Editor** (TeXShop, TeXstudio, VS Code LaTeX Workshop, or `pdflatex` in the deck folder): open
 any `.tex` of the deck and press *Typeset* (pdflatex, twice for the slide numbers). The main file
-finds the theme and its figures itself (`\input@path`), and `facts.tex` and the figures carry
+loads the theme from its own folder and the figures as `\input{figures/<name>}`, and
+`facts.tex` and the figures carry
 `% !TEX root`, so Typeset in a fragment compiles its deck. The editor writes the PDF next to the
 deck: the same bytes as `make slides` (the theme takes the date and PDF ID from the deck name),
 so `git status` stays clean. Its other files (aux, log, …) are git-ignored. If a build fails,
