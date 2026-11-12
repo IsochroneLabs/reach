@@ -23,11 +23,11 @@ EXPERIMENTS ?= v01 v02 v03 v04 v05 v06 v07 v08 v09 v10 v11
 EXPERIMENT = uv run $(if $(wildcard .env),--env-file .env) python -m reach_pipeline.experiments
 # LaTeX decks: one folder per deck, slides/<deck>/<deck>.tex (docs/presentations.md);
 # DECK=2026-11-25-interim builds one. Build output goes to slides/<deck>/build/ (git-ignored);
-# the PDF is copied to slides/<deck>/<deck>.pdf and committed. SOURCE_DATE_EPOCH (the date in
-# the deck name, 00:00 UTC) keeps the PDF byte-identical when an unchanged deck is rebuilt.
+# the PDF is copied to slides/<deck>/<deck>.pdf and committed. Each deck finds its theme and
+# figures itself (\input@path) and the theme takes the PDF date from the deck name, so the same
+# PDF comes out of `make slides` and of a TeX editor.
 DECKS = $(strip $(or $(DECK),$(foreach d,$(notdir $(wildcard slides/*)),$(if $(wildcard slides/$(d)/$(d).tex),$(d)))))
 LATEXMK = latexmk -pdf -outdir=build -interaction=nonstopmode -halt-on-error
-SLIDES_TEXINPUTS = .:./figures//:../theme//:
 
 .PHONY: help up down logs pipeline migrate refresh tiles-build valhalla-config experiments test lint format slides slides-check
 
@@ -113,11 +113,9 @@ slides: ## build every deck to slides/<deck>/<deck>.pdf (or one with DECK=<deck>
 	@command -v latexmk >/dev/null || { echo "latexmk not found: install TeX Live with latexmk (README, Getting started)" >&2; exit 1; }
 	@for d in $(DECKS); do \
 	  test -f "slides/$$d/$$d.tex" || { echo "no deck slides/$$d/$$d.tex" >&2; exit 1; }; \
-	  day=$$(echo "$$d" | cut -c1-10); \
-	  epoch=$$(date -u -d "$$day" +%s 2>/dev/null || date -u -j -f '%Y-%m-%d %H:%M:%S' "$$day 00:00:00" +%s) \
+	  echo "$$d" | grep -Eq '^[0-9]{4}-[0-9]{2}-[0-9]{2}-' \
 	    || { echo "deck name must start with YYYY-MM-DD: $$d" >&2; exit 1; }; \
-	  (cd "slides/$$d" && TEXINPUTS=$(SLIDES_TEXINPUTS) SOURCE_DATE_EPOCH=$$epoch FORCE_SOURCE_DATE=1 \
-	    $(LATEXMK) "$$d.tex") || exit $$?; \
+	  (cd "slides/$$d" && $(LATEXMK) "$$d.tex") || exit $$?; \
 	  cp "slides/$$d/build/$$d.pdf" "slides/$$d/$$d.pdf"; done
 	@$(MAKE) --no-print-directory slides-check
 	@echo "slides: $(foreach d,$(DECKS),slides/$(d)/$(d).pdf)"
