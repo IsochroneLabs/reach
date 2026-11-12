@@ -8,7 +8,7 @@ workshop *Presentation Skills* (Papies, 4 Nov 2026) and from `docs/notes.md` N13
 
 | Path | Content |
 |---|---|
-| `<deck>.tex` | One file per presentation (`interim.tex`; `final.tex` later). `make slides` builds every `*.tex` here. |
+| `<deck>.tex` | One file per presentation or meeting (`interim.tex`, `final.tex` later, `YYYY-MM-DD-<topic>.tex` per supervisor meeting). Shown decks are frozen, see README "Versioning". `make slides` builds every `*.tex` here. |
 | `common/beamerthemereach.sty` | The only theme: colours, fonts, header tracer, footer, `\source`, `\keyfigure`, `\classchip`, chart styles. |
 | `common/facts.tex` | **Every number shown on a slide**, with the run or document it comes from. |
 | `figures/*.tex` | TikZ figures as macros (`isochrone.tex`, `system.tex`), shared by all decks. |

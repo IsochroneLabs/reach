@@ -81,6 +81,10 @@ adds a line under `Unreleased`.
   colours), TikZ figures (isochrone definition and the polygon over-count of V1, pipeline,
   architecture), all numbers in `slides/common/facts.tex`; `make slides` builds every deck;
   writing rules for agents in `slides/AGENTS.md`.
+- `slides/2026-11-12-supervisor.tex`: deck for the supervisor meeting of 12 Nov 2026 (state of
+  `dev` from run `20261110T233930Z`, decisions with the rejected alternative, open questions,
+  outlook to a Germany-wide reach marked as vision); one deck per supervisor meeting, frozen after
+  it (`slides/README.md`, "Versioning").
 
 ### Fixed
 - Corrected the Project preflight GraphQL connection query so `pageInfo` is requested at the

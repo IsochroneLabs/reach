@@ -1,0 +1,52 @@
+\usetikzlibrary{fit,backgrounds}
+% Hosting figures for the supervisor discussion (docs/architecture.md §3, §11 = current design;
+% docs/deployment_proposal.md = proposal of PR #64, not approved).
+%   \hostingcurrent   binding design: one small server runs Caddy, API, PostGIS, Valhalla, pipeline
+%   \hostingproposed  proposal: static frontend on Cloudflare Pages, backend on one host behind a
+%                     Cloudflare Tunnel, team access over a private network (candidate: Tailscale)
+% Both are drawn about 66 mm wide so that they fit next to each other in two columns.
+
+\tikzset{
+  hnode/.style={draw=ink,line width=0.6pt,align=center,font=\scriptsize,inner sep=1.6mm,
+    minimum height=6.5mm},
+  hprop/.style={hnode,dashed,draw=accent},
+  hhost/.style={draw=ink,line width=0.6pt,rounded corners=1pt,inner sep=2mm},
+  harrow/.style={-{Stealth[length=1.8mm]},line width=0.6pt,draw=ink},
+  hlabel/.style={font=\tiny,text=muted},
+}
+
+\newcommand{\hostingcurrent}{%
+  \begin{tikzpicture}
+    \node[hnode] (v) at (0,0) {Visitors};
+    \node[hnode,minimum width=30mm] (c) at (0,-1.3) {Caddy: web build, HTTPS, \texttt{/api}};
+    \node[hnode] (api) at (-1.9,-2.7) {FastAPI};
+    \node[hnode] (db) at (0,-2.7) {PostGIS};
+    \node[hnode] (va) at (1.9,-2.7) {Valhalla};
+    \node[hnode,minimum width=30mm] (pl) at (0,-3.75) {Pipeline, tile build (\texttt{make refresh})};
+    \begin{pgfonlayer}{background}
+      \node[hhost,fit=(c)(api)(db)(va)(pl),label={[font=\tiny,text=muted,anchor=south east,inner sep=0.6mm]
+        north east:one small server}] {};
+    \end{pgfonlayer}
+    \draw[harrow] (v) -- (c);
+    \draw[harrow] (c) -- (api);
+  \end{tikzpicture}}
+
+\newcommand{\hostingproposed}{%
+  \begin{tikzpicture}
+    \node[hnode] (v) at (0,0) {Visitors};
+    \node[hprop,minimum width=24mm] (p) at (-1.7,-1.1) {Cloudflare Pages\\static web build};
+    \node[hprop,minimum width=24mm] (t) at (1.7,-1.1) {Cloudflare Tunnel\\API hostname};
+    \node[hnode] (api) at (-1.9,-2.6) {FastAPI};
+    \node[hnode] (db) at (0,-2.6) {PostGIS};
+    \node[hnode] (va) at (1.9,-2.6) {Valhalla};
+    \node[hnode,minimum width=30mm] (pl) at (0,-3.55) {Pipeline, tile build};
+    \begin{pgfonlayer}{background}
+      \node[hhost,fit=(api)(db)(va)(pl),label={[font=\tiny,text=muted,anchor=south east,inner sep=0.6mm]
+        north east:one backend host (ProDesk or VPS)}] (host) {};
+    \end{pgfonlayer}
+    \node[hprop,minimum width=22mm] (ts) at (3.0,-4.45) {Team: private\\network (Tailscale?)};
+    \draw[harrow] (v) -- (p);
+    \draw[harrow] (v) -- (t);
+    \draw[harrow] (t) -- (api);
+    \draw[harrow,dashed,draw=accent] (ts) -- (pl);
+  \end{tikzpicture}}
