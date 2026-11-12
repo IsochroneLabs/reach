@@ -1,13 +1,11 @@
 % !TEX program = pdflatex
 % !TEX encoding = UTF-8 Unicode
-% Supervisor meeting, 12 Nov 2026 (DS500). Small deck: key message, one slide with the
-% architecture, the demo plan (the features are shown live in the app, not on slides), the
-% decisions with the rejected alternative, the open questions and the outlook up to a
-% Germany-wide reach. Frozen after the meeting; the next meeting gets a new deck
-% (docs/presentations.md, "Freeze rule"). Rules: docs/presentations.md. Every number comes from
-% facts.tex next to this file. Open items are marked as open; nothing proposed is shown as
-% approved; the Germany outlook is a vision of the team (Juju, 12 Nov 2026), not part of the
-% docs' plan.
+% Supervisor meeting, 12 Nov 2026 (DS500). Informal working deck, no title or intro: six slides
+% to talk along (status + demo, architecture, validation, server and scaling, our questions,
+% next steps) and a short backup. Frozen after the meeting; the next meeting gets a new deck
+% (docs/presentations.md, "Freeze rule"). Every number comes from facts.tex next to this file.
+% Open items are marked as open; the hosting split is a proposal (PR #64), the Germany outlook
+% is a vision of the team (Juju, 12 Nov 2026), not part of the docs' plan.
 \documentclass[aspectratio=169,10pt]{beamer}
 \usetheme{reach}
 \input{facts}
@@ -18,284 +16,184 @@
 % Ragged-right table column (no stretched word spaces in narrow cells).
 \newcolumntype{P}[1]{>{\raggedright\arraybackslash}p{#1}}
 
-\title[reach $\cdot$ Supervisor meeting]{reach: architecture, demo, decisions and the way to
-  all of Germany}
-\subtitle{Supervisor meeting $\cdot$ DS500 Data Science Project, Topic 9 ``The 15-Minute City''}
+\title[reach $\cdot$ Supervisor meeting]{reach: where we stand}
 \author{Rico $\cdot$ Socke $\cdot$ Juju}
 \institute{University of Tübingen, winter term 2026/27}
 \date[12 Nov 2026]{12 November 2026}
 
 \begin{document}
 
-{\setbeamertemplate{headline}{}\setbeamertemplate{footline}{}
-\begin{frame}
-  \titlepage
-\end{frame}}
-
 % ============================================================================================
-% Key message first (pyramid). Speaker: TBD
-\begin{frame}{reach runs end to end for Tübingen; we show it live, explain the decisions behind
-  it and ask four questions}
-  \centering
-  \begin{tikzpicture}[
-      box/.style={draw=ink,line width=0.6pt,text width=28.5mm,align=flush left,inner sep=2.2mm,
-        font=\footnotesize,minimum height=36mm,anchor=north}]
-    \node[fill=ink,text=white,text width=134mm,align=center,inner sep=2.5mm,font=\small\bfseries]
-      (key) at (0,0)
-      {Freeze the Tübingen scope and deploy it; keep every choice open for a larger area};
-    \node[box] (a) at (-51mm,-11mm) {{\usebeamercolor[fg]{alerted text}\bfseries Done}\\[1mm]
-      Pipeline, API and web app on \texttt{dev}; \factCurCategories{} categories, 4 profiles;
-      recommender, combined score and housing potential; 9 of 11 validation experiments};
-    \node[box] (b) at (-17mm,-11mm) {{\usebeamercolor[fg]{alerted text}\bfseries Decided}\\[1mm]
-      Open data only, the official 100\,m census grid instead of H3, Valhalla only, counting with
-      the matrix, the paper's classes, a greedy recommender};
-    \node[box] (c) at (17mm,-11mm) {{\usebeamercolor[fg]{alerted text}\bfseries Open}\\[1mm]
-      Hosting (Pages split, ProDesk or VPS), Moran's I as the ``adequate method'', which known
-      limits are acceptable};
-    \node[box] (d) at (51mm,-11mm) {{\usebeamercolor[fg]{alerted text}\bfseries Next}\\[1mm]
-      Submission on 22 January for Tübingen; long-term goal: the same method for all of
-      Germany (vision, not planned)};
-    \foreach \n in {a,b,c,d} \draw[ink,line width=0.6pt] (key.south) -- (\n.north);
-  \end{tikzpicture}
+% Speaker: TBD
+\begin{frame}{reach already runs end to end for Tübingen; we show you the app live}
+  \begin{columns}[T,onlytextwidth]
+    \column{0.30\textwidth}
+      \keyfigure{\factCurCells}{populated 100\,m cells (\factCurResidents{} residents)}
+      \par\bigskip
+      \keyfigure{\factCurCategories{} $\times$ 4}{categories $\times$ profiles (walking at
+        two speeds, cycling, wheelchair)}
+      \par\bigskip
+      \keyfigure{9 of 11}{validation experiments done}
+    \column{0.66\textwidth}
+      \textbf{What we show in the app}
+      \begin{enumerate}\footnotesize
+        \item \textbf{Map:} who lacks access to what, per category and profile
+        \item \textbf{Click anywhere:} what is reachable in 15 minutes, with times and routes,
+              and the nearest missing facility
+        \item \textbf{Combined score} 0--100 over the categories you pick
+        \item \textbf{Recommendations:} where a new facility would help the most residents
+              (\factCurRecs{} zones)
+        \item \textbf{Housing potential:} empty cells with good access for new homes
+              (\factCurHousing{} candidates)
+        \item \textbf{Data page:} sources, snapshot dates, validation report
+      \end{enumerate}
+      \medskip
+      {\footnotesize\color{muted}Runs locally today; pipeline, API and web app are on
+      \texttt{dev}.}
+  \end{columns}
   \source{run \factCurRunId{} (OSM \factCurOsmDate); validation report (run \factValRunId);
-    docs/architecture.md §13; docs/deployment\_proposal.md (proposal, PR \#64).}
+    docs/features.md §1--§5.}
 \end{frame}
 
 % ============================================================================================
-\section{System}
 % Speaker: TBD
-
-\begin{frame}{One command turns open data into validated results; the app only reads the
-  published run}
+\begin{frame}{How it works: one command turns open data into the map}
   \centering
   \architecturefigure\par\medskip
   \raggedright
   \begin{columns}[T,onlytextwidth]
     \column{0.32\textwidth}
-      \footnotesize\textbf{Pipeline:} one command; a failed check keeps the last good run.
+      \footnotesize\textbf{Open data only:} OSM, timetables, census grid; one snapshot per
+      run.
     \column{0.32\textwidth}
-      \footnotesize\textbf{Valhalla only:} batch counts and live clicks share one graph.
+      \footnotesize\textbf{Real travel times:} routing on the street network, not straight
+      lines.
     \column{0.32\textwidth}
-      \footnotesize\textbf{PostGIS:} one schema per run; the API reads only \texttt{current}.
+      \footnotesize\textbf{Checked:} \factCurChecks{} automatic checks; a failure keeps the
+      last good run.
   \end{columns}
-  \source{docs/architecture.md §2, §3, §7, §8, §13 (O19); weekly timer and production server
-    are planned (§11).}
+  \source{docs/architecture.md §2, §3, §7, §8; run \factCurRunId{} (validate\_results report);
+    weekly refresh and production server are planned (§11).}
 \end{frame}
 
 % ============================================================================================
-\section{Demo}
 % Speaker: TBD
-
-\begin{frame}{Live demo: the map shows who lacks access, and one click explains why}
+\begin{frame}{We tested our method against the obvious alternatives, and it holds up}
   \begin{columns}[T,onlytextwidth]
-    \column{0.27\textwidth}
-      \keyfigure{\factCurCells}{populated 100\,m cells (\factCurResidents{} residents)}
-      \par\bigskip
-      \keyfigure{\factCurCategories{} $\times$ 4}{categories $\times$ profiles}
-    \column{0.69\textwidth}
-      \textbf{What we show, in this order}
-      \begin{enumerate}\footnotesize
-        \item \textbf{Class map} per category and profile; categories in six groups
-        \item \textbf{Combined score} 0--100 over chosen categories (display only)
-        \item \textbf{Pin-drop:} isochrone, reachable facilities with times, routes, and the
-              next missing facility beyond 15 minutes
-        \item \textbf{Recommendations:} ranked zones per category with the residents they reach
-              (\factCurRecs{} zones)
-        \item \textbf{Housing potential:} the best cells without residents for new homes
-              (\factCurHousing{} candidates)
-        \item \textbf{Data page:} sources, snapshot dates and the validation report
-      \end{enumerate}
-      {\footnotesize\color{muted}Local stack (O16), run \factCurRunId; all \factCurChecks{}
-      result checks pass, three warn as known limits.}
+    \column{0.24\textwidth}
+      \keyfigure{$+$\factVOneOvercount}{wrong pairs if we counted with isochrone polygons}
+      \par\smallskip
+      {\footnotesize Mostly across the Neckar, rail lines and main roads. We count with real
+      travel times instead.}
+    \column{0.24\textwidth}
+      \keyfigure{$\le$\,\factVFourGap}{below the optimum: our fast recommender vs.\ an exact
+        solver}
+      \par\smallskip
+      {\footnotesize 90 test instances; good enough to run in every refresh.}
+    \column{0.24\textwidth}
+      \keyfigure{\factVTwoKitaRecall}{of the city's Kitas found in OSM}
+      \par\smallskip
+      {\footnotesize Schools: \factVTwoSchoolRecall. The gaps are known; we can map them in
+      OSM.}
+    \column{0.24\textwidth}
+      \keyfigure{\factVSixChange}{change class if we used buildings instead of cell centres}
+      \par\smallskip
+      {\footnotesize Walking; the 100\,m grid is precise enough.}
   \end{columns}
-  \source{run \factCurRunId{} (OSM \factCurOsmDate), validate\_results report part 2;
-    docs/features.md §1--§5; docs/architecture.md O16 (open).}
+  \vfill
+  {\footnotesize\color{muted}Still to do: a check against local knowledge and a full
+  reproducibility run. All results: backup.}
+  \source{validation report V1, V2, V4, V6 (run \factValRunId); walking 3.39\,km/h, 15 min.}
 \end{frame}
 
 % ============================================================================================
-\section{Decisions}
 % Speaker: TBD
-
-\begin{frame}{Every layer of reach rests on a deliberate choice; for each we can name the
-  alternative we rejected}
-  \footnotesize
-  \begin{tabular}{@{}P{20mm}P{50mm}P{34mm}P{24mm}@{}}
-    \toprule
-    Layer & Our choice & Instead of & Evidence \\
-    \midrule
-    Data & Open data, one snapshot per run & Live APIs (Overpass) & reproducible \\
-    Spatial unit & Official Zensus 2022 100\,m grid, cell centroid & H3 hexagons & V6:
-      \factVSixChange \\
-    Study area & Every resident of the city, 4\,km buffer & Built-up area only & N3 \\
-    Routing & Valhalla, self-hosted, one tile set & OSMnx/NetworkX, r5py & -- \\
-    Counting & Time matrix; isochrones only drawn & Point-in-polygon & V1:
-      $+$\factVOneOvercount \\
-    Profiles & Four profiles, 3.39\,km/h default, slopes & One speed, flat & V11 \\
-    Scoring & $k_c$, three classes, deficit (paper) & One composite index & -- \\
-    Recommender & Greedy on the deficit, 100\,m zones & Exact solver in every run & V4:
-      $\le$\,\factVFourGap \\
-    \bottomrule
-  \end{tabular}
-  \par\medskip
-  {\footnotesize\textbf{Why no H3:} exact census counts, official cell ids, one grid for all of
-  Germany (backup B1).}
-  \source{docs/architecture.md §2, §4, §6.3, §12, §13; methodology.md §1--§5; notes N3;
-    validation report V1, V4, V6, V11 (run \factValRunId).}
+\begin{frame}{Tübingen fits on one small server; all of Germany would need a bigger setup}
+  \begin{columns}[T,onlytextwidth]
+    \column{0.48\textwidth}
+      \textbf{Server for Tübingen}
+      \begin{itemize}\footnotesize
+        \item Counting all \factCurCategories{} categories $\times$ 4 profiles takes
+              \factCurCountRuntime{} on a laptop
+        \item The routing engine needs up to \factCyclingValhallaPeak{} of memory, so we plan
+              for 8\,GB RAM
+        \item \textbf{Option A:} rented VPS ($\ge$\,8\,GB); budget 20\,EUR in total, so online
+              from about 1 Dec until grading (price still to check)
+        \item \textbf{Option B:} our own HP ProDesk (i5, 16\,GB): no cost, but home network and
+              uptime
+        \item Optional: web frontend separately on Cloudflare Pages (proposal)
+      \end{itemize}
+    \column{0.48\textwidth}
+      \textbf{All of Germany (idea, not planned)}
+      \begin{itemize}\footnotesize
+        \item The census file we already use covers \factDeCells{} populated cells
+              (\factDeResidents{} residents), about \factDeCellFactor{}$\times$ Tübingen
+        \item Same grid, same pipeline, one run per municipality
+        \item Heavy routing builds on bwUniCluster instead of our server
+        \item Hard parts: OSM quality differs by region; villages need other thresholds than
+              a city
+      \end{itemize}
+  \end{columns}
+  \source{docs/architecture.md §11, §11.1; docs/deployment\_proposal.md (PR \#64, not approved);
+    notes N12, N16 (laptop, run \factCurRunId); Zensus file of run \factCurRunId{} (grid sum).}
 \end{frame}
 
 % ============================================================================================
-\section{Open questions}
 % Speaker: TBD
-
-\begin{frame}{Four questions need your answer; for each we bring a recommendation}
-  \footnotesize
-  \begin{tabular}{@{}P{6mm}P{58mm}P{46mm}P{20mm}@{}}
+\begin{frame}{What we would like to discuss with you today}
+  \footnotesize\renewcommand{\arraystretch}{1.35}
+  \begin{tabular}{@{}P{80mm}P{55mm}@{}}
     \toprule
-    \# & Question & Our recommendation & Blocks \\
+    Question & Our suggestion \\
     \midrule
-    1 & Frontend on Cloudflare Pages, backend on one host (proposal of \#64, not approved)? &
-      Decide after question 2 & Deployment \\
-    2 & Is the HP ProDesk acceptable as backend host, or is a rented VPS required? & Measure the
-      first full refresh on the ProDesk, then decide & Server, budget \\
-    3 & Moran's I shows strong clusters on cells (\factVEightMoran), none between districts:
-      is this the ``adequate method'' (M5)? & Yes: optimization plus spatial statistics; LISA
-      map in the app if you wish & Scope of V8 \\
-    4 & Which known limits do you accept (wheelchair on slopes, OSM gaps, extended categories
-      unchecked)? & State them openly; map missing Kitas and schools in OSM & Final report \\
+    \textbf{Server:} Is our own ProDesk fine, or do you expect a rented VPS? How long does
+      the app need to stay online? & Measure one full refresh on the ProDesk, then decide \\
+    \textbf{Access:} How would you like to look at the data: app only, or also the database
+      (e.g.\ via SSH tunnel)? & Read-only database account \\
+    \textbf{Scaling:} Is Tübingen enough, or would a second city or a larger region be
+      interesting? May we use bwUniCluster? & Finish Tübingen first; Germany as outlook \\
+    \textbf{Method:} Moran's I shows strong clusters on cells (\factVEightMoran). Is that
+      enough as the ``adequate method'', or do you expect more? & Optimisation plus spatial
+      statistics \\
+    \textbf{Limits:} Is it okay to name the known limits openly (wheelchair on slopes, OSM
+      gaps, new categories not validated yet)? & Yes, on the data page and in the report \\
+    \textbf{Interim on 25 Nov:} What do you expect: live demo, results, or both? & Live demo
+      with backup screenshots \\
     \bottomrule
   \end{tabular}
-  \par\medskip
-  {\footnotesize\textbf{Also:} interim format; database access for you (SSH tunnel?); may we use
-  bwUniCluster; is one city enough, and is a larger area of interest?}
   \source{docs/deployment\_proposal.md (PR \#64); methodology.md §7 (M5); validation report V8
-    (run \factValRunId); notes N11, N13, N16; details in the backup.}
+    (run \factValRunId); notes N11, N13, N16; project\_management\_decisions.md §8.}
 \end{frame}
 
 % ============================================================================================
-\section{Outlook}
 % Speaker: TBD
-
-\begin{frame}{By 22 January we finish Tübingen; in the long run the same method can cover all
-  of Germany}
+\begin{frame}{Next steps: server live in December, submission on 22 January}
   \begin{columns}[T,onlytextwidth]
-    \column{0.44\textwidth}
-      \textbf{Until the submission (planned)}
+    \column{0.48\textwidth}
+      \textbf{Plan until the submission}
       \begin{itemize}\footnotesize
-        \item 25 Nov: interim presentation (\texttt{v0.1.0})
-        \item From $\sim$1 Dec: server live after the hosting decision
-        \item Dec--Jan: V7 and V9; final categories (M1) and transit classes (M2)
-        \item 22 Jan: submission (\texttt{v1.0.0}); 29 Jan: final presentation
+        \item \textbf{25 Nov:} interim presentation (\texttt{v0.1.0})
+        \item \textbf{from $\sim$1 Dec:} server live, weekly automatic refresh
+        \item \textbf{Dec--Jan:} remaining validation (local knowledge, reproducibility);
+              final categories and public-transport classes
+        \item \textbf{10--15 Jan:} feature freeze
+        \item \textbf{22 Jan:} submission (\texttt{v1.0.0}); \textbf{29 Jan:} final
+              presentation
       \end{itemize}
-    \column{0.52\textwidth}
-      \textbf{All of Germany (vision, not planned)}
+    \column{0.48\textwidth}
+      \textbf{What we need from today}
       \begin{itemize}\footnotesize
-        \item Same census file: \factDeCells{} populated cells, \factDeResidents{} residents
-        \item Geofabrik extract of Germany; one run per municipality key (AGS)
-        \item Valhalla tiles built on bwUniCluster; vector tiles for the map
-        \item Hard parts: about \factDeCellFactor{}$\times$ the cells, OSM quality per region,
-              villages need density strata (M3)
+        \item A decision on the server, so we can deploy from 1 Dec
+        \item Your view on scope: Tübingen only, or a look beyond
+        \item Feedback on the app: what is missing, what is too much?
       \end{itemize}
   \end{columns}
-  \source{docs/features.md §9; project\_management\_decisions.md §8; Zensus file of run
-    \factCurRunId{} (grid sum, perturbed); architecture.md §11.1, §12 (second region out of scope
-    for Core); methodology.md M1--M3.}
+  \source{docs/features.md §9; architecture.md §11; methodology.md M1, M2.}
 \end{frame}
-
-{\setbeamertemplate{headline}{}
-\begin{frame}
-  \vfill
-  {\Large\bfseries Thank you. Your decisions, please.\par}
-  \vskip4mm
-  {\color{accent}\rule{25mm}{2pt}}\par\vskip4mm
-  Hosting, the adequate method and the acceptable limits decide what we freeze next;\\
-  all of Germany stays our long-term goal.\par
-  \vfill
-\end{frame}}
 
 % ============================================================================================
 \backupslides
 \section*{Backup}
-
-\begin{frame}{Backup: we keep the official Zensus 100\,m grid instead of H3 hexagons}
-  \footnotesize
-  \begin{tabular}{@{}P{20mm}P{57mm}P{55mm}@{}}
-    \toprule
-    & \textbf{Zensus 100\,m grid (chosen)} & H3 hexagons (rejected) \\
-    \midrule
-    Residents & Exact counts as published & Re-gridding spreads residents by area; errors at
-      every edge \\
-    Identity & Official \texttt{GITTER\_ID} (EPSG:3035) joins other census grid tables (age:
-      M6) & Own index; every join needs re-gridding \\
-    Scale & Same grid for all of Germany: \factDeCells{} populated cells in the file we already
-      download & Global, but residents must be disaggregated first \\
-    Trade-off & Squares: 8 neighbours at two distances & Hexagons: 6 equal neighbours, nicer
-      for spatial statistics \\
-    \bottomrule
-  \end{tabular}
-  \par\medskip
-  \textbf{Same grid everywhere:} scored cells, recommender candidates, housing cells and the
-  pin-drop snap to it. Origin = cell centroid (O5); with building origins only
-  \factVSixChange{} of residents $\times$ categories change class (V6, walking).
-  \source{docs/architecture.md §2 (principle 4), §5.2, §12 (H3 aggregation out of scope), O5;
-    validation report V6 (run \factValRunId); Zensus file of run \factCurRunId.}
-\end{frame}
-
-\begin{frame}{Backup: counting with isochrone polygons would add \factVOneOvercount{}
-  unreachable pairs}
-  \begin{columns}[T,onlytextwidth]
-    \column{0.55\textwidth}
-      \centering\isochronetrap
-    \column{0.42\textwidth}
-      \footnotesize
-      \textbf{D2:} per block of cells one Valhalla matrix to all facilities in reach; a
-      facility counts if its time is $\le 15$ min. Isochrones are only drawn.\par\medskip
-      \textbf{V1} (150 cells, walking 3.39\,km/h): polygons add \factVOneOvercount{}
-      unreachable pairs, \factVOneBarrier{} of them across the Neckar, rail lines or main
-      roads.\par\medskip
-      \textbf{O20:} exact prefilter; \factCurFalseNeg{} sampled pairs outside the counts are
-      reachable by \texttt{/route}.
-  \end{columns}
-  \source{docs/architecture.md §6.3 (D2), §6.5, O20; validation report V1 (run \factValRunId);
-    run \factCurRunId{} (\texttt{false\_negatives}).}
-\end{frame}
-
-\begin{frame}{Backup: questions 1 and 2, current hosting design vs.\ the proposal of \#64}
-  \begin{columns}[T,onlytextwidth]
-    \column{0.5\textwidth}
-      \centering{\footnotesize\bfseries Current design (binding)}\par\smallskip
-      \hostingcurrent
-    \column{0.5\textwidth}
-      \centering{\footnotesize\bfseries Proposal (not approved)}\par\smallskip
-      \hostingproposed
-  \end{columns}
-  \source{docs/architecture.md §3, §11 (current); docs/deployment\_proposal.md (proposal, PR
-    \#64): backend on the HP ProDesk (i5-8500T, 16\,GB) or a rented VPS ($\ge 8$\,GB, O1).}
-\end{frame}
-
-\begin{frame}{Backup: question 4, five known limits and what we propose}
-  \footnotesize
-  \begin{tabular}{@{}P{32mm}P{62mm}P{34mm}@{}}
-    \toprule
-    Limit & Effect & Proposal \\
-    \midrule
-    Wheelchair on slopes & Steep sections are not avoided; hillside counts are optimistic (N11)
-      & Accept, state on data page \\
-    OSM gaps & \factVTwoKitaMissing{} Kitas and \factVTwoSchoolMissing{} schools have no OSM
-      match (V2) & Map them in OSM \\
-    Extended categories & No completeness check; monotonicity check at \factCurMonoCells{} cells,
-      fails above 1\,\% (N16) & Mark as indicative \\
-    Cycling recommender off & \factCyclingZones{} zones would be added; Valhalla needs
-      \factCyclingValhallaPeak{} (W6) & Accept, document \\
-    Housing candidates & Land use not fully excluded; buildable not known (N15) & Decide after
-      map check \\
-    \bottomrule
-  \end{tabular}
-  \par\medskip
-  {\footnotesize\color{muted}Shares depend strongly on speed and budget (V5): we always name the
-  profile and budget next to a share.}
-  \source{notes N11, N12, N13, N15, N16; validation report V2, V5 (run \factValRunId); run
-    \factCurRunId.}
-\end{frame}
 
 \begin{frame}{Backup: validation experiments V1--V11}
   \scriptsize
@@ -319,6 +217,84 @@
   \end{tabular}
   \source{docs/validation\_report.md, run \factValRunId{} (Core categories of that run, parks
     and playgrounds still one category); the extended categories are not validated yet.}
+\end{frame}
+
+\begin{frame}{Backup: counting with isochrone polygons would add \factVOneOvercount{}
+  unreachable pairs}
+  \begin{columns}[T,onlytextwidth]
+    \column{0.55\textwidth}
+      \centering\isochronetrap
+    \column{0.42\textwidth}
+      \footnotesize
+      \textbf{How we count:} per block of cells one travel-time matrix to all facilities in
+      reach; a facility counts if its time is $\le 15$ min. Isochrones are only drawn.
+      \par\medskip
+      \textbf{Test} (150 cells, walking 3.39\,km/h): polygons add \factVOneOvercount{}
+      unreachable pairs, \factVOneBarrier{} of them across the Neckar, rail lines or main
+      roads.\par\medskip
+      \textbf{Nothing lost:} \factCurFalseNeg{} sampled pairs outside the counts are
+      reachable by a single route.
+  \end{columns}
+  \source{docs/architecture.md §6.3, §6.5; validation report V1 (run \factValRunId); run
+    \factCurRunId{} (\texttt{false\_negatives}).}
+\end{frame}
+
+\begin{frame}{Backup: hosting, current design vs.\ the Cloudflare proposal}
+  \begin{columns}[T,onlytextwidth]
+    \column{0.5\textwidth}
+      \centering{\footnotesize\bfseries Current design}\par\smallskip
+      \hostingcurrent
+    \column{0.5\textwidth}
+      \centering{\footnotesize\bfseries Proposal (not approved)}\par\smallskip
+      \hostingproposed
+  \end{columns}
+  \source{docs/architecture.md §3, §11 (current); docs/deployment\_proposal.md (proposal, PR
+    \#64): backend on the HP ProDesk (i5-8500T, 16\,GB) or a rented VPS ($\ge 8$\,GB).}
+\end{frame}
+
+\begin{frame}{Backup: known limits and how we handle them}
+  \footnotesize
+  \begin{tabular}{@{}P{32mm}P{62mm}P{34mm}@{}}
+    \toprule
+    Limit & Effect & Proposal \\
+    \midrule
+    Wheelchair on slopes & Steep sections are not avoided; hillside counts are optimistic
+      & Accept, state on data page \\
+    OSM gaps & \factVTwoKitaMissing{} Kitas and \factVTwoSchoolMissing{} schools have no OSM
+      match & Map them in OSM \\
+    New categories & No completeness check yet; consistency check at \factCurMonoCells{}
+      cells, fails above 1\,\% & Mark as indicative \\
+    Cycling recommender off & Would add only \factCyclingZones{} zones but needs
+      \factCyclingValhallaPeak{} of routing memory & Accept, document \\
+    Housing candidates & Land use not fully excluded; buildable not known & Decide after
+      map check \\
+    \bottomrule
+  \end{tabular}
+  \par\medskip
+  {\footnotesize\color{muted}Shares depend strongly on speed and budget: we always name the
+  profile and budget next to a share.}
+  \source{notes N11, N12, N13, N15, N16; validation report V2, V5 (run \factValRunId); run
+    \factCurRunId.}
+\end{frame}
+
+\begin{frame}{Backup: we use the official census 100\,m grid instead of H3 hexagons}
+  \footnotesize
+  \begin{tabular}{@{}P{20mm}P{57mm}P{55mm}@{}}
+    \toprule
+    & \textbf{Census 100\,m grid (chosen)} & H3 hexagons \\
+    \midrule
+    Residents & Exact counts as published & Re-gridding spreads residents by area; errors at
+      every edge \\
+    Identity & Official cell id, joins other census tables (e.g.\ age) & Own index; every join
+      needs re-gridding \\
+    Scale & Same grid for all of Germany: \factDeCells{} populated cells in the file we already
+      download & Global, but residents must be disaggregated first \\
+    Trade-off & Squares: 8 neighbours at two distances & Hexagons: 6 equal neighbours, nicer
+      for spatial statistics \\
+    \bottomrule
+  \end{tabular}
+  \source{docs/architecture.md §2, §5.2, §12; validation report V6 (run \factValRunId); Zensus
+    file of run \factCurRunId.}
 \end{frame}
 
 \end{document}

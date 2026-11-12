@@ -7,6 +7,11 @@ adds a line under `Unreleased`.
 
 ## [Unreleased]
 
+### Changed (slides)
+- Supervisor deck of 12 Nov 2026 rewritten as an informal working deck: no title slide, six
+  slides (status and demo, architecture, validation, server and scaling, questions, next steps),
+  decision table removed, open points phrased as questions; backup trimmed to five slides.
+
 ### Fixed (slides, self-contained decks)
 - Every deck folder now holds its own copy of the theme (`slides/theme/` removed) and loads its
   figures as `\input{figures/<name>}`; the `\input@path` line is gone, so `pdflatex` in the
