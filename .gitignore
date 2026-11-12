@@ -12,6 +12,9 @@ __pycache__/
 # local data and pipeline outputs (never committed)
 data/
 
+# slides (latexmk output)
+slides/build/
+
 # frontend
 web/node_modules/
 web/dist/

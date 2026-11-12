@@ -1,0 +1,127 @@
+% Every number shown on a slide comes from here, with the run or document it was taken from.
+% Update the whole block when the slides move to a newer run; never type a number into a deck.
+% Rule from docs/notes.md N13: always name profile and budget next to a share.
+
+% ---- run used for results ----------------------------------------------------------------
+% data/runs/20261110T223016Z/validate_results/report_results.md (status ok)
+% This run has 7 categories (parks and playgrounds separate): it needs PR #57
+% (feature/juju-categories, methodology v0.8). dev still has 6 ("Parks & playgrounds").
+% Before presenting: #57 merged and a run from dev, or switch to a dev run with 6 categories.
+\newcommand{\factRunId}{20261110T223016Z}
+\newcommand{\factOsmDate}{8 Nov 2026}
+\newcommand{\factCells}{1,699}
+\newcommand{\factResidents}{90,355}
+\newcommand{\factCategories}{7}
+\newcommand{\factProfiles}{4}
+
+% Share of residents per class, walking 3.39 km/h, 15 min (lack / insufficient / sufficient, %)
+% Order: as in report_results.md. Used by the stacked bar chart in interim.tex.
+\newcommand{\factLackPharmacyWalk}{43\,\%}   % 42.9 %
+\newcommand{\factLackGroceryWalk}{33\,\%}    % 32.8 %
+
+% ---- validation report (docs/validation_report.md, run 20261106T142630Z) -------------------
+\newcommand{\factValRunId}{20261106T142630Z}
+\newcommand{\factVOneOvercount}{18\,\%}      % V1: 585 polygon-only pairs = 18.3 % of matrix pairs, walking 3.39
+\newcommand{\factVOneBarrier}{47\,\%}        % V1: polygon-only pairs across Neckar/rail/main road
+\newcommand{\factVOneClass}{5\,\%}           % V1: cell x category classes that would differ
+\newcommand{\factVTwoKita}{88\,\%}           % V2: childcare recall (87.5 %)
+\newcommand{\factVTwoSchool}{95\,\%}         % V2: school recall
+\newcommand{\factVThreeNear}{80--98\,\%}     % V3: picks within 500 m of a removed facility, mode \"created only\" (all deficits: 13--39 %)
+\newcommand{\factVThreeRandom}{8--36\,\%}    % V3: same for random picks
+\newcommand{\factVFourGap}{2.8\,\%}          % V4: max gap greedy vs. MILP (90 instances)
+\newcommand{\factVFourMean}{0.17\,\%}        % V4: mean gap
+\newcommand{\factVSixChange}{1.9\,\%}        % V6: residents x categories changing class, walking
+\newcommand{\factVEightMoran}{0.72--0.88}    % V8: Moran's I on cells
+\newcommand{\factVTenMedian}{0.5\,s}         % V10: median |delta| matrix vs. /route
+\newcommand{\factVElevenChange}{3.3--3.6\,\%}% V11: residents x categories changing class
+
+% ---- chart data (run \factRunId) -----------------------------------------------------------
+% Share of residents per class [%], walking 3.39 km/h, 15 min; sorted by lack (ranking).
+\pgfplotstableread{
+category     lack  insufficient  sufficient
+Pharmacy     42.9  0.0           57.1
+Grocery      32.8  26.2          41.0
+Parks        30.8  0.0           69.2
+School       29.4  0.0           70.6
+Doctors      17.5  23.1          59.4
+Childcare    6.5   14.9          78.6
+Playgrounds  4.2   0.0           95.8
+}\factClassesWalk
+
+% Share of residents in "lack" [%] per profile, 15 min (same order as above).
+% Cycling 15 km/h: at most 2.6 % lack in every category (pharmacy).
+\pgfplotstableread{
+category     walkfive  walk  wheel
+Pharmacy     25.7      42.9  45.3
+Grocery      17.5      32.8  37.3
+Parks        14.6      30.8  33.5
+School       9.3       29.4  33.8
+Doctors      8.3       17.5  22.1
+Childcare    0.9       6.5   10.0
+Playgrounds  0.8       4.2   7.1
+}\factLackProfiles
+\newcommand{\factLackCyclingMax}{3\,\%}  % 2.6 %, pharmacy
+
+% ---- supervisor meeting 12 Nov 2026 (slides/2026-11-12-supervisor.tex) ----------------------
+% Current dev run: data/runs/20261110T233930Z/validate_results/report_results.md (status ok,
+% published, local laptop; 15 categories after PR #60). OSM snapshot from validate/report_inputs.md.
+% The seven Core shares equal those of \factRunId (same OSM snapshot).
+\newcommand{\factCurRunId}{20261110T233930Z}
+\newcommand{\factCurOsmDate}{8 Nov 2026}
+\newcommand{\factCurCells}{1,699}
+\newcommand{\factCurResidents}{90,355}
+\newcommand{\factCurCategories}{15}
+\newcommand{\factCurFacilities}{1,238}            % facilities in the routing area (validate)
+\newcommand{\factCurRecs}{224}                     % recommendations_consistent, 3 profiles
+\newcommand{\factCurHousing}{830}                  % housing_consistent
+\newcommand{\factCurChecks}{15}                    % checks in report part 2
+\newcommand{\factCurFalseNeg}{0 of 1,200}          % false_negatives
+\newcommand{\factCurMonoCells}{10 of 1,699}        % monotonic_walking_500_ge_walking_339 (fail > 1 % = 16 cells)
+\newcommand{\factCurCountRuntime}{254\,s}          % count stage, docs/notes.md N16
+% Share of residents per class [%], walking 3.39 km/h, 15 min, run \factCurRunId; sorted by lack.
+% ext = extended category (methodology §2, indicative).
+\pgfplotstableread{
+category                lack  insufficient  sufficient
+{Gym (ext.)}            74.2  0.0           25.8
+{Senior care (ext.)}    60.6  0.0           39.4
+{Library (ext.)}        58.9  0.0           41.1
+{Sports centre (ext.)}  49.3  0.0           50.7
+{Post office (ext.)}    48.2  0.0           51.8
+{Pharmacy}              42.9  0.0           57.1
+{Dentist (ext.)}        40.3  0.0           59.7
+{Grocery}               32.8  26.2          41.0
+{Parks}                 30.8  0.0           69.2
+{School}                29.4  0.0           70.6
+{Bank \& ATM (ext.)}    23.4  0.0           76.6
+{Bakery (ext.)}         21.7  0.0           78.3
+{Doctors}               17.5  23.1          59.4
+{Childcare}             6.5   14.9          78.6
+{Playgrounds}           4.2   0.0           95.8
+}\factCurClassesWalk
+
+% Decisions with evidence (docs named per line)
+\newcommand{\factUrbanUnscored}{8\,\%}            % architecture.md v0.12 change log, notes N3
+\newcommand{\factMatrixAlgoDiff}{2.5\,\%}         % architecture.md v0.15 change log, notes N8
+\newcommand{\factPlaygroundsPrivate}{68}          % notes N14: 58 private + 10 customers playgrounds in the city
+\newcommand{\factCellsPayload}{59\,KB}            % implementation_plan.md P6: /api/cells gzip, one layer
+
+% Germany outlook: the nationwide Zensus file every run already downloads
+% (data/raw/<run>/zensus/Zensus2022_Bevoelkerungszahl_100m-Gitter.csv, counted 12 Nov 2026:
+% rows without header, sum of "Einwohner"; values are perturbed by the cell-key method).
+\newcommand{\factDeCells}{3,088,037}
+\newcommand{\factDeResidents}{82.6\,million}      % 82,570,995
+\newcommand{\factDeCellFactor}{1,800}             % 3,088,037 / 1,699 = 1,818
+\newcommand{\factDeCountDays}{5}                  % naive: 254 s x 1,818 = 128 h = 5.3 days, one laptop
+
+% Cycling in the recommender, measured 9 Nov 2026 (docs/notes.md N12, W6), macOS/Docker Desktop.
+\newcommand{\factCyclingValhallaPeak}{4.0\,GiB}   % + cycling_15, 100 m candidates
+\newcommand{\factNoCyclingValhallaPeak}{1.2\,GiB} % walking + wheelchair only
+\newcommand{\factCyclingValhallaLimit}{2.5\,GiB}  % limit E6
+\newcommand{\factCyclingZones}{12}                % zones cycling would add, for ~130 cells with a deficit
+% Housing potential, first run (docs/notes.md N15, scratch copy of run 20261109T175743Z)
+\newcommand{\factHousingCandidates}{830}          % candidates after excluded land use
+\newcommand{\factHousingExcluded}{739}            % grid cells in excluded land use
+\newcommand{\factHousingRuntime}{14.9\,s}         % housing stage, walking 3.39 and 5.0
+% V2 gaps (docs/notes.md N13)
+\newcommand{\factVTwoKitaMissing}{13 of 104}      % Kitas of the city's list without OSM match
+\newcommand{\factVTwoSchoolMissing}{2 of 38}      % schools without OSM match

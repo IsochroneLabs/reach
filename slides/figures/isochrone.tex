@@ -1,0 +1,93 @@
+% Schematic isochrone scene, used twice (same streets, river and facilities):
+%   \isochronedefinition  what an isochrone is (5/10/15 min, network shape vs. 850 m circle)
+%   \isochronetrap        why we do not count with the polygon (methodology §6 V1)
+% Scale: 1 unit = 200 m. Walking 3.39 km/h = 56.5 m/min, so 15 min = 850 m = 4.25 units
+% along streets. Network times of the facilities (Manhattan paths on the drawn streets):
+%   F1 (2.6,4.6): 460 m = 8 min    F2 (6.8,4.6): 780 m = 14 min
+%   F3 (6.8,5.5): 960 m = 17 min (inside the 850 m circle, outside the network contour)
+%   Fs (4.6,0.6): 1,660 m via the bridge at x = 6.8 = 29 min
+% The origin O is at (3.9,3.6). Schematic, not a real place.
+
+\newcommand{\isoscene}{%
+  % river (only crossing: the bridge at x = 6.8)
+  \fill[river] (-0.2,2.05) .. controls (3,2.1) and (6,1.95) .. (10.2,1.85)
+    -- (10.2,1.25) .. controls (6,1.35) and (3,1.5) .. (-0.2,1.45) -- cycle;
+  \node[font=\tiny\itshape,text=black!55] at (1.2,1.72) {Neckar};
+  % streets north of the river
+  \foreach \y in {2.6,3.6,4.6,5.5} \draw[street,line width=1.1pt] (0.2,\y) -- (9.8,\y);
+  \foreach \x in {1.2,2.6,3.9,5.3,8.6} \draw[street,line width=1.1pt] (\x,2.35) -- (\x,5.85);
+  % street over the bridge and streets south of the river
+  \draw[street,line width=1.1pt] (6.8,0.15) -- (6.8,5.85);
+  \draw[black!45,line width=2.2pt] (6.8,1.3) -- (6.8,2.05);  % bridge deck
+  \draw[street,line width=1.1pt] (0.2,0.5) -- (9.8,0.5);
+  \foreach \x in {2.0,4.6,8.6} \draw[street,line width=1.1pt] (\x,0.15) -- (\x,1.1);
+}
+
+% Diamond-shaped contour of network distance r (units) around the origin.
+\newcommand{\isocontour}[2]{% #1 = radius in units, #2 = tikz options
+  \path[#2,rounded corners=4pt] (3.9-#1,3.6) -- (3.9,3.6+#1) -- (3.9+#1,3.6)
+    -- (3.9,3.6-#1) -- cycle;}
+
+\newcommand{\isoorigin}{%
+  \fill[accent] (3.9,3.6) circle (0.17);
+  \draw[white,line width=0.8pt] (3.9,3.6) circle (0.17);}
+
+% \isofacility{x,y}{label}{reached: true/false}{label position: above, right, below left, ...}
+\newcommand{\isofacility}[4]{%
+  \ifstrequal{#3}{true}%
+    {\def\isofill{ink}}{\def\isofill{white}}%
+  \node[draw=ink,fill=\isofill,line width=0.8pt,minimum size=2.2mm,inner sep=0pt,
+        label={[font=\tiny\bfseries,inner sep=1.5pt,fill=white,fill opacity=0.85,
+                text opacity=1]#4:#2}] at (#1) {};}
+
+\newcommand{\isochronedefinition}{%
+  \begin{tikzpicture}[scale=0.74]
+    \clip (0,0) rectangle (10,6);
+    \isoscene
+    % true network isochrones stop at the river
+    \begin{scope}
+      \clip (0,2.2) rectangle (10,6);
+      \isocontour{4.25}{fill=sufficient!35,draw=iso,line width=0.9pt}
+      \isocontour{2.83}{fill=sufficient!65,draw=iso,line width=0.9pt}
+      \isocontour{1.42}{fill=sufficient,draw=iso,line width=0.9pt}
+    \end{scope}
+    \isoscene  % streets on top of the fills
+    \begin{scope}
+      \clip (0,2.2) rectangle (10,6);
+      \isocontour{4.25}{draw=iso,line width=0.9pt}
+      \isocontour{2.83}{draw=iso,line width=0.9pt}
+      \isocontour{1.42}{draw=iso,line width=0.9pt}
+    \end{scope}
+    % straight-line circle of the same 850 m, for comparison
+    \draw[muted,dashed,line width=0.7pt] (3.9,3.6) circle (4.25);
+    \node[font=\tiny,text=muted,anchor=south west,fill=white,fill opacity=0.85,text opacity=1,
+          inner sep=1pt] at (1.25,0.1) {850 m straight line};
+    \foreach \r/\t in {1.42/5,2.83/10,4.25/15}
+      \node[font=\tiny\bfseries,text=iso,anchor=south,inner sep=1pt] at (3.9+\r-0.25,3.62)
+        {\t};
+    \isofacility{2.6,4.6}{8 min}{true}{above}
+    \isofacility{6.8,4.6}{14 min}{true}{above}
+    \isofacility{6.8,5.5}{17 min}{false}{right}
+    \isoorigin
+    \node[font=\tiny\bfseries,text=accent,anchor=north east,inner sep=2pt] at (3.85,3.5)
+      {origin};
+  \end{tikzpicture}}
+
+\newcommand{\isochronetrap}{%
+  \begin{tikzpicture}[scale=0.74]
+    \clip (0,0) rectangle (10,6);
+    \isoscene
+    % simplified polygon as drawn by an isochrone service: it spills over the river
+    \isocontour{4.25}{fill=sufficient!45,fill opacity=0.8}
+    \isoscene
+    \isocontour{4.25}{draw=iso,line width=0.9pt}
+    % the real way to Fs: east to the bridge, across, back west
+    \draw[accent,line width=1.4pt,dashed,-{Stealth[length=2.2mm]}]
+      (3.9,3.6) -- (3.9,2.6) -- (6.8,2.6) -- (6.8,0.5) -- (4.75,0.5) -- (4.62,0.55);
+    \isofacility{6.8,4.6}{14 min}{true}{above}
+    \isofacility{2.6,4.6}{8 min}{true}{above}
+    \isofacility{4.6,0.6}{29 min}{false}{left}
+    \node[font=\tiny\bfseries,text=accent,align=left,anchor=west] at (7.0,1.1)
+      {inside the polygon,\\but 29 min on foot};
+    \isoorigin
+  \end{tikzpicture}}

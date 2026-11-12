@@ -1,0 +1,409 @@
+% Interim presentation, 25 Nov 2026 (DS500). Storyline and rules: slides/README.md,
+% slides/AGENTS.md. Every number comes from common/facts.tex.
+\documentclass[aspectratio=169,10pt]{beamer}
+\usetheme{reach}
+\input{facts}
+\input{isochrone}
+\input{system}
+
+\title[reach $\cdot$ Interim presentation]{reach: 15-minute accessibility for every resident of Tübingen}
+\subtitle{Interim presentation $\cdot$ DS500 Data Science Project, Topic 9 ``The 15-Minute City''}
+\author{Rico $\cdot$ Socke $\cdot$ Juju}
+\institute{University of Tübingen, winter term 2026/27}
+\date[25 Nov 2026]{25 November 2026}
+
+\begin{document}
+
+{\setbeamertemplate{headline}{}\setbeamertemplate{footline}{}
+\begin{frame}
+  \titlepage
+\end{frame}}
+
+% ============================================================================================
+% Executive summary: the key message first (pyramid, workshop part 2). Speaker: TBD
+\begin{frame}{reach shows who cannot reach everyday services within 15 minutes, and where a new
+  facility would help most}
+  \centering
+  \begin{tikzpicture}[
+      box/.style={draw=ink,line width=0.6pt,text width=40mm,align=flush left,inner sep=2.5mm,
+        font=\footnotesize,minimum height=27mm,anchor=north},
+      head/.style={font=\footnotesize\bfseries,text=accent}]
+    \node[fill=ink,text=white,text width=132mm,align=center,inner sep=2.5mm,font=\small\bfseries]
+      (key) at (0,0)
+      {Accessibility in Tübingen is uneven: it depends on where you live and how you travel};
+    \node[box] (a) at (-46mm,-11mm) {{\usebeamercolor[fg]{alerted text}\bfseries Measure}\\[1mm]
+      Every populated 100\,m cell, \factCategories{} categories, \factProfiles{} ways of
+      travelling, along the street network};
+    \node[box] (b) at (0,-11mm) {{\usebeamercolor[fg]{alerted text}\bfseries Find}\\[1mm]
+      \factLackPharmacyWalk{} of residents cannot walk to a pharmacy within 15 minutes
+      (3.39\,km/h)};
+    \node[box] (c) at (46mm,-11mm) {{\usebeamercolor[fg]{alerted text}\bfseries Recommend}\\[1mm]
+      Zones for one new facility per category, ranked by unmet demand removed; within
+      \factVFourGap{} of the optimum};
+    \foreach \n in {a,b,c} \draw[ink,line width=0.6pt] (key.south) -- (\n.north);
+    \node[font=\footnotesize,text=muted,anchor=north] at (0,-41mm)
+      {Automated from open data with one command; 9 of 11 validation experiments done};
+  \end{tikzpicture}
+  \source{run \factRunId{} (OSM \factOsmDate); validation report, run \factValRunId.}
+\end{frame}
+
+% ============================================================================================
+\section{Problem}
+% Speaker: TBD
+
+\begin{frame}{The 15-minute city asks whether residents reach daily needs without a car; we
+  make that question measurable and actionable for Tübingen}
+  \begin{columns}[T,onlytextwidth]
+    \column{0.47\textwidth}
+      \textbf{The idea}\par\smallskip
+      \begin{itemize}
+        \item Everyday services within a short walk or ride from home
+              (Moreno et al., 2021)
+        \item Mouratidis (2026): count \emph{disaggregated} facilities per category and classify
+              access as lack, insufficient or sufficient
+        \item Applied once, largely by hand, to Copenhagen
+      \end{itemize}
+    \column{0.47\textwidth}
+      \textbf{What we add}\par\smallskip
+      \begin{itemize}
+        \item \textbf{Automation:} open data in, validated results out, with one command
+        \item \textbf{Tübingen} with German open data (OSM, NVBW GTFS, Zensus 2022)
+        \item \textbf{Inclusive profiles:} slow walking, wheelchair, cycling
+        \item \textbf{A recommender:} where would one new facility help most?
+      \end{itemize}
+  \end{columns}
+  \source{Moreno et al. (2021); Mouratidis (2026), full references in the backup.}
+\end{frame}
+
+\begin{frame}{An isochrone shows every place you can reach from one point within a fixed time}
+  \begin{columns}[T,onlytextwidth]
+    \column{0.36\textwidth}
+      \begin{block}{Isochrone}
+        \centering $I(o,t) = \{\,x \;:\; \tau_m(o,x) \le t\,\}$\par\smallskip
+        \raggedright\footnotesize $o$: origin, $t$: time budget, $\tau_m$: travel time
+        along the street network for profile $m$
+      \end{block}
+      \smallskip
+      \begin{itemize}\small
+        \item Our budget: $t = 15$ min
+        \item At 3.39\,km/h: $\approx 850$\,m \emph{along streets}
+        \item Follows the network, stops at barriers like the Neckar
+      \end{itemize}
+    \column{0.62\textwidth}
+      \centering\isochronedefinition\par
+      {\tiny\color{muted}Schematic. Filled squares: reachable within 15 min; contours at 5, 10
+      and 15 min.}
+  \end{columns}
+  \source{methodology.md §1 (profiles); isochrones are computed by Valhalla.}
+\end{frame}
+
+% ============================================================================================
+\section{Method}
+% Speaker: TBD
+
+\begin{frame}{We measure all \factCells{} populated 100\,m cells (\factResidents{} residents)
+  for seven categories and four ways of travelling}
+  \begin{columns}[T,onlytextwidth]
+    \column{0.31\textwidth}
+      \textbf{Who: Zensus 2022}\par\smallskip
+      \footnotesize Residents per 100\,m grid cell; the cell centroid is the origin\par
+      \bigskip\normalsize
+      \textbf{What: OpenStreetMap}\par\smallskip
+      \footnotesize Street network and facilities: grocery, pharmacy, doctors, childcare,
+      school, parks, playgrounds\par
+      \bigskip\normalsize
+      \textbf{Transit: NVBW GTFS}\par\smallskip
+      \footnotesize Weekday departures at stops within a 10-minute walk
+    \column{0.63\textwidth}
+      \centering
+      \footnotesize
+      \begin{tabular}{@{}lrr@{}}
+        \toprule
+        Profile & Speed & Reach in 15 min \\
+        \midrule
+        Walking (inclusive default) & 3.39 km/h & 850 m \\
+        Walking (comparison) & 5.0 km/h & 1,250 m \\
+        Wheelchair & 3.39 km/h & 850 m \\
+        Cycling & 15 km/h & 3,750 m \\
+        \bottomrule
+      \end{tabular}\par\medskip
+      \raggedright
+      Reach = straight-line limit; the network time decides. Slopes slow walkers and
+      wheelchairs down (Valhalla's slope model).
+  \end{columns}
+  \source{run \factRunId{} (OSM \factOsmDate); methodology.md §1--§3.}
+\end{frame}
+
+\begin{frame}{We count facilities along the network, because isochrone polygons would add
+  \factVOneOvercount{} unreachable cell--facility pairs}
+  \begin{columns}[T,onlytextwidth]
+    \column{0.57\textwidth}
+      \centering\isochronetrap
+    \column{0.40\textwidth}
+      \textbf{Matrix, not polygon:} for every cell, one Valhalla time matrix to all candidate
+      facilities; a facility counts if its travel time $\le 15$ min.\par\bigskip
+      \textbf{Test V1} (150 cells, walking 3.39\,km/h):
+      \begin{itemize}
+        \item Polygons add \factVOneOvercount{} unreachable pairs and miss almost none
+        \item \factVOneBarrier{} of these lie across the Neckar, rail lines or main roads
+        \item \factVOneClass{} of classes would change
+      \end{itemize}
+  \end{columns}
+  \source{validation report V1, run \factValRunId; architecture.md §6.3 (decision D2).}
+\end{frame}
+
+\begin{frame}{Each cell gets a class per category, and a deficit that weighs missing access by
+  residents}
+  \begin{columns}[T,onlytextwidth]
+    \column{0.48\textwidth}
+      $A_{i,c}$ = facilities of category $c$ reachable from cell $i$ in 15 min,
+      $k_c$ = facilities needed (grocery, doctors, childcare: 2; others: 1)\par\bigskip
+      \begin{tabular}{@{}ll@{}}
+        \classchip{lack}{Lack} & $A_{i,c} = 0$ \\[2mm]
+        \classchip{insufficient}{Insufficient} & $0 < A_{i,c} < k_c$ \\[2mm]
+        \classchip[ink]{sufficient}{Sufficient} & $A_{i,c} \ge k_c$ \\
+      \end{tabular}
+    \column{0.48\textwidth}
+      \textbf{Deficit} (unmet demand, residents $P_i$)
+      \[ U_{i,c} = P_i \cdot \max\!\Bigl(0,\; 1 - \frac{A_{i,c}}{k_c}\Bigr) \]
+      \footnotesize Example: 120 residents, one supermarket ($k = 2$) $\Rightarrow U = 60$.\par
+      \bigskip\normalsize
+      We store only raw counts and times; classes and deficits are derived when read, so a new
+      $k_c$ needs no re-routing.
+  \end{columns}
+  \source{methodology.md §2, §4.}
+\end{frame}
+
+% ============================================================================================
+\section{Results}
+% Speaker: TBD
+
+\begin{frame}{More than four in ten residents cannot walk to a pharmacy within 15 minutes}
+  \centering
+  \begin{tikzpicture}
+    \begin{axis}[
+        reach ranking, reach box legend, xbar stacked, bar width=4.2mm,
+        yticklabels from table={\factClassesWalk}{category}, xmin=0, xmax=100,
+        xlabel={Share of residents [\%], walking 3.39\,km/h, 15 min},
+      ]
+      \addplot[fill=lack,draw=none,
+        nodes near coords={\pgfmathfloattofixed{\pgfplotspointmeta}\ifdim\pgfmathresult pt<5pt\else
+          \pgfmathprintnumber[fixed,precision=0]{\pgfplotspointmeta}\fi},
+        nodes near coords style={font=\scriptsize\bfseries,text=white,anchor=east,
+          xshift=-0.3mm},
+        point meta=explicit]
+        table[x=lack,y expr=\coordindex,meta=lack] {\factClassesWalk};
+      \addplot[fill=insufficient,draw=none]
+        table[x=insufficient,y expr=\coordindex] {\factClassesWalk};
+      \addplot[fill=sufficient,draw=none]
+        table[x=sufficient,y expr=\coordindex] {\factClassesWalk};
+      \legend{Lack, Insufficient, Sufficient}
+    \end{axis}
+  \end{tikzpicture}
+  \source{run \factRunId{} (OSM \factOsmDate), \factResidents{} residents in \factCells{} cells.
+    Insufficient exists only where $k_c = 2$.}
+\end{frame}
+
+\begin{frame}{Faster walkers reach far more; pharmacy and grocery stay the weakest on foot and
+  by wheelchair}
+  \centering
+  \begin{tikzpicture}
+    \begin{axis}[
+        reach ranking, reach legend,
+        yticklabels from table={\factLackProfiles}{category}, xmin=0, xmax=50,
+        xmajorgrids, grid style={rule,line width=0.3pt},
+        xlabel={Share of residents in lack [\%], 15 min},
+      ]
+      \addplot[draw=none,mark=none,forget plot,
+        error bars/.cd, x dir=plus, x explicit, error mark=none,
+        error bar style={line width=2.2pt,rule}]
+        table[x=walkfive,y expr=\coordindex,
+          x error expr=\thisrow{wheel}-\thisrow{walkfive}] {\factLackProfiles};
+      \addplot[only marks,mark=*,mark size=2.6pt,mark options={fill=white,draw=ink}]
+        table[x=walkfive,y expr=\coordindex] {\factLackProfiles};
+      \addplot[only marks,mark=*,mark size=2.6pt,mark options={fill=ink,draw=ink}]
+        table[x=walk,y expr=\coordindex] {\factLackProfiles};
+      \addplot[only marks,mark=diamond*,mark size=3.4pt,mark options={fill=accent,draw=accent}]
+        table[x=wheel,y expr=\coordindex] {\factLackProfiles};
+      \legend{Walking 5.0\,km/h, Walking 3.39\,km/h, Wheelchair 3.39\,km/h}
+    \end{axis}
+  \end{tikzpicture}
+  \source{run \factRunId{} (OSM \factOsmDate). Cycling 15\,km/h: at most \factLackCyclingMax{}
+    lack in every category. District rankings stay similar under sensitivity changes (V5).}
+\end{frame}
+
+\begin{frame}{A greedy recommender picks the zone that removes the most unmet demand, close to
+  the exact optimum}
+  \begin{columns}[T,onlytextwidth]
+    \column{0.58\textwidth}
+      \textbf{Gain} of a new facility of category $c$ at zone $x$:
+      \[ \Delta W(x,c) = \sum_{i \in C(x)} P_i \left[\min\left(1,\frac{A_{i,c}+1}{k_c}\right) -
+         \min\left(1,\frac{A_{i,c}}{k_c}\right)\right] \]\vspace{-2mm}
+      \begin{enumerate}\small
+        \item Candidates: 100\,m zones in the built-up area
+        \item Pick the largest $\Delta W$, update the counts, repeat
+        \item Submodular objective: greedy reaches $\ge 1 - 1/e$ of the optimum
+      \end{enumerate}
+    \column{0.36\textwidth}
+      \keyfigure{$\le$\,\factVFourGap}{below the exact MILP optimum\\(90 instances, mean
+        \factVFourMean)}\par\bigskip
+      \keyfigure{\factVThreeNear}{of picks near a removed facility when only the removed
+        deficit counts (back-test; random: \factVThreeRandom)}\par\bigskip
+      {\scriptsize\color{muted} Accessibility only: zoning, parcels and capacity are out of
+      scope; results name zones, not sites.}
+  \end{columns}
+  \source{methodology.md §5; validation report V3, V4, run \factValRunId.}
+\end{frame}
+
+% ============================================================================================
+\section{System}
+% Speaker: TBD
+
+\begin{frame}{One command turns open data into validated, published results}
+  \vspace{4mm}
+  \centering\pipelinefigure\par
+  \vspace{6mm}
+  \begin{columns}[T,onlytextwidth]
+    \column{0.31\textwidth}\footnotesize\textbf{Reproducible:} every run keeps its inputs,
+      SHA-256 hashes and a manifest per stage
+    \column{0.31\textwidth}\footnotesize\textbf{One routing engine:} Valhalla for counting,
+      isochrones and live queries in the app
+    \column{0.31\textwidth}\footnotesize\textbf{Fast:} the full count for Tübingen takes
+      about 3.5 min on a laptop
+  \end{columns}
+  \source{architecture.md §6--§7; \texttt{make refresh}.}
+\end{frame}
+
+\begin{frame}{Eleven experiments test the method, and the main design choices hold}
+  \vspace{4mm}
+  \begin{columns}[T,onlytextwidth]
+    \column{0.24\textwidth}\keyfigure{\factVOneOvercount}{V1: over-count avoided by matrix
+      counting}
+    \column{0.24\textwidth}\keyfigure{\factVTwoSchool}{V2: OSM recall for schools
+      (childcare \factVTwoKita)}
+    \column{0.24\textwidth}\keyfigure{\factVSixChange}{V6: class changes with building-based
+      origins instead of centroids}
+    \column{0.24\textwidth}\keyfigure{\factVTenMedian}{V10: median difference matrix vs.\
+      single routes}
+  \end{columns}
+  \vspace{8mm}
+  \begin{itemize}
+    \item Deficits are spatially clustered (V8, Moran's I \factVEightMoran{} on cells)
+    \item Slopes change \factVElevenChange{} of classes, mostly on the hillsides (V11)
+    \item Still open: plausibility with local knowledge (V7), reproducibility by a teammate (V9)
+  \end{itemize}
+  \source{validation report V1--V11, run \factValRunId.}
+\end{frame}
+
+\begin{frame}{Live demo: anyone can click a place and see what is missing within 15 minutes}
+  \begin{columns}[T,onlytextwidth]
+    \column{0.55\textwidth}
+      \begin{enumerate}
+        \item Class map: pharmacy, walking 3.39\,km/h
+        \item Pin drop in an underserved area: what is reachable, what is missing, how long
+        \item Recommended zone: which residents would gain access
+      \end{enumerate}
+    \column{0.40\textwidth}
+      \begin{block}{If the demo fails}
+        \footnotesize We show screenshots of the same three steps instead.
+      \end{block}
+  \end{columns}
+\end{frame}
+
+% ============================================================================================
+\section{Next steps}
+% Speaker: TBD
+
+\begin{frame}{By the submission on 22 January we close the open validations and host the app}
+  \begin{columns}[T,onlytextwidth]
+    \column{0.48\textwidth}
+      \textbf{Validation}
+      \begin{itemize}
+        \item V7: local-knowledge check of the worst areas
+        \item V9: a teammate reruns everything from the README
+        \item Map the missing Kitas and schools in OSM (V2)
+      \end{itemize}
+    \column{0.48\textwidth}
+      \textbf{Product}
+      \begin{itemize}
+        \item Hosted app and read-only database access for supervisors
+        \item Weekly automatic refresh on the server
+        \item Calibrate the transit supply classes to Tübingen
+      \end{itemize}
+  \end{columns}
+  \vspace{6mm}
+  {\footnotesize\color{muted}Known limit: the wheelchair profile avoids steps but not steep
+  ramps, so wheelchair access on hillsides is optimistic.}
+  \source{docs/notes.md N11, N13; validation report.}
+\end{frame}
+
+{\setbeamertemplate{headline}{}
+\begin{frame}
+  \vfill
+  {\Large\bfseries Thank you. Questions?\par}
+  \vskip4mm
+  {\color{accent}\rule{25mm}{2pt}}\par\vskip4mm
+  Accessibility in Tübingen is uneven: it depends on where you live and how you travel.
+  reach measures it for every resident and shows where a new facility helps most.\par
+  \vfill
+\end{frame}}
+
+% ============================================================================================
+\backupslides
+\section*{Backup}
+
+\begin{frame}{Backup: references and data sources}
+  \footnotesize
+  \begin{itemize}
+    \item Moreno, C., Allam, Z., Chabaud, D., Gall, C., \& Pratlong, F. (2021). Introducing the
+          ``15-Minute City'': Sustainability, resilience and place identity in future
+          post-pandemic cities. \emph{Smart Cities}, 4(1), 93--111.
+    \item Mouratidis, K. (2026). \emph{Travel Behaviour and Society}, 42, 101151.
+  \end{itemize}
+  \medskip
+  \begin{tabular}{@{}lll@{}}
+    \toprule
+    Source & Used for & Licence \\
+    \midrule
+    OpenStreetMap (Geofabrik extract) & Streets, facilities & ODbL 1.0 \\
+    NVBW GTFS (naldo) & Stops, departures & dl-de/by-2-0, ODbL \\
+    Destatis Zensus 2022, 100\,m grid & Residents per cell & dl-de/by-2-0 \\
+    Valhalla (open source) & Routing, matrix, isochrones & MIT \\
+    \bottomrule
+  \end{tabular}
+  \source{README.md (data sources); Valhalla: licence file of the project repository.}
+\end{frame}
+
+\begin{frame}{Backup: validation experiments V1--V11}
+  \scriptsize
+  \begin{tabular}{@{}llp{95mm}@{}}
+    \toprule
+    \# & Experiment & Key result \\
+    \midrule
+    V1 & Matrix vs.\ isochrone polygons & Polygons add 18--20\,\% false pairs, 47\,\% across barriers \\
+    V2 & OSM completeness & Childcare recall 88\,\%, precision 98\,\%; schools 95\,\% / 95\,\% \\
+    V3 & Recommender back-test & 80--98\,\% of picks within 500\,m of a removed facility (only the removed deficit counts) \\
+    V4 & Greedy vs.\ exact MILP & At most 2.8\,\% below the optimum (mean 0.17\,\%) \\
+    V5 & Sensitivity ($k$, speed, budget) & Shares move strongly; district rankings stable
+      (median Spearman 0.78--0.95) \\
+    V6 & Centroid vs.\ building origin & 1.9\,\% (walking) / 2.8\,\% (wheelchair) change class \\
+    V7 & Local knowledge & Not yet run \\
+    V8 & Spatial statistics & Moran's I 0.72--0.88 on cells; none between districts \\
+    V9 & Reproducibility & Not yet run \\
+    V10 & Matrix vs.\ single routes & Median $|\Delta|$ 0.5\,s; 0 of 900 false negatives \\
+    V11 & With vs.\ without slopes & 3.3--3.6\,\% change class, mostly on hillsides \\
+    \bottomrule
+  \end{tabular}
+  \source{docs/validation\_report.md, run \factValRunId.}
+\end{frame}
+
+\begin{frame}{Backup: architecture at runtime}
+  \vspace{10mm}
+  \centering\architecturefigure\par
+  \vspace{10mm}
+  \footnotesize Docker Compose on one small server; Caddy serves the web app over HTTPS. The API
+  reads only the \texttt{current} views of the last validated run.
+  \source{architecture.md §3.}
+\end{frame}
+
+\end{document}
