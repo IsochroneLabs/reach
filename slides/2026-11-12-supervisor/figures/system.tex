@@ -68,8 +68,7 @@
       \node[draw=muted,dashed,rounded corners=2pt,inner sep=2.5mm,
         fit=(pipe)(vh)(db)(api)(caddy)] (srv) {};
     \end{scope}
-    \node[lab,anchor=south west] at (srv.north west) {one server, Docker Compose (host:
-      open question 1)};
+    \node[lab,anchor=south west] at (srv.north west) {one server, Docker Compose (which host: still open)};
     \draw[flow] (src) -- (pipe);
     \draw[flow] (pipe) -- (vh);
     \draw[flow] (pipe) -- (db);
