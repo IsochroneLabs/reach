@@ -28,8 +28,11 @@ EXPERIMENT = uv run $(if $(wildcard .env),--env-file .env) python -m reach_pipel
 # PDF comes out of `make slides` and of a TeX editor.
 DECKS = $(strip $(or $(DECK),$(foreach d,$(notdir $(wildcard slides/*)),$(if $(wildcard slides/$(d)/$(d).tex),$(d)))))
 LATEXMK = latexmk -pdf -outdir=build -interaction=nonstopmode -halt-on-error
+PDFLATEX = pdflatex -interaction=nonstopmode -halt-on-error
+# Files a TeX editor writes next to the deck (git-ignored, removed by `make slides-clean`).
+SLIDES_AUX = aux log nav out snm toc fls fdb_latexmk synctex.gz vrb bbl blg
 
-.PHONY: help up down logs pipeline migrate refresh tiles-build valhalla-config experiments test lint format slides slides-check
+.PHONY: help up down logs pipeline migrate refresh tiles-build valhalla-config experiments test lint format slides slides-check slides-editor-check slides-clean slides-new
 
 help: ## list targets
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-10s %s\n", $$1, $$2}'
@@ -125,3 +128,42 @@ slides-check: ## fail if a deck's build log has an overfull box or a LaTeX error
 	  test -f "$$log" || { echo "$$log missing: run make slides" >&2; exit 1; }; \
 	  if grep -n 'Overfull\|^!' "$$log"; then echo "$$log: overfull box or LaTeX error" >&2; exit 1; fi; \
 	done; echo "slides-check: no overfull boxes, no errors ($(DECKS))"
+
+# Builds every deck as a TeX editor does: plain pdflatex twice in the deck folder, no TEXINPUTS,
+# output into a temporary directory, so the committed PDF is never touched.
+slides-editor-check: ## build every deck (or DECK=<deck>) like a TeX editor and check its log
+	@command -v pdflatex >/dev/null || { echo "pdflatex not found: install TeX Live (README, Getting started)" >&2; exit 1; }
+	@for d in $(DECKS); do \
+	  test -f "slides/$$d/$$d.tex" || { echo "no deck slides/$$d/$$d.tex" >&2; exit 1; }; \
+	  tmp=$$(mktemp -d); \
+	  (cd "slides/$$d" && unset TEXINPUTS && $(PDFLATEX) -output-directory="$$tmp" "$$d.tex" >/dev/null \
+	    && $(PDFLATEX) -output-directory="$$tmp" "$$d.tex" >/dev/null); rc=$$?; \
+	  if [ $$rc -ne 0 ] || grep -n 'Overfull\|^!' "$$tmp/$$d.log"; then \
+	    echo "slides/$$d: editor build failed or log has an overfull box/error (log: $$tmp/$$d.log)" >&2; exit 1; fi; \
+	  echo "slides/$$d: editor build ok, $$(pdfinfo "$$tmp/$$d.pdf" 2>/dev/null | awk '/^Pages/{print $$2}') pages"; \
+	  rm -rf "$$tmp"; done
+
+slides-clean: ## remove build/ and the editor files (aux, log, …) of every deck; keeps the PDFs
+	rm -rf slides/*/build $(foreach e,$(SLIDES_AUX),slides/*/*.$(e))
+
+# New deck from an existing one: source, facts and figures without PDF and build files; the
+# "% !TEX root" lines and the title date follow the new name.
+slides-new: ## new deck: DECK=<YYYY-MM-DD-topic> FROM=<existing deck>
+	@test -n "$(DECK)" -a -n "$(FROM)" || { echo "usage: make slides-new DECK=<YYYY-MM-DD-topic> FROM=<deck>" >&2; exit 2; }
+	@echo "$(DECK)" | grep -Eq '^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])-[a-z0-9][a-z0-9-]*$$' \
+	  || { echo "DECK must be YYYY-MM-DD-<topic> (lowercase, digits, -): $(DECK)" >&2; exit 2; }
+	@test -f "slides/$(FROM)/$(FROM).tex" || { echo "no deck slides/$(FROM)/$(FROM).tex" >&2; exit 2; }
+	@test ! -e "slides/$(DECK)" || { echo "slides/$(DECK) exists already" >&2; exit 2; }
+	@set -e; new="slides/$(DECK)"; cp -R "slides/$(FROM)" "$$new"; \
+	rm -rf "$$new/build" "$$new/$(FROM).pdf" $(foreach e,$(SLIDES_AUX),"$$new"/*.$(e)); \
+	mv "$$new/$(FROM).tex" "$$new/$(DECK).tex"; \
+	for f in "$$new"/facts.tex "$$new"/figures/*.tex; do [ -f "$$f" ] || continue; \
+	  sed 's|^% !TEX root = \(.*\)$(FROM)\.tex$$|% !TEX root = \1$(DECK).tex|' "$$f" > "$$f.tmp"; mv "$$f.tmp" "$$f"; done; \
+	dates=$$(echo "$(DECK)" | awk -F- '{split("January February March April May June July August September October November December",M," "); \
+	  m=M[$$2+0]; printf "%d %s %s|%d %s %s", $$3, substr(m,1,3), $$1, $$3, m, $$1}'); \
+	sed 's|^\\date\[.*\]{.*}$$|\\date['"$${dates%%|*}"']{'"$${dates#*|}"'}|' "$$new/$(DECK).tex" > "$$new/$(DECK).tex.tmp"; \
+	mv "$$new/$(DECK).tex.tmp" "$$new/$(DECK).tex"; \
+	echo "created $$new from slides/$(FROM): $$(grep '^\\date' "$$new/$(DECK).tex")"; \
+	echo "next: in $$new/facts.tex set the run id of the run the app shows and update every number"; \
+	echo "      with its source; edit the title and header comment in $$new/$(DECK).tex; then"; \
+	echo "      make slides DECK=$(DECK) (rules: docs/presentations.md, 'How to add a deck')"
