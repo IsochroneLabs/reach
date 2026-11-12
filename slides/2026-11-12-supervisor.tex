@@ -1,10 +1,11 @@
-% Supervisor meeting, 12 Nov 2026 (DS500). Purpose: report the state of dev, explain every
-% decision taken so far (recorded with an ID or implicit in the design principles) with the
+% Supervisor meeting, 12 Nov 2026 (DS500). Purpose: report the state of dev, explain the
+% decisions taken so far (recorded with an ID or implicit in the design principles) with the
 % alternative we rejected, get answers to the open questions, and show the outlook up to a
-% Germany-wide reach. Frozen after the meeting; the next meeting gets a new deck
-% (slides/README.md, "Versioning"). Rules: slides/AGENTS.md. Every number comes from
-% common/facts.tex. Open items are marked as open; nothing proposed is shown as approved; the
-% Germany outlook is a vision of the team (Juju, 12 Nov 2026), not part of the docs' plan.
+% Germany-wide reach. Short version: 12 main slides, details in the backup. Frozen after the
+% meeting; the next meeting gets a new deck (slides/README.md, "Versioning").
+% Rules: slides/AGENTS.md. Every number comes from common/facts.tex. Open items are marked as
+% open; nothing proposed is shown as approved; the Germany outlook is a vision of the team
+% (Juju, 12 Nov 2026), not part of the docs' plan.
 \documentclass[aspectratio=169,10pt]{beamer}
 \usetheme{reach}
 \input{facts}
@@ -114,37 +115,10 @@
     \bottomrule
   \end{tabular}
   \par\medskip
-  {\scriptsize\color{muted}On the next slides, ID = recorded decision (O: architecture, M:
-  methodology, W: app iteration, T: team, N: notes); \impl{} = follows from a design principle,
-  no ID.}
+  {\scriptsize\color{muted}Recorded decisions carry an ID (O: architecture, M: methodology, W:
+  app iteration, N: notes); \impl{} ones follow from a design principle.}
   \source{docs/architecture.md §2, §12, §13; methodology.md; notes.md; AGENTS.md (architecture
     rules).}
-\end{frame}
-
-\begin{frame}{We use only open data and read it from one snapshot per run, so every number can
-  be traced and reproduced}
-  \footnotesize
-  \begin{tabular}{@{}P{12mm}P{47mm}P{30mm}P{40mm}@{}}
-    \toprule
-    ID & Decision & Instead of & Why \\
-    \midrule
-    \impl & One Geofabrik OSM extract feeds street network, facilities, boundaries and land use
-      & Overpass, Nominatim at runtime & No rate limits; facilities match the street graph \\
-    \impl & One snapshot per run with dates and checksums (run id) & Always the latest data &
-      Every result traces back to its inputs \\
-    \impl & Demand = Zensus 2022 residents per 100\,m cell & Modelled population & Official,
-      open licence, nationwide \\
-    O18 & Transit = scheduled departures on a reference Tuesday (GTFS), no transit routing &
-      Valhalla multimodal, r5py & Cheap and robust; routing is outside Core \\
-    V2 & The city's facility lists only validate OSM & Merge them into the counts & No licence
-      stated \\
-    \bottomrule
-  \end{tabular}
-  \par\medskip
-  {\scriptsize\color{muted}Known data limits: census values of small cells are perturbed
-  (cell-key method), main residences only, May 2022.}
-  \source{docs/architecture.md §2 (principle 3), §4, §12, O18; AGENTS.md rule 8; validation
-    report V2.}
 \end{frame}
 
 \begin{frame}{We keep the official Zensus 100\,m grid instead of H3 hexagons, so every resident
@@ -172,249 +146,52 @@
     validation report V6 (run \factValRunId); Zensus file of run \factCurRunId.}
 \end{frame}
 
-\begin{frame}{We score every resident of the city, but draw the city and place recommendations
-  only where it is built up}
-  \footnotesize
-  \begin{tabular}{@{}P{12mm}P{51mm}P{26mm}P{40mm}@{}}
-    \toprule
-    ID & Decision & Instead of & Why \\
-    \midrule
-    O11 & Score all populated cells whose centroid lies in the city; \texttt{validate} checks
-      $\ge 98\,\%$ coverage & Built-up area only & The land-use boundary left
-      \factUrbanUnscored{} of residents unscored (N3) \\
-    O17 & Urban boundary from residential, commercial, retail, education, institutional and
-      religious land use, $\pm 100$\,m & Including industrial & Industrial joins separate
-      districts (Bühl--Kilchberg) \\
-    O13, O20 & Routing area = city + 4\,km; the prefilter never exceeds it & City boundary only
-      & Shops in neighbouring towns count; cycling reaches 3.75\,km \\
-    \impl & Study area = OSM admin level + official municipality key (AGS) in the config &
-      A drawn polygon & Another municipality is a config change \\
-    \bottomrule
-  \end{tabular}
-  \source{docs/architecture.md §4, §13 (O11, O13, O17, O20), change log v0.12; notes N3;
-    config/config.yaml (\texttt{study\_area}).}
-\end{frame}
-
-\begin{frame}{Valhalla is our only routing engine, self-hosted, so batch numbers and live
-  answers always agree}
-  \footnotesize
-  \begin{tabular}{@{}P{12mm}P{47mm}P{30mm}P{40mm}@{}}
-    \toprule
-    ID & Decision & Instead of & Why \\
-    \midrule
-    \impl & Valhalla for matrix, isochrone, route and street spread & OSMnx/NetworkX, pandana,
-      r5py & One graph and one snapshot: map and pin-drop give the same numbers \\
-    O3 & Valhalla runs permanently on our server, internal only & Public routing APIs & No
-      rate limits; nothing leaves the server \\
-    \impl & One tile set; the costing is chosen per request & One graph per profile & A new
-      profile needs no rebuild \\
-    N8 & \texttt{costmatrix} for every matrix request & Valhalla's automatic choice & It made
-      \factMatrixAlgoDiff{} of live and stored pairs differ \\
-    O4, O19 & One-shot tile build on the host, atomic swap & Rebuild inside the live service &
-      Weekly refresh without downtime \\
-    \bottomrule
-  \end{tabular}
-  \source{AGENTS.md (architecture rule 1); docs/architecture.md §2, §6.1, §6.5, §7, §13;
-    notes N8 (architecture change log v0.15).}
-\end{frame}
-
-\begin{frame}{We count facilities along the network with a time matrix; isochrone polygons
-  would add \factVOneOvercount{} unreachable pairs}
+\begin{frame}{We count along the network with Valhalla's time matrix; isochrone polygons would
+  add \factVOneOvercount{} unreachable pairs}
   \begin{columns}[T,onlytextwidth]
     \column{0.55\textwidth}
       \centering\isochronetrap
     \column{0.42\textwidth}
       \footnotesize
-      \textbf{D2:} for each block of cells one Valhalla matrix to all facilities in reach; a
-      facility counts if its time is $\le 15$ min. Isochrones are only drawn.\par\medskip
+      \textbf{\impl:} Valhalla is the only routing engine, self-hosted, one tile set for all
+      profiles; map and pin-drop give the same numbers.\par\medskip
+      \textbf{D2:} per block of cells one matrix to all facilities in reach; a facility counts
+      if its time is $\le 15$ min. Isochrones are only drawn.\par\medskip
       \textbf{V1} (150 cells, walking 3.39\,km/h): polygons add \factVOneOvercount{}
       unreachable pairs, \factVOneBarrier{} of them across the Neckar, rail lines or main
       roads.\par\medskip
-      \textbf{O20:} an exact straight-line prefilter; \factCurFalseNeg{} sampled pairs outside
-      the counts are reachable by \texttt{/route}.\par\medskip
-      \textbf{\impl:} raw counts and times are stored; classes are derived at read time, so a
-      new $k_c$ needs no re-routing.
+      \textbf{O20:} exact prefilter; \factCurFalseNeg{} sampled pairs outside the counts are
+      reachable by \texttt{/route}.
   \end{columns}
-  \source{docs/architecture.md §6.3 (D2), §6.5, O20; validation report V1 (run \factValRunId);
-    run \factCurRunId{} (\texttt{false\_negatives}).}
+  \source{AGENTS.md (architecture rule 1); docs/architecture.md §6.3 (D2), §6.5, O3, O20;
+    validation report V1 (run \factValRunId); run \factCurRunId{} (\texttt{false\_negatives}).}
 \end{frame}
 
-\begin{frame}{We measure four ways of travelling, with a slow inclusive walking speed and
-  Valhalla's slope model switched on}
+\begin{frame}{We measure inclusively, follow the paper's classes and publish only results that
+  pass every check}
   \footnotesize
-  \begin{tabular}{@{}P{12mm}P{47mm}P{26mm}P{44mm}@{}}
+  \begin{tabular}{@{}P{11mm}P{50mm}P{27mm}P{42mm}@{}}
     \toprule
     ID & Decision & Instead of & Why \\
     \midrule
-    O6 & Walking 3.39\,km/h as default (850\,m in 15 min), 5.0\,km/h for comparison & One
-      average speed & Inclusive; shares change strongly with speed (V5) \\
-    O6, O15 & Cycling at 15\,km/h (hybrid bike) & -- & Its 3.75\,km reach sets the routing
-      buffer \\
-    O6 & Wheelchair = pedestrian costing without steps & -- & Known limit: steep sections are
-      not avoided (N11) \\
-    O7 & Valhalla's slope model kept for every profile & Flat-ground times & Tübingen is hilly;
-      slopes change \factVElevenChange{} of classes (V11) \\
-    M & 15 min to facilities, 10 min on foot to transit stops & -- & Topic of the course;
-      methodology §1 \\
+    O11 & Score every populated cell in the city; the built-up area only shapes map and
+      candidates & Built-up area only & That left \factUrbanUnscored{} of residents unscored
+      (N3) \\
+    O6, O7 & Walking 3.39\,km/h (inclusive) and 5.0, cycling 15, wheelchair; slope model on &
+      One speed, flat ground & Tübingen is hilly: slopes change \factVElevenChange{} of
+      classes (V11) \\
+    O8 & Seven Core categories as in the paper, eight extended ones as indicative & Fine
+      categories (GPs, school types) & OSM gaps stay small \\
+    §4 & $k_c$, three classes, deficit weighted by residents; combined score display only &
+      One stored index & A planner sees what is missing \\
+    §5 & Greedy recommender on the deficit, 100\,m zones & Exact solver in every run & At most
+      \factVFourGap{} below the optimum (V4) \\
+    O19 & One command; \texttt{publish} only after all checks; no check is loosened & Manual
+      steps & A failed run never reaches the app (N16) \\
     \bottomrule
   \end{tabular}
-  \source{docs/architecture.md §6.1, §13 (O6, O7, O15); methodology.md §1; notes N5, N11;
-    validation report V5, V11 (run \factValRunId).}
-\end{frame}
-
-\begin{frame}{Fifteen categories in six groups: seven Core ones follow the paper, eight extended
-  ones are indicative}
-  \centering
-  \begin{tikzpicture}[
-      g/.style={fill=ink,text=white,text width=21mm,align=center,inner sep=1.5mm,
-        font=\footnotesize\bfseries,anchor=north},
-      c/.style={draw=ink,line width=0.6pt,text width=21mm,align=center,inner sep=1.5mm,
-        font=\footnotesize,anchor=north,minimum height=7mm},
-      e/.style={c,dashed,draw=muted,text=muted}]
-    \foreach \x/\t in {0/Food,1/Health,2/Education,3/Green,4/Sport,5/Services}
-      \node[g] at (\x*23.5mm-58.75mm,0) {\t};
-    \node[c] at (-58.75mm,-9mm) {Grocery ($k{=}2$)};
-    \node[e] at (-58.75mm,-17mm) {Bakery};
-    \node[c] at (-35.25mm,-9mm) {Pharmacy};
-    \node[c] at (-35.25mm,-17mm) {Doctors ($k{=}2$)};
-    \node[e] at (-35.25mm,-25mm) {Dentist};
-    \node[e] at (-35.25mm,-33mm) {Senior care};
-    \node[c] at (-11.75mm,-9mm) {Childcare ($k{=}2$)};
-    \node[c] at (-11.75mm,-17mm) {School};
-    \node[e] at (-11.75mm,-25mm) {Library};
-    \node[c] at (11.75mm,-9mm) {Parks};
-    \node[c] at (11.75mm,-17mm) {Playgrounds};
-    \node[e] at (35.25mm,-9mm) {Gym};
-    \node[e] at (35.25mm,-17mm) {Sports centre};
-    \node[e] at (58.75mm,-9mm) {Post office};
-    \node[e] at (58.75mm,-17mm) {Bank \& ATM};
-  \end{tikzpicture}\par\smallskip
-  \begin{columns}[T,onlytextwidth]
-    \column{0.49\textwidth}
-      \begin{itemize}\footnotesize
-        \item \textbf{O8:} coarse categories keep OSM gaps small
-        \item \textbf{W7a:} private parks and playgrounds dropped (\factPlaygroundsPrivate{})
-      \end{itemize}
-    \column{0.49\textwidth}
-      \begin{itemize}\footnotesize
-        \item \textbf{N16:} restaurants dropped; the check was kept
-        \item Dashed: unchecked; $k = 1$ unless stated
-      \end{itemize}
-  \end{columns}
-  \source{docs/methodology.md §2 (v0.11), §3; notes N14, N16; architecture.md O8; run
-    \factCurRunId.}
-\end{frame}
-
-\begin{frame}{Each cell gets a class per category and a deficit weighted by residents; the
-  combined score is for display only}
-  \begin{columns}[T,onlytextwidth]
-    \column{0.48\textwidth}
-      \textbf{Classes} (Mouratidis 2026)\par\smallskip
-      \classchip{lack}{Lack}\ \ {\footnotesize $A = 0$}\par\smallskip
-      \classchip{insufficient}{Insufficient}\ \ {\footnotesize $0 < A < k_c$}\par\smallskip
-      \classchip[ink]{sufficient}{Sufficient}\ \ {\footnotesize $A \ge k_c$}\par\medskip
-      \textbf{Deficit} (unmet demand)
-      \[ U_{i,c} = P_i \cdot \max\!\left(0,\; 1 - \tfrac{A_{i,c}}{k_c}\right) \]
-      {\footnotesize $A$ = facilities within 15 min; districts ranked by deficit.}
-    \column{0.48\textwidth}
-      \textbf{Decisions}
-      \begin{itemize}\footnotesize
-        \item \textbf{\impl:} a class per category, not one index: a planner sees what is
-              missing
-        \item \textbf{W7b:} combined score 0--100 over chosen categories, computed in the
-              browser; never stored, ranked or used by the recommender
-        \item With the defaults, one category gives $100\,(1 - U_{i,c}/P_i)$: map, deficit and
-              recommender agree
-        \item \textbf{M2 open:} transit class bounds still from Copenhagen
-      \end{itemize}
-  \end{columns}
-  \source{docs/methodology.md §3, §4, §4b (W7b, v0.9), §7 (M2); Mouratidis (2026), \emph{Travel
-    Behaviour and Society} 42, 101151.}
-\end{frame}
-
-\begin{frame}{The recommender is greedy because the objective allows it: within
-  \factVFourGap{} of the exact optimum in every test}
-  \footnotesize
-  \begin{tabular}{@{}P{14mm}P{47mm}P{26mm}P{42mm}@{}}
-    \toprule
-    ID & Decision & Instead of & Why \\
-    \midrule
-    §5 & Gain = reduction of the deficit sum ($\Delta W$) & Distance to the nearest facility &
-      Same measure as the map; submodular, so greedy reaches $\ge 1 - 1/e$ \\
-    V4 & Greedy in the pipeline, exact MILP only as benchmark & MILP in every run & At most
-      \factVFourGap{} below the optimum (mean \factVFourMean) \\
-    6 Nov & Candidates = 100\,m cells in the urban boundary; industrial land kept; heritage
-      areas not excluded & Exact parcels & Shops and doctors sit on commercial land; heritage
-      protection excluded the Altstadt \\
-    W6 & Cycling stays out of the recommender & -- & Valhalla needs \factCyclingValhallaPeak{}
-      against a \factCyclingValhallaLimit{} limit \\
-    §5b & Housing potential asks the reverse question; display only & -- & Where would new
-      homes already have good access? \\
-    \bottomrule
-  \end{tabular}
-  \par\medskip
-  {\footnotesize Back-test V3: \factVThreeNear{} of picks lie within 500\,m of a removed facility
-  (random: \factVThreeRandom).}
-  \source{docs/methodology.md §5, §5b, change log v0.6; notes N12 (W6); validation report V3,
-    V4 (run \factValRunId).}
-\end{frame}
-
-\begin{frame}{One command refreshes, validates and publishes a run atomically; a failed run
-  never reaches the app}
-  \centering
-  {\scriptsize acquire $\to$ {\color{accent}\bfseries validate inputs} $\to$ tiles $\to$ count
-  $\to$ score $\to$ housing $\to$ recommend $\to$ {\color{accent}\bfseries validate results}
-  $\to$ publish $\to$ cleanup\par}
-  \medskip
-  \raggedright
-  \begin{columns}[T,onlytextwidth]
-    \column{0.48\textwidth}
-      \textbf{Pipeline}
-      \begin{itemize}\footnotesize
-        \item \textbf{O19:} \texttt{make refresh} runs everything, incl.\ tile build and swap
-        \item \textbf{\impl:} idempotent stages; each writes a manifest the next one checks
-        \item \textbf{\impl:} a failed check stops the run before \texttt{publish}; we never
-              loosen a check to pass (N16)
-        \item \textbf{\impl:} each run gets its own DB schema; \texttt{current} switches only
-              after success
-      \end{itemize}
-    \column{0.48\textwidth}
-      \textbf{Serving}
-      \begin{itemize}\footnotesize
-        \item \textbf{\impl:} PostGIS, FastAPI, React + MapLibre; static web build behind Caddy
-        \item \textbf{O9:} map data as GeoJSON (\factCellsPayload{} gzip per layer)
-        \item \textbf{O1, O2:} one Hetzner server, $\ge 8$\,GB RAM, 20\,\texteuro{} in total,
-              free \texttt{sslip.io} hostname (plan to verify)
-        \item Hosting changes are open (question 1)
-      \end{itemize}
-  \end{columns}
-  \source{docs/architecture.md §2, §7, §8, §11, §13 (O1, O2, O9, O19); notes N16;
-    implementation\_plan.md (P6).}
-\end{frame}
-
-\begin{frame}{We work docs first: binding documents with change logs, an owner per folder and
-  reviewed pull requests}
-  \begin{columns}[T,onlytextwidth]
-    \column{0.48\textwidth}
-      \textbf{Documents}
-      \begin{itemize}\footnotesize
-        \item \texttt{architecture.md} (v0.23) and \texttt{methodology.md} (v0.11) win over code
-              and plans
-        \item Every change: new version and a change-log line with date, what and why
-        \item Data contract between pipeline and API, tested in CI against PostGIS
-        \item \texttt{AGENTS.md}: the same rules for coding agents
-      \end{itemize}
-    \column{0.48\textwidth}
-      \textbf{Team}
-      \begin{itemize}\footnotesize
-        \item \textbf{T2:} one owner and one reviewer per folder
-        \item Branch per topic, pull requests into \texttt{dev}; nobody approves their own
-        \item \textbf{T1:} contributions table plus conventions (individual grading)
-        \item \textbf{\impl:} one Python lockfile (uv) and Docker Compose for everyone
-      \end{itemize}
-  \end{columns}
-  \source{AGENTS.md; CONTRIBUTING.md; docs/project\_management\_decisions.md (T1, T2, T8);
-    docs/architecture.md §14.}
+  \source{docs/architecture.md §4, §6.1, §7, §13; methodology.md §2, §4, §4b, §5; notes N3, N16;
+    validation report V4, V11 (run \factValRunId).}
 \end{frame}
 
 % ============================================================================================
@@ -423,137 +200,26 @@
 
 \begin{frame}{Four questions need your answer; for each we bring a recommendation}
   \footnotesize
-  \begin{tabular}{@{}P{6mm}P{50mm}P{48mm}P{24mm}@{}}
+  \begin{tabular}{@{}P{6mm}P{58mm}P{46mm}P{20mm}@{}}
     \toprule
     \# & Question & Our recommendation & Blocks \\
     \midrule
-    1 & Frontend on Cloudflare Pages, backend on one host? & Decide after your answers to 2 and 3
-      & Deployment \\
+    1 & Frontend on Cloudflare Pages, backend on one host (proposal of \#64, not approved)? &
+      Decide after question 2 & Deployment \\
     2 & Is the HP ProDesk acceptable as backend host, or is a rented VPS required? & Measure the
       first full refresh on the ProDesk, then decide & Server, budget \\
-    3 & Is Moran's I and hot-spot analysis the ``adequate method'' (M5)? & Yes: optimization
-      plus spatial statistics & Scope of V8 \\
-    4 & Which known limits do you accept, and which must we fix? & Accept and state; fix
-      OSM gaps in OSM & Final report \\
+    3 & Moran's I shows strong clusters on cells (\factVEightMoran), none between districts:
+      is this the ``adequate method'' (M5)? & Yes: optimization plus spatial statistics; LISA
+      map in the app if you wish & Scope of V8 \\
+    4 & Which known limits do you accept (wheelchair on slopes, OSM gaps, extended categories
+      unchecked)? & State them openly; map missing Kitas and schools in OSM & Final report \\
     \bottomrule
   \end{tabular}
   \par\medskip
-  {\footnotesize\color{muted}Smaller points, including the scale of the project, follow after
-  question 4.}
-  \source{docs/deployment\_proposal.md (proposal, PR \#64); methodology.md §7 (M5); notes N11,
-    N13, N16.}
-\end{frame}
-
-\begin{frame}{Question 1: should the frontend move to Cloudflare Pages? Socke's proposal is not
-  approved}
-  \begin{columns}[T,onlytextwidth]
-    \column{0.5\textwidth}
-      \centering{\footnotesize\bfseries Current design (binding)}\par\smallskip
-      \hostingcurrent
-    \column{0.5\textwidth}
-      \centering{\footnotesize\bfseries Proposal (not approved)}\par\smallskip
-      \hostingproposed
-  \end{columns}
-  \source{docs/architecture.md §3, §11 (current); docs/deployment\_proposal.md (proposal, PR \#64).}
-\end{frame}
-
-\begin{frame}{Question 2: the ProDesk saves rent, a VPS saves operating effort; neither is
-  chosen yet}
-  \footnotesize
-  \begin{tabular}{@{}P{26mm}P{50mm}P{50mm}@{}}
-    \toprule
-    & HP ProDesk (i5-8500T, 16\,GB RAM) & Rented VPS ($\ge 8$\,GB, O1) \\
-    \midrule
-    Benefit & Hardware is available; no rent & Data-centre power and network; remote
-      management \\
-    To check & Power and network uptime, remote recovery, storage, backups, who maintains it
-      & Monthly cost within the 20\,\texteuro{} budget, disk size, provider limits, backups \\
-    Evidence needed & First full tile build and refresh measured on the host & Same measurement on
-      the chosen plan \\
-    \bottomrule
-  \end{tabular}
-  \par\medskip
-  \textbf{Please clarify:} does ``keep VPS and hosting separate'' require a rented VPS? What
-  uptime does the course demonstration need? Is a private network for team access (for example
-  Tailscale) acceptable, and how should you reach the read-only database account?
-  \source{docs/deployment\_proposal.md (proposal, PR \#64); docs/architecture.md §11 (resource
-    estimate to be verified on first deployment).}
-\end{frame}
-
-\begin{frame}{Question 3: Moran's I shows strong clusters between cells but none between
-  districts; is this the adequate method?}
-  \begin{columns}[T,onlytextwidth]
-    \column{0.50\textwidth}
-      \textbf{What we did (V8)}
-      \begin{itemize}\footnotesize
-        \item Global and local Moran's I on cells and on districts
-        \item Cells: Moran's I \factVEightMoran{}, strong clusters
-        \item Between districts: none
-      \end{itemize}
-      \bigskip
-      \textbf{Our reading:} where access is poor is a neighbourhood effect, not a district
-      effect.
-    \column{0.46\textwidth}
-      \textbf{We ask}
-      \begin{itemize}\footnotesize
-        \item Is optimization (recommender) plus spatial statistics enough for ``traditional
-              statistics or machine learning''?
-        \item Or do you expect a fitted statistical or ML model?
-        \item Should the app show the LISA map?
-      \end{itemize}
-  \end{columns}
-  \source{validation report V8 (run \factValRunId); methodology.md §7 (M5); notes N13.}
-\end{frame}
-
-\begin{frame}{Question 4: five known limits remain; we propose to state them openly and fix
-  only the cheap ones}
-  \footnotesize
-  \begin{tabular}{@{}P{32mm}P{62mm}P{34mm}@{}}
-    \toprule
-    Limit & Effect & Proposal \\
-    \midrule
-    Wheelchair on slopes & Steep sections are not avoided; hillside counts are optimistic (N11)
-      & Accept, state on data page \\
-    OSM gaps & \factVTwoKitaMissing{} Kitas and \factVTwoSchoolMissing{} schools have no OSM
-      match (V2) & Map them in OSM \\
-    Extended categories & No completeness check; monotonicity check at \factCurMonoCells{} cells,
-      fails above 1\,\% (N16) & Mark as indicative \\
-    Cycling recommender off & \factCyclingZones{} zones would be added (W6) & Accept, document \\
-    Housing candidates & Land use not fully excluded; buildable not known (N15) & Decide after
-      map check \\
-    \bottomrule
-  \end{tabular}
-  \par\medskip
-  {\footnotesize\color{muted}Shares depend strongly on speed and budget (V5): we always name the
-  profile and budget next to a share.}
-  \source{notes N11, N12, N13, N15, N16; validation report V2, V5 (run \factValRunId); run
-    \factCurRunId.}
-\end{frame}
-
-\begin{frame}{Smaller points: the interim format, database access and whether a larger area is
-  of interest}
-  \begin{columns}[T,onlytextwidth]
-    \column{0.48\textwidth}
-      \textbf{For the supervisors}
-      \begin{itemize}\footnotesize
-        \item Interim format: length and level of results you expect
-        \item Read-only database access: SSH tunnel as planned, or via the access model of
-              question 1?
-        \item Compute: may we use bwUniCluster for optional large runs?
-        \item \textbf{Scale} (asked before 4 Nov): is one well-validated city enough for the
-              course, and is the Germany outlook of interest?
-      \end{itemize}
-    \column{0.48\textwidth}
-      \textbf{Team-internal, still open}
-      \begin{itemize}\footnotesize
-        \item O14: chat for the failure webhook
-        \item O16: interim demo local (proposal) or on a short-lived server
-        \item M1, M2: final category list and transit thresholds
-        \item V7 and V9 need people (local knowledge; rerun from README)
-      \end{itemize}
-  \end{columns}
-  \source{docs/project\_management\_decisions.md §7 (earlier supervisor questions);
-    docs/architecture.md §13 (open); methodology.md §7.}
+  {\footnotesize\textbf{Also:} interim format; database access for you (SSH tunnel?); may we use
+  bwUniCluster; is one city enough, and is a larger area of interest?}
+  \source{docs/deployment\_proposal.md (PR \#64); methodology.md §7 (M5); validation report V8
+    (run \factValRunId); notes N11, N13, N16; details in the backup.}
 \end{frame}
 
 % ============================================================================================
@@ -569,15 +235,14 @@
     25 Nov & Interim presentation (\texttt{v0.1.0}); demo local unless decided otherwise (O16) \\
     from $\sim$1 Dec & Server live after the hosting decision; weekly refresh by timer \\
     Dec -- Jan & V7 (local knowledge) and V9 (rerun from the README); M1 final categories, M2
-      transit classes; recommender decision cards and equity mode (M4); LISA map if wanted \\
+      transit classes; recommender decision cards and equity mode (M4) \\
     10 -- 15 Jan & Feature freeze: Stretch only if Core passes validation \\
-    19 Jan & Internal freeze: deployed, tested, V9 done \\
     22 Jan & Submission (\texttt{v1.0.0}): code, hosted app, validation report, video, summary \\
-    28 / 29 Jan & Final slides / final presentation with live demo \\
+    29 Jan & Final presentation with live demo \\
     \bottomrule
   \end{tabular}
-  \source{docs/features.md §9 (roadmap, cut order); project\_management\_decisions.md §8;
-    notes N12, N13; methodology.md §7.}
+  \source{docs/features.md §9 (roadmap); project\_management\_decisions.md §8; notes N12, N13;
+    methodology.md §7.}
 \end{frame}
 
 \begin{frame}{Our long-term goal is all of Germany, and the core choices already scale}
@@ -599,84 +264,42 @@
   \end{tabular}
   \par\medskip
   {\footnotesize\color{muted}Vision of the team, not part of the course plan: a second region is
-  out of scope for Core (architecture §12). Nothing on this or the next two slides is built.}
+  out of scope for Core (architecture §12). Nothing on this or the next slide is built.}
   \source{Zensus file of run \factCurRunId{} (grid sum, perturbed); config/config.yaml
     (\texttt{study\_area}, \texttt{sources}); docs/architecture.md §4, §11.1, §12.}
 \end{frame}
 
-\begin{frame}{We would get there in three steps: the region we already download,
-  Baden-Württemberg, then Germany}
+\begin{frame}{Three steps lead to Germany; compute, data quality, comparability and serving
+  decide whether it is feasible}
   \centering
   \begin{tikzpicture}[
-      stair/.style={draw=ink,line width=0.6pt,text width=38mm,align=flush left,inner sep=2mm,
+      stair/.style={draw=ink,line width=0.6pt,text width=38mm,align=flush left,inner sep=1.8mm,
         font=\footnotesize,anchor=south west},
-      head/.style={font=\footnotesize\bfseries,text=accent,anchor=south west,inner sep=0.5mm}]
-    \node[stair,minimum height=22mm] (s1) at (0,0) {Every municipality of our extract; results
-      keyed by municipality; towns vs.\ villages need density strata (M3)};
+      head/.style={font=\footnotesize\bfseries,text=accent,anchor=south west,inner sep=0.5mm},
+      prob/.style={draw=muted,line width=0.5pt,text width=28.5mm,align=flush left,
+        inner sep=1.6mm,font=\scriptsize,anchor=north west,minimum height=17mm}]
+    \node[stair,minimum height=11mm] (s1) at (0,0) {Every municipality of the extract we
+      already download};
     \node[head] at (s1.north west) {1 $\cdot$ Regierungsbezirk Tübingen};
-    \node[stair,minimum height=32mm] (s2) at (44mm,0) {State extract and statewide GTFS (to
-      check); tiles and counts on bwUniCluster, one job per district; counts cached across runs
-      (C10)};
+    \node[stair,minimum height=17mm] (s2) at (44mm,0) {State extract; one job per district on
+      bwUniCluster; counts cached across runs};
     \node[head] at (s2.north west) {2 $\cdot$ Baden-Württemberg};
-    \node[stair,minimum height=42mm] (s3) at (88mm,0) {Nationwide extract, same Zensus file;
-      vector tiles and the 1\,km census grid for the zoomed-out map; regional partners for OSM
-      completeness checks; hosting beyond 20\,\texteuro};
+    \node[stair,minimum height=23mm] (s3) at (88mm,0) {Nationwide extract, same Zensus file;
+      vector tiles and the 1\,km grid for the zoomed-out map};
     \node[head] at (s3.north west) {3 $\cdot$ Germany};
-    \draw[-{Stealth[length=2mm]},line width=0.8pt,accent] (0,-4mm) -- (130mm,-4mm)
-      node[pos=0.5,below,font=\scriptsize,text=muted] {same method, same code, larger
-      area};
-  \end{tikzpicture}
-  \source{docs/architecture.md §5.2 (1\,km grid for coarser levels), §9 (vector tiles only if
-    needed), §11.1; methodology.md §7 (M3); proposal of the team, not in the docs' plan.}
-\end{frame}
-
-\begin{frame}{Four problems decide whether Germany is feasible: compute, data quality,
-  comparability and serving}
-  \centering
-  \begin{tikzpicture}[
-      tile/.style={draw=ink,line width=0.6pt,text width=61mm,align=flush left,inner sep=2.5mm,
-        font=\footnotesize,minimum height=21mm,anchor=north west}]
-    \node[tile] (a) at (0,0) {{\bfseries Compute.} \texttt{count} takes \factCurCountRuntime{}
-      for \factCurCells{} cells on a laptop. Germany has about \factDeCellFactor{}$\times$ the
-      cells: naively $\sim$\factDeCountDays{} days on one machine, so parallel jobs and caching.};
-    \node[tile] (b) at (67mm,0) {{\bfseries Data quality.} OSM completeness differs by region;
-      V2 needs an official list per category and region; the extended categories are
-      unchecked even in Tübingen.};
-    \node[tile] (c) at (0,-24mm) {{\bfseries Comparability.} 15 minutes and $k_c$ fit a city, not
-      a village: density strata (M3) become necessary; profile and budget next to every share
-      (V5).};
-    \node[tile] (d) at (67mm,-24mm) {{\bfseries Serving.} Today one map layer is
-      \factCellsPayload{} of GeoJSON (gzip); Germany needs vector tiles, aggregated zoom levels
-      and a server beyond the 20\,\texteuro{} budget.};
+    \node[prob] at (0,-3mm) {{\bfseries Compute.} \texttt{count}: \factCurCountRuntime{} for
+      \factCurCells{} cells; \factDeCellFactor{}$\times$ the cells $\approx$
+      \factDeCountDays{} days naively};
+    \node[prob] at (32.5mm,-3mm) {{\bfseries Data quality.} OSM completeness differs by region;
+      V2 needs official lists per region};
+    \node[prob] at (65mm,-3mm) {{\bfseries Comparability.} 15 min and $k_c$ fit a city, not a
+      village: density strata (M3)};
+    \node[prob] at (97.5mm,-3mm) {{\bfseries Serving.} \factCellsPayload{} GeoJSON per layer
+      today; vector tiles and more than 20\,\texteuro};
   \end{tikzpicture}
   \source{notes N16 (count runtime, run \factCurRunId); naive linear estimate from the Zensus
-    file; implementation\_plan.md P6 (payload); methodology.md M3; validation report V2, V5.}
-\end{frame}
-
-% ============================================================================================
-\section{Next steps}
-% Speaker: TBD
-
-\begin{frame}{With your answers we record the decisions, finish Tübingen and keep the design
-  open for more}
-  \footnotesize
-  \begin{tabular}{@{}P{50mm}P{82mm}@{}}
-    \toprule
-    If you decide \ldots & We do \ldots \\
-    \midrule
-    Pages and a backend host & Update \texttt{architecture.md}, plan production Compose,
-      measure the first full refresh on the host \\
-    Moran's I is adequate & Finish V8 in the report; add the LISA map if you wish \\
-    Limits accepted & State them on the data page; map missing Kitas and schools in OSM \\
-    Interim format & Fit the 25 Nov deck and demo to it \\
-    A larger area is of interest & Record the Germany path as future work in \texttt{notes.md};
-      keep every value in the config \\
-    \bottomrule
-  \end{tabular}
-  \par\medskip
-  {\footnotesize\color{muted}Open work stays open until done: V7, V9 and hosting are not finished.}
-  \source{docs/features.md §9 (roadmap); docs/implementation\_plan.md; AGENTS.md (no hard-coded
-    values).}
+    file; implementation\_plan.md P6 (payload); architecture.md §5.2, §9, §11.1; methodology.md
+    M3; proposal of the team, not in the docs' plan.}
 \end{frame}
 
 {\setbeamertemplate{headline}{}
@@ -693,6 +316,65 @@
 % ============================================================================================
 \backupslides
 \section*{Backup}
+
+\begin{frame}{Backup: question 1, current hosting design vs.\ the proposal of \#64}
+  \begin{columns}[T,onlytextwidth]
+    \column{0.5\textwidth}
+      \centering{\footnotesize\bfseries Current design (binding)}\par\smallskip
+      \hostingcurrent
+    \column{0.5\textwidth}
+      \centering{\footnotesize\bfseries Proposal (not approved)}\par\smallskip
+      \hostingproposed
+  \end{columns}
+  \source{docs/architecture.md §3, §11 (current); docs/deployment\_proposal.md (proposal, PR \#64).}
+\end{frame}
+
+\begin{frame}{Backup: question 2, the ProDesk saves rent, a VPS saves operating effort}
+  \footnotesize
+  \begin{tabular}{@{}P{26mm}P{50mm}P{50mm}@{}}
+    \toprule
+    & HP ProDesk (i5-8500T, 16\,GB RAM) & Rented VPS ($\ge 8$\,GB, O1) \\
+    \midrule
+    Benefit & Hardware is available; no rent & Data-centre power and network; remote
+      management \\
+    To check & Power and network uptime, remote recovery, storage, backups, who maintains it
+      & Monthly cost within the 20\,\texteuro{} budget, disk size, provider limits, backups \\
+    Evidence needed & First full tile build and refresh measured on the host & Same measurement on
+      the chosen plan \\
+    \bottomrule
+  \end{tabular}
+  \par\medskip
+  \textbf{Please clarify:} does ``keep VPS and hosting separate'' require a rented VPS? What
+  uptime does the course demonstration need? Is a private network for team access (for example
+  Tailscale) acceptable, and how should you reach the read-only database account?
+  \source{docs/deployment\_proposal.md (proposal, PR \#64); docs/architecture.md §11 (resource
+    estimate to be verified on first deployment).}
+\end{frame}
+
+\begin{frame}{Backup: question 4, five known limits and what we propose}
+  \footnotesize
+  \begin{tabular}{@{}P{32mm}P{62mm}P{34mm}@{}}
+    \toprule
+    Limit & Effect & Proposal \\
+    \midrule
+    Wheelchair on slopes & Steep sections are not avoided; hillside counts are optimistic (N11)
+      & Accept, state on data page \\
+    OSM gaps & \factVTwoKitaMissing{} Kitas and \factVTwoSchoolMissing{} schools have no OSM
+      match (V2) & Map them in OSM \\
+    Extended categories & No completeness check; monotonicity check at \factCurMonoCells{} cells,
+      fails above 1\,\% (N16) & Mark as indicative \\
+    Cycling recommender off & \factCyclingZones{} zones would be added; Valhalla needs
+      \factCyclingValhallaPeak{} (W6) & Accept, document \\
+    Housing candidates & Land use not fully excluded; buildable not known (N15) & Decide after
+      map check \\
+    \bottomrule
+  \end{tabular}
+  \par\medskip
+  {\footnotesize\color{muted}Shares depend strongly on speed and budget (V5): we always name the
+  profile and budget next to a share.}
+  \source{notes N11, N12, N13, N15, N16; validation report V2, V5 (run \factValRunId); run
+    \factCurRunId.}
+\end{frame}
 
 \begin{frame}{Backup: five of the eight extended categories are beyond a 15-minute walk for
   nearly half of the residents or more}
@@ -718,24 +400,6 @@
   \end{tikzpicture}
   \source{run \factCurRunId{} (OSM \factCurOsmDate), \factCurResidents{} residents in
     \factCurCells{} cells. ext.\ = extended category, indicative (no completeness check).}
-\end{frame}
-
-\begin{frame}{Backup: cycling in the recommender, measured on 9 November}
-  \footnotesize
-  \begin{tabular}{@{}lrrr@{}}
-    \toprule
-    Variant & Runtime & Pipeline peak & Valhalla peak \\
-    \midrule
-    Without cycling (3 profiles) & 44\,s & 1.6\,GB & \factNoCyclingValhallaPeak \\
-    + cycling, 100\,m candidates & 295\,s & 2.0\,GB & \factCyclingValhallaPeak \\
-    + cycling, 200\,m candidates & 202\,s & 1.7\,GB & 3.9\,GiB \\
-    \bottomrule
-  \end{tabular}
-  \par\medskip
-  Limit E6: runtime $\le$ 10 min, Valhalla $\le$ \factCyclingValhallaLimit. Memory is set by the
-  3.75\,km source sets, not by the number of candidates. The limit came from the 4\,GB server;
-  with the $\ge 8$\,GB target it can be set again (N12).
-  \source{notes N12 (W6), macOS/Docker Desktop.}
 \end{frame}
 
 \begin{frame}{Backup: validation experiments V1--V11}

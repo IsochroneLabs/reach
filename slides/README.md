@@ -85,7 +85,8 @@ are merged; `dev` now publishes 15 categories (run `20261110T233930Z`, used by t
 ## Storyline of the deck of 12 Nov 2026 (supervisor meeting)
 
 Numbers from run `20261110T233930Z` (block "supervisor meeting 12 Nov 2026" in `common/facts.tex`).
-The Germany outlook (slides 23–25) is a vision of the team, marked as not planned.
+Short version: 12 main slides, details in the backup. The Germany outlook (slides 10–11) is a
+vision of the team, marked as not planned.
 
 | # | Section | Title (key message) |
 |---|---|---|
@@ -93,27 +94,12 @@ The Germany outlook (slides 23–25) is a vision of the team, marked as not plan
 | 2 | | reach runs end to end for Tübingen; today we explain the decisions behind it, ask four questions and sketch the way to all of Germany |
 | 3 | Status | dev now measures 15 categories for every resident of Tübingen and publishes them in one validated run |
 | 4 | Decisions | Every layer of reach rests on a deliberate choice; for each we can name the alternative we rejected |
-| 5 | Decisions | We use only open data and read it from one snapshot per run, so every number can be traced and reproduced |
-| 6 | Decisions | We keep the official Zensus 100 m grid instead of H3 hexagons, so every resident count stays exactly as published |
-| 7 | Decisions | We score every resident of the city, but draw the city and place recommendations only where it is built up |
-| 8 | Decisions | Valhalla is our only routing engine, self-hosted, so batch numbers and live answers always agree |
-| 9 | Decisions | We count facilities along the network with a time matrix; isochrone polygons would add 18 % unreachable pairs |
-| 10 | Decisions | We measure four ways of travelling, with a slow inclusive walking speed and Valhalla's slope model switched on |
-| 11 | Decisions | Fifteen categories in six groups: seven Core ones follow the paper, eight extended ones are indicative |
-| 12 | Decisions | Each cell gets a class per category and a deficit weighted by residents; the combined score is for display only |
-| 13 | Decisions | The recommender is greedy because the objective allows it: within 2.8 % of the exact optimum in every test |
-| 14 | Decisions | One command refreshes, validates and publishes a run atomically; a failed run never reaches the app |
-| 15 | Decisions | We work docs first: binding documents with change logs, an owner per folder and reviewed pull requests |
-| 16 | Open questions | Four questions need your answer; for each we bring a recommendation |
-| 17 | Open questions | Question 1: should the frontend move to Cloudflare Pages? Socke's proposal is not approved |
-| 18 | Open questions | Question 2: the ProDesk saves rent, a VPS saves operating effort; neither is chosen yet |
-| 19 | Open questions | Question 3: Moran's I shows strong clusters between cells but none between districts; is this the adequate method? |
-| 20 | Open questions | Question 4: five known limits remain; we propose to state them openly and fix only the cheap ones |
-| 21 | Open questions | Smaller points: the interim format, database access and whether a larger area is of interest |
-| 22 | Outlook | Until 22 January we finish Tübingen: close the validations, deploy, and deliver |
-| 23 | Outlook | Our long-term goal is all of Germany, and the core choices already scale |
-| 24 | Outlook | We would get there in three steps: the region we already download, Baden-Württemberg, then Germany |
-| 25 | Outlook | Four problems decide whether Germany is feasible: compute, data quality, comparability and serving |
-| 26 | Next steps | With your answers we record the decisions, finish Tübingen and keep the design open for more |
-| 27 | | Thank you. Your decisions, please. |
-| B1–B3 | Backup | Class shares of all 15 categories · cycling in the recommender · validation V1–V11 |
+| 5 | Decisions | We keep the official Zensus 100 m grid instead of H3 hexagons, so every resident count stays exactly as published |
+| 6 | Decisions | We count along the network with Valhalla's time matrix; isochrone polygons would add 18 % unreachable pairs |
+| 7 | Decisions | We measure inclusively, follow the paper's classes and publish only results that pass every check |
+| 8 | Open questions | Four questions need your answer; for each we bring a recommendation |
+| 9 | Outlook | Until 22 January we finish Tübingen: close the validations, deploy, and deliver |
+| 10 | Outlook | Our long-term goal is all of Germany, and the core choices already scale |
+| 11 | Outlook | Three steps lead to Germany; compute, data quality, comparability and serving decide whether it is feasible |
+| 12 | | Thank you. Your decisions, please. |
+| B1–B5 | Backup | Question 1: hosting figures · question 2: ProDesk vs. VPS · question 4: known limits · class shares of all 15 categories · validation V1–V11 |
