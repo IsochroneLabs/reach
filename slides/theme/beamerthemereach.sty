@@ -4,7 +4,33 @@
 \NeedsTeXFormat{LaTeX2e}
 \ProvidesPackage{beamerthemereach}[2026/11/10 reach slide theme]
 
-\RequirePackage[sfdefault,lining]{FiraSans}
+% Fira Sans is the deck font; without it the deck still builds in Latin Modern Sans.
+\IfFileExists{FiraSans.sty}
+  {\RequirePackage[sfdefault,lining]{FiraSans}}
+  {\PackageWarningNoLine{beamerthemereach}{Fira Sans (FiraSans.sty) not found, using Latin
+     Modern Sans instead.\MessageBreak Install it with `sudo tlmgr install fira'}
+   \RequirePackage{lmodern}}
+
+% Reproducible PDF: date and /ID come from the deck name (YYYY-MM-DD-<topic>), not from the
+% clock or the build path, so a build from an editor and `make slides` give the same bytes.
+\ExplSyntaxOn
+\seq_new:N \l__reach_date_seq
+\cs_generate_variant:Nn \regex_extract_once:nnNT { nV }
+\sys_if_engine_pdftex:T
+  {
+    \regex_extract_once:nVNT { \A(\d{4})-(\d{2})-(\d{2})- } \c_sys_jobname_str
+      \l__reach_date_seq
+      {
+        \tl_set:Nx \l_tmpa_tl
+          {
+            D: \seq_item:Nn \l__reach_date_seq { 2 } \seq_item:Nn \l__reach_date_seq { 3 }
+            \seq_item:Nn \l__reach_date_seq { 4 } 000000Z
+          }
+        \pdfinfo { /CreationDate~(\l_tmpa_tl)~/ModDate~(\l_tmpa_tl) }
+        \pdftrailerid { reach~\c_sys_jobname_str }
+      }
+  }
+\ExplSyntaxOff
 \RequirePackage[T1]{fontenc}
 \RequirePackage{booktabs}
 \RequirePackage{appendixnumberbeamer}  % backup slides do not count in the total

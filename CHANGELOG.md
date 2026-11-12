@@ -7,6 +7,15 @@ adds a line under `Unreleased`.
 
 ## [Unreleased]
 
+### Fixed (slides)
+- Every deck now compiles from any TeX editor (Typeset in the main file or any fragment, or plain
+  `pdflatex`) without the Makefile or TEXINPUTS; before, editors stopped with "File
+  `beamerthemereach.sty' not found" and deleted the committed PDF. Editor and `make slides`
+  builds give byte-identical PDFs (date and PDF ID from the deck name), editor files are
+  git-ignored, and the theme falls back to Latin Modern Sans with a warning if Fira is missing.
+  New targets `make slides-editor-check`, `slides-clean` and `slides-new` (docs/presentations.md,
+  "Build"). Both PDFs rebuilt once: metadata only, text and pages unchanged.
+
 ### Changed (slides)
 - `slides/` now has one folder per presentation, `slides/YYYY-MM-DD-<topic>/`, with the deck,
   its own `facts.tex` (only the numbers it shows), its own `figures/` and the committed rendered
