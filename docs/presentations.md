@@ -22,7 +22,7 @@ slides/
     facts.tex                         every number of this deck, each with its source
     figures/                          TikZ (.tex) and PNG used by this deck only
     2026-11-12-supervisor.pdf         rendered PDF, committed (the record of the deck)
-    build/                            latexmk output, git-ignored
+    build/                            latexmk output, git-ignored (as are editor aux files)
   2026-11-25-interim/                 interim presentation, same structure
 ```
 
@@ -37,29 +37,50 @@ The final presentation will be `2027-01-29-final/` (slides due 28 Jan 2027, 20:0
 - **PDF:** `<deck>.pdf` is committed and must stay under 2 MB. All other build output goes to
   `build/`.
 
-## Build and verify
+## Build
 
-Requirements: TeX Live with `latexmk` and the Fira fonts (MacTeX full, or BasicTeX +
-`sudo tlmgr install fira latexmk`). From the repository root:
+Requirements: TeX Live 2023 or newer with `latexmk` and the Fira fonts (MacTeX full, or BasicTeX
++ `sudo tlmgr install fira latexmk`). Without Fira the theme warns and falls back to Latin
+Modern Sans; never present such a build.
 
-```bash
-make slides                            # every deck → slides/<deck>/<deck>.pdf, then slides-check
-make slides DECK=2026-11-25-interim    # one deck
-make slides-check                      # fail if a log has "Overfull" or a LaTeX error ("!")
-pdftoppm -r 90 -png slides/2026-11-25-interim/2026-11-25-interim.pdf /tmp/slides  # every page
+**Editor** (TeXShop, TeXstudio, VS Code LaTeX Workshop, or `pdflatex` in the deck folder): open
+any `.tex` of the deck and press *Typeset* (pdflatex, twice for the slide numbers). The main file
+finds the theme and its figures itself (`\input@path`), and `facts.tex` and the figures carry
+`% !TEX root`, so Typeset in a fragment compiles its deck. The editor writes the PDF next to the
+deck: the same bytes as `make slides` (the theme takes the date and PDF ID from the deck name),
+so `git status` stays clean. Its other files (aux, log, …) are git-ignored. If a build fails,
+pdflatex deletes the PDF; restore it with `git restore slides/<deck>/<deck>.pdf`.
+
+VS Code (LaTeX Workshop): the repo has no `.vscode/`; add this to your user or workspace settings:
+
+```json
+"latex-workshop.latex.tools": [{ "name": "pdflatex", "command": "pdflatex",
+  "args": ["-synctex=1", "-interaction=nonstopmode", "-file-line-error", "%DOC%"] }],
+"latex-workshop.latex.recipes": [{ "name": "pdflatex ×2", "tools": ["pdflatex", "pdflatex"] }],
+"latex-workshop.latex.outDir": "%DIR%",
 ```
 
-`make slides` runs latexmk with pdflatex in the deck folder (output in `build/`, theme found via
-`TEXINPUTS`) and copies the PDF next to the source. The PDF date is the date in the deck name, so
-rebuilding an unchanged deck gives a byte-identical PDF.
+**Terminal** (the reference build), from the repository root:
+
+```bash
+make slides DECK=2026-11-25-interim    # one deck → slides/<deck>/<deck>.pdf (output in build/)
+make slides                            # every deck; runs slides-check afterwards
+make slides-check                      # fail if a log has "Overfull" or a LaTeX error ("!")
+make slides-editor-check               # build every deck as an editor does (plain pdflatex x2,
+                                       # no TEXINPUTS, temp dir) and check its log
+make slides-clean                      # remove build/ and editor files; keeps the PDFs
+make slides-new DECK=2026-12-03-supervisor FROM=2026-11-25-interim   # new deck, see below
+pdftoppm -r 90 -png slides/2026-11-25-interim/2026-11-25-interim.pdf /tmp/slides  # every page
+```
 
 Look at every rendered page before reporting: text must not run into the source line or the
 footer, labels must not cover markers. Report the page count and anything you could not fix.
 
 ## How to add a deck
 
-1. Copy the previous deck folder and rename the folder and its `.tex` to `YYYY-MM-DD-<topic>`;
-   delete the copied PDF and `build/`.
+1. `make slides-new DECK=<YYYY-MM-DD-topic> FROM=<previous deck>` copies the previous deck
+   without PDF and build files, renames the main file and sets the `% !TEX root` lines and the
+   title date. It refuses an existing deck or a name without a date.
 2. Update `facts.tex` to the run the app shows (new run id; every number and its source line
    together) and remove macros the new deck does not use.
 3. Start with the answers received in the last meeting (decisions) and what is still open, then

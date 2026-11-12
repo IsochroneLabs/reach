@@ -112,6 +112,7 @@ make experiments        # validation experiments V1–V11 on the latest run (RUN
 make down               # stop the stack
 make slides             # every deck → slides/<deck>/<deck>.pdf (DECK=<deck> for one; fails on
                         # overfull boxes or LaTeX errors); rules in docs/presentations.md
+                        # (or open any .tex of a deck in a TeX editor and press Typeset)
 ```
 
 **Open the app:** after `make up` and a published run (`make refresh`), open
