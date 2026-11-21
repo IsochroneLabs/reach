@@ -17,23 +17,23 @@ from reach_pipeline.context import RunContext, is_run_id, latest_run_id, new_run
 from reach_pipeline.errors import ConfigError, PipelineError
 from reach_pipeline.manifest import Manifest, write_manifest
 from reach_pipeline.metrics import Measurement, measure
-from reach_pipeline.stages import acquire
+from reach_pipeline.stages import acquire, tiles, validate
 
 DEFAULT_CONFIG = "config/config.yaml"
 TILES_ACTIONS = ("check", "verify")
 
 # The first stage starts a new run; every other stage reuses the latest run by default.
 FIRST_STAGE = "acquire"
-TILES = "tiles"
+TILES = tiles.STAGE
 # Implemented stages in execution order; `run` executes all of them.
 STAGES: dict[str, Callable[[RunContext], Manifest]] = {
     acquire.STAGE: acquire.run,
+    validate.STAGE: validate.run,
+    tiles.STAGE: tiles.run,  # `tiles verify`; `tiles check` is called on its own (make refresh)
 }
 # Stages that follow, with the plan step that implements them: a single one fails with a clear
 # message, `run` logs each as skipped. Move a stage to STAGES when it is implemented.
 PLANNED: dict[str, str] = {
-    "validate": "S0.4",
-    TILES: "S0.4",
     "travel_times": "S1.8",
     "validate_results": "S1.9",
     "publish": "S0.4",
@@ -132,6 +132,15 @@ def _run_stage(name: str, ctx: RunContext) -> Manifest:
         _current_stage.reset(token)
 
 
+def _tiles_check(ctx: RunContext) -> None:
+    """`tiles check`: writes the rebuild flag file only, no manifest (arch. §7)."""
+    token = _current_stage.set(TILES)
+    try:
+        tiles.check(ctx)
+    finally:
+        _current_stage.reset(token)
+
+
 def _migrate(config: Config) -> None:
     """`migrate`: roles, passwords and pending migrations as the superuser (DATABASE_URL_ADMIN)."""
     token = _current_stage.set(MIGRATE)
@@ -172,6 +181,9 @@ def main(argv: list[str] | None = None) -> int:
         run_id = _resolve_run_id(args.run_id, args.stage, config.data_dir / "runs")
         ctx = RunContext(config=config, config_path=config_path, run_id=run_id)
         log.info("run %s, config %s", run_id, config_path)
+        if args.action == "check":
+            _tiles_check(ctx)
+            return 0
         names = list(STAGES) if args.stage == "run" else [args.stage]
         for name in names:
             stage = name

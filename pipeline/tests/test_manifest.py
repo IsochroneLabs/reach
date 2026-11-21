@@ -24,7 +24,7 @@ from reach_pipeline.manifest import (
     write_manifest,
 )
 from reach_pipeline.metrics import measure
-from reach_pipeline.stages import acquire
+from reach_pipeline.stages import acquire, tiles, validate
 
 REPO = Path(__file__).resolve().parents[2]
 PIPELINE_ORDER = [
@@ -37,7 +37,7 @@ PIPELINE_ORDER = [
     "cleanup",
 ]
 # Modules of the implemented stages (grows as stages are ported).
-STAGE_MODULES: tuple = (acquire,)
+STAGE_MODULES: tuple = (acquire, validate, tiles)
 
 
 @pytest.fixture
@@ -277,6 +277,18 @@ def test_migrate_needs_admin_url(
 def test_action_only_for_tiles(config_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     assert cli.main(["acquire", "check", "--config", str(config_path)]) == 2
     assert "'check' is only valid for the tiles stage" in capsys.readouterr().err
+
+
+def test_tiles_check_runs_without_manifest(
+    config_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    called: list[str] = []
+    monkeypatch.setattr(cli.tiles, "check", lambda ctx: called.append(ctx.run_id) or True)
+    assert (
+        cli.main(["tiles", "check", "--config", str(config_path), "--run-id", "20261102T120000Z"])
+        == 0
+    )
+    assert called == ["20261102T120000Z"]
 
 
 @pytest.mark.usefixtures("planned")
