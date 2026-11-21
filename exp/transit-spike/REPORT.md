@@ -120,12 +120,13 @@ window definition (single departure vs. median over a window, M6) and the walk n
 Addresses and cells: `config/plausibility_pairs.csv`. Engine: OTP 2.10, routing area, from the
 exact address and from the home cell's centroid (as the pipeline routes). The reference columns
 are filled by Juju from the naldo/DB journey planner at the same window; **no code queries a
-journey planner**.
+journey planner**. Reference times: bus departure–arrival as shown; minutes as shown by DB
+(assumed door to door, to be confirmed).
 
 | Pair | Window | From → to | OTP (address) | OTP (cell centroid) | Reference (journey planner) |
 |---|---|---|---|---|---|
-| P1 | Tue 24.11., arrive by 08:10 | Ahornweg 10 (Waldhäuser-Ost) → Hörsaalzentrum Morgenstelle | 18.6 min: walk 07:42 · bus E 07:47–07:55 · walk → 08:00 | 25.7 min: bus 6 07:44 · bus 18 07:58–08:05 → 08:08 | *open* |
-| P2 | Tue 24.11., arrive by 08:10 | Sieben-Höfe-Straße 100 (Derendingen) → Neue Aula | 29.2 min: walk · RB 66 07:44–07:48 · bus 5 07:56–08:01 → 08:03 | 30.0 min (same) | *open* |
+| P1 | Tue 24.11., arrive by 08:10 | Ahornweg 10 (Waldhäuser-Ost) → Hörsaalzentrum Morgenstelle | 18.6 min: walk 07:42 · bus E 07:47–07:55 · walk → 08:00 | 25.7 min: bus 6 07:44 · bus 18 07:58–08:05 → 08:08 | **21 min**, Bus 5 07:56–08:04, 0 transfers (DB, 21 Nov) |
+| P2 | Tue 24.11., arrive by 08:10 | Sieben-Höfe-Straße 100 (Derendingen) → Neue Aula | 29.2 min: walk · RB 66 07:44–07:48 · bus 5 07:56–08:01 → 08:03 | 30.0 min (same) | **28 min**, Bus 3 07:53–08:08, 0 transfers (DB, 21 Nov) |
 | P3 | Tue 24.11., arrive by 08:10 | Aixer Straße 20 (Französisches Viertel) → Sand 14 | 30.1 min: bus 7611 07:43–07:46 · bus 2 07:53–08:02 → 08:07 | 30.0 min (same) | *open* |
 | P4 | Sat 28.11., depart 00:30 | Gartenstraße 4 (Neckarmüller) → Ahornweg 10 | 40.5 min walking (N93 at 01:01 arrives 01:15, later than walking) | 39.0 min walking | *open* |
 | P5 | Sat 28.11., depart 10:00 | Lustnauer Straße 12 (Pfrondorf) → Tübingen Hbf | 23.0 min: bus 7 10:02–10:21 → 10:25 | 23.6 min (same) | *open* |
