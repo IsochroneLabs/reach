@@ -2,7 +2,7 @@
 
 Instructions for coding agents (Claude Code, Codex, Copilot, Cursor, …) working in this repository.
 They apply to every agent session, on behalf of any team member. Humans: see `README.md` and
-`CONTRIBUTING.md` (*planned, S0.4*). Folder rules follow in `pipeline/AGENTS.md`, `api/AGENTS.md`
+`CONTRIBUTING.md`. Folder rules follow in `pipeline/AGENTS.md`, `api/AGENTS.md`
 and `web/AGENTS.md`; the nearest `AGENTS.md` to the file you edit takes precedence.
 
 **Project:** reach helps students who are new to Tübingen decide where to live, by showing how
@@ -54,13 +54,13 @@ is named.
 
 | Task | Command |
 |---|---|
-| Install / update Python env | `uv sync` (*planned, S0.4*) |
-| Lint + format check | `uv run ruff check . && uv run ruff format --check .` (*planned, S0.4*) |
-| Tests | `uv run pytest` · DB contract: `REACH_TEST_DATABASE_URL=<superuser URL> uv run pytest -m db` (*planned, S0.4*) |
-| Local stack | `make up` (PostGIS, API, Valhalla once tiles exist) (*planned, S0.4*) |
-| Full refresh | `make refresh` · test clip: `make refresh REACH_CONFIG=config/test_clip.yaml` (*planned, S0.4; transit from S1.7*) |
-| One pipeline stage | `make pipeline STAGE=<stage>` (*planned, S0.4*) |
-| DB roles + migrations | `make migrate` (*planned, S0.4*) |
+| Install / update Python env | `uv sync` |
+| Lint + format check | `uv run ruff check . && uv run ruff format --check .` |
+| Tests | `uv run pytest` · DB contract: `REACH_TEST_DATABASE_URL=<superuser URL> uv run pytest -m db` |
+| Local stack | `make up` (PostGIS, API, Valhalla once tiles exist) (ported in S0.4, not yet run end to end) |
+| Full refresh | `make refresh` · test clip: `make refresh REACH_CONFIG=config/test_clip.yaml` (transit from S1.7) |
+| One pipeline stage | `make pipeline STAGE=<stage>` (stages: acquire, validate, tiles, publish, cleanup) |
+| DB roles + migrations | `make migrate` (also run by `publish` when `DATABASE_URL_ADMIN` is set) |
 | Frontend | `cd web && npm ci && npm run dev` · checks: `npm run lint && npm run build` (*planned, S0.5*) |
 | Add Python dependency | `uv add --package pipeline <pkg>` / `--package api` / `--dev` (ask first) |
 
@@ -76,13 +76,13 @@ for the frontend. Exact versions live in `pyproject.toml`, `uv.lock`, `web/packa
 
 | Path | Content |
 |---|---|
-| `pipeline/` | Data pipeline: acquire → validate → tiles → travel times → validate results → publish → cleanup (*planned, S0.4/S1*) |
-| `api/` | FastAPI: health, reference data, address search, fit, cell detail, live route (*planned, S0.4/S1.10*) |
+| `pipeline/` | Data pipeline: acquire → validate → tiles → travel times → validate results → publish → cleanup (skeleton S0.4; travel times and result checks *planned, S1.8/S1.9*) |
+| `api/` | FastAPI: health (S0.4); reference data, address search, fit, cell detail, live route (*planned, S1.10*) |
 | `web/` | Student web app, static build deployed to Cloudflare (*planned, S0.5/Phase 2*) |
 | `config/config.yaml` | Study area, routing profiles, trip windows, destination types + OSM tags, validation limits: **all tunable values** |
 | `config/campus.yaml` | Programmes → campus sites |
 | `config/personas.yaml` | Personas for demos and tests |
-| `infra/` | Dockerfiles, DB roles/migrations, server files (*planned, S0.4/S1.5*) |
+| `infra/` | Dockerfiles, DB roles/migrations/run schema (S0.4); server files (*planned, S1.5*) |
 | `.github/workflows/` | `ci.yml`, `deploy.yml` (*planned, S0.5*) |
 | `docs/` | Product, architecture, methodology, data contract, deployment, glossary, notes, plan |
 | `CHANGELOG.md` | Change history (`Unreleased`, then one section per release) |

@@ -99,3 +99,23 @@ Gaps found in validation (missing climbing gym, untagged Mensa) can be fixed in 
 member who knows the place, one feature at a time, following the automated-edits code of conduct.
 Never copy lists from websites without a compatible licence. Changes reach the pipeline with the
 next Geofabrik extract and `make refresh`.
+
+## N10. Geofabrik moved the Regierungsbezirk extracts
+
+**Status:** settled (21 Nov 2026) · **Related:** `config/config.yaml` `sources.osm`, acquire
+
+The extract URL `…/baden-wuerttemberg/tuebingen-regbez-latest.osm.pbf` redirects to a 404 since
+Geofabrik moved the Regierungsbezirk extracts into subfolders. The config now uses
+`…/baden-wuerttemberg/tuebingen-regbez/tuebingen-regbez-latest.osm.pbf` (and `.md5`), checked on
+21 Nov 2026. If acquire fails with HTTP 404 again, look up the current path on the Geofabrik index
+page and update `sources.osm` (never fall back to Overpass, AGENTS.md rule 8).
+
+## N11. validate peaks at ~2.6 GB during the OSM clip
+
+**Status:** open · **Related:** A4, D1, N1
+
+On the test clip (21 Nov 2026, M4 Pro) `validate` reached a peak RSS of 2,580 MB; it comes from
+`osmium extract` over the regional PBF (memory grows with the highest node id, not the file
+size). The whole test-clip refresh took 35 s. **To do:** measure the city run on the server
+(S1.11) and keep the stage sequential with Valhalla and the transit engine (A4).
+

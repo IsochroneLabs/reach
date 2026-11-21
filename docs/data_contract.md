@@ -39,7 +39,7 @@ Roles, passwords (from `.env`) and migrations are applied by `make migrate` as t
 | `status` | `text` | no | `running`, `published`, `failed` |
 | `osm_snapshot` | `timestamptz` | yes | Timestamp of the OSM extract |
 | `gtfs_valid_from`, `gtfs_valid_to` | `date` | yes | Feed validity |
-| `reference_weekday` | `date` | yes | Archive column; replaced by the reference dates of the trip windows in S1.4 (migration) |
+| `reference_weekday` | `date` | yes | Archive column; until S1.4 replaces it with the reference dates of the trip windows (migration), `publish` writes the earliest of them |
 | `config_hash` | `text` | no | SHA-256 of the merged pipeline config (all sections except `api`) |
 
 ### `meta.data_sources`
@@ -62,10 +62,22 @@ PK (`run_id`, `source`); rows are deleted with their run (`ON DELETE CASCADE`).
 | `version` | `text` PK | no | File name of an applied migration without `.sql` |
 | `applied_at` | `timestamptz` | no | |
 
-## Schema `run_<id>` and views `current.*` *(planned, S1.4)*
+## Schema `run_<id>` and views `current.*` *(subset ported, S0.4; rest planned, S1.4)*
 
 `current.<name>` is a view on `run_<id>.<name>` of the latest published run; `publish` replaces all
-of them in one transaction. Proposed tables (columns are fixed in S1.4):
+of them in one transaction (`infra/db/run_schema.sql`).
+
+**Ported in S0.4** (checked by `pipeline/tests/test_db_contract.py`; columns may still grow in
+S1.4):
+
+| Table | Columns |
+|---|---|
+| `cells` | `cell_id` PK `text`, `population` `integer` ≥ 0, `district_id` `text` (null = no district), `geom` `Polygon`, `origin_geom` `Point` |
+| `districts` | `district_id` PK `text` (OSM id, e.g. `r2830772`), `name` `text`, `admin_level` `smallint`, `geom` `MultiPolygon` |
+| `stops` | `stop_id` PK `text`, `name` `text`, `geom` `Point` |
+| `validation_report` | `check` `text`, `stage` `text`, `status` `text` (`ok`/`warn`/`fail`), `value` `double precision`, `message` `text`; PK (`stage`, `check`) |
+
+Proposed tables (columns are fixed in S1.4):
 
 | Table | Grain | Content |
 |---|---|---|
@@ -109,13 +121,23 @@ One row per source: the columns of `meta.data_sources` plus `checked_at`, `path`
 `data/raw/<run_id>/<source>/`), `etag`, `last_modified`, `md5` and `reused` (unchanged and
 hard-linked from the previous run).
 
+### `validate/` and `tiles/` *(ported, S0.4)*
+
+`validate/`: `cells`, `districts`, `stops` and `routing_area` as GeoParquet (EPSG:25832, columns as
+in the tables above), `routing.osm.pbf` (input of the tile build) and report part 1
+(`report_inputs.json` + `.md`: summary incl. the reference date per trip window, checks `crs`,
+`non_empty`, `district_coverage`, `population_total`, `origin_coverage`, `cells_inside_boundary`,
+`gtfs_trip_windows`, `holiday_calendar`). `tiles/`: `rebuild_needed` (shell variables for the
+build, written by `tiles check`) and `verify.json`.
+
 ### Other stage files *(planned, S1.6–S1.9)*
 
-`validate/` layers and report part 1, `tiles/` (rebuild flag, `verify.json`), transit build,
-`travel_times/` and report part 2 are specified with their steps.
+Destinations, campus sites, addresses, transit build, `travel_times/` and report part 2 are
+specified with their steps.
 
 ## Change log
 
 | Version | Date | Change | Why |
 |---|---|---|---|
 | v1.0 draft | 2026-11-21 | New contract for the rebuild: conventions, roles, `meta` and manifest carried over from the archive (v0.17); result tables and API responses planned for S1.4 | Rebuild brief of 21 Nov 2026 |
+| v1.0 draft | 2026-11-21 | S0.4: run-schema subset (`cells`, `districts`, `stops`, `validation_report`) and the `validate/` and `tiles/` files documented as ported; `meta.runs.reference_weekday` holds the earliest trip-window date until S1.4 | Port of the foundation (plan S0.4) |
