@@ -1,0 +1,15 @@
+// Cloudflare Workers with static assets (docs/deployment.md). Deployed only by GitHub Actions:
+// `wrangler deploy` in deploy.yml (production), `wrangler preview` in ci.yml (previews).
+{
+  "name": "reach",
+  // Set when the Worker was created; bump deliberately, never automatically.
+  "compatibility_date": "2026-11-21",
+  "assets": {
+    "directory": "./dist",
+    // Unknown paths return index.html, so deep links into the app work.
+    "not_found_handling": "single-page-application"
+  },
+  "workers_dev": true,
+  // Previews need this block; empty because a static site needs no preview-only settings.
+  "previews": {}
+}
