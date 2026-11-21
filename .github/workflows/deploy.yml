@@ -1,0 +1,291 @@
+# Production deploy (docs/deployment.md, architecture §11). Runs on every push to main (merged
+# release PR) and on manual dispatch: redeploy or rollback of a SHA on main (target production),
+# or a test of the whole flow from any branch (target preview, never production).
+# Order: resolve → ci → images + frontend → backend → smoke → rollback on failure → report.
+# Third-party actions are pinned to commit SHAs; every job declares its permissions.
+name: deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: Commit SHA to deploy (empty = head of the selected branch)
+        type: string
+        required: false
+      target:
+        description: preview = test from any branch; production = redeploy or rollback, main only
+        type: choice
+        options: [preview, production]
+        default: preview
+
+permissions: {}
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false # never cancel a running deploy
+
+env:
+  WRANGLER_VERSION: "4.166.0"
+
+jobs:
+  resolve:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      sha: ${{ steps.r.outputs.sha }}
+      target: ${{ steps.r.outputs.target }}
+      environment: ${{ steps.r.outputs.environment }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - id: r
+        env:
+          INPUT_SHA: ${{ inputs.sha }}
+          TARGET: ${{ inputs.target || 'production' }}
+        run: |
+          sha=$(git rev-parse --verify "${INPUT_SHA:-$GITHUB_SHA}^{commit}") \
+            || { echo "::error::unknown commit: ${INPUT_SHA}"; exit 1; }
+          if [ "$TARGET" = production ]; then
+            [ "$GITHUB_REF" = refs/heads/main ] \
+              || { echo "::error::target production only runs from main (got $GITHUB_REF)"; exit 1; }
+            git merge-base --is-ancestor "$sha" origin/main \
+              || { echo "::error::$sha is not on main"; exit 1; }
+          fi
+          env=$([ "$TARGET" = production ] && echo production || echo preview)
+          { echo "sha=$sha"; echo "target=$TARGET"; echo "environment=$env"; } >> "$GITHUB_OUTPUT"
+          echo "Deploying \`$sha\` to **$TARGET**" >> "$GITHUB_STEP_SUMMARY"
+
+  ci:
+    needs: resolve
+    permissions:
+      contents: read
+    uses: ./.github/workflows/ci.yml
+    with:
+      ref: ${{ needs.resolve.outputs.sha }}
+
+  images:
+    needs: [resolve, ci]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write # push to GHCR with GITHUB_TOKEN; only this job
+    strategy:
+      matrix:
+        image: [api, pipeline]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.resolve.outputs.sha }}
+          persist-credentials: false
+      - id: name
+        run: echo "image=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/reach-${{ matrix.image }}" >> "$GITHUB_OUTPUT"
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: infra/${{ matrix.image }}.Dockerfile
+          build-args: BUILD_SHA=${{ needs.resolve.outputs.sha }}
+          push: true
+          tags: ${{ steps.name.outputs.image }}:${{ needs.resolve.outputs.sha }}
+          labels: org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+          cache-from: type=gha,scope=${{ matrix.image }}
+
+  frontend:
+    needs: [resolve, ci]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    environment:
+      name: ${{ needs.resolve.outputs.environment }}
+      url: ${{ steps.wrangler.outputs.deployment-url }}
+    outputs:
+      # WEB_URL (variable) is the fallback if wrangler prints no URL
+      url: ${{ steps.wrangler.outputs.deployment-url || vars.WEB_URL }}
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.resolve.outputs.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: web/.nvmrc
+          package-manager-cache: false # no cache in jobs that publish (cache poisoning)
+      - run: npm ci && npm run build
+        env:
+          VITE_BUILD_SHA: ${{ needs.resolve.outputs.sha }}
+          VITE_API_BASE: ${{ vars.API_BASE }} # empty until the backend is deployed (S1.5)
+      - name: Deploy to Cloudflare
+        id: wrangler
+        uses: cloudflare/wrangler-action@953926a2e2182532811c01a25e53647d93bf07c0 # v4.1.3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          wranglerVersion: ${{ env.WRANGLER_VERSION }}
+          workingDirectory: web
+          command: >-
+            ${{ needs.resolve.outputs.target == 'production'
+            && format('deploy --message deploy-{0}', needs.resolve.outputs.sha)
+            || 'preview --name deploy-test' }}
+
+  backend:
+    needs: [resolve, images, frontend]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions: {}
+    environment: ${{ needs.resolve.outputs.environment }}
+    outputs:
+      deployed: ${{ steps.check.outputs.deployed }}
+    env:
+      HAS_SERVER: ${{ secrets.DEPLOY_HOST != '' }}
+      ENVIRONMENT: ${{ needs.resolve.outputs.environment }}
+    steps:
+      - id: check
+        run: |
+          if [ "$HAS_SERVER" != true ]; then
+            echo "::warning title=Backend skipped::no server secrets in environment '$ENVIRONMENT' (server follows in S1.5)"
+            echo "deployed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "::error::server secrets are set, but the backend deploy is implemented in S1.5"
+            exit 1
+          fi
+
+  smoke:
+    needs: [resolve, frontend, backend]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.resolve.outputs.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: web/.nvmrc
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci && npx playwright install --with-deps chromium
+      - name: Frontend serves this build
+        env:
+          BASE_URL: ${{ needs.frontend.outputs.url }}
+          EXPECTED_SHA: ${{ needs.resolve.outputs.sha }}
+          CI: "true"
+        run: |
+          test -n "$BASE_URL" || { echo "::error::the frontend job reported no URL"; exit 1; }
+          npm run test:e2e
+      - name: API health, fit and cell requests
+        if: needs.backend.outputs.deployed == 'true'
+        run: echo "::error::API smoke tests follow with the backend (S1.5/S1.10)" && exit 1
+
+  # Redeploy the last SHA that a push to main deployed successfully (production only).
+  # The backend part follows with the backend deploy (S1.5).
+  rollback:
+    needs: [resolve, frontend, backend, smoke]
+    if: >-
+      ${{ always() && needs.resolve.outputs.target == 'production' &&
+      needs.frontend.result == 'success' &&
+      (needs.smoke.result == 'failure' || needs.backend.result == 'failure') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      actions: read # list earlier deploy runs
+    environment: production
+    outputs:
+      sha: ${{ steps.prev.outputs.sha }}
+    steps:
+      - id: prev
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CURRENT: ${{ needs.resolve.outputs.sha }}
+        run: |
+          sha=$(gh run list -R "$GITHUB_REPOSITORY" --workflow deploy.yml --branch main \
+            --event push --status success --limit 20 --json headSha \
+            --jq "[.[].headSha | select(. != \"$CURRENT\")][0] // empty")
+          if [ -z "$sha" ]; then
+            echo "::error::no earlier successful deploy to roll back to"
+            exit 1
+          fi
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ steps.prev.outputs.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: web/.nvmrc
+          package-manager-cache: false # no cache in jobs that publish (cache poisoning)
+      - run: npm ci && npm run build
+        working-directory: web
+        env:
+          VITE_BUILD_SHA: ${{ steps.prev.outputs.sha }}
+          VITE_API_BASE: ${{ vars.API_BASE }}
+      - uses: cloudflare/wrangler-action@953926a2e2182532811c01a25e53647d93bf07c0 # v4.1.3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          wranglerVersion: ${{ env.WRANGLER_VERSION }}
+          workingDirectory: web
+          command: deploy --message rollback-${{ steps.prev.outputs.sha }}
+
+  report:
+    needs: [resolve, ci, images, frontend, backend, smoke, rollback]
+    if: ${{ always() }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions: {}
+    environment: ${{ needs.resolve.outputs.environment || 'preview' }}
+    env:
+      SHA: ${{ needs.resolve.outputs.sha }}
+      TARGET: ${{ needs.resolve.outputs.target }}
+      URL: ${{ needs.frontend.outputs.url }}
+      ROLLBACK_SHA: ${{ needs.rollback.outputs.sha }}
+      FAILED: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
+      WEBHOOK: ${{ secrets.TEAM_WEBHOOK_URL }}
+      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+    steps:
+      - name: Summary
+        run: |
+          image="ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/reach"
+          {
+            echo "## Deploy $( [ "$FAILED" = true ] && echo failed || echo succeeded )"
+            echo
+            echo "| | |"
+            echo "|---|---|"
+            echo "| SHA | \`$SHA\` |"
+            echo "| Target | $TARGET |"
+            echo "| Frontend | ${URL:-–} |"
+            echo "| Images | \`$image-api:$SHA\`, \`$image-pipeline:$SHA\` |"
+            echo "| Jobs | ci ${{ needs.ci.result }} · images ${{ needs.images.result }} · frontend ${{ needs.frontend.result }} · backend ${{ needs.backend.result }} · smoke ${{ needs.smoke.result }} · rollback ${{ needs.rollback.result }} |"
+            [ -n "$ROLLBACK_SHA" ] && echo "| Rolled back to | \`$ROLLBACK_SHA\` |"
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Notify the team
+        if: env.FAILED == 'true'
+        run: |
+          msg="reach deploy of ${SHA:0:7} to ${TARGET:-?} failed${ROLLBACK_SHA:+, rolled back to ${ROLLBACK_SHA:0:7}}: $RUN_URL"
+          if [ -z "$WEBHOOK" ]; then
+            echo "::warning::TEAM_WEBHOOK_URL is not set; nobody was notified"
+          else
+            jq -n --arg text "$msg" '{text: $text}' | curl -fsS -X POST -H 'Content-Type: application/json' --data @- "$WEBHOOK" > /dev/null
+          fi
+          exit 1
