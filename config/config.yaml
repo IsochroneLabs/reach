@@ -239,8 +239,10 @@ access_points:
 # Data sources (arch. §4). URLs from the archive, checked 2 Nov 2026; rent URL checked 21 Nov 2026.
 sources:
   osm:
-    url: https://download.geofabrik.de/europe/germany/baden-wuerttemberg/tuebingen-regbez-latest.osm.pbf
-    md5_url: https://download.geofabrik.de/europe/germany/baden-wuerttemberg/tuebingen-regbez-latest.osm.pbf.md5
+    # Geofabrik moved the Regierungsbezirk extracts into a subfolder; the old path redirects to a
+    # 404 (checked 21 Nov 2026, notes N10).
+    url: https://download.geofabrik.de/europe/germany/baden-wuerttemberg/tuebingen-regbez/tuebingen-regbez-latest.osm.pbf
+    md5_url: https://download.geofabrik.de/europe/germany/baden-wuerttemberg/tuebingen-regbez/tuebingen-regbez-latest.osm.pbf.md5
     licence: ODbL 1.0
   gtfs:
     # NVBW GTFS for the naldo network ("mit Liniennetz"). The member list grows with T1 (e.g.
