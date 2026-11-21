@@ -119,3 +119,22 @@ On the test clip (21 Nov 2026, M4 Pro) `validate` reached a peak RSS of 2,580 MB
 size). The whole test-clip refresh took 35 s. **To do:** measure the city run on the server
 (S1.11) and keep the stage sequential with Valhalla and the transit engine (A4).
 
+## N12. The preview environment's Cloudflare token is usable from every branch
+
+**Status:** accepted (22 Nov 2026) · **Related:** docs/deployment.md, `ci.yml` `preview`
+
+PR previews need `CLOUDFLARE_API_TOKEN` in the GitHub environment `preview`, which has no branch
+restriction. A workflow edited on any branch of this repository can read it, and the token can
+also deploy the production Worker. Fork PRs get no secrets. Accepted for a three-person team with
+write access; alternatives if that changes: required reviewers on `preview` (blocks every preview)
+or Cloudflare's Git integration instead of the token.
+
+## N13. The first Cloudflare preview may need an existing Worker
+
+**Status:** open · **Related:** S0.5, S0.6
+
+`wrangler preview` creates a Preview "under the same Worker". Whether it creates the Worker
+`reach` when it does not exist yet is not documented. If the first PR preview fails with a
+"not found" error, a team member creates the Worker in the dashboard (Workers & Pages → Create →
+Hello World, name `reach`); the v0.1.0 deploy then replaces its content.
+
