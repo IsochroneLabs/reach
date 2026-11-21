@@ -1,0 +1,55 @@
+# Campus sites, Mensa list, university sports and programme → site table (meth. §3, notes N8).
+# DRAFT (S0.3) from general knowledge: every name, programme assignment and coordinate is
+# [VERIFY] — the team checks it against the university's own information in S1.6, and the pipeline
+# matches each site to an OSM feature within match_radius_m and checks that it is routable (V3).
+# Coordinates: approximate [lon, lat] in EPSG:4326, only used to find the OSM feature.
+
+match_radius_m: 250
+
+sites:
+  tal:
+    name: Tal (Wilhelmstraße, Neue Aula, Kupferbau)
+    point: [9.0620, 48.5250]
+  morgenstelle:
+    name: Morgenstelle
+    point: [9.0350, 48.5370]
+  sand:
+    name: Sand
+    point: [9.0670, 48.5340]
+  schnarrenberg:
+    name: Schnarrenberg (University Hospital)
+    point: [9.0400, 48.5320]
+
+mensas:
+  mensa_wilhelmstrasse:
+    name: Mensa Wilhelmstraße
+    point: [9.0616, 48.5262]
+  mensa_morgenstelle:
+    name: Mensa Morgenstelle
+    point: [9.0353, 48.5375]
+  mensa_prinz_karl:
+    name: Mensa Prinz Karl
+    point: [9.0560, 48.5205]
+
+university_sports:
+  sports_ground:
+    name: University sports grounds (Wilhelmstraße)
+    point: [9.0700, 48.5300]
+
+# Programme → sites the student travels to for lectures (several = mean time, meth. §6).
+programmes:
+  computer_science: {label: {en: Computer science, de: Informatik}, sites: [sand, morgenstelle]}
+  # [VERIFY] site(s) of the Data Science / Machine Learning programmes.
+  data_science_ml: {label: {en: Data science / machine learning, de: Data Science / Machine Learning}, sites: [sand]}
+  mathematics: {label: {en: Mathematics, de: Mathematik}, sites: [morgenstelle]}
+  physics: {label: {en: Physics, de: Physik}, sites: [morgenstelle]}
+  chemistry: {label: {en: Chemistry, de: Chemie}, sites: [morgenstelle]}
+  biology: {label: {en: Biology, de: Biologie}, sites: [morgenstelle]}
+  pharmacy: {label: {en: Pharmacy, de: Pharmazie}, sites: [morgenstelle]}
+  medicine: {label: {en: Medicine, de: Medizin}, sites: [morgenstelle, schnarrenberg]}
+  economics: {label: {en: Economics and business, de: Wirtschaftswissenschaft}, sites: [tal]}
+  law: {label: {en: Law, de: Rechtswissenschaft}, sites: [tal]}
+  humanities: {label: {en: Humanities, de: Geisteswissenschaften}, sites: [tal]}
+  social_sciences: {label: {en: Social sciences, de: Sozialwissenschaften}, sites: [tal]}
+  psychology: {label: {en: Psychology, de: Psychologie}, sites: [tal]}
+  sports_science: {label: {en: Sports science, de: Sportwissenschaft}, sites: [tal]}
