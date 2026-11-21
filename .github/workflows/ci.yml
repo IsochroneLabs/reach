@@ -150,6 +150,7 @@ jobs:
     steps:
       - name: Skip without Cloudflare secret
         if: env.HAS_TOKEN != 'true'
+        working-directory: . # runs before the checkout, web/ does not exist yet
         run: |
           echo "::warning title=Preview skipped::CLOUDFLARE_API_TOKEN is not set in the environment 'preview' (docs/deployment.md)"
           echo "Preview skipped: CLOUDFLARE_API_TOKEN not set in environment \`preview\`." >> "$GITHUB_STEP_SUMMARY"
