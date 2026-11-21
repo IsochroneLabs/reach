@@ -94,8 +94,8 @@ def main() -> int:
         result = best
     else:
         pairs = origins.merge(destinations, how="cross", suffixes=("_o", "_d")).head(a.max_pairs)
-        o = gpd.GeoDataFrame({"id": pairs.id_o}, geometry=pairs.geometry_o, crs="EPSG:4326")
-        d = gpd.GeoDataFrame({"id": pairs.id_d}, geometry=pairs.geometry_d, crs="EPSG:4326")
+        o = gpd.GeoDataFrame({"id": [f"o{i}" for i in range(len(pairs))]}, geometry=pairs.geometry_o.values, crs="EPSG:4326")
+        d = gpd.GeoDataFrame({"id": [f"d{i}" for i in range(len(pairs))]}, geometry=pairs.geometry_d.values, crs="EPSG:4326")
         result = pd.DataFrame(r5py.DetailedItineraries(
             network, origins=o, destinations=d, departure=when,
             departure_time_window=dt.timedelta(minutes=a.window_min), **common,
