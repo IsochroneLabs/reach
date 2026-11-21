@@ -1,4 +1,5 @@
 .DS_Store
+
 # Python / uv
 .venv/
 __pycache__/
@@ -12,24 +13,7 @@ __pycache__/
 # local data and pipeline outputs (never committed)
 data/
 
-# slides: latexmk output and files a TeX editor writes next to the deck; the rendered PDF
-# slides/<deck>/<deck>.pdf stays tracked
-slides/*/build/
-slides/*/*.aux
-slides/*/*.log
-slides/*/*.nav
-slides/*/*.out
-slides/*/*.snm
-slides/*/*.toc
-slides/*/*.fls
-slides/*/*.fdb_latexmk
-slides/*/*.synctex.gz
-slides/*/*.vrb
-slides/*/*.bbl
-slides/*/*.blg
-
-# frontend
-web/node_modules/
-web/dist/
-web/test-results/
-web/playwright-report/
+# frontend / build output
+node_modules/
+dist/
+build/
