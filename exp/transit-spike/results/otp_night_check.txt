@@ -1,0 +1,9 @@
+== 2026-11-28T00:30+01:00
+  00:59-01:15 16 min: ['BUS N93 01:01 (Tübingen Neckarbrücke)']
+  01:23-01:55 31 min: ['BUS N94 01:25 (Tübingen Neckarbrücke)']
+== 2026-11-28T01:30+01:00
+  01:59-02:15 16 min: ['BUS N93 02:01 (Tübingen Neckarbrücke)']
+  02:23-02:55 31 min: ['BUS N94 02:25 (Tübingen Neckarbrücke)']
+== 2026-11-25T00:30+01:00
+  00:59-01:15 16 min: ['BUS N93 01:01 (Tübingen Neckarbrücke)']
+  01:23-01:55 31 min: ['BUS N94 01:25 (Tübingen Neckarbrücke)']

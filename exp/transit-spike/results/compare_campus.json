@@ -1,0 +1,10 @@
+{
+  "pairs": 8341,
+  "median_diff_min": 0.45,
+  "mean_abs_diff_min": 2.51,
+  "p90_abs_diff_min": 6.67,
+  "share_within_3min": 0.802,
+  "share_within_5min": 0.869,
+  "median_otp_min": 28.3,
+  "median_r5_min": 28.0
+}

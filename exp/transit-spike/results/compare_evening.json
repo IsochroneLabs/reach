@@ -1,0 +1,23 @@
+{
+  "pairs_compared": 105030,
+  "otp_walk_only_share": 0.443,
+  "otp_from_1800": {
+    "median_diff_min": -1.22,
+    "mean_abs_diff_min": 3.2,
+    "p90_abs_diff_min": 6.83,
+    "share_within_3min": 0.61,
+    "share_within_5min": 0.766
+  },
+  "otp_duration": {
+    "median_diff_min": 0.28,
+    "mean_abs_diff_min": 3.6,
+    "p90_abs_diff_min": 8.33,
+    "share_within_3min": 0.577,
+    "share_within_5min": 0.776
+  },
+  "transit_pairs_only": {
+    "pairs": 58705,
+    "median_diff_min": -1.78,
+    "share_within_5min": 0.623
+  }
+}

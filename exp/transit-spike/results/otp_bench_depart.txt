@@ -1,0 +1,4 @@
+workers=1 {"pairs": 2000, "found": 1996, "workers": 1, "wall_s": 68.5, "pairs_per_s": 29.2, "ms_median": 36.1, "ms_p90": 48.4, "errors": 0}
+workers=2 {"pairs": 2000, "found": 1996, "workers": 2, "wall_s": 31.9, "pairs_per_s": 62.6, "ms_median": 34.1, "ms_p90": 45.5, "errors": 0}
+workers=4 {"pairs": 2000, "found": 1996, "workers": 4, "wall_s": 16.4, "pairs_per_s": 121.7, "ms_median": 34.7, "ms_p90": 46.8, "errors": 0}
+workers=8 {"pairs": 2000, "found": 1996, "workers": 8, "wall_s": 10.3, "pairs_per_s": 194.4, "ms_median": 43.1, "ms_p90": 59.2, "errors": 0}

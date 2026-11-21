@@ -1,0 +1,11 @@
+{"area": "test_clip", "run": "evening", "exit": 0, "wall_s": 24}
+{"area": "routing", "run": "evening", "exit": 0, "wall_s": 65}
+{"area": "routing", "run": "night", "exit": 0, "wall_s": 7}
+{"area": "routing", "run": "night", "exit": 0, "wall_s": 7}
+{"area": "routing", "run": "night", "exit": 0, "wall_s": 7}
+{"area": "routing_shift", "run": "night", "exit": 0, "wall_s": 7}
+{"area": "routing_shift", "run": "night", "exit": 0, "wall_s": 6}
+{"area": "routing", "run": "campus_arrive", "exit": 0, "wall_s": 2831}
+{"area": "routing", "run": "bike", "exit": 0, "wall_s": 274}
+{"area": "routing", "run": "legs", "exit": 1, "wall_s": 7}
+{"area": "routing", "run": "legs", "exit": 137, "wall_s": 1328}

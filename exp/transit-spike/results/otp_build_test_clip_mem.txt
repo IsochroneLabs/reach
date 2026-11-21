@@ -1,0 +1,1 @@
+otp-build-test_clip peak_mem_mib=861

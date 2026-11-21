@@ -1,0 +1,5 @@
+morning_lecture {"pairs": 8374, "found": 8370, "workers": 4, "wall_s": 63.5, "pairs_per_s": 132.0, "ms_median": 30.9, "ms_p90": 40.0, "errors": 0}
+midday {"pairs": 48727, "found": 48705, "workers": 4, "wall_s": 400.8, "pairs_per_s": 121.6, "ms_median": 35.1, "ms_p90": 47.1, "errors": 0}
+evening {"pairs": 105545, "found": 105335, "workers": 4, "wall_s": 857.2, "pairs_per_s": 123.1, "ms_median": 34.7, "ms_p90": 46.5, "errors": 0}
+night_return {"pairs": 13398, "found": 13322, "workers": 4, "wall_s": 72.2, "pairs_per_s": 185.6, "ms_median": 22.2, "ms_p90": 29.2, "errors": 0}
+weekend_station {"pairs": 17853, "found": 17837, "workers": 4, "wall_s": 100.1, "pairs_per_s": 178.4, "ms_median": 24.5, "ms_p90": 32.9, "errors": 0}

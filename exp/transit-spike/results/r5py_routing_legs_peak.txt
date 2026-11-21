@@ -1,0 +1,2 @@
+legs cgroup peak 2292 MiB
+started 2026-11-21T17:11:38.026342428Z, stopped 2026-11-21T17:33:42Z, 500 pairs not finished (time-box)

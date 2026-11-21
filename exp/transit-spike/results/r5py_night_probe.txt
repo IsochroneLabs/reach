@@ -1,0 +1,20 @@
+{"area": "routing", "run": "night", "exit": 0, "wall_s": 7}
+2026-11-28T00:58       from_id        to_id  travel_time
+neckarmueller who_ahornweg           37
+neckarmueller          hbf            8
+{"area": "routing", "run": "night", "exit": 0, "wall_s": 7}
+2026-11-25T00:58       from_id        to_id  travel_time
+neckarmueller who_ahornweg           37
+neckarmueller          hbf            8
+{"area": "routing", "run": "night", "exit": 0, "wall_s": 7}
+2026-11-24T22:58       from_id        to_id  travel_time
+neckarmueller who_ahornweg           20
+neckarmueller          hbf            8
+{"area": "routing_shift", "run": "night", "exit": 0, "wall_s": 7}
+2026-11-28T00:58 shifted feed       from_id        to_id  travel_time
+neckarmueller who_ahornweg           17
+neckarmueller          hbf            8
+{"area": "routing_shift", "run": "night", "exit": 0, "wall_s": 6}
+2026-11-25T00:58 shifted feed       from_id        to_id  travel_time
+neckarmueller who_ahornweg           17
+neckarmueller          hbf            8
