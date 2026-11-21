@@ -17,6 +17,7 @@ from reach_pipeline.context import RunContext, is_run_id, latest_run_id, new_run
 from reach_pipeline.errors import ConfigError, PipelineError
 from reach_pipeline.manifest import Manifest, write_manifest
 from reach_pipeline.metrics import Measurement, measure
+from reach_pipeline.stages import acquire
 
 DEFAULT_CONFIG = "config/config.yaml"
 TILES_ACTIONS = ("check", "verify")
@@ -25,11 +26,12 @@ TILES_ACTIONS = ("check", "verify")
 FIRST_STAGE = "acquire"
 TILES = "tiles"
 # Implemented stages in execution order; `run` executes all of them.
-STAGES: dict[str, Callable[[RunContext], Manifest]] = {}
+STAGES: dict[str, Callable[[RunContext], Manifest]] = {
+    acquire.STAGE: acquire.run,
+}
 # Stages that follow, with the plan step that implements them: a single one fails with a clear
 # message, `run` logs each as skipped. Move a stage to STAGES when it is implemented.
 PLANNED: dict[str, str] = {
-    "acquire": "S0.4",
     "validate": "S0.4",
     TILES: "S0.4",
     "travel_times": "S1.8",

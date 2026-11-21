@@ -24,6 +24,7 @@ from reach_pipeline.manifest import (
     write_manifest,
 )
 from reach_pipeline.metrics import measure
+from reach_pipeline.stages import acquire
 
 REPO = Path(__file__).resolve().parents[2]
 PIPELINE_ORDER = [
@@ -36,7 +37,7 @@ PIPELINE_ORDER = [
     "cleanup",
 ]
 # Modules of the implemented stages (grows as stages are ported).
-STAGE_MODULES: tuple = ()
+STAGE_MODULES: tuple = (acquire,)
 
 
 @pytest.fixture
@@ -196,7 +197,7 @@ def test_stage_reruns_only_when_its_sections_change(config_path: Path, demo: Non
 
 def test_config_sections_of_the_stages() -> None:
     assert {m.STAGE for m in STAGE_MODULES} == set(cli.STAGES)
-    if not STAGE_MODULES:
+    if "publish" not in cli.STAGES:
         return
     # Every pipeline section is used by at least one stage, `api` by none, and publish records
     # the digest of all pipeline sections (meta.runs.config_hash).
