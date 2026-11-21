@@ -1,0 +1,49 @@
+# Personas: predefined student profiles for demos, tests (deploy smoke test, Playwright fixtures)
+# and the onboarding quick start (docs/product.md). DRAFT (S0.3); the schema follows the student
+# profile of the API (S1.4). Keys: programme (config/campus.yaml), modes (routing_profiles),
+# destinations: destination type → importance (0–3), optional fine_time_min and trips_per_week
+# (defaults from config/config.yaml), optional religion for place_of_worship, optional
+# max_rent_eur_m2. Names are invented.
+
+lena:
+  label: {en: "Lena, first semester biology", de: "Lena, Biologie im ersten Semester"}
+  programme: biology
+  modes: [walk, transit]
+  destinations:
+    campus_site: 3
+    mensa: 2
+    grocery: 2
+    climbing: {importance: 2, trips_per_week: 2}
+    main_station: 1
+  max_rent_eur_m2: 12
+
+arjun:
+  label: {en: "Arjun, exchange master's in computer science", de: "Arjun, Austausch-Master Informatik"}
+  programme: computer_science
+  modes: [walk, bike, transit]
+  destinations:
+    campus_site: 3
+    gym: {importance: 2, trips_per_week: 3}
+    nightlife: {importance: 2, trips_per_week: 1}
+    grocery: 2
+    library: 1
+
+marie:
+  label: {en: "Marie, medicine with early hospital days", de: "Marie, Medizin mit frühen Klinikdiensten"}
+  programme: medicine
+  modes: [bike, transit]
+  destinations:
+    campus_site: {importance: 3, fine_time_min: 15}
+    swimming: {importance: 2, trips_per_week: 2}
+    grocery: 1
+    main_station: 2
+
+tom:
+  label: {en: "Tom, economics, goes out a lot", de: "Tom, Wirtschaft, oft unterwegs"}
+  programme: economics
+  modes: [walk, bike]
+  destinations:
+    campus_site: 2
+    nightlife: {importance: 3, trips_per_week: 2}
+    sports_club: 1
+    mensa: 2

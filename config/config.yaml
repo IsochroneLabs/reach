@@ -1,0 +1,343 @@
+# reach configuration — every tunable value lives here (AGENTS.md rule 4). DRAFT (S0.3): the
+# loader (reach_pipeline.config, S0.4) validates the sections it uses; new sections are read from
+# S1.6 on. Distances in metres (EPSG:25832), speeds in km/h, times in minutes unless noted.
+# Sources: docs/architecture.md (arch.), docs/methodology.md (meth.). Values carried over from the
+# archived project (archive/2026-11-21-planner) are marked "archive".
+
+# Local directory for raw downloads and per-run outputs (git-ignored).
+data_dir: data
+
+study_area:
+  city_name: Tübingen
+  # Administrative city boundary (arch. §5.2): OSM boundary=administrative with this admin_level and
+  # municipality key (AGS). Archive, checked 2 Nov 2026.
+  admin_boundary:
+    admin_level: 8
+    ags: "08416041"
+  # Routing area = city boundary + this buffer (O6, archive O13).
+  routing_buffer_m: 4000
+  # Optional clip box [min_lon, min_lat, max_lon, max_lat] in EPSG:4326; set by test_clip.yaml.
+  clip_bbox: null
+
+# Areas (O14, A2): OSM admin levels of the districts. 9 = the eight Teilorte, 11 = the 23 core-town
+# districts; level 10 overlaps 11 and is not used (archive).
+districts:
+  admin_levels: [9, 11]
+  # validate fails if gaps or overlaps exceed this share of the city area (archive).
+  coverage_tolerance_pct: 0.5
+
+# Routing profiles (arch. §6.1, meth. §4). Valhalla profiles pass speed_kmh as walking_speed or
+# cycling_speed; costing_options holds every other option. Transit profiles follow with T1.
+routing_profiles:
+  walk:
+    engine: valhalla
+    costing: pedestrian
+    speed_kmh: 5.0
+    costing_options: {}
+  bike:
+    engine: valhalla
+    costing: bicycle
+    speed_kmh: 15.0  # archive O15
+    costing_options:
+      bicycle_type: Hybrid
+  # transit and bike_transit: engine and options per T1 (S1.1); access/egress walking at 5.0 km/h.
+
+# Trip windows (O15, A3, meth. §5). DRAFT values, checked with students in S2.0 (M2).
+# weekday: day of the reference date; time: HH:MM local time; direction: "to" (depart at / arrive
+# by the time, towards the destination) or "back" (depart from the destination home at the time).
+# Night windows on Fri/Sat nights; GTFS times beyond 24:00 belong to the previous service day.
+trip_windows:
+  morning_lecture: {weekday: tuesday, time: "08:10", mode: arrive_by, direction: to}
+  midday: {weekday: tuesday, time: "12:00", mode: depart_at, direction: to}
+  evening: {weekday: tuesday, time: "18:00", mode: depart_at, direction: to}
+  night_return: {weekday: saturday, time: "00:30", mode: depart_at, direction: back}
+  weekend_station: {weekday: saturday, time: "10:00", mode: depart_at, direction: to}
+
+# Reference dates (meth. §5): the first matching weekday on or after the run date inside the GTFS
+# validity that is no public or school holiday and has active services. Archive lists, Feiertagsgesetz
+# BW and Kultusministerium BW (https://km.baden-wuerttemberg.de/de/service/ferien, checked 2 Nov 2026).
+# The run fails if a chosen date is outside `covered`.
+calendar:
+  covered: {from: 2026-07-30, to: 2028-06-17}
+  public_holidays:
+    [2026-10-03, 2026-11-01, 2026-12-25, 2026-12-26,
+     2027-01-01, 2027-01-06, 2027-03-26, 2027-03-29, 2027-05-01, 2027-05-06, 2027-05-17,
+     2027-05-27, 2027-10-03, 2027-11-01, 2027-12-25, 2027-12-26,
+     2028-01-01, 2028-01-06, 2028-04-14, 2028-04-17, 2028-05-01, 2028-05-25, 2028-06-05,
+     2028-06-15]
+  school_holidays:
+    - {from: 2026-07-30, to: 2026-09-12}  # Sommerferien 2026
+    - {from: 2026-10-26, to: 2026-10-31}  # Herbstferien 2026 + Reformationsfest
+    - {from: 2026-12-23, to: 2027-01-09}  # Weihnachtsferien
+    - {from: 2027-03-25, to: 2027-03-25}  # school-free day before the Osterferien
+    - {from: 2027-03-30, to: 2027-04-03}  # Osterferien 2027
+    - {from: 2027-05-18, to: 2027-05-29}  # Pfingstferien 2027
+    - {from: 2027-07-29, to: 2027-09-11}  # Sommerferien 2027
+    - {from: 2027-11-02, to: 2027-11-06}  # Herbstferien 2027
+    - {from: 2027-12-23, to: 2028-01-08}  # Weihnachtsferien
+    - {from: 2028-04-13, to: 2028-04-13}  # school-free day (Gründonnerstag)
+    - {from: 2028-04-18, to: 2028-04-22}  # Osterferien 2028
+    - {from: 2028-06-06, to: 2028-06-17}  # Pfingstferien 2028
+
+# Destination types (meth. §3, docs/osm_tagging.md). DRAFT. Per type: labels, OSM tags (any pair
+# matches) or source "campus" (config/campus.yaml), optional require/exclude, location
+# ("point" or "access_points"), nearest_k stored by the pipeline (null = all), trip window, and the
+# onboarding defaults fine_time_min and trips_per_week (M2, checked in S2.0).
+destination_types:
+  campus_site:
+    label: {en: Campus, de: Campus}
+    source: campus
+    nearest_k: null
+    trip_window: morning_lecture
+    fine_time_min: 20
+    trips_per_week: 5
+  mensa:
+    label: {en: Mensa, de: Mensa}
+    source: campus
+    nearest_k: 3
+    trip_window: midday
+    fine_time_min: 15
+    trips_per_week: 3
+  library:
+    label: {en: Library, de: Bibliothek}
+    tags: [{amenity: library}]
+    location: point
+    nearest_k: 3
+    trip_window: midday
+    fine_time_min: 20
+    trips_per_week: 2
+  university_sports:
+    label: {en: University sports, de: Hochschulsport}
+    source: campus
+    nearest_k: null
+    trip_window: evening
+    fine_time_min: 20
+    trips_per_week: 1
+  grocery:
+    label: {en: Supermarket, de: Supermarkt}
+    tags: [{shop: supermarket}]
+    location: point
+    nearest_k: 3
+    trip_window: evening
+    fine_time_min: 10
+    trips_per_week: 2
+  pharmacy:
+    label: {en: Pharmacy, de: Apotheke}
+    tags: [{amenity: pharmacy}]
+    location: point
+    nearest_k: 3
+    trip_window: midday
+    fine_time_min: 15
+    trips_per_week: 0.1
+  doctor:
+    label: {en: Doctor, de: Arztpraxis}
+    tags: [{amenity: doctors}]
+    location: point
+    nearest_k: 3
+    trip_window: midday
+    fine_time_min: 15
+    trips_per_week: 0.1
+  main_station:
+    label: {en: Main station, de: Hauptbahnhof}
+    tags: [{railway: station}]
+    # [VERIFY] exact OSM name of the station feature in S1.6.
+    require: [{name: Tübingen Hbf}, {name: Tübingen Hauptbahnhof}]
+    location: point
+    nearest_k: 1
+    trip_window: weekend_station
+    fine_time_min: 25
+    trips_per_week: 0.5
+  park:
+    label: {en: Park, de: Park}
+    tags: [{leisure: park}]
+    exclude: [{access: private}, {access: "no"}, {access: customers}]
+    location: access_points
+    nearest_k: 3
+    trip_window: evening
+    fine_time_min: 10
+    trips_per_week: 1
+  gym:
+    label: {en: Gym, de: Fitnessstudio}
+    tags: [{leisure: fitness_centre}]
+    location: point
+    nearest_k: 3
+    trip_window: evening
+    fine_time_min: 20
+    trips_per_week: 2
+  climbing:
+    label: {en: Climbing, de: Klettern}
+    tags: [{leisure: sports_centre}, {leisure: pitch}]
+    require: [{sport: climbing}]
+    exclude: [{access: private}, {access: "no"}, {access: customers}]
+    location: point
+    nearest_k: 3
+    trip_window: evening
+    fine_time_min: 20
+    trips_per_week: 2
+  swimming:
+    label: {en: Swimming, de: Schwimmen}
+    tags: [{leisure: sports_centre}, {leisure: water_park}, {leisure: swimming_pool}]
+    require: [{sport: swimming}, {access: "yes"}, {access: public}]
+    exclude: [{access: private}, {access: "no"}, {access: customers}]
+    location: point
+    nearest_k: 3
+    trip_window: evening
+    fine_time_min: 20
+    trips_per_week: 1
+  sports_club:
+    label: {en: Sports club, de: Sportverein}
+    tags: [{leisure: sports_centre}]
+    exclude: [{access: private}, {access: "no"}, {access: customers}]
+    location: point
+    nearest_k: 3
+    trip_window: evening
+    fine_time_min: 20
+    trips_per_week: 2
+  music:
+    label: {en: Music, de: Musik}
+    tags: [{amenity: music_school}, {amenity: music_venue}]
+    location: point
+    nearest_k: 3
+    trip_window: evening
+    fine_time_min: 20
+    trips_per_week: 1
+  nightlife:
+    label: {en: Going out, de: Ausgehen}
+    tags: [{amenity: bar}, {amenity: pub}, {amenity: nightclub}, {amenity: biergarten}]
+    location: point
+    nearest_k: 3
+    trip_window: night_return
+    fine_time_min: 20
+    trips_per_week: 1
+  cinema_theatre:
+    label: {en: Cinema and theatre, de: Kino und Theater}
+    tags: [{amenity: cinema}, {amenity: theatre}]
+    location: point
+    nearest_k: 3
+    trip_window: evening
+    fine_time_min: 25
+    trips_per_week: 0.5
+  place_of_worship:
+    label: {en: Place of worship, de: Gotteshaus}
+    tags: [{amenity: place_of_worship}]
+    # The student picks a religion (OSM religion=*); the API filters by it.
+    location: point
+    nearest_k: 3
+    trip_window: weekend_station
+    fine_time_min: 20
+    trips_per_week: 1
+
+# Access points for destination types with location "access_points" (archive, meth. §3).
+access_points:
+  spacing_m: 50
+  max_points: 20
+  outline_simplify_m: 2
+  walkable_highways:
+    [footway, path, pedestrian, steps, living_street, residential, service, track, cycleway,
+     bridleway, unclassified, tertiary, secondary, primary]
+
+# Data sources (arch. §4). URLs from the archive, checked 2 Nov 2026; rent URL checked 21 Nov 2026.
+sources:
+  osm:
+    url: https://download.geofabrik.de/europe/germany/baden-wuerttemberg/tuebingen-regbez-latest.osm.pbf
+    md5_url: https://download.geofabrik.de/europe/germany/baden-wuerttemberg/tuebingen-regbez-latest.osm.pbf.md5
+    licence: ODbL 1.0
+  gtfs:
+    # NVBW GTFS for the naldo network ("mit Liniennetz"). The member list grows with T1 (e.g.
+    # routes.txt, agency.txt, transfers.txt for a journey planner).
+    url: https://www.nvbw.de/fileadmin/user_upload/service/open_data/fahrplandaten_mit_liniennetz/naldo.zip
+    licence: dl-de/by-2-0, ODbL
+    members: [stops.txt, stop_times.txt, trips.txt, calendar.txt, calendar_dates.txt, feed_info.txt]
+  zensus:
+    # Zensus 2022 population, 100 m grid; columns GITTER_ID_100m;x_mp_100m;y_mp_100m;Einwohner.
+    url: https://www.destatis.de/static/DE/zensus/gitterdaten/Zensus2022_Bevoelkerungszahl.zip
+    licence: dl-de/by-2-0
+    members: [Zensus2022_Bevoelkerungszahl_100m-Gitter.csv]
+  zensus_rent:
+    # Zensus 2022 average net cold rent per m² (EUR), rented flats in residential buildings
+    # without student halls; values in brackets are uncertain; suppressed cells are missing.
+    # Optional (second cut, meth. §8).
+    url: https://www.destatis.de/static/DE/zensus/gitterdaten/Zensus2022_Durchschn_Nettokaltmiete.zip
+    licence: dl-de/by-2-0
+    members: [Zensus2022_Durchschn_Nettokaltmiete_100m-Gitter.csv]
+
+# HTTP downloads (archive): retries on network errors, timeouts and 5xx/429, waiting
+# backoff_s * 2**attempt seconds; timeout_s per read.
+download:
+  retries: 4
+  backoff_s: 5
+  timeout_s: 60
+
+# Valhalla tile build and `tiles verify` (archive): golden pair Marktplatz → Schloss Hohentübingen.
+tiles:
+  elevation: true
+  verify:
+    route: [[9.0568, 48.5204], [9.0506, 48.5193]]
+    costing: pedestrian
+    max_detour_factor: 3.0
+
+# Valhalla service used by the pipeline (archive). URL from VALHALLA_URL; null here on purpose.
+valhalla:
+  url: null
+  concurrency: 2
+  timeout_s: 300
+  retries: 3
+  backoff_s: 2
+  # Must not exceed service_limits.<costing>.max_matrix_location_pairs in config/valhalla.json.
+  max_matrix_pairs: 25000
+
+# Travel-time stage (S1.8, arch. §6.3). DRAFT.
+travel_times:
+  # Cells grouped into square blocks; one matrix per block and Valhalla profile (archive: 500 m).
+  block_size_m: 500
+  # Straight-line prefilter cap for nearest-k searches (m); destinations beyond are only used if
+  # fewer than nearest_k lie within it.
+  search_radius_m: 6000
+
+# Validation limits (arch. §7, meth. §10). DRAFT for the new checks.
+validation:
+  population_tolerance_pct: 5
+  # Official Zensus 2022 population of the city (archive, checked 2 Nov 2026).
+  official_population: 90499
+  # Residents of origin cells / residents of all populated cells touching the city (archive O11).
+  min_scored_share: 0.98
+  # Every destination type needs at least this many destinations in the routing area (V3).
+  min_destinations_per_type: 1
+  # V2 plausibility: share of cell × destination pairs where bike ≤ walk; warn/fail below.
+  bike_not_slower_than_walk: {warn_below: 0.95, fail_below: 0.90}
+
+# PostGIS (archive). Connection strings and passwords come from .env.
+database:
+  sql_dir: infra/db
+  connect_retries: 3
+  backoff_s: 2
+
+# Published runs kept by cleanup (archive).
+cleanup:
+  keep_published_runs: 3
+
+# API (arch. §9), read by reach_api.settings; the pipeline ignores this section. DRAFT.
+api:
+  # Frontend origins allowed by CORS (D3/D4): production and preview hostnames follow in S0.5/S1.2.
+  cors_origins: ["http://localhost:5173"]
+  # In-process LRU cache of serialized fit answers, keyed by run and weight vector only.
+  cache:
+    fit_entries: 256
+  # Token bucket per client IP (archive values).
+  rate_limit:
+    burst: 10
+    per_minute: 30
+    max_clients: 10000
+  # Hosts whose X-Forwarded-For header is trusted (D2: tunnel or Caddy); names re-resolved at most
+  # every resolve_interval_s.
+  trusted_proxies: []
+  resolve_interval_s: 30
+  # Live Valhalla calls (archive).
+  valhalla:
+    concurrency: 2
+    timeout_s: 20
+    retries: 1
+    backoff_s: 0.5
+  db_pool:
+    min_size: 1
+    max_size: 4
