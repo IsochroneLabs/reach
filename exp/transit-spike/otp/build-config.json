@@ -1,0 +1,6 @@
+{
+  "osmDefaults": { "osmTagMapping": "germany" },
+  "staticBikeParkAndRide": true,
+  "transitServiceStart": "2026-11-20",
+  "transitServiceEnd": "2026-12-12"
+}

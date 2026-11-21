@@ -1,0 +1,5 @@
+{
+  "_comment": "Spike areas, EPSG:4326 [min_lon, min_lat, max_lon, max_lat]. routing = bbox of the OSM city boundary (AGS 08416041, Geofabrik 2026-11-20) + 4 km; the pipeline uses the buffered polygon instead (arch. §5.2). test_clip = central Tübingen with Tal, Morgenstelle, Sand, Hbf, Waldhäuser-Ost; it stands in for config/test_clip.yaml, which S0.4 adds.",
+  "routing": [8.9103, 48.4144, 9.1853, 48.63],
+  "test_clip": [9.03, 48.505, 9.09, 48.545]
+}

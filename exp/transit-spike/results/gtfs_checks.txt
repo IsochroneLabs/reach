@@ -1,0 +1,70 @@
+[90mWARNING:
+[00m[90mOSX binary translation ('Rosetta') detected. Running DuckDB through Rosetta will cause a significant performance degradation. DuckDB is available natively on Apple silicon, please download an appropriate binary here: https://duckdb.org/install/
+
+[00m== Tübingen-area stops
+┌───────┐
+│ stops │
+│ int64 │
+├───────┤
+│   573 │
+└───────┘
+== Trips touching the Tübingen area per service day (night = times >= 24:00)
+┌─────────────┬──────────┬───────┬──────────────────────┐
+│ service_day │ weekday  │ trips │ trips_after_midnight │
+│    date     │ varchar  │ int64 │        int64         │
+├─────────────┼──────────┼───────┼──────────────────────┤
+│ 2026-11-24  │ Tuesday  │  3356 │                   56 │
+│ 2026-11-27  │ Friday   │  3416 │                   99 │
+│ 2026-11-28  │ Saturday │  2070 │                   82 │
+│ 2026-11-29  │ Sunday   │  1557 │                   58 │
+│ 2026-12-08  │ Tuesday  │  3374 │                   63 │
+└─────────────┴──────────┴───────┴──────────────────────┘
+== Friday service day: routes with departures >= 24:00 in the Tübingen area
+┌─────────┬────────────┬───────┬────────────────┬──────────┐
+│  route  │ route_type │ trips │ first_after_24 │   last   │
+│ varchar │  varchar   │ int64 │    varchar     │ varchar  │
+├─────────┼────────────┼───────┼────────────────┼──────────┤
+│ X82     │ 3          │     6 │ 24:00:00       │ 28:06:00 │
+│ RB63    │ 3          │     5 │ 24:14:00       │ 26:29:00 │
+│ RB74    │ 3          │     5 │ 24:03:00       │ 25:13:00 │
+│ RB63E   │ 3          │     5 │ 24:14:00       │ 26:29:00 │
+│ 111     │ 3          │     4 │ 24:16:00       │ 26:02:00 │
+│ 828     │ 3          │     4 │ 25:35:00       │ 28:51:00 │
+│ 5       │ 3          │     3 │ 24:00:00       │ 24:26:00 │
+│ N88     │ 3          │     3 │ 25:00:00       │ 27:49:00 │
+│ N96     │ 3          │     3 │ 24:37:00       │ 26:59:00 │
+│ N84     │ 3          │     3 │ 25:00:00       │ 27:57:00 │
+│ N91     │ 3          │     3 │ 25:00:00       │ 27:35:00 │
+│ N98     │ 3          │     3 │ 24:32:00       │ 26:59:00 │
+│ MEX18E  │ 3          │     3 │ 25:28:00       │ 26:31:00 │
+│ N82     │ 3          │     3 │ 25:00:00       │ 27:00:00 │
+│ N87     │ 3          │     3 │ 25:00:00       │ 27:53:00 │
+│ N95     │ 3          │     3 │ 25:00:00       │ 27:23:00 │
+│ N92     │ 3          │     3 │ 25:00:00       │ 27:16:00 │
+│ 7611    │ 3          │     3 │ 24:02:00       │ 24:55:00 │
+│ MEX12   │ 3          │     3 │ 25:28:00       │ 26:31:00 │
+│ N90     │ 3          │     3 │ 25:00:00       │ 27:26:00 │
+│ N81     │ 3          │     3 │ 25:00:00       │ 27:10:00 │
+│ N93     │ 3          │     3 │ 25:00:00       │ 27:31:00 │
+│ N97     │ 3          │     3 │ 24:33:00       │ 26:59:00 │
+│ N94     │ 3          │     3 │ 24:24:00       │ 26:59:00 │
+│ N80     │ 3          │     2 │ 26:19:00       │ 26:39:00 │
+└─────────┴────────────┴───────┴────────────────┴──────────┘
+  25 rows                                        5 columns
+== Departures 00:15-01:30 (as 24:15-25:30) at central stops, Friday service day
+┌──────────────────────────┬─────────┬────────────────┬───────────────────────┐
+│        stop_name         │  route  │ departure_time │     trip_headsign     │
+│         varchar          │ varchar │    varchar     │        varchar        │
+├──────────────────────────┼─────────┼────────────────┼───────────────────────┤
+│ Tübingen Nonnenhaus      │ 1       │ 24:19:30       │ Tübingen Hauptbahnhof │
+│ Tübingen Nonnenhaus      │ 5       │ 24:20:30       │ Tübingen Hauptbahnhof │
+│ Tübingen Nonnenhaus      │ 2       │ 24:37:24       │ Tübingen Hauptbahnhof │
+│ Tübingen Nonnenhaus      │ X82     │ 24:44:00       │ Tübingen Hauptbahnhof │
+│ Tübingen Nonnenhaus      │ N96     │ 24:55:42       │ Tübingen Hauptbahnhof │
+│ Tübingen Nonnenhaus      │ N94     │ 24:55:42       │ Tübingen Hauptbahnhof │
+│ Tübingen Uni / Neue Aula │ X82     │ 24:58:00       │ Flughafen/Messe       │
+│ Tübingen Uni / Neue Aula │ N93     │ 25:02:12       │ Tübingen Hauptbahnhof │
+│ Tübingen Uni / Neue Aula │ N91     │ 25:02:54       │ Tübingen Hauptbahnhof │
+│ Tübingen Nonnenhaus      │ N93     │ 25:27:42       │ Tübingen Hauptbahnhof │
+└──────────────────────────┴─────────┴────────────────┴───────────────────────┘
+  10 rows                                                           4 columns

@@ -1,0 +1,15 @@
+library               40
+grocery               87
+pharmacy              36
+doctor               176
+main_station           3
+park                 209
+gym                   19
+climbing               9
+swimming              23
+sports_club          169
+music                 14
+nightlife            102
+cinema_theatre        22
+place_of_worship     263
+total (OSM types)   1172
