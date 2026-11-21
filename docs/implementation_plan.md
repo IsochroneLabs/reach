@@ -12,12 +12,12 @@ explaining the differences in plain language.
 
 | | |
 |---|---|
-| **Done** | S0.1 (restatement, port table, answers of 21 Nov 2026) · S0.2 (this plan, confirmed 21 Nov 2026 with three changes) |
-| **In progress** | S0.3 sources of truth (`docs/rico-foundation`) |
+| **Done** | S0.1 (restatement, port table, answers of 21 Nov 2026) · S0.2 (this plan, confirmed 21 Nov 2026 with three changes) · S0.3 (sources of truth, 21 Nov 2026) |
+| **In progress** | – (waiting for review of PR #78 and the yes to the S0.4 step plan) |
 | **Next** | S0.4 port the foundation (`refactor/rico-port-foundation`) |
 | **Blocked** | – |
 | **Open decisions** | T1 transit engine · D1 server · D2 backend access · D3 domain · D4 frontend–API wiring · D5 basemap · fit formula |
-| **PRs** | – |
+| **PRs** | [#78](https://github.com/IsochroneLabs/reach/pull/78) docs(repo): sources of truth for the student rebuild (draft, S0.2 + S0.3) |
 | **Releases** | – (main still holds the old project of 31 Oct 2026) |
 
 ## How to use this plan
@@ -75,7 +75,7 @@ Answers: A1–A8 above. Port table: see S0.4.
 - **Files:** `docs/implementation_plan.md`.
 - **Done when:** your human confirmed the plan; committed as `docs(repo): add implementation plan for the rebuild`.
 
-### S0.3 Sources of truth — target 24 Nov
+### S0.3 Sources of truth — done (21 Nov 2026, PR #78)
 
 - **Branch:** `docs/rico-foundation`.
 - **Before writing:** read the archive's `docs/notes.md`, `docs/data_contract.md`,
@@ -226,6 +226,8 @@ Code steps start after T1 and the fit formula are confirmed. Step plan first, wa
 - **Work:** final proposal in `methodology.md`: smooth time decay around the user's "fine" time
   per destination type, importance weights, combination over modes and trip windows, weekly
   travel time, explanation selection (2–4 facts), worked examples with personas. Ask first.
+  Open points from the S0.3 review: calibrate so that *s(t_d)* ≈ 0.9 (methodology M1); weight
+  several campus sites by days per week instead of the mean (M7).
 - **Done when:** confirmed and recorded (version + change log).
 
 ### S1.4 Data contract for results — target 5 Dec
