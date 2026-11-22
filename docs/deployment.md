@@ -24,20 +24,26 @@
 | Preview | Cloudflare Workers Preview `pr-<number>` per same-repository PR, `dev` for the dev branch, `deploy-test` for a dispatch test | none or production API read-only (D4) | fixtures or production (D4) |
 | Production | Cloudflare Worker `reach` (static assets) | server (D1) via tunnel or Caddy (D2) | weekly refresh on the server |
 
-## Cloudflare product (checked 21 Nov 2026, S0.5)
+## Cloudflare product and billing (checked 22 Nov 2026)
 
 The frontend is a **Worker with static assets** (`web/wrangler.jsonc`: `assets.directory = ./dist`,
 `not_found_handling = single-page-application`, empty `previews` block), not Cloudflare Pages.
-Cloudflare recommends Workers static assets for new projects and adds new features there; Pages
-keeps working ([compatibility matrix](https://developers.cloudflare.com/workers/static-assets/compatibility-matrix/),
-[migrating from Pages](https://developers.cloudflare.com/workers/static-assets/migration-guides/migrate-from-pages/)).
-Static asset requests are free on both. Previews: `wrangler preview --name <name>` creates or
+Workers static assets is the settled choice for this static Vite SPA. Cloudflare's current billing
+docs say static asset requests are free and unlimited, with no asset storage charge. A request
+that invokes Worker code is billed under Workers pricing; we do not currently need request-time
+Worker code. Pages static requests are also free, so billing alone does not distinguish the two.
+See [Workers static asset billing](https://developers.cloudflare.com/workers/static-assets/billing-and-limitations/),
+[Workers pricing](https://developers.cloudflare.com/workers/platform/pricing/), and
+[Pages Functions pricing](https://developers.cloudflare.com/pages/functions/pricing/). Recheck
+pricing if request-time Worker logic or another paid Cloudflare product is added.
+
+Previews: `wrangler preview --name <name>` creates or
 updates a Preview of the same Worker at `<name>-reach.<subdomain>.workers.dev` with its own
 settings; Preview URLs are public ([Previews](https://developers.cloudflare.com/workers/previews/)).
 Production URL: `reach.<subdomain>.workers.dev` until D3. Deploys use the official
 [`cloudflare/wrangler-action`](https://github.com/cloudflare/wrangler-action) pinned to a commit
-SHA, with Wrangler pinned in the workflows (`WRANGLER_VERSION`). Recording this choice in
-`architecture.md` O11 needs the team's yes.
+SHA, with Wrangler pinned in the workflows (`WRANGLER_VERSION`). The API and pipelines remain on
+the project server; Cloudflare hosts the frontend assets only.
 
 ## Workflows
 
