@@ -155,7 +155,9 @@ older feed before S1.11. First seen in the T1 spike (PR #79).
 
 ## N15. D1–D4: research and recommendation (S1.2, 23 Nov 2026)
 
-**Status:** proposal, waiting for the team's yes · **Related:** D1–D4, architecture §11–§13,
+**Status:** decided 23 Nov 2026 — **not** as recommended below: the team runs reach on Konstantin's
+16 GB home server (x86_64 Linux, free), so the budget allows an own domain and the Cloudflare Tunnel
+(architecture O18–O21). The research below stays as the record of the alternatives. · **Related:** D1–D4, architecture §11–§13,
 docs/deployment.md, A4, N11
 
 **Constraints.** 8 GB RAM (A4: `validate` peaks at ≈ 3.8 GB, N11; Valhalla 1.4–3 GB during
