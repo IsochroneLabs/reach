@@ -140,3 +140,14 @@ or Cloudflare's Git integration instead of the token.
 "not found" error, a team member creates the Worker in the dashboard (Workers & Pages → Create →
 Hello World, name `reach`); the v0.1.0 deploy then replaces its content.
 
+
+## N14. The naldo GTFS feed ends on 12 Dec 2026
+
+**Status:** open · **Related:** S1.6, S1.11, V3, risk "feed expiring"
+
+The feed downloaded on 23 Nov 2026 from the URL in `config/config.yaml` has
+`feed_end_date` 20261212 (`feed_info.txt`, version 20261011); the last `calendar.txt` end date is
+the same. After 12 Dec no reference date per trip window can be found, so V3 fails and the first
+production data and v0.2.0 (target 14 Dec) need a newer feed. **To do:** check early December
+whether NVBW has published the timetable from 13 Dec 2026; if not, decide how to label or pin an
+older feed before S1.11. First seen in the T1 spike (PR #79).
