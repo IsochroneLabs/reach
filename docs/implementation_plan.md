@@ -13,7 +13,7 @@ explaining the differences in plain language.
 | | |
 |---|---|
 | **Done** | S0.1 (restatement, port table, answers of 21 Nov 2026) · S0.2 (this plan, confirmed 21 Nov 2026 with three changes) · S0.3 (sources of truth, PR #78 merged 21 Nov 2026) |
-| **In progress** | S0.4 port the foundation (PR #80, all checks run; waiting for review and the yeses listed there) · S0.5 walking skeleton (PR #81, CI green; waiting for the dependency yes and the Cloudflare/GitHub setup) |
+| **In progress** | S0.4 port the foundation (PR #80: all checks run, yeses given 23 Nov 2026, **ready for a human to merge** with a merge commit) · S0.5 walking skeleton (PR #81: CI green, dependencies approved 23 Nov 2026; ready to merge after #80; preview and dispatch test need the Cloudflare/GitHub setup) |
 | **Next** | merge #80, then #81 (a human, after review) → set required checks on `dev` → preview URL from a `dev` push + `workflow_dispatch` of `deploy.yml` with target preview → S0.6 release PR v0.1.0 on instruction |
 | **Blocked** | S0.5 preview check and S0.6: Cloudflare account, API token and the GitHub environments `preview`/`production` (a human sets them up, `docs/deployment.md`) |
 | **Open decisions** | T1 transit engine (spike done, PR #79, decision due 3 Dec) · D1 server · D2 backend access · D3 domain · D4 frontend–API wiring · D5 basemap · fit formula |
@@ -118,7 +118,7 @@ Answers: A1–A8 above. Port table: see S0.4.
   `architecture.md`/`methodology.md`/`AGENTS.md`/`README.md` use the same one-line definition.
 - **Done when:** all files committed, draft PR `docs(repo): sources of truth for the student rebuild` into `dev`.
 
-### S0.4 Port the foundation — target 27 Nov · in review (PR #80)
+### S0.4 Port the foundation — target 27 Nov · ready to merge (PR #80, approved 23 Nov 2026)
 
 - **Branch:** `refactor/rico-port-foundation`. Every commit message names its archive source path
   (`git checkout archive/2026-11-21-planner -- <path>`, then adapt). After every commit:
@@ -147,7 +147,7 @@ Answers: A1–A8 above. Port table: see S0.4.
   `make refresh REACH_CONFIG=config/test_clip.yaml` runs acquire → tiles on the clip.
 - **Done when:** draft PR `refactor(repo): port the foundation from the archive` into `dev`.
 
-### S0.5 Walking skeleton — target 29 Nov · in review (PR #81)
+### S0.5 Walking skeleton — target 29 Nov · ready to merge after #80 (PR #81); Cloudflare setup open
 
 - **Branch:** `feature/rico-delivery-skeleton`.
 - **Dependencies to confirm first:** Vite, React, TypeScript, ESLint, Playwright (versions
