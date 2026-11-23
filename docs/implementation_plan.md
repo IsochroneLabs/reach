@@ -12,12 +12,14 @@ explaining the differences in plain language.
 
 | | |
 |---|---|
-| **Done** | S0.1 (restatement, port table, answers of 21 Nov 2026) · S0.2 (this plan, confirmed 21 Nov 2026 with three changes) · S0.3 (sources of truth, 21 Nov 2026) |
-| **In progress** | – (waiting for review of PR #78 and the yes to the S0.4 step plan) |
-| **Next** | S0.4 port the foundation (`refactor/rico-port-foundation`) |
-| **Blocked** | – |
-| **Open decisions** | T1 transit engine · D1 server · D2 backend access · D3 domain · D4 frontend–API wiring · D5 basemap · fit formula |
-| **PRs** | [#78](https://github.com/IsochroneLabs/reach/pull/78) docs(repo): sources of truth for the student rebuild (draft, S0.2 + S0.3) |
+| **Done** | S0.1 (restatement, port table, answers of 21 Nov 2026) · S0.2 (this plan, confirmed 21 Nov 2026 with three changes) · S0.3 (sources of truth, PR #78 merged 21 Nov 2026) |
+| **In progress** | S0.4 port the foundation (PR #80, all checks run; waiting for review and the yeses listed there) · S0.5 walking skeleton (PR #81, CI green; waiting for the dependency yes and the Cloudflare/GitHub setup) |
+| **Next** | merge #80, then #81 (a human, after review) → set required checks on `dev` → preview URL from a `dev` push + `workflow_dispatch` of `deploy.yml` with target preview → S0.6 release PR v0.1.0 on instruction |
+| **Blocked** | S0.5 preview check and S0.6: Cloudflare account, API token and the GitHub environments `preview`/`production` (a human sets them up, `docs/deployment.md`) |
+| **Open decisions** | T1 transit engine (spike done, PR #79, decision due 3 Dec) · D1 server · D2 backend access · D3 domain · D4 frontend–API wiring · D5 basemap · fit formula |
+| **PRs** | [#78](https://github.com/IsochroneLabs/reach/pull/78) sources of truth (merged) · [#79](https://github.com/IsochroneLabs/reach/pull/79) T1 spike report (review only, not merged) · [#80](https://github.com/IsochroneLabs/reach/pull/80) port the foundation (S0.4) · [#81](https://github.com/IsochroneLabs/reach/pull/81) walking skeleton (S0.5, contains #80) |
+| **Deviations** | S0.4 and S0.5 were built on `feature/juju-phase0` and `feature/juju-delivery-skeleton` instead of the `rico-…` branches named below (at Juju's request; Rico to confirm) |
+| **Risks now** | naldo GTFS feed ends 12 Dec 2026 (notes N14): v0.2.0 on 14 Dec needs a newer feed |
 | **Releases** | – (main still holds the old project of 31 Oct 2026) |
 
 ## How to use this plan
@@ -116,7 +118,7 @@ Answers: A1–A8 above. Port table: see S0.4.
   `architecture.md`/`methodology.md`/`AGENTS.md`/`README.md` use the same one-line definition.
 - **Done when:** all files committed, draft PR `docs(repo): sources of truth for the student rebuild` into `dev`.
 
-### S0.4 Port the foundation — target 27 Nov
+### S0.4 Port the foundation — target 27 Nov · in review (PR #80)
 
 - **Branch:** `refactor/rico-port-foundation`. Every commit message names its archive source path
   (`git checkout archive/2026-11-21-planner -- <path>`, then adapt). After every commit:
@@ -145,7 +147,7 @@ Answers: A1–A8 above. Port table: see S0.4.
   `make refresh REACH_CONFIG=config/test_clip.yaml` runs acquire → tiles on the clip.
 - **Done when:** draft PR `refactor(repo): port the foundation from the archive` into `dev`.
 
-### S0.5 Walking skeleton — target 29 Nov
+### S0.5 Walking skeleton — target 29 Nov · in review (PR #81)
 
 - **Branch:** `feature/rico-delivery-skeleton`.
 - **Dependencies to confirm first:** Vite, React, TypeScript, ESLint, Playwright (versions
