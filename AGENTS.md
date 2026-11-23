@@ -57,7 +57,7 @@ is named.
 | Install / update Python env | `uv sync` |
 | Lint + format check | `uv run ruff check . && uv run ruff format --check .` |
 | Tests | `uv run pytest` · DB contract: `REACH_TEST_DATABASE_URL=<superuser URL> uv run pytest -m db` |
-| Local stack | `make up` (PostGIS, API, Valhalla once tiles exist) (ported in S0.4, not yet run end to end) |
+| Local stack | `make up` (PostGIS, API, Valhalla once tiles exist) |
 | Full refresh | `make refresh` · test clip: `make refresh REACH_CONFIG=config/test_clip.yaml` (transit from S1.7) |
 | One pipeline stage | `make pipeline STAGE=<stage>` (stages: acquire, validate, tiles, publish, cleanup) |
 | DB roles + migrations | `make migrate` (also run by `publish` when `DATABASE_URL_ADMIN` is set) |

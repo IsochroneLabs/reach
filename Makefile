@@ -1,10 +1,13 @@
 # Thin wrappers around uv and docker compose (arch. §7, §12). Run from the repository root.
 # `make pipeline` runs on the host with uv against the services started by `make up`.
-# REACH_CONFIG selects the config (default config/config.yaml), e.g.
-# `make refresh REACH_CONFIG=config/test_clip.yaml`.
+# REACH_CONFIG selects the config, e.g. `make refresh REACH_CONFIG=config/test_clip.yaml`.
+# Order: make command line, shell, REACH_CONFIG in .env, then config/config.yaml. Reading .env
+# keeps the pipeline on the same config that compose passes to the API.
 
 STAGE ?= run
-REACH_CONFIG ?= config/config.yaml
+ifndef REACH_CONFIG
+REACH_CONFIG := $(or $(shell sed -n 's/^REACH_CONFIG=//p' .env 2>/dev/null | tail -n 1 | tr -d "\"'"),config/config.yaml)
+endif
 export REACH_CONFIG
 # .env (connection strings, passwords, webhook) is passed to the pipeline when it exists;
 # variables already set in the shell or on the make command line win.
