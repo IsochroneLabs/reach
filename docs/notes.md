@@ -116,9 +116,10 @@ page and update `sources.osm` (never fall back to Overpass, AGENTS.md rule 8).
 
 On the test clip (21 Nov 2026, M4 Pro) `validate` reached a peak RSS of 2,580 MB; it comes from
 `osmium extract` over the regional PBF (memory grows with the highest node id, not the file
-size). The whole test-clip refresh took 35 s. With `config/config.yaml` (whole city, 23 Nov
-2026, M4 Pro) `validate` peaked at **3,778 MB** (1,699 cells, 907 stops published); acquire took
-506 s, almost all of it downloads. **To do:** measure the city run on the server
+size). The whole test-clip refresh took 35 s. On 23 Nov 2026 (same machine, fresh downloads)
+`validate` peaked at **3,629 MB** on the test clip and **3,778 MB** with `config/config.yaml`
+(whole city): the peak varies by about 1 GB between runs and barely depends on the area, so plan
+with ~4 GB for this stage. **To do:** measure the city run on the server
 (S1.11) and keep the stage sequential with Valhalla and the transit engine (A4).
 
 ## N12. The preview environment's Cloudflare token is usable from every branch
