@@ -1,6 +1,6 @@
 # Methodology — reach
 
-> **Status:** v1.0-draft (21 Nov 2026). Binding definition of **what** is computed: origins,
+> **Status:** v1.1-draft (23 Nov 2026). Binding definition of **what** is computed: origins,
 > destinations, modes, trip windows, travel times, the fit, explanations and validation.
 > [`architecture.md`](architecture.md) describes **how**. Every change bumps the version and adds
 > a line to the [Change log](#change-log). **[OPEN]** items are decided before the related code;
@@ -53,12 +53,19 @@ to door, in minutes:
   and steep downhill (archive: median 1.08 × flat time, up to 1.66 × on steep routes).
 - **bike:** Valhalla `bicycle`, Hybrid, 15 km/h; uphill slower, downhill faster.
 - **transit:** walk from the origin to a stop + wait for the departure + in-vehicle time +
-  transfers (walk and wait) + walk to the destination, for a departure that fits the trip window
-  (T1 decides the engine; the exact handling of the window, e.g. best departure vs. a percentile
-  over the window, is fixed with T1). Transit is never faster than walking the whole way: if walk
+  transfers (walk and wait) + walk to the destination, computed with OpenTripPlanner
+  (architecture O17). **The time includes the wait at home (M6, decided 23 Nov 2026):**
+  - *depart-at windows* (e.g. evening, Saturday): *T* = earliest arrival at the destination when
+    the student is ready to leave at the window time − window time. A bus that leaves 20 minutes
+    later costs those 20 minutes; infrequent service shows up in the time itself.
+  - *arrive-by windows* (e.g. the morning lecture): *T* = required arrival time − latest
+    departure from home that still arrives on time.
+  The legs (access walk, wait, in-vehicle, transfers, egress, first stop and route, departure) are
+  stored next to *T* for the reasons. Transit is never faster than walking the whole way: if walk
   is shorter, the transit time equals the walk time and the reason says so.
-- **bike_transit** (optional, first cut): bike to a stop, park, ride, walk to the destination; no
-  bike on board. Shown only for areas where it beats bike-only and transit-only (V2).
+- **bike_transit** (optional, first cut): bike to a stop, park at OSM bike parking, ride, walk to
+  the destination; no bike on board (OTP `BICYCLE_PARKING`, M5). Same window rule as transit.
+  Shown only for areas where it beats bike-only and transit-only (V2).
 
 Times are stored raw (seconds), also beyond any "fine" time.
 
@@ -161,13 +168,19 @@ Validation is graded. Results per release in `docs/validation.md` (*planned, S1.
 | M2 | Default fine times, trips per week and trip window per destination type | §3 drafts; check in user-test round 1 (S2.0) |
 | M3 | Area value from cell fits | median fit of the populated cells plus the best cell, with the share of cells above the city median |
 | M4 | Rent in the fit or as a filter | filter/label only |
-| M5 | Bike + transit | decide with T1; first cut if time runs short |
-| M6 | Transit time inside a window | best departure vs. a percentile over the window; decide with T1 |
+
+Settled:
+
+| ID | Question | Decision |
+|---|---|---|
+| M5 | Bike + transit | OTP `BICYCLE_PARKING` (bike to a stop, park, ride); still the first cut if time runs short (§4, 23 Nov 2026) |
+| M6 | Transit time inside a window | the wait at home counts: arrival − window time for depart-at, required arrival − latest departure for arrive-by (§4, 23 Nov 2026) |
 
 ## Change log
 
 | Version | Date | Change | Why |
 |---|---|---|---|
+| v1.1-draft | 2026-11-23 | §4: transit and bike + transit with OpenTripPlanner (O17); M6 decided (the wait at home counts: arrival − window time, or required arrival − latest departure); M5 decided (bike parked, `BICYCLE_PARKING`, still first cut) | T1 decided 23 Nov 2026 (spike PR #79); M6 so that rare buses show in the time students feel |
 | v1.0-draft | 2026-11-21 | New methodology for the student rebuild: origins and areas, destination types, modes, trip windows, fit proposal [OPEN], weekly travel time, explanations, rent, relation to classic measures, validation V1–V8 | Rebuild brief of 21 Nov 2026; plan S0.2 |
 
 ## References
