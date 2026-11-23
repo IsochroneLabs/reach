@@ -105,6 +105,7 @@ No public data APIs are called at runtime. Data is never committed to the reposi
 | [`docs/data_contract.md`](docs/data_contract.md) | Tables, files, API responses |
 | [`docs/deployment.md`](docs/deployment.md) | Environments, workflows, secrets, runbook |
 | [`docs/implementation_plan.md`](docs/implementation_plan.md) | Steps, status, dates, risks |
+| [`docs/reference_trips.md`](docs/reference_trips.md) | Reference trips for V1: pairs and how to collect them |
 | [`docs/glossary.md`](docs/glossary.md) | Terms |
 | [`docs/notes.md`](docs/notes.md) | Findings and open points |
 | [`docs/osm_tagging.md`](docs/osm_tagging.md) | OSM tags per destination type |
