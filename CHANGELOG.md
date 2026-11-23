@@ -5,7 +5,6 @@ All notable changes to this project are documented in this file.
 ## [Unreleased]
 
 - Settled Cloudflare Workers static assets for the frontend and documented the current static asset billing model.
-
 - Emptied dev for the rebuild; old project archived in archive/2026-11-21-planner (21 Nov 2026)
 - Implementation plan for the student rebuild with phases, steps, releases and risks (`docs/implementation_plan.md`)
 - Foundation ported from the archive (S0.4): uv workspace, pipeline stages acquire → validate (reference date per trip window) → tiles → publish → cleanup, PostGIS roles and run-schema subset, API skeleton with health (build SHA) and CORS allowlist, compose, Makefile, API and pipeline images, folder rules and CONTRIBUTING
