@@ -37,7 +37,7 @@ class, deficit, recommender, …).
 | Document | Binding for |
 |---|---|
 | `docs/product.md` | User, their questions, use cases U1–U3, non-goals, cut order |
-| `docs/architecture.md` | System: components, data flow, routing, deployment, decisions (O-numbers, D1–D5) |
+| `docs/architecture.md` | System: components, data flow, routing, deployment, decisions (O-numbers, D5) |
 | `docs/methodology.md` | What is computed: destinations, modes, trip windows, travel times, fit, validation (V-numbers) |
 | `docs/data_contract.md` | Table, file and API schemas between pipeline and API |
 | `docs/deployment.md` | Environments, workflows, secrets, runbook |
@@ -145,7 +145,7 @@ the Never list or the Ask-first list.
 
 ## Writing efficient code
 
-The server is planned with 8 GB RAM (D1) shared by PostGIS, Valhalla, the transit engine, the API
+The server has 16 GB RAM (O18), budgeted as if 8 GB, shared by PostGIS, Valhalla, the transit engine, the API
 and the pipeline; the refresh runs its heavy steps one after the other (A4).
 
 - Vectorise (pandas/GeoPandas, spatial indexes); no Python loops over cells or destinations.
@@ -203,7 +203,7 @@ and the pipeline; the refresh runs its heavy steps one after the other (A4).
 
 **Ask first**
 - Any change to `docs/architecture.md` or `docs/methodology.md`, or code that deviates from them;
-  the fit formula; D1–D5.
+  the fit formula; D5.
 - Adding, removing or upgrading dependencies, services or paid products.
 - Changing or removing existing values in `config/`; changes to `compose*.yaml`, `infra/`,
   workflows, the data contract or the repository structure (adding a config key with a comment

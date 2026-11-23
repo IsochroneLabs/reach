@@ -4,6 +4,7 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+- Server and access decided (D1–D4 → O18–O21): team home server with 16 GB, Cloudflare Tunnel, own domain, previews on the production API; server runbook in `docs/deployment.md`
 - Reference trips for V1 (S1.0): 30 cell × destination pairs over all trip windows and a collection guide (`docs/reference_trips.md`, `pipeline/tests/fixtures/reference_trips.csv`)
 - Transit engine decided (T1 → O17): OpenTripPlanner 2.10 for transit and bike + transit; transit time includes the wait at home (M6); bike + transit parks the bike (M5)
 - Settled Cloudflare Workers static assets for the frontend and documented the current static asset billing model.
