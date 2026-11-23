@@ -1,6 +1,6 @@
 # Architecture — reach
 
-> **Status:** v1.1-draft (22 Nov 2026). Target architecture of the rebuild. Every change bumps the
+> **Status:** v1.2-draft (23 Nov 2026). Target architecture of the rebuild. Every change bumps the
 > version and adds a line to the [Change log](#change-log). Decisions are listed in
 > [Section 13](#13-decisions); items marked **[OPEN]** are settled before the related code is
 > written. What is computed (destinations, travel times, fit, validation) is defined in
@@ -14,7 +14,7 @@ explaining the differences in plain language.
 
 A scheduled pipeline on a small server downloads open data, validates it, computes raw travel
 times from every relevant 100 m cell to the destinations students care about (walk and bike with
-Valhalla, transit with a transit engine) for several trip windows, and publishes them to PostGIS.
+Valhalla, transit with OpenTripPlanner) for several trip windows, and publishes them to PostGIS.
 An API computes the personal fit and the reasons at request time; a static web app on Cloudflare
 shows them. A release PR into `main` deploys everything automatically.
 
@@ -49,7 +49,7 @@ flowchart LR
         API["FastAPI"]
         DB[("PostGIS")]
         VAL["Valhalla"]
-        TE["Transit engine (T1)"]
+        TE["OpenTripPlanner<br/>(transit engine, O17)"]
         PIPE["Pipeline<br/>(run to completion)"]
         TIMER["Scheduler<br/>make refresh"]
     end
@@ -86,7 +86,7 @@ flowchart LR
 | FastAPI | always | Reference data, address search, fit, cell detail, live routes |
 | PostGIS | always | Published runs, addresses, provenance, validation reports |
 | Valhalla | always | Walk and bike: matrix (pipeline), route (live) |
-| Transit engine | per T1 | Transit (and bike + transit) travel times; live transit route for U2 |
+| OpenTripPlanner (transit engine) | always (O17); restarted after `travel_times` | Transit and bike + transit: per-pair trips in the pipeline, live transit route for U2 |
 | Pipeline | on schedule / on demand | acquire → … → publish → cleanup |
 
 ## 4. Data sources
@@ -143,8 +143,8 @@ the cells inside an area; U2 always shows the user's own cell.
 |---|---|---|---|
 | `walk` | Valhalla `pedestrian` | `walking_speed` 5.0 km/h (flat ground); grade factor from elevation | settled (O2) |
 | `bike` | Valhalla `bicycle` | `bicycle_type` Hybrid, `cycling_speed` 15 km/h, `use_hills` default | settled (O2) |
-| `transit` | transit engine (T1) | walk 5.0 km/h to/from stops, wait, ride, transfers; per trip window | [OPEN] T1 |
-| `bike_transit` | transit engine (T1), if supported | bike to a stop, park, ride (no bike on board), walk | optional, first cut |
+| `transit` | OpenTripPlanner `planConnection` | walk 5.0 km/h to/from stops, wait, ride, transfers; per trip window (`latestArrival` for arrive-by windows) | settled (O17) |
+| `bike_transit` | OpenTripPlanner, access mode `BICYCLE_PARKING` | bike to a stop, park, ride (no bike on board), walk; no elevation in the OTP graph (access legs are short) | settled (O17); optional, first cut |
 
 Elevation is built into the Valhalla tiles; Valhalla applies the grades to walking and cycling
 (archive notes N5: Marktplatz → Schloss 681 s up vs. 537 s flat at 3.39 km/h; Hauptbahnhof →
@@ -162,9 +162,13 @@ before. Walk and bike do not depend on the window; transit does.
 
 For every origin cell, destination type and mode: the travel time to the **nearest k**
 destinations of the type (all campus sites always), per trip window for transit. Walk and bike
-use Valhalla matrices in cell blocks with a straight-line prefilter; transit uses the engine of
-T1. Transit results also keep their legs (access walk, wait, ride, transfers, egress) and the
-departures per hour at the first stop, for reasons and "reliability".
+use Valhalla matrices in cell blocks with a straight-line prefilter. Transit has no matrix API
+(OTP 2 is a journey planner): the stage sends one OTP query per cell × destination pair and trip
+window, with candidates prefiltered by straight line (the `2k` nearest per type) and bounded
+concurrency (spike: 4 threads, 193,897 pairs for the city in 25 min). Transit results also keep
+their legs (access walk, wait, ride, transfers, egress, first stop and route, departure) and the
+departures per hour at the first stop (from GTFS, not from the engine), for reasons and
+"reliability". The time definition per window is methodology §4 (M6).
 
 ### 6.4 Using Valhalla efficiently (carried over from the archive)
 
@@ -188,7 +192,7 @@ One Python package, one entry point, idempotent stages with manifests.
 | `acquire` | raw files + provenance | skips unchanged downloads, retries with backoff |
 | `validate` | cleaned layers (GeoParquet, EPSG:25832): cells, districts, destinations, campus sites, addresses, stops; report part 1 | fails on schema, coverage, completeness or GTFS window errors |
 | `tiles` | `valhalla_tiles.tar` with elevation | built by the one-shot `valhalla-build` from `make refresh`, only if the OSM snapshot changed (O5) |
-| transit build | engine graph/network | per T1, inside `make refresh` |
+| transit build | OTP graph (`graph.obj`) from the clipped OSM extract and the GTFS feed clipped to the routing area | one-shot `--build --save` inside `make refresh`, after `tiles` (O17) |
 | `travel_times` | raw times cell × destination × mode × trip window (+ transit legs, departures) | batched, runtime and peak memory logged |
 | `validate_results` | report part 2 (plausibility, completeness, matrix vs. route) | any fail stops the run |
 | `publish` | schema `run_<id>`, `current` switched atomically | only stage writing results |
@@ -241,7 +245,7 @@ skipped with a warning. The data refresh is separate: a scheduled job on the ser
 | Topic | Choice |
 |---|---|
 | Server | per D1; Linux, Docker Engine + Compose, swap |
-| Memory budget | 8 GB target, measured on first deploy **[VERIFY]**: PostGIS ≈ 0.5 GB, API ≈ 0.2 GB, Valhalla idle < 0.1 GB but 1.4–3 GB during large matrices (archive N4), transit engine per T1; the refresh runs heavy steps one after the other (A4) |
+| Memory budget | 8 GB target, measured on first deploy **[VERIFY]**: PostGIS ≈ 0.5 GB, API ≈ 0.2 GB, Valhalla idle < 0.1 GB but 1.4–3 GB during large matrices (archive N4), OTP ≈ 0.9 GB graph build, ≈ 1.35 GB during `travel_times`, ≈ 0.6 GB idle after the restart (spike, PR #79); `validate` up to ≈ 3.8 GB during the OSM clip (notes N11); the refresh runs heavy steps one after the other (A4) |
 | Public access | per D2; PostGIS, Valhalla and the transit engine never reachable from outside |
 | Scheduler | weekly `make refresh` (S3.1), `flock` against overlaps, failure webhook |
 | Backups | nightly `pg_dump` to a volume; results are reproducible from the pipeline (S3.2) |
@@ -269,12 +273,12 @@ skipped with a warning. The data refresh is separate: a scheduled job on the ser
 | O14 | Areas = districts (admin 11) and Teilorte (admin 9) for ranking and reasons; map per cell | A2 |
 | O15 | Trip windows with weekday + reference date; GTFS times > 24:00; night window on Fri/Sat | A3 |
 | O16 | Refresh runs heavy steps sequentially (assumption for T1 and the memory budget) | A4 |
+| O17 | **Transit engine = OpenTripPlanner 2.10** (official image `opentripplanner/opentripplanner`, pinned by digest, LGPL-3.0, run unmodified) for `transit` and `bike_transit`; Valhalla stays for `walk` and `bike`. Pipeline: graph build after `tiles`, then one query per pair and window with bounded concurrency; API: live transit route from the same service, internal network only. Valhalla multimodal is out (no multimodal `sources_to_targets`, no arrive-by); r5py is out (no trips after midnight, no arrive-by, no server for the live route). Fallback if OTP fails on the server: departures at nearby stops from GTFS, labelled approximate | T1 spike, PR #79 (`exp/transit-spike/REPORT.md`), decided 23 Nov 2026 |
 
 ### Open
 
 | ID | Question | Options | Criteria | Step |
 |---|---|---|---|---|
-| T1 | Transit engine | (a) Valhalla multimodal (does `sources_to_targets` support it in 3.9.1 or newer?), (b) r5py / R5, (c) OpenTripPlanner, or a combination; fallback: departures at nearby stops, labelled approximate | cell × destination matrix, trip-window handling (arrival time, night), runtime and peak memory for Tübingen, Docker/CI fit, image size, licence, bike as access mode, fit in 8 GB under A4 | S1.1 |
 | D1 | Server | bwCloud vs. Hetzner | RAM, cost within 20 € in total, public IP/ports, how GitHub Actions reach it | S1.2 |
 | D2 | Backend access and deploy | Cloudflare Tunnel (no inbound ports) vs. Caddy on 443 + SSH deploy | security, effort, needs a domain on Cloudflare (tunnel) | S1.2 |
 | D3 | Domain | cheap own domain on Cloudflare vs. free hostnames (`*.workers.dev`, `sslip.io`) with CORS | cost, D2 dependency, CORS | S1.2 |
@@ -304,5 +308,6 @@ reach/
 
 | Version | Date | Change | Why |
 |---|---|---|---|
+| v1.2-draft | 2026-11-23 | Settled T1 as O17 (OpenTripPlanner 2.10 for transit and bike + transit, per-pair queries, live transit route); §1, §3, §6.1, §6.3, §7, §12 updated | T1 spike (PR #79): only OTP covers arrive-by, trips after midnight, bike parking, legs and a live route within the memory budget |
 | v1.1-draft | 2026-11-22 | Settled O11 on Cloudflare Workers static assets and recorded current static asset billing; updated the free-hostname option to `workers.dev` | The frontend is a static Vite SPA; no edge compute is needed for the current deployment |
 | v1.0-draft | 2026-11-21 | New architecture for the student rebuild: raw travel times per cell × destination × mode × trip window, fit at request time, Cloudflare frontend, release-driven deploy; carried-over decisions renumbered O1–O16 with origin; T1 and D1–D5 open | Rebuild brief of 21 Nov 2026; plan S0.2 |

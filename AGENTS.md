@@ -37,7 +37,7 @@ class, deficit, recommender, …).
 | Document | Binding for |
 |---|---|
 | `docs/product.md` | User, their questions, use cases U1–U3, non-goals, cut order |
-| `docs/architecture.md` | System: components, data flow, routing, deployment, decisions (O-numbers, T1, D1–D5) |
+| `docs/architecture.md` | System: components, data flow, routing, deployment, decisions (O-numbers, D1–D5) |
 | `docs/methodology.md` | What is computed: destinations, modes, trip windows, travel times, fit, validation (V-numbers) |
 | `docs/data_contract.md` | Table, file and API schemas between pipeline and API |
 | `docs/deployment.md` | Environments, workflows, secrets, runbook |
@@ -67,7 +67,7 @@ is named.
 ## Stack
 
 Python 3.12 via uv (one workspace: `pipeline`, `api`; one `uv.lock`) · FastAPI · PostgreSQL +
-PostGIS · Valhalla (official image, tag pinned) for walk and bike · transit engine **pending (T1)** ·
+PostGIS · Valhalla (official image, tag pinned) for walk and bike · OpenTripPlanner (official image, pinned) for transit ·
 React + TypeScript + Vite + MapLibre GL JS · Docker Compose · GitHub Actions · GHCR · Cloudflare
 for the frontend. Exact versions live in `pyproject.toml`, `uv.lock`, `web/package.json` and
 `compose*.yaml`; do not change them without asking.
@@ -110,8 +110,8 @@ the Never list or the Ask-first list.
 ## Architecture rules (do not break)
 
 1. **Routing engines:** Valhalla for walk and bike (with elevation, `costmatrix` for every matrix).
-   **Transit engine: decision pending (T1)**; until it is recorded in `docs/architecture.md`, do not
-   add one.
+   OpenTripPlanner (official image, pinned) for transit and bike + transit, queried per pair
+   (architecture O17). No other routing or transit engine.
 2. **Times from network routing, never from isochrone polygons.** Isochrones are display only.
 3. **CRS:** EPSG:25832 for storage and computation; Zensus cell ids (EPSG:3035) as keys; EPSG:4326
    only at the API (`ST_Transform`). Never compute distances in degrees.
@@ -203,7 +203,7 @@ and the pipeline; the refresh runs its heavy steps one after the other (A4).
 
 **Ask first**
 - Any change to `docs/architecture.md` or `docs/methodology.md`, or code that deviates from them;
-  the fit formula; T1 and D1–D5.
+  the fit formula; D1–D5.
 - Adding, removing or upgrading dependencies, services or paid products.
 - Changing or removing existing values in `config/`; changes to `compose*.yaml`, `infra/`,
   workflows, the data contract or the repository structure (adding a config key with a comment
