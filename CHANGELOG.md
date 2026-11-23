@@ -8,7 +8,6 @@ All notable changes to this project are documented in this file.
 - Reference trips for V1 (S1.0): 30 cell × destination pairs over all trip windows and a collection guide (`docs/reference_trips.md`, `pipeline/tests/fixtures/reference_trips.csv`)
 - Transit engine decided (T1 → O17): OpenTripPlanner 2.10 for transit and bike + transit; transit time includes the wait at home (M6); bike + transit parks the bike (M5)
 - Settled Cloudflare Workers static assets for the frontend and documented the current static asset billing model.
-
 - Emptied dev for the rebuild; old project archived in archive/2026-11-21-planner (21 Nov 2026)
 - Implementation plan for the student rebuild with phases, steps, releases and risks (`docs/implementation_plan.md`)
 - Foundation ported from the archive (S0.4): uv workspace, pipeline stages acquire → validate (reference date per trip window) → tiles → publish → cleanup, PostGIS roles and run-schema subset, API skeleton with health (build SHA) and CORS allowlist, compose, Makefile, API and pipeline images, folder rules and CONTRIBUTING

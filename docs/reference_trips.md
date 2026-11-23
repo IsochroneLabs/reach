@@ -8,7 +8,7 @@
 
 V1 compares reach's travel times with an external reference: **30 cell × destination pairs**, each
 for walk, bike and transit (methodology V1 asks for ≥ 25 per mode). The result is the median and
-the 90th-percentile deviation per mode, reported in `docs/validation.md`.
+the 90th-percentile deviation per mode, reported in `docs/validation.md` (*planned, S1.11*).
 
 The sheet is [`pipeline/tests/fixtures/reference_trips.csv`](../pipeline/tests/fixtures/reference_trips.csv):
 one row per pair, the left columns are fixed, the right columns are filled by hand.
@@ -90,4 +90,4 @@ nearest matched destination, or a live route to exactly these coordinates where 
 feature differs (the comparison script states which). Transit is compared at the **same dates**
 as the sheet (15 and 19 Dec 2026), so the V1 run pins its reference dates to them instead of
 the automatic choice (methodology §5). Deviation = reach − reference, in minutes
-and in percent, per mode; median and 90th percentile go into `docs/validation.md`.
+and in percent, per mode; median and 90th percentile go into `docs/validation.md` (*planned*).
