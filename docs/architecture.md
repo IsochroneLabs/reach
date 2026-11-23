@@ -1,6 +1,6 @@
 # Architecture — reach
 
-> **Status:** v1.2-draft (23 Nov 2026). Target architecture of the rebuild. Every change bumps the
+> **Status:** v1.3-draft (23 Nov 2026). Target architecture of the rebuild. Every change bumps the
 > version and adds a line to the [Change log](#change-log). Decisions are listed in
 > [Section 13](#13-decisions); items marked **[OPEN]** are settled before the related code is
 > written. What is computed (destinations, travel times, fit, validation) is defined in
@@ -44,8 +44,8 @@ flowchart LR
         ZEN["Zensus 2022 100 m grid<br/>population, rent"]
     end
 
-    subgraph Server["Server (D1), Docker Compose"]
-        ACCESS["Tunnel or Caddy (D2)"]
+    subgraph Server["Team server (O18), Docker Compose"]
+        ACCESS["cloudflared<br/>(Cloudflare Tunnel, O19)"]
         API["FastAPI"]
         DB[("PostGIS")]
         VAL["Valhalla"]
@@ -82,7 +82,7 @@ flowchart LR
 | Component | Runs | Responsibility |
 |---|---|---|
 | Web app | Cloudflare (static) | Onboarding, map, place check, comparison; profile in the browser |
-| Tunnel or Caddy | always (D2) | Public HTTPS entry to the API; no other port is reachable |
+| `cloudflared` (Cloudflare Tunnel) | always (O19) | Outbound-only connection to Cloudflare: public HTTPS entry to the API at `api.<domain>` and SSH for deploys behind Cloudflare Access; no inbound port on the router |
 | FastAPI | always | Reference data, address search, fit, cell detail, live routes |
 | PostGIS | always | Published runs, addresses, provenance, validation reports |
 | Valhalla | always | Walk and bike: matrix (pipeline), route (live) |
@@ -215,7 +215,7 @@ FastAPI, read-only on `current`. Planned endpoints (S1.10): `GET /api/health` (i
 `GET /api/destination-types`, `GET /api/campus-sites`, `GET /api/addresses?q=`, `POST /api/fit`
 (student profile → ranked areas and cells with reasons), `GET /api/cell/{id}` (all trips per mode
 and window), live route incl. a transit leg (U2). Rules: CORS allowlist for the frontend origins
-(D4); token-bucket rate limit per client IP; POST bodies are not logged; caches key only on the
+(O21); token-bucket rate limit per client IP; POST bodies are not logged; caches key only on the
 weight vector of the profile; ETag per run.
 
 ## 10. Frontend
@@ -244,9 +244,9 @@ skipped with a warning. The data refresh is separate: a scheduled job on the ser
 
 | Topic | Choice |
 |---|---|
-| Server | per D1; Linux, Docker Engine + Compose, swap |
-| Memory budget | 8 GB target, measured on first deploy **[VERIFY]**: PostGIS ≈ 0.5 GB, API ≈ 0.2 GB, Valhalla idle < 0.1 GB but 1.4–3 GB during large matrices (archive N4), OTP ≈ 0.9 GB graph build, ≈ 1.35 GB during `travel_times`, ≈ 0.6 GB idle after the restart (spike, PR #79); `validate` up to ≈ 3.8 GB during the OSM clip (notes N11); the refresh runs heavy steps one after the other (A4) |
-| Public access | per D2; PostGIS, Valhalla and the transit engine never reachable from outside |
+| Server | O18: Konstantin's home server, x86_64 Linux, 16 GB RAM, Docker Engine + Compose, swap; available until after grading |
+| Memory budget | 16 GB available (O18); planned as if 8 GB so the refresh keeps its heavy steps one after the other and the server stays usable for its owner; measured on first deploy **[VERIFY]**: PostGIS ≈ 0.5 GB, API ≈ 0.2 GB, Valhalla idle < 0.1 GB but 1.4–3 GB during large matrices (archive N4), OTP ≈ 0.9 GB graph build, ≈ 1.35 GB during `travel_times`, ≈ 0.6 GB idle after the restart (spike, PR #79); `validate` up to ≈ 3.8 GB during the OSM clip (notes N11); the refresh runs heavy steps one after the other (A4) |
+| Public access | O19: only through the Cloudflare Tunnel (API hostname + SSH behind Access); no port forwarding on the home router; PostGIS, Valhalla and OTP only on the internal Docker network |
 | Scheduler | weekly `make refresh` (S3.1), `flock` against overlaps, failure webhook |
 | Backups | nightly `pg_dump` to a volume; results are reproducible from the pipeline (S3.2) |
 | Restarts | `restart: unless-stopped` and health checks on all services |
@@ -274,15 +274,15 @@ skipped with a warning. The data refresh is separate: a scheduled job on the ser
 | O15 | Trip windows with weekday + reference date; GTFS times > 24:00; night window on Fri/Sat | A3 |
 | O16 | Refresh runs heavy steps sequentially (assumption for T1 and the memory budget) | A4 |
 | O17 | **Transit engine = OpenTripPlanner 2.10** (official image `opentripplanner/opentripplanner`, pinned by digest, LGPL-3.0, run unmodified) for `transit` and `bike_transit`; Valhalla stays for `walk` and `bike`. Pipeline: graph build after `tiles`, then one query per pair and window with bounded concurrency; API: live transit route from the same service, internal network only. Valhalla multimodal is out (no multimodal `sources_to_targets`, no arrive-by); r5py is out (no trips after midnight, no arrive-by, no server for the live route). Fallback if OTP fails on the server: departures at nearby stops from GTFS, labelled approximate | T1 spike, PR #79 (`exp/transit-spike/REPORT.md`), decided 23 Nov 2026 |
+| O18 | **Server = Konstantin's 16 GB home server** (x86_64 Linux, otherwise mostly idle), no cost; replaces the 8 GB plan; set up by Socke from the runbook before 7 Dec 2026. Risks: home power and internet outages (no SLA), one person holds physical access | D1, decided 23 Nov 2026 (research: notes N15) |
+| O19 | **Access = Cloudflare Tunnel** (`cloudflared` service in `compose.prod.yaml`): API at `api.<domain>`; deploys from GitHub Actions by SSH through the tunnel with a Cloudflare Access service token; no inbound ports | D2, decided 23 Nov 2026; a home network has no fixed public IP |
+| O20 | **Own domain on Cloudflare** (bought by a team member, ≈ 10 € / year, within budget now that the server is free): frontend at `<domain>` (Workers custom domain), API at `api.<domain>`; `reach.<subdomain>.workers.dev` stays as fallback | D3, decided 23 Nov 2026 |
+| O21 | **Wiring:** API base URL at build time (`VITE_API_BASE`); production build → `https://api.<domain>`; previews read the production API (read-only by design, nothing personal stored); CORS = production origin(s) + regex for this account's preview hosts + `http://localhost:5173`; CI keeps API fixtures | D4, decided 23 Nov 2026 |
 
 ### Open
 
 | ID | Question | Options | Criteria | Step |
 |---|---|---|---|---|
-| D1 | Server | bwCloud vs. Hetzner | RAM, cost within 20 € in total, public IP/ports, how GitHub Actions reach it | S1.2 |
-| D2 | Backend access and deploy | Cloudflare Tunnel (no inbound ports) vs. Caddy on 443 + SSH deploy | security, effort, needs a domain on Cloudflare (tunnel) | S1.2 |
-| D3 | Domain | cheap own domain on Cloudflare vs. free hostnames (`*.workers.dev`, `sslip.io`) with CORS | cost, D2 dependency, CORS | S1.2 |
-| D4 | Frontend–API wiring | API base URL per environment; where previews get data (production API read-only vs. fixtures) | privacy, stability, CORS | S1.2 |
 | D5 | Basemap | e.g. self-hosted vector tiles vs. a free tile host | no user data to third parties, cost, size | S2.1 |
 
 ## 14. Repository layout (target)
@@ -308,6 +308,7 @@ reach/
 
 | Version | Date | Change | Why |
 |---|---|---|---|
+| v1.3-draft | 2026-11-23 | Settled D1–D4 as O18–O21: team home server (16 GB), Cloudflare Tunnel, own domain, previews on the production API; §3, §9, §12 updated | Team decision 23 Nov 2026 (research: notes N15); free 16 GB server makes the domain affordable, home network needs the tunnel |
 | v1.2-draft | 2026-11-23 | Settled T1 as O17 (OpenTripPlanner 2.10 for transit and bike + transit, per-pair queries, live transit route); §1, §3, §6.1, §6.3, §7, §12 updated | T1 spike (PR #79): only OTP covers arrive-by, trips after midnight, bike parking, legs and a live route within the memory budget |
 | v1.1-draft | 2026-11-22 | Settled O11 on Cloudflare Workers static assets and recorded current static asset billing; updated the free-hostname option to `workers.dev` | The frontend is a static Vite SPA; no edge compute is needed for the current deployment |
 | v1.0-draft | 2026-11-21 | New architecture for the student rebuild: raw travel times per cell × destination × mode × trip window, fit at request time, Cloudflare frontend, release-driven deploy; carried-over decisions renumbered O1–O16 with origin; T1 and D1–D5 open | Rebuild brief of 21 Nov 2026; plan S0.2 |
