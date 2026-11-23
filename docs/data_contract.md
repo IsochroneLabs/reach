@@ -163,5 +163,5 @@ specified with their steps.
 | Version | Date | Change | Why |
 |---|---|---|---|
 | v1.1 draft | 2026-11-23 | S1.4 proposal (not yet confirmed): result tables with columns (walk/bike `travel_times` and transit `transit_times` split, legs per M6), API request/response shapes with structured reasons | Plan S1.4; T1 = OTP (O17) fixed the transit fields |
-| v1.0 draft | 2026-11-21 | New contract for the rebuild: conventions, roles, `meta` and manifest carried over from the archive (v0.17); result tables and API responses planned for S1.4 | Rebuild brief of 21 Nov 2026 |
 | v1.0.1 draft | 2026-11-21 | S0.4: run-schema subset (`cells`, `districts`, `stops`, `validation_report`) and the `validate/` and `tiles/` files documented as ported; `meta.runs.reference_weekday` holds the earliest trip-window date until S1.4 | Port of the foundation (plan S0.4) |
+| v1.0 draft | 2026-11-21 | New contract for the rebuild: conventions, roles, `meta` and manifest carried over from the archive (v0.17); result tables and API responses planned for S1.4 | Rebuild brief of 21 Nov 2026 |
