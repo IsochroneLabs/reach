@@ -81,7 +81,7 @@ is not here is either plain English or needs an entry first.
 | **O-numbers** | Settled architecture decisions (`docs/architecture.md`). |
 | **D1–D5** | Open architecture decisions: server, backend access, domain, frontend–API wiring, basemap. T1 (transit engine) was settled as O17 on 23 Nov 2026. |
 | **M-numbers** | Open methodology questions (`docs/methodology.md`). |
-| **V-numbers (V1, …)** | Validation checks and experiments (`docs/methodology.md`), reported in `docs/validation.md`. |
+| **V-numbers (V1, …)** | Validation checks and experiments (`docs/methodology.md`), reported in `docs/validation.md` (*planned, S1.11*). |
 | **N-numbers** | Open points and findings (`docs/notes.md`). |
 | **A-numbers** | Assumptions recorded in `docs/implementation_plan.md`. |
 | **[OPEN] / [VERIFY]** | Not decided yet / stated but still to be checked. |
