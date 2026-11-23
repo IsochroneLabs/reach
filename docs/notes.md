@@ -152,3 +152,71 @@ the same. After 12 Dec no reference date per trip window can be found, so V3 fai
 production data and v0.2.0 (target 14 Dec) need a newer feed. **To do:** check early December
 whether NVBW has published the timetable from 13 Dec 2026; if not, decide how to label or pin an
 older feed before S1.11. First seen in the T1 spike (PR #79).
+
+## N15. D1–D4: research and recommendation (S1.2, 23 Nov 2026)
+
+**Status:** proposal, waiting for the team's yes · **Related:** D1–D4, architecture §11–§13,
+docs/deployment.md, A4, N11
+
+**Constraints.** 8 GB RAM (A4: `validate` peaks at ≈ 3.8 GB, N11; Valhalla 1.4–3 GB during
+matrices; OTP 0.9–1.35 GB; PostGIS ≈ 0.5 GB; API ≈ 0.2 GB, run one after the other); **20 € in
+total**; server needed from S1.5 (7 Dec 2026) until grading (after 22 Jan 2027); no public ports
+for PostGIS, Valhalla or OTP (rule 10); no manual deploys.
+
+**D1 server.**
+
+| Option | Facts found | Fit |
+|---|---|---|
+| bwCloud (state cloud for BW universities) | Students get the free *Basic* entitlement: up to 1 VM, 1 vCPU, **1 GB RAM**, 50 GB (Ulm, KIT, Stuttgart describe the same `tiny_1` flavour). More resources only inside a project owned by a staff member of an organisational unit (KIT). Gen2 ended 15 Sep 2026 (Gen3 now). | ✗ as students; ✓ only if the course supervisor opens a project with ≥ 8 GB |
+| Hetzner Cloud CX33 | 4 vCPU (shared), **8 GB**, 80 GB SSD, 20 TB traffic; about **8.49–8.99 € / month excl. VAT** after the 2026 price increases (third-party trackers, June–Nov 2026); hourly billing with a monthly cap; sometimes shown as "currently not available" on the website while orderable in the Console. Primary IPv4 is billed extra (small amount, **[VERIFY]** in the Console). | ✓ 7 Dec – 31 Jan ≈ 1.8 months ≈ 18–19 € incl. 19 % VAT: fits, but leaves almost no room |
+| Hetzner CAX21 (Arm) | 4 vCPU, 8 GB, ≈ 10.49–10.99 € / month excl. VAT | ✗ dearer; Arm images needed for OTP/Valhalla |
+
+**Recommendation D1:** Hetzner CX33 in Falkenstein or Nuremberg, booked by a team member when S1.5
+starts and deleted right after grading. In parallel, ask the supervisor once whether a bwCloud
+project with 8 GB is possible (free); switch only if the answer comes before 7 Dec.
+
+**D2 backend access and deploy.** A named Cloudflare Tunnel (`cloudflared`, no inbound port at
+all, SSH for deploys also through the tunnel with an Access service token) needs **a domain whose
+DNS is on Cloudflare**; quick tunnels (`trycloudflare.com`) are documented as testing only, with
+no uptime guarantee and a URL that changes on restart. Caddy on 443 gets a Let's Encrypt
+certificate automatically and needs only ports 22 and 443; GitHub Actions deploy over SSH with a
+dedicated key (hosted runners have no fixed IPs, so port 22 stays open: key-only login, no root,
+fail2ban).
+
+**D3 domain.** Own domain: Cloudflare Registrar sells at registry cost (≈ 10 € / year for `.com`,
+**[VERIFY]**; `.de` support not confirmed). Without a domain: frontend on
+`reach.<subdomain>.workers.dev` (already in S0.5), API on `<server-ip>.sslip.io` with Caddy's
+certificate. Whether `sslip.io` is on the Public Suffix List (it decides Let's Encrypt's
+per-domain limit of 50 certificates per 7 days) was not confirmed; Caddy keeps the certificate on
+the volume, so we need only one per 90 days. Fallback if Let's Encrypt refuses: ZeroSSL, which
+Caddy also tries automatically.
+
+**Recommendation D2 + D3 (within 20 €):** Caddy on 443 + SSH deploy, free hostnames
+(`workers.dev` + `sslip.io`). If the team accepts ≈ 10 € more, the better setup is an own domain
+on Cloudflare + Tunnel (no open ports, same-site URLs); switching later changes only
+`compose.prod.yaml`, the secrets and `VITE_API_BASE`.
+
+**D4 frontend–API wiring.** API base URL at build time (`VITE_API_BASE`, already in S0.5):
+production build → production API; **previews → the production API, read-only by design** (all
+endpoints are GET or a stateless `POST /api/fit`; nothing personal is stored, rule 9), so a
+preview shows real data. CORS: exact production origin plus a regex for this account's preview
+hosts (`https://[a-z0-9-]+-reach\.<subdomain>\.workers\.dev`, Starlette `allow_origin_regex`);
+`localhost:5173` for development. Playwright in CI keeps using API fixtures. Until the server
+exists, previews show "API not deployed yet" (S0.5).
+
+**Sources (checked 23 Nov 2026):** bwCloud quotas:
+[Uni Ulm](https://www.uni-ulm.de/en/einrichtungen/kiz/service-catalogue/server-data/bwcloud/),
+[KIT SCC](https://www.scc.kit.edu/en/services/bwcloud-os.php),
+[Uni Stuttgart TIK](https://www.tik.uni-stuttgart.de/dienste-a-z/bwCloud/),
+[Uni Freiburg (Basic/Extended)](https://rz.uni-freiburg.de/rz/aktuell/entw-bwcloud) · Hetzner
+prices and availability (third-party, own pages not loadable):
+[trackvps](https://trackvps.com/hetzner-price-increase),
+[Better Stack](https://betterstack.com/community/guides/web-servers/hetzner-cloud-review/),
+[Northflank](https://northflank.com/blog/hetzner-cloud-server-price-increases) · Cloudflare
+Tunnel: [quick tunnels](https://developers.cloudflare.com/tunnel/get-started/quick-tunnels/),
+[hostname routing](https://developers.cloudflare.com/changelog/post/2025-09-18-tunnel-hostname-routing/)
+· [Cloudflare Registrar](https://www.cloudflare.com/products/registrar/),
+[TLD policies](https://www.cloudflare.com/tld-policies) ·
+[Let's Encrypt rate limits](https://letsencrypt.org/docs/rate-limits/).
+**To do:** the team decides; then record D1–D4 in `architecture.md` and finish the runbook in
+`docs/deployment.md` (plan S1.2), and a team member books the server for S1.5.

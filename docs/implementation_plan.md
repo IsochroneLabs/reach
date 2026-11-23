@@ -215,7 +215,7 @@ Code steps start after T1 and the fit formula are confirmed. Step plan first, wa
 - **Done when:** recommendation presented, your human said yes, recorded as an O-decision in
   `architecture.md` (version + change log), AGENTS.md rule updated.
 
-### S1.2 D1–D4 deployment decisions — target 3 Dec
+### S1.2 D1–D4 deployment decisions — target 3 Dec · research done 23 Nov 2026 (notes N15), waiting for the decision
 
 - **Branch:** `docs/rico-deploy-decisions`.
 - **Work:** D1 bwCloud vs. Hetzner (RAM, cost within 20 €, public IP/ports, how Actions reach
