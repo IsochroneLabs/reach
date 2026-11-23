@@ -1,6 +1,6 @@
 # Data contract — reach
 
-> **Status:** v1.0 draft (21 Nov 2026). Binding for the tables, files and API responses exchanged
+> **Status:** v1.1 draft (23 Nov 2026). Binding for the tables, files and API responses exchanged
 > between pipeline and API once a step implements them; every change needs confirmation
 > (AGENTS.md) and a data-contract test. Parts carried over from the archive are marked *(ported,
 > S0.4)*; result tables and API responses are *(planned, S1.4)*.
@@ -77,27 +77,50 @@ S1.4):
 | `stops` | `stop_id` PK `text`, `name` `text`, `geom` `Point` |
 | `validation_report` | `check` `text`, `stage` `text`, `status` `text` (`ok`/`warn`/`fail`), `value` `double precision`, `message` `text`; PK (`stage`, `check`) |
 
-Proposed tables (columns are fixed in S1.4):
+### Result tables — proposal of S1.4 (23 Nov 2026), waiting for the team's yes
 
-| Table | Grain | Content |
+Nothing below is built before the yes; `infra/db/run_schema.sql` and the data-contract tests follow
+in S1.9. Size estimate for the city (≈ 1,700 populated + ≈ 530 address cells): `travel_times`
+≈ 0.25 M rows, `transit_times` ≈ 0.2 M rows per transit mode (spike PR #79: 193,897 pairs).
+
+| Table | Grain / key | Columns |
 |---|---|---|
-| `cells` | origin cell | `cell_id`, `origin_kind` (`populated`/`address`), `population`, `district_id`, `rent_eur_m2` + flag (optional), `geom`, `origin_geom` |
-| `districts` | area | `district_id`, `name`, `admin_level`, `geom` |
-| `destination_types` | type | key, labels (DE/EN), defaults from config |
-| `destinations` | destination | `destination_id`, `destination_type`, `name`, `geom`, informative tags |
-| `campus_sites` | campus site | `site_id`, name, programmes, `geom` |
-| `addresses` | address | street, house number, postcode, `cell_id`, `geom` (search index) |
-| `stops` | GTFS stop | `stop_id`, `name`, `geom` |
-| `stop_departures` | stop × trip window | departures per hour, first/last departure |
-| `trip_windows` | trip window | key, reference date, time, direction |
-| `travel_times` | cell × destination × mode × trip window | `time_s`; for transit the legs (access, wait, in-vehicle, transfers, egress) and the first stop |
-| `validation_report` | check | `check`, `stage`, `status` (`ok`/`warn`/`fail`), `value`, `message` |
+| `cells` (extended) | PK `cell_id` | as above, plus `origin_kind` `text` (`populated`/`address`, A1); `population` 0 for address cells |
+| `trip_windows` | PK `trip_window` | `reference_date` `date`, `time` `text` (`HH:MM`, local), `kind` `text` (`arrive_by`/`depart_at`), `direction` `text` (`to`/`back`) |
+| `destination_types` | PK `destination_type` | `label_en`, `label_de` `text`, `trip_window` `text` → `trip_windows`, `nearest_k` `smallint` (null = all), `fine_time_min` `real`, `trips_per_week` `real` (onboarding defaults of this run's config) |
+| `destinations` | PK `destination_id` (`<destination_type>/<osm id>`, e.g. `climbing/w123456`, or `campus_site/<site key>`) | `destination_type` `text`, `name` `text` (null if untagged), `osm_id` `text`, `tags` `jsonb` (informative: `opening_hours`, `website`, `operator`), `geom` `Point` (routing point; parks: one row per access point, same `osm_id`) |
+| `campus_sites` | PK `site_id` (key in `config/campus.yaml`) | `name` `text`, `programmes` `text[]`, `destination_id` `text` → `destinations`, `geom` `Point` |
+| `addresses` | PK `address_id` (OSM id) | `street`, `housenumber`, `postcode`, `city` `text`, `cell_id` `text` → `cells`, `geom` `Point`; trigram index on `street || ' ' || housenumber` for `GET /api/addresses` (needs `pg_trgm` in a migration) |
+| `stops` | PK `stop_id` | as above |
+| `stop_departures` | PK (`stop_id`, `trip_window`) | `departures_per_hour` `real` (in the hour after the window time), `first_departure`, `last_departure` `timestamptz` (service day of the reference date, beyond midnight correct) |
+| `travel_times` | PK (`cell_id`, `destination_id`, `mode`) — walk and bike, independent of the window | `time_s` `integer`, `distance_m` `integer` |
+| `transit_times` | PK (`cell_id`, `destination_id`, `mode`, `trip_window`) — `transit`, `bike_transit` | `time_s` `integer` (methodology §4, M6: includes the wait at home), `departure`, `arrival` `timestamptz`, `access_s`, `wait_s`, `in_vehicle_s`, `egress_s` `integer`, `transfers` `smallint`, `first_stop_id` `text` → `stops`, `first_route` `text`, `walk_only` `boolean` (true = no bus beats walking, legs null) |
+| `validation_report` | PK (`stage`, `check`) | as above; part 2 (`validate_results`) adds its checks |
 
-## API responses *(planned, S1.4/S1.10)*
+Rules: a missing row means "not computed" (outside the candidates); an unreachable pair is stored
+with `time_s` null and is never confused with 0. Only the `2k` straight-line candidates per type
+are routed; the API picks the minimum. Rent (`rent_eur_m2`) is added only if a legal source is
+found (methodology §8).
+
+## API responses — proposal of S1.4 (23 Nov 2026), waiting for the team's yes
 
 Errors: `{"detail": …}` with 404, 422, 429 (`Retry-After`), 502/503/504. Coordinates
-`[lon, lat]` in EPSG:4326. Bodies of `POST /api/fit` and the cell, place and route endpoints are
-fixed in S1.4.
+`[lon, lat]` in EPSG:4326. Every response carries `run_id` and the `ETag` of the run. Reasons are
+**structured**; the web app turns them into DE/EN text, so wording never lives in the API.
+
+| Endpoint | Request | Response (main fields) |
+|---|---|---|
+| `GET /api/destination-types` | – | `[{destination_type, label: {en, de}, trip_window, fine_time_min, trips_per_week}]` |
+| `GET /api/campus-sites` | – | `[{site_id, name, programmes, point}]` |
+| `GET /api/addresses?q=` | `q` ≥ 3 characters | up to 10 `[{label, cell_id, point}]` |
+| `POST /api/fit` | student profile: `{programme, campus_days?: {site_id: days}, modes: [mode], destinations: {destination_type: {importance, fine_time_min?, trips_per_week?}}, area_level?: "district" \| "teilort"}` | `{run_id, areas: [{area_id, name, fit, best_cell_id, best_cell_fit, weekly_min, reasons}], cells: {cell_id: [fit, weekly_min]}}` sorted by `fit` |
+| `GET /api/cell/{cell_id}` · `POST /api/cell/{cell_id}` | GET: no profile; POST: the same student profile as the body (never in a query string, because access logs keep query strings; rule 9) | `{cell_id, district, point, trips: [{destination_type, destination_id, name, mode, trip_window, minutes, legs?}], fit?, reasons?}` |
+| live route (U2) | `POST /api/route` `{from: point, destination_id, mode, trip_window?}` | `{minutes, geometry (GeoJSON LineString), legs?}` — Valhalla for walk/bike, OTP for transit |
+
+A **reason** is `{kind: "strength" | "weakness" | "reliability", destination_type, name, minutes,
+mode, trip_window, value?}` (e.g. `reliability` with the last departure home). The fit formula is
+methodology §6 (still [OPEN]); the API computes it from `travel_times` and `transit_times` at
+request time and never stores it (O4).
 
 ## Files (`data/runs/<run_id>/<stage>/`)
 
@@ -139,5 +162,6 @@ specified with their steps.
 
 | Version | Date | Change | Why |
 |---|---|---|---|
+| v1.1 draft | 2026-11-23 | S1.4 proposal (not yet confirmed): result tables with columns (walk/bike `travel_times` and transit `transit_times` split, legs per M6), API request/response shapes with structured reasons | Plan S1.4; T1 = OTP (O17) fixed the transit fields |
 | v1.0 draft | 2026-11-21 | New contract for the rebuild: conventions, roles, `meta` and manifest carried over from the archive (v0.17); result tables and API responses planned for S1.4 | Rebuild brief of 21 Nov 2026 |
 | v1.0 draft | 2026-11-21 | S0.4: run-schema subset (`cells`, `districts`, `stops`, `validation_report`) and the `validate/` and `tiles/` files documented as ported; `meta.runs.reference_weekday` holds the earliest trip-window date until S1.4 | Port of the foundation (plan S0.4) |

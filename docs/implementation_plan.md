@@ -234,7 +234,7 @@ Code steps start after T1 and the fit formula are confirmed. Step plan first, wa
   several campus sites by days per week instead of the mean (M7).
 - **Done when:** confirmed and recorded (version + change log).
 
-### S1.4 Data contract for results — target 5 Dec
+### S1.4 Data contract for results — target 5 Dec · proposal written 23 Nov 2026 (`docs/data_contract.md`), waiting for the yes
 
 - **Branch:** `docs/rico-data-contract-results`.
 - **Tables (proposal, details in the step plan):** `cells` (origin kind: populated / address),
