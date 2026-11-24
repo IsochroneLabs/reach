@@ -57,7 +57,7 @@ them into a personal fit and reasons for each request. More: [`docs/architecture
 
 | Path | Content | Status |
 |---|---|---|
-| `docs/` | Product, architecture, methodology, data contract, deployment, glossary, notes, plan | drafts |
+| `docs/` | Product, architecture, methodology, app screens, data contract, deployment, glossary, notes, plan | drafts |
 | `config/` | `config.yaml` (all tunable values), `campus.yaml`, `personas.yaml` | drafts |
 | `pipeline/` | Data pipeline (Python, uv): acquire, validate, tiles, publish, cleanup | skeleton (S0.4); travel times S1.8 |
 | `api/` | FastAPI service: health | skeleton (S0.4); endpoints S1.10 |
@@ -102,6 +102,7 @@ No public data APIs are called at runtime. Data is never committed to the reposi
 | [`docs/product.md`](docs/product.md) | User, questions, use cases, non-goals |
 | [`docs/architecture.md`](docs/architecture.md) | System, decisions (O-numbers, D1–D5) |
 | [`docs/methodology.md`](docs/methodology.md) | Travel times, fit, validation (V-numbers) |
+| [`docs/app_screens.md`](docs/app_screens.md) | Web app screens, components, state, texts EN/DE (draft, S2.1) |
 | [`docs/data_contract.md`](docs/data_contract.md) | Tables, files, API responses |
 | [`docs/deployment.md`](docs/deployment.md) | Environments, workflows, secrets, runbook |
 | [`docs/implementation_plan.md`](docs/implementation_plan.md) | Steps, status, dates, risks |
