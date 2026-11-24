@@ -497,9 +497,9 @@ current language. Destination, programme and campus names come from the API (`la
 | `compare.inShort` | In short | Kurz gesagt |
 | `compare.fitBetter` | {a} fits your profile better ({fa} vs. {fb}). | {a} passt besser zu deinem Profil ({fa} gegenüber {fb}). |
 | `compare.fitEqual` | {a} and {b} fit your profile about equally well. | {a} und {b} passen etwa gleich gut zu deinem Profil. |
-| `compare.rentVsTime` | {a} costs €{eur} more per month but saves about {min} min per week. | {a} kostet {eur} € mehr im Monat, spart aber etwa {min} Min. pro Woche. |
-| `compare.rentAndTime` | {a} costs €{eur} less per month and saves about {min} min per week. | {a} kostet {eur} € weniger im Monat und spart etwa {min} Min. pro Woche. |
-| `compare.destDiff` | {a} is {min} min closer to {dest} {mode}. | {a} ist {min} Min. näher an {dest} ({mode}). |
+| `compare.rentVsTime` | {a} costs €{eur} more per month but saves about {time} per week. | {a} kostet {eur} € mehr im Monat, spart aber etwa {time} pro Woche. |
+| `compare.rentAndTime` | {a} costs €{eur} less per month and saves about {time} per week. | {a} kostet {eur} € weniger im Monat und spart etwa {time} pro Woche. |
+| `compare.destDiff` | {a} is {time} closer to {dest}. | {a} ist {time} näher an {dest}. |
 | `compare.share` | Copy link to this comparison | Link zu diesem Vergleich kopieren |
 | `compare.shareRents` | Include rents in the link | Mieten in den Link aufnehmen |
 | `compare.copied` | Link copied | Link kopiert |
@@ -590,5 +590,5 @@ Questions for the team were marked **Q**:
 
 | Version | Date | Change | Why |
 |---|---|---|---|
-| v0.2 draft | 2026-11-24 | Decisions Q1–Q4 recorded; plural keys as `.one`/`.other` | Rico's yes to S2.1 |
+| v0.2 draft | 2026-11-24 | Decisions Q1–Q4 recorded; plural keys as `.one`/`.other`; compare texts take a formatted `{time}` | Rico's yes to S2.1; built in S2.2–S2.6 |
 | v0.1 draft | 2026-11-24 | First screen plan: screens, components, state model, request flow, texts EN/DE, D5 comparison, default campus mix, dependencies | Plan S2.1, product v1.1 |
