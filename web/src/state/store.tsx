@@ -70,7 +70,8 @@ function initialState(): AppState {
     mode: modeFromPath(window.location.pathname),
     nearbyOf: null,
     focus: null,
-    shareRents: false,
+    // a link that carries rents keeps carrying them
+    shareRents: !!fromHash.places?.some((p) => p.rentEur != null),
     badLink: fromHash.bad,
     replacedProfile: replaced,
   }

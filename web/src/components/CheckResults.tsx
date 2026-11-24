@@ -3,9 +3,10 @@ import { useCellDetails } from '../remote/cells'
 import { MAX_PLACES } from '../settings'
 import { PLACE_IDS } from '../state/profile'
 import { useStore } from '../state/store'
+import { CompareView } from './CompareView'
 import { PlaceCard } from './PlaceCard'
 
-/** Check: one card per place (S2.5); side by side from two places (S2.6). */
+/** Check: one card per place; from two places the comparison on top (docs/app_screens.md §1.3–1.4). */
 export function CheckResults() {
   const { t } = useI18n()
   const { state } = useStore()
@@ -14,9 +15,12 @@ export function CheckResults() {
     <section className="results" aria-labelledby="check-title">
       <h2 id="check-title">{t('check.title')}</h2>
       {!state.places.length && <p className="empty">{t('check.empty')}</p>}
-      {state.places.map((p) => (
-        <PlaceCard key={p.id} place={p} cell={cells[p.id]} />
-      ))}
+      {state.places.length > 1 && <CompareView places={state.places} cells={cells} />}
+      <div className={state.places.length > 1 ? 'place-grid' : undefined}>
+        {state.places.map((p) => (
+          <PlaceCard key={p.id} place={p} cell={cells[p.id]} />
+        ))}
+      </div>
       {state.places.length > 0 && state.places.length < MAX_PLACES && (
         <p className="muted small add-hint">{t('check.add.hint', { id: PLACE_IDS[state.places.length] })}</p>
       )}

@@ -349,3 +349,23 @@ dialog.about::backdrop { background: rgb(0 0 0 / 35%); }
 .nearby p { margin: 0.2rem 0; }
 .add-hint { margin-top: 0.8rem; }
 .th-mode { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+
+/* compare */
+.compare { margin-top: 0.6rem; }
+.compare h3 { margin: 0; }
+.in-short { background: var(--accent-soft); border-radius: 8px; padding: 0.5rem 0.75rem; margin: 0.5rem 0 0.7rem; }
+.in-short h4 { margin: 0 0 0.2rem; font-size: 0.85rem; }
+.in-short ul { margin: 0; padding-left: 1.1rem; font-size: 0.92rem; }
+.in-short li { margin: 0.15rem 0; }
+.compare-scroll { overflow-x: auto; }
+.compare-table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+.compare-table th, .compare-table td { padding: 0.4rem 0.4rem; border-bottom: 1px solid var(--line); text-align: left; vertical-align: middle; }
+.compare-table thead th { font-size: 0.85rem; position: sticky; top: 0; background: var(--surface); }
+.compare-table tbody th { font-weight: 600; color: var(--muted); white-space: nowrap; }
+.compare-table .place-id { display: inline-grid; width: 22px; height: 22px; font-size: 0.75rem; vertical-align: middle; }
+.star { color: var(--accent); font-weight: 800; margin-left: 0.15rem; }
+.fit-badge.fit-s { min-width: 2.2rem; height: 1.7rem; font-size: 0.9rem; }
+.share-row { display: flex; align-items: center; gap: 0.8rem; flex-wrap: wrap; margin-top: 0.7rem; }
+.check { display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.88rem; }
+.check input { width: 18px; height: 18px; accent-color: var(--accent); }
+@media (min-width: 1200px) { .place-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 0.6rem; } .place-grid .place-card { margin-top: 0.6rem; } }
