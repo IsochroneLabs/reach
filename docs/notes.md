@@ -177,3 +177,65 @@ docs stack, which is not in `dev` yet. **To do** when the stack reaches `dev`:
    student halls", N7) or drop the source `zensus_rent`, the column `cells.rent_eur_m2` and its
    validation.
 
+
+## N17. The web app needs five additions to the S1.4 API proposal (for Juju)
+
+**Status:** open, used as PROPOSED in the web fixtures · **Related:** S1.4, S1.10, N16,
+`docs/app_screens.md` §9, `web/src/api/types.ts`
+
+The app of S2.2–S2.6 is built against the S1.4 proposal on `docs/juju-fit-formula`. Where it
+needed more, the fixtures (`web/src/api/fixtures/`) answer with the shapes below, marked PROPOSED
+in `web/src/api/types.ts`. Neither `data_contract.md` nor Juju's branches are changed; when the
+API is built, take, change or reject each point and the app follows.
+
+1. **Data date and trip windows: `GET /api/meta`** → `{run_id, sources: [{source, date,
+   valid_to?}], trip_windows: [{trip_window, weekday, time, kind, direction, reference_date}],
+   bounds: [[w, s], [e, n]], modes: [mode]}`. Every result block shows the data date; every time
+   shows its trip window (product: "every number can be explained").
+2. **Populated flag per cell:** `cells` in `POST /api/fit` as `{cell_id: [fit, weekly_min,
+   populated]}` (`populated` 1/0), so the browser computes the rank in the city against populated
+   cells only (A1, N16 point 3). Cells with no fit carry `null`.
+3. **Address search via POST:** `POST /api/addresses/search {q}` instead of
+   `GET /api/addresses?q=`, so a listing address never lands in an access log (rule 9).
+4. **`programme` optional** in `POST /api/fit` and `POST /api/cell/{id}`: absent or null = the
+   default campus mix `campus.default_mix` in `config/campus.yaml` (Tal + Morgenstelle, equal;
+   decided 24 Nov 2026). `GET /api/campus-sites` adds `default_share` per site, so the app can
+   say which sites the mix uses.
+5. **Lists the app shows:** `GET /api/programmes` → `[{programme, label: {en, de}, sites}]` and
+   `GET /api/personas` → `[{persona, label: {en, de}, profile}]` (from `config/campus.yaml` and
+   `config/personas.yaml`). Without them the app would have to copy YAML into the bundle.
+
+Also used by *Check*, smaller: `POST /api/cell/{id}` adds `weekly_min`, `populated` and
+`fit_parts: [{destination_type, minutes, mode, score, weight, share}]` (share of the fit per
+destination for the trips table), and `legs` of a transit trip carry `first_stop`, `first_route`,
+`walk_only` and, in the night window, `last_departure`. The fixture fit follows the methodology §6
+proposal (0.9 at the fine time, 0.1 at twice the fine time); it imitates the API and is never used
+with a real API.
+
+## N18. Basemap (D5): self-hosted vector tiles — proposal for a new O-decision
+
+**Status:** proposal, waiting for Rico's yes before it goes into `architecture.md` ·
+**Related:** D5, A6, `docs/app_screens.md` §5.1, decided in principle 24 Nov 2026
+
+**Proposal (O-number on acceptance):** The basemap is a vector-tile extract of public
+OpenStreetMap data for the routing area (z ≤ 15), built in CI from a public Protomaps build and
+served from **our own origin** with the frontend, with a small hand-written style and self-hosted
+glyphs (Noto Sans, OFL). No tile host, font CDN or other third party sees a request from the
+student (A6). **Narrow exception** to "data never passes through GitHub or Cloudflare": it covers
+only public OSM basemap tiles, built in CI, without any user data; pipeline data stays on the
+server as before.
+
+**Checked on 24 Nov 2026 (Cloudflare docs):**
+- Workers Static Assets: at most **25 MiB per file**, **20,000 files** per Worker version on the
+  free plan (100,000 paid). Requests to static assets are free.
+- Static assets **do not answer HTTP Range requests**: a `Range` request gets `200` with the full
+  file, no `206` (developers.cloudflare.com/workers/static-assets/billing-and-limitations/). A
+  single `.pmtiles` file read by the `pmtiles` library therefore does not work from `dist/`.
+
+**Consequence:** ship the extract **unpacked as `tiles/{z}/{x}/{y}.pbf`** files (expected a few
+thousand files for Tübingen at z ≤ 15, below the 20,000 limit; size to be measured when the
+extract is built), so no Range requests and no `pmtiles` package are needed. Alternatives: a Worker
+with `run_worker_first` that cuts byte ranges (adds a Worker script; web/AGENTS.md forbids that
+today), or R2 (another service). Until then the app shows a plain background
+(`VITE_BASEMAP_STYLE` empty); `maplibre-gl` 6.19.0 is installed, `pmtiles` is **not**, because it
+would be unused.
