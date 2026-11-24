@@ -369,3 +369,5 @@ dialog.about::backdrop { background: rgb(0 0 0 / 35%); }
 .check { display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.88rem; }
 .check input { width: 18px; height: 18px; accent-color: var(--accent); }
 @media (min-width: 1200px) { .place-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 0.6rem; } .place-grid .place-card { margin-top: 0.6rem; } }
+/* phones: the pin hint sits above the sheet, clear of the sample badge and the legend */
+.bp-S .map-hint { top: auto; right: auto; left: 50%; transform: translateX(-50%); bottom: calc(32vh + 0.6rem); white-space: nowrap; }
