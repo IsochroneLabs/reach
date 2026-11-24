@@ -8,7 +8,8 @@ export function FindResults() {
   return (
     <section className="results" aria-labelledby="find-title" aria-busy={fit.updating}>
       <h2 id="find-title">{t('find.results')}</h2>
-      {!fit.data && <p className="muted">{t('status.loading')}</p>}
+      {fit.noWeight && <p className="note note-sample">{t('find.noneImportant')}</p>}
+      {!fit.data && !fit.noWeight && <p className="muted">{t('status.loading')}</p>}
       <ol>
         {fit.data?.areas.slice(0, 3).map((a) => (
           <li key={a.area_id} data-testid="area">

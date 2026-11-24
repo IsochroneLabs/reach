@@ -12,6 +12,14 @@ export function ModeIcon({ mode, title }: { mode: Mode; title?: string }) {
     transit: 'M6 4h12a2 2 0 0 1 2 2v10a2 2 0 0 1-1 1.7V20h-2.5v-2h-9v2H5v-2.3A2 2 0 0 1 4 16V6a2 2 0 0 1 2-2Zm0 2v5h12V6Zm1.5 7.5a1.2 1.2 0 1 0 0 2.4 1.2 1.2 0 0 0 0-2.4Zm9 0a1.2 1.2 0 1 0 0 2.4 1.2 1.2 0 0 0 0-2.4Z',
     bike_transit: 'M6 4h12a2 2 0 0 1 2 2v7H4V6a2 2 0 0 1 2-2Zm0 2v5h12V6ZM6 20a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5Zm12 0a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5Z',
   }
+  if (title === '') {
+    // decorative: the text next to it names the mode
+    return (
+      <svg className="mode-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+        <path d={paths[mode]} fill="currentColor" />
+      </svg>
+    )
+  }
   return (
     <svg className="mode-icon" viewBox="0 0 24 24" width="16" height="16" role="img" aria-label={label}>
       <title>{label}</title>

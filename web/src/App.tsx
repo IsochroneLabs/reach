@@ -99,7 +99,7 @@ function Shell() {
           onTab={setTab}
           snap={snap}
           onSnap={setSnap}
-          hint={<ProgrammeHint compact onOpen={() => { setTab('profile'); setSnap('full') }} />}
+          hint={tab === 'results' ? <ProgrammeHint compact onOpen={() => { setTab('profile'); setSnap('full') }} /> : null}
           profileDot={!state.profile.programme}
           results={<div id="results">{results}</div>}
           profile={<ProfilePanel />}
