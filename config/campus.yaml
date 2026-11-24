@@ -36,6 +36,13 @@ university_sports:
     name: University sports grounds (Wilhelmstraße)
     point: [9.0700, 48.5300]
 
+# Default campus mix while the student has chosen no programme (product v1.1, notes N16; decided
+# 24 Nov 2026): site → share of the campus time. Read by the API once `programme` is optional
+# (notes N17); the web app names these sites in the profile panel.
+default_mix:
+  tal: 0.5
+  morgenstelle: 0.5
+
 # Programme → sites the student travels to for lectures (several = mean time, meth. §6).
 programmes:
   computer_science: {label: {en: Computer science, de: Informatik}, sites: [sand, morgenstelle]}
