@@ -57,18 +57,27 @@ them into a personal fit and reasons for each request. More: [`docs/architecture
 |---|---|---|
 | `docs/` | Product, architecture, methodology, data contract, deployment, glossary, notes, plan | drafts |
 | `config/` | `config.yaml` (all tunable values), `campus.yaml`, `personas.yaml` | drafts |
-| `pipeline/` | Data pipeline (Python, uv) | *planned, S0.4* |
-| `api/` | FastAPI service | *planned, S0.4* |
+| `pipeline/` | Data pipeline (Python, uv): acquire, validate, tiles, publish, cleanup | skeleton (S0.4); travel times S1.8 |
+| `api/` | FastAPI service: health | skeleton (S0.4); endpoints S1.10 |
 | `web/` | Student web app (React, TypeScript, MapLibre) | *planned, S0.5* |
-| `infra/` | Dockerfiles, DB roles and migrations, server files | *planned, S0.4* |
+| `infra/` | API and pipeline Dockerfiles, DB roles, migrations and run schema; server files *planned, S1.5* | partly |
 | `.github/` | CODEOWNERS, PR template; workflows *planned, S0.5* | partly |
 
 ## Getting started
 
-*Planned (S0.4/S0.5).* The project will need Docker with Compose, [uv](https://docs.astral.sh/uv/)
-and Node.js; the commands (`uv sync`, `make up`, `make refresh`, `npm run dev`) are listed in
-[`AGENTS.md`](AGENTS.md) and become usable as the steps land. Copy `.env.example` to `.env` and
-replace every `change-me`.
+Needs Docker with Compose, [uv](https://docs.astral.sh/uv/) and
+[osmium-tool](https://osmcode.org/osmium-tool/); the web app (S0.5) will also need Node.js. Copy
+`.env.example` to `.env` and replace every `change-me`.
+
+```bash
+uv sync                                                # Python environment
+uv run ruff check . && uv run ruff format --check .   # lint
+uv run pytest                                          # unit tests
+make refresh REACH_CONFIG=config/test_clip.yaml        # pipeline on the ~1 km² test clip
+```
+
+The test-clip refresh downloads the sources (~260 MB), builds Valhalla tiles without elevation,
+publishes into the local PostGIS and takes about a minute. All commands: [`AGENTS.md`](AGENTS.md).
 
 ## Data sources
 

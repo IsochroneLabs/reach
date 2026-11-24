@@ -1,0 +1,66 @@
+{
+ "origin": [
+  9.056138249960021,
+  48.520462894908185
+ ],
+ "route": {
+  "trip": {
+   "locations": [
+    {
+     "type": "break",
+     "lat": 48.520462,
+     "lon": 9.056138,
+     "original_index": 0
+    },
+    {
+     "type": "break",
+     "lat": 48.521751,
+     "lon": 9.055623,
+     "side_of_street": "left",
+     "original_index": 1
+    }
+   ],
+   "legs": [
+    {
+     "summary": {
+      "has_time_restrictions": false,
+      "has_toll": false,
+      "has_highway": false,
+      "has_ferry": false,
+      "min_lat": 48.52041,
+      "min_lon": 9.055655,
+      "max_lat": 48.521698,
+      "max_lon": 9.056531,
+      "time": 225.966,
+      "length": 0.22,
+      "cost": 267.103
+     },
+     "shape": "ommp{AuwvgPAcCBeEBqBN{EByBsB`@wd@`Dl@zS_N|A}Cn@wG`Bb@dFVjCeFhBc@NqApAsAjAES"
+    }
+   ],
+   "summary": {
+    "has_time_restrictions": false,
+    "has_toll": false,
+    "has_highway": false,
+    "has_ferry": false,
+    "min_lat": 48.52041,
+    "min_lon": 9.055655,
+    "max_lat": 48.521698,
+    "max_lon": 9.056531,
+    "time": 225.966,
+    "length": 0.22,
+    "cost": 267.103
+   },
+   "status_message": "Found route between points",
+   "status": 0,
+   "units": "kilometers",
+   "language": "en-US"
+  }
+ },
+ "no_edges": {
+  "error_code": 171,
+  "error": "No suitable edges near location",
+  "status_code": 400,
+  "status": "Bad Request"
+ }
+}

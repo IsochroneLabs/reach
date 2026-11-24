@@ -1,0 +1,51 @@
+[project]
+name = "reach"
+version = "0.0.0"
+description = "reach: where to live in Tübingen as a student, by own everyday trips (DS500 course project) — uv workspace root"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = []
+
+[tool.uv]
+package = false
+
+[tool.uv.workspace]
+members = ["pipeline", "api"]
+
+[tool.uv.sources]
+reach-pipeline = { workspace = true }
+reach-api = { workspace = true }
+
+[dependency-groups]
+dev = [
+    "reach-pipeline",
+    "reach-api",
+    "ruff>=0.17",
+    "pytest>=9.1",
+    "pytest-asyncio>=1.0",
+    "respx>=0.22",
+    "httpx2>=2.16.0",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+extend-exclude = ["data", "exp"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["reach_pipeline", "reach_api"]
+
+[tool.pytest.ini_options]
+testpaths = ["pipeline/tests", "api/tests", "tests/integration"]
+# Integration tests need a local Valhalla on the test clip: `uv run pytest -m integration`.
+# Database contract tests need a disposable PostGIS: `REACH_TEST_DATABASE_URL=... uv run pytest -m db`.
+addopts = "-q --import-mode=importlib -m 'not integration and not db'"
+markers = [
+    "integration: needs a local Valhalla serving the test clip tiles (tests/integration)",
+    "db: needs a disposable PostGIS superuser URL in REACH_TEST_DATABASE_URL (CI job db-contract)",
+]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
