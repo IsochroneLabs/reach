@@ -1,6 +1,6 @@
 # Architecture — reach
 
-> **Status:** v1.0-draft (21 Nov 2026). Target architecture of the rebuild. Every change bumps the
+> **Status:** v1.1-draft (22 Nov 2026). Target architecture of the rebuild. Every change bumps the
 > version and adds a line to the [Change log](#change-log). Decisions are listed in
 > [Section 13](#13-decisions); items marked **[OPEN]** are settled before the related code is
 > written. What is computed (destinations, travel times, fit, validation) is defined in
@@ -263,7 +263,7 @@ skipped with a warning. The data refresh is separate: a scheduled job on the ser
 | O8 | No public data APIs at runtime; addresses from the OSM extract in PostGIS | archive rule 8; brief |
 | O9 | Failed runs and failed deploys notify a team webhook (URL as secret) | archive O10 |
 | O10 | Python via uv, one workspace (`pipeline`, `api`), one lockfile | archive |
-| O11 | Frontend as static build on Cloudflare; previews for PRs and `dev` | brief; Pages vs. Workers static assets checked in S0.5 |
+| O11 | Frontend as a Cloudflare Worker with static assets; previews for PRs and `dev`; static asset requests have no Cloudflare request or storage charge under current pricing | brief; product comparison and official pricing docs checked 22 Nov 2026 |
 | O12 | Production only through release PR `dev` → `main` and `deploy.yml`; images on GHCR by SHA | brief |
 | O13 | Origins = populated cells + address cells; ranking over populated cells only | A1 |
 | O14 | Areas = districts (admin 11) and Teilorte (admin 9) for ranking and reasons; map per cell | A2 |
@@ -277,7 +277,7 @@ skipped with a warning. The data refresh is separate: a scheduled job on the ser
 | T1 | Transit engine | (a) Valhalla multimodal (does `sources_to_targets` support it in 3.9.1 or newer?), (b) r5py / R5, (c) OpenTripPlanner, or a combination; fallback: departures at nearby stops, labelled approximate | cell × destination matrix, trip-window handling (arrival time, night), runtime and peak memory for Tübingen, Docker/CI fit, image size, licence, bike as access mode, fit in 8 GB under A4 | S1.1 |
 | D1 | Server | bwCloud vs. Hetzner | RAM, cost within 20 € in total, public IP/ports, how GitHub Actions reach it | S1.2 |
 | D2 | Backend access and deploy | Cloudflare Tunnel (no inbound ports) vs. Caddy on 443 + SSH deploy | security, effort, needs a domain on Cloudflare (tunnel) | S1.2 |
-| D3 | Domain | cheap own domain on Cloudflare vs. free hostnames (`*.pages.dev`, `sslip.io`) with CORS | cost, D2 dependency, CORS | S1.2 |
+| D3 | Domain | cheap own domain on Cloudflare vs. free hostnames (`*.workers.dev`, `sslip.io`) with CORS | cost, D2 dependency, CORS | S1.2 |
 | D4 | Frontend–API wiring | API base URL per environment; where previews get data (production API read-only vs. fixtures) | privacy, stability, CORS | S1.2 |
 | D5 | Basemap | e.g. self-hosted vector tiles vs. a free tile host | no user data to third parties, cost, size | S2.1 |
 
@@ -304,4 +304,5 @@ reach/
 
 | Version | Date | Change | Why |
 |---|---|---|---|
+| v1.1-draft | 2026-11-22 | Settled O11 on Cloudflare Workers static assets and recorded current static asset billing; updated the free-hostname option to `workers.dev` | The frontend is a static Vite SPA; no edge compute is needed for the current deployment |
 | v1.0-draft | 2026-11-21 | New architecture for the student rebuild: raw travel times per cell × destination × mode × trip window, fit at request time, Cloudflare frontend, release-driven deploy; carried-over decisions renumbered O1–O16 with origin; T1 and D1–D5 open | Rebuild brief of 21 Nov 2026; plan S0.2 |

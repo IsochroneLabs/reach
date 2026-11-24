@@ -61,7 +61,7 @@ is named.
 | Full refresh | `make refresh` · test clip: `make refresh REACH_CONFIG=config/test_clip.yaml` (transit from S1.7) |
 | One pipeline stage | `make pipeline STAGE=<stage>` (stages: acquire, validate, tiles, publish, cleanup) |
 | DB roles + migrations | `make migrate` (also run by `publish` when `DATABASE_URL_ADMIN` is set) |
-| Frontend | `cd web && npm ci && npm run dev` · checks: `npm run lint && npm run build` (*planned, S0.5*) |
+| Frontend | `cd web && npm ci && npm run dev` · checks: `npm run lint && npm run build && npm run test:e2e` |
 | Add Python dependency | `uv add --package pipeline <pkg>` / `--package api` / `--dev` (ask first) |
 
 ## Stack
@@ -78,12 +78,12 @@ for the frontend. Exact versions live in `pyproject.toml`, `uv.lock`, `web/packa
 |---|---|
 | `pipeline/` | Data pipeline: acquire → validate → tiles → travel times → validate results → publish → cleanup (skeleton S0.4; travel times and result checks *planned, S1.8/S1.9*) |
 | `api/` | FastAPI: health (S0.4); reference data, address search, fit, cell detail, live route (*planned, S1.10*) |
-| `web/` | Student web app, static build deployed to Cloudflare (*planned, S0.5/Phase 2*) |
+| `web/` | Student web app, static build deployed to Cloudflare (placeholder S0.5; app *planned, Phase 2*) |
 | `config/config.yaml` | Study area, routing profiles, trip windows, destination types + OSM tags, validation limits: **all tunable values** |
 | `config/campus.yaml` | Programmes → campus sites |
 | `config/personas.yaml` | Personas for demos and tests |
 | `infra/` | Dockerfiles, DB roles/migrations/run schema (S0.4); server files (*planned, S1.5*) |
-| `.github/workflows/` | `ci.yml`, `deploy.yml` (*planned, S0.5*) |
+| `.github/workflows/` | `ci.yml` (checks + Cloudflare previews), `deploy.yml` (production deploy, rollback) |
 | `docs/` | Product, architecture, methodology, data contract, deployment, glossary, notes, plan |
 | `CHANGELOG.md` | Change history (`Unreleased`, then one section per release) |
 | `data/` | Local data, **git-ignored**, never committed |

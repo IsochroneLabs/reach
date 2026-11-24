@@ -10,8 +10,10 @@ Course project DS500, University of Tübingen.
 
 Rebuild started on 21 Nov 2026; this repository holds the plan and the sources of truth, the code
 follows step by step. Progress, the next step and open decisions:
-[`docs/implementation_plan.md`](docs/implementation_plan.md). CI and deploy badges follow with the
-workflows (S0.5).
+[`docs/implementation_plan.md`](docs/implementation_plan.md).
+
+[![ci](https://github.com/IsochroneLabs/reach/actions/workflows/ci.yml/badge.svg?branch=dev)](https://github.com/IsochroneLabs/reach/actions/workflows/ci.yml)
+[![deploy](https://github.com/IsochroneLabs/reach/actions/workflows/deploy.yml/badge.svg)](https://github.com/IsochroneLabs/reach/actions/workflows/deploy.yml)
 
 The previous project, an accessibility planner for the whole city, is archived in the locked
 branch [`archive/2026-11-21-planner`](https://github.com/IsochroneLabs/reach/tree/archive/2026-11-21-planner).
@@ -59,14 +61,14 @@ them into a personal fit and reasons for each request. More: [`docs/architecture
 | `config/` | `config.yaml` (all tunable values), `campus.yaml`, `personas.yaml` | drafts |
 | `pipeline/` | Data pipeline (Python, uv): acquire, validate, tiles, publish, cleanup | skeleton (S0.4); travel times S1.8 |
 | `api/` | FastAPI service: health | skeleton (S0.4); endpoints S1.10 |
-| `web/` | Student web app (React, TypeScript, MapLibre) | *planned, S0.5* |
+| `web/` | Student web app (React, TypeScript, Vite; MapLibre from Phase 2), deployed to Cloudflare | placeholder (S0.5) |
 | `infra/` | API and pipeline Dockerfiles, DB roles, migrations and run schema; server files *planned, S1.5* | partly |
-| `.github/` | CODEOWNERS, PR template; workflows *planned, S0.5* | partly |
+| `.github/` | CODEOWNERS, PR template, workflows `ci.yml` and `deploy.yml` | S0.5 |
 
 ## Getting started
 
 Needs Docker with Compose, [uv](https://docs.astral.sh/uv/) and
-[osmium-tool](https://osmcode.org/osmium-tool/); the web app (S0.5) will also need Node.js. Copy
+[osmium-tool](https://osmcode.org/osmium-tool/); the web app needs Node.js 24 (`web/.nvmrc`). Copy
 `.env.example` to `.env` and replace every `change-me`.
 
 ```bash
@@ -74,6 +76,8 @@ uv sync                                                # Python environment
 uv run ruff check . && uv run ruff format --check .   # lint
 uv run pytest                                          # unit tests
 make refresh REACH_CONFIG=config/test_clip.yaml        # pipeline on the ~1 km² test clip
+cd web && npm ci && npm run dev                        # web app on http://localhost:5173
+npm run lint && npm run build && npm run test:e2e      # web checks (Playwright: install chromium once)
 ```
 
 The test-clip refresh downloads the sources (~260 MB), builds Valhalla tiles without elevation,

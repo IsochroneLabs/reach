@@ -5,8 +5,7 @@ every team member **and** to every AI assistant working on someone's behalf.
 
 - **This file** = how we collaborate (Git workflow, reviews, releases).
 - **[AGENTS.md](AGENTS.md)** = binding rules for coding agents (commands, architecture rules,
-  boundaries); folder rules in `pipeline/AGENTS.md`, `api/AGENTS.md` and `web/AGENTS.md`
-  (*planned, S0.5*).
+  boundaries); folder rules in `pipeline/AGENTS.md`, `api/AGENTS.md` and `web/AGENTS.md`.
 - **[docs/architecture.md](docs/architecture.md)** and **[docs/methodology.md](docs/methodology.md)**
   = what the system is and what it computes.
 - **[docs/implementation_plan.md](docs/implementation_plan.md)** = steps, status and dates.

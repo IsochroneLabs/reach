@@ -122,3 +122,33 @@ size). The whole test-clip refresh took 35 s. On 23 Nov 2026 (same machine, fres
 with ~4 GB for this stage. **To do:** measure the city run on the server
 (S1.11) and keep the stage sequential with Valhalla and the transit engine (A4).
 
+## N12. The preview environment's Cloudflare token is usable from every branch
+
+**Status:** accepted (22 Nov 2026) · **Related:** docs/deployment.md, `ci.yml` `preview`
+
+PR previews need `CLOUDFLARE_API_TOKEN` in the GitHub environment `preview`, which has no branch
+restriction. A workflow edited on any branch of this repository can read it, and the token can
+also deploy the production Worker. Fork PRs get no secrets. Accepted for a three-person team with
+write access; alternatives if that changes: required reviewers on `preview` (blocks every preview)
+or Cloudflare's Git integration instead of the token.
+
+## N13. The first Cloudflare preview may need an existing Worker
+
+**Status:** open · **Related:** S0.5, S0.6
+
+`wrangler preview` creates a Preview "under the same Worker". Whether it creates the Worker
+`reach` when it does not exist yet is not documented. If the first PR preview fails with a
+"not found" error, a team member creates the Worker in the dashboard (Workers & Pages → Create →
+Hello World, name `reach`); the v0.1.0 deploy then replaces its content.
+
+
+## N14. The naldo GTFS feed ends on 12 Dec 2026
+
+**Status:** open · **Related:** S1.6, S1.11, V3, risk "feed expiring"
+
+The feed downloaded on 23 Nov 2026 from the URL in `config/config.yaml` has
+`feed_end_date` 20261212 (`feed_info.txt`, version 20261011); the last `calendar.txt` end date is
+the same. After 12 Dec no reference date per trip window can be found, so V3 fails and the first
+production data and v0.2.0 (target 14 Dec) need a newer feed. **To do:** check early December
+whether NVBW has published the timetable from 13 Dec 2026; if not, decide how to label or pin an
+older feed before S1.11. First seen in the T1 spike (PR #79).
