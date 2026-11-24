@@ -16,6 +16,7 @@ explaining the differences in plain language.
 | **In progress** | S0.4 port the foundation (PR #80: all checks run, yeses given 23 Nov 2026, **ready for a human to merge** with a merge commit) · S0.5 walking skeleton (PR #81: CI green, dependencies approved 23 Nov 2026; ready to merge after #80; preview and dispatch test need the Cloudflare/GitHub setup) |
 | **Next** | merge #80, then #81 (a human, after review) → set required checks on `dev` → preview URL from a `dev` push + `workflow_dispatch` of `deploy.yml` with target preview → S0.6 release PR v0.1.0 on instruction |
 | **Blocked** | S0.5 preview check and S0.6: Cloudflare account, API token and the GitHub environments `preview`/`production` (a human sets them up, `docs/deployment.md`) |
+| **Ready for the team** | S1.0 reference-trip sheet: 30 pairs, collection 1–12 Dec for Tue 15 / Sat 19 Dec (`docs/reference_trips.md`) |
 | **Decided** | T1 → O17 OpenTripPlanner for transit and bike + transit; M5, M6 (23 Nov 2026, `docs/juju-t1-decision`) |
 | **Open decisions** | D1 server · D2 backend access · D3 domain · D4 frontend–API wiring · D5 basemap · fit formula |
 | **PRs** | [#78](https://github.com/IsochroneLabs/reach/pull/78) sources of truth (merged) · [#79](https://github.com/IsochroneLabs/reach/pull/79) T1 spike report (review only, not merged) · [#80](https://github.com/IsochroneLabs/reach/pull/80) port the foundation (S0.4) · [#81](https://github.com/IsochroneLabs/reach/pull/81) walking skeleton (S0.5, contains #80) |
@@ -196,7 +197,7 @@ deployed (or its PR waiting for approvals).
 
 Code steps start after T1 and the fit formula are confirmed. Step plan first, wait, then commits.
 
-### S1.0 Reference trips for V1 — 1 Dec to 12 Dec (runs alongside)
+### S1.0 Reference trips for V1 — 1 Dec to 12 Dec (runs alongside) · sheet ready 23 Nov 2026 (`docs/reference_trips.md`)
 
 - Team collects ≥ 25 cell × destination pairs per mode: transit from the naldo/DB journey planner
   at the same trip window, walk/bike from a routing website or measured trips. I prepare the pair

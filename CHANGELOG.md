@@ -4,6 +4,7 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+- Reference trips for V1 (S1.0): 30 cell × destination pairs over all trip windows and a collection guide (`docs/reference_trips.md`, `pipeline/tests/fixtures/reference_trips.csv`)
 - Transit engine decided (T1 → O17): OpenTripPlanner 2.10 for transit and bike + transit; transit time includes the wait at home (M6); bike + transit parks the bike (M5)
 - Settled Cloudflare Workers static assets for the frontend and documented the current static asset billing model.
 - Emptied dev for the rebuild; old project archived in archive/2026-11-21-planner (21 Nov 2026)
