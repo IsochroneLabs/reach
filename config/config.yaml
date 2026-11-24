@@ -27,7 +27,7 @@ districts:
   coverage_tolerance_pct: 0.5
 
 # Routing profiles (arch. §6.1, meth. §4). Valhalla profiles pass speed_kmh as walking_speed or
-# cycling_speed; costing_options holds every other option. Transit profiles follow with T1.
+# cycling_speed; costing_options holds every other option. Transit profiles use OpenTripPlanner (O17).
 routing_profiles:
   walk:
     engine: valhalla
@@ -40,7 +40,8 @@ routing_profiles:
     speed_kmh: 15.0  # archive O15
     costing_options:
       bicycle_type: Hybrid
-  # transit and bike_transit: engine and options per T1 (S1.1); access/egress walking at 5.0 km/h.
+  # transit and bike_transit: OpenTripPlanner (O17, BICYCLE_PARKING for bike_transit); keys are added
+  # in S1.7; access/egress walking at 5.0 km/h.
 
 # Trip windows (O15, A3, meth. §5). DRAFT values, checked with students in S2.0 (M2).
 # weekday: day of the reference date; time: HH:MM local time; direction: "to" (depart at / arrive
@@ -245,8 +246,8 @@ sources:
     md5_url: https://download.geofabrik.de/europe/germany/baden-wuerttemberg/tuebingen-regbez/tuebingen-regbez-latest.osm.pbf.md5
     licence: ODbL 1.0
   gtfs:
-    # NVBW GTFS for the naldo network ("mit Liniennetz"). The member list grows with T1 (e.g.
-    # routes.txt, agency.txt, transfers.txt for a journey planner).
+    # NVBW GTFS for the naldo network ("mit Liniennetz"). OpenTripPlanner (O17) needs more
+    # members (routes.txt, agency.txt, transfers.txt, shapes optional); added in S1.7.
     url: https://www.nvbw.de/fileadmin/user_upload/service/open_data/fahrplandaten_mit_liniennetz/naldo.zip
     licence: dl-de/by-2-0, ODbL
     members: [stops.txt, stop_times.txt, trips.txt, calendar.txt, calendar_dates.txt, feed_info.txt]

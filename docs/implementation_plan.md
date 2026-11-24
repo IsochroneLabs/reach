@@ -16,7 +16,8 @@ explaining the differences in plain language.
 | **In progress** | S0.4 port the foundation (PR #80: all checks run, yeses given 23 Nov 2026, **ready for a human to merge** with a merge commit) · S0.5 walking skeleton (PR #81: CI green, dependencies approved 23 Nov 2026; ready to merge after #80; preview and dispatch test need the Cloudflare/GitHub setup) |
 | **Next** | merge #80, then #81 (a human, after review) → set required checks on `dev` → preview URL from a `dev` push + `workflow_dispatch` of `deploy.yml` with target preview → S0.6 release PR v0.1.0 on instruction |
 | **Blocked** | S0.5 preview check and S0.6: Cloudflare account, API token and the GitHub environments `preview`/`production` (a human sets them up, `docs/deployment.md`) |
-| **Open decisions** | T1 transit engine (spike done, PR #79, decision due 3 Dec) · D1 server · D2 backend access · D3 domain · D4 frontend–API wiring · D5 basemap · fit formula |
+| **Decided** | T1 → O17 OpenTripPlanner for transit and bike + transit; M5, M6 (23 Nov 2026, `docs/juju-t1-decision`) |
+| **Open decisions** | D1 server · D2 backend access · D3 domain · D4 frontend–API wiring · D5 basemap · fit formula |
 | **PRs** | [#78](https://github.com/IsochroneLabs/reach/pull/78) sources of truth (merged) · [#79](https://github.com/IsochroneLabs/reach/pull/79) T1 spike report (review only, not merged) · [#80](https://github.com/IsochroneLabs/reach/pull/80) port the foundation (S0.4) · [#81](https://github.com/IsochroneLabs/reach/pull/81) walking skeleton (S0.5, contains #80) |
 | **Deviations** | S0.4 and S0.5 were built on `feature/juju-phase0` and `feature/juju-delivery-skeleton` instead of the `rico-…` branches named below (at Juju's request; Rico to confirm) |
 | **Risks now** | naldo GTFS feed ends 12 Dec 2026 (notes N14): v0.2.0 on 14 Dec needs a newer feed |
@@ -202,7 +203,7 @@ Code steps start after T1 and the fit formula are confirmed. Step plan first, wa
   list and the collection sheet by 1 Dec (branch `docs/rico-reference-trips`); results are stored
   as fixtures, never queried by tests or the pipeline.
 
-### S1.1 T1 transit engine — target 3 Dec
+### S1.1 T1 transit engine — target 3 Dec · decided 23 Nov 2026 (O17, OpenTripPlanner)
 
 - **Branch:** `exp/rico-transit-engine` (spike, not merged) + `docs/rico-t1-decision`.
 - **Work:** compare (a) Valhalla multimodal (does `sources_to_targets` support it in 3.9.1 or a

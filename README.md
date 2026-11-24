@@ -42,7 +42,7 @@ station). The answers stay in the browser; nothing personal is stored on a serve
 flowchart LR
     SRC["Open data<br/>OSM · NVBW GTFS · Zensus 2022"] --> PIPE["Pipeline<br/>(make refresh on the server)"]
     PIPE -->|walk, bike| VAL["Valhalla"]
-    PIPE -->|transit| TE["Transit engine<br/>(T1, open)"]
+    PIPE -->|transit| TE["OpenTripPlanner"]
     PIPE -->|validated run| DB[("PostGIS")]
     API["FastAPI<br/>fit at request time"] --> DB
     WEB["Web app<br/>Cloudflare"] -->|HTTPS| API
@@ -100,7 +100,7 @@ No public data APIs are called at runtime. Data is never committed to the reposi
 | Document | Content |
 |---|---|
 | [`docs/product.md`](docs/product.md) | User, questions, use cases, non-goals |
-| [`docs/architecture.md`](docs/architecture.md) | System, decisions (O-numbers, T1, D1–D5) |
+| [`docs/architecture.md`](docs/architecture.md) | System, decisions (O-numbers, D1–D5) |
 | [`docs/methodology.md`](docs/methodology.md) | Travel times, fit, validation (V-numbers) |
 | [`docs/data_contract.md`](docs/data_contract.md) | Tables, files, API responses |
 | [`docs/deployment.md`](docs/deployment.md) | Environments, workflows, secrets, runbook |

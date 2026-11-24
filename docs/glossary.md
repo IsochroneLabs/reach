@@ -61,7 +61,7 @@ is not here is either plain English or needs an entry first.
 | **test clip** | Small OSM/GTFS/Zensus extract used for integration tests (`config/test_clip.yaml`). |
 | **migration** | Numbered SQL file in `infra/db/migrations/`, applied once by `make migrate`. |
 | **matrix** | Valhalla `sources_to_targets`: travel times between many points; used for walk and bike. |
-| **transit engine** | The service that computes transit travel times; choice **[OPEN]** (T1, `docs/architecture.md`). |
+| **transit engine** | The service that computes transit and bike + transit travel times and the live transit route: OpenTripPlanner (architecture O17). Matrices stay Valhalla only. |
 
 ## Delivery
 
@@ -79,7 +79,7 @@ is not here is either plain English or needs an entry first.
 |---|---|
 | **S-numbers (S0.1, …)** | Steps of `docs/implementation_plan.md`. |
 | **O-numbers** | Settled architecture decisions (`docs/architecture.md`). |
-| **T1, D1–D5** | Open architecture decisions: transit engine, server, backend access, domain, frontend–API wiring, basemap. |
+| **D1–D5** | Open architecture decisions: server, backend access, domain, frontend–API wiring, basemap. T1 (transit engine) was settled as O17 on 23 Nov 2026. |
 | **M-numbers** | Open methodology questions (`docs/methodology.md`). |
 | **V-numbers (V1, …)** | Validation checks and experiments (`docs/methodology.md`), reported in `docs/validation.md` (*planned, S1.11*). |
 | **N-numbers** | Open points and findings (`docs/notes.md`). |
