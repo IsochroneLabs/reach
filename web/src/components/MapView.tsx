@@ -1,0 +1,242 @@
+import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
+import type { GeoJSONSource, Map as MlMap, MapMouseEvent, Marker, Popup } from 'maplibre-gl'
+// MapLibre 6 looks for its worker next to its own module; the bundle moves it, so pass the URL.
+import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url'
+
+import type { LonLat } from '../api/types'
+import { BASEMAP_STYLE } from '../config'
+import { cellRing } from '../geo/laea'
+
+/** One cell to draw: fit (null = no data) and whether it is highlighted. */
+export interface DrawCell {
+  id: string
+  fit: number | null
+  outline?: boolean
+}
+
+export interface MapMarker {
+  key: string
+  point: LonLat
+  text: string
+  kind: 'rank' | 'pin' | 'label'
+  title: string
+  onClick?: () => void
+}
+
+const RAMP = ['#440154', '#443983', '#31688e', '#21918c', '#35b779', '#90d743', '#fde725']
+const NO_DATA = '#c3c8c4'
+
+/** Plain background (D5 not built yet, notes N18): no third-party tiles, glyphs or sprites. */
+const PLAIN_STYLE = {
+  version: 8 as const,
+  sources: {},
+  layers: [{ id: 'bg', type: 'background' as const, paint: { 'background-color': '#e9ece8' } }],
+}
+
+function toGeoJson(cells: DrawCell[]) {
+  return {
+    type: 'FeatureCollection' as const,
+    features: cells.flatMap((c) => {
+      const ring = cellRing(c.id)
+      if (!ring) return []
+      return [
+        {
+          type: 'Feature' as const,
+          id: undefined,
+          properties: { id: c.id, fit: c.fit ?? -1, outline: c.outline ? 1 : 0 },
+          geometry: { type: 'Polygon' as const, coordinates: [ring] },
+        },
+      ]
+    }),
+  }
+}
+
+/**
+ * MapLibre map (lazy-loaded). Draws cells as 100 m squares from their ids, markers for ranks and
+ * places, and a popup whose content is rendered by React. Knows nothing about Find or Check.
+ */
+export function MapView({
+  bounds,
+  cells,
+  markers,
+  focus,
+  label,
+  popup,
+  onMapClick,
+  onReady,
+  onFail,
+}: {
+  bounds: [LonLat, LonLat] | null
+  cells: DrawCell[]
+  markers: MapMarker[]
+  focus: LonLat | null
+  label: string
+  popup: { point: LonLat; content: ReactNode; onClose: () => void } | null
+  onMapClick: (point: LonLat, cellId: string | null) => void
+  onReady?: () => void
+  onFail?: () => void
+}) {
+  const box = useRef<HTMLDivElement>(null)
+  const map = useRef<MlMap | null>(null)
+  const ml = useRef<typeof import('maplibre-gl') | null>(null)
+  const markerObjs = useRef<Marker[]>([])
+  const popupObj = useRef<Popup | null>(null)
+  const [popupEl] = useState(() => document.createElement('div'))
+  const [ready, setReady] = useState(false)
+  const clickRef = useRef(onMapClick)
+  const closeRef = useRef<(() => void) | null>(null)
+
+  useEffect(() => {
+    clickRef.current = onMapClick
+    closeRef.current = popup?.onClose ?? null
+  })
+
+  // create once
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      try {
+        const lib = await import('maplibre-gl')
+        await import('maplibre-gl/dist/maplibre-gl.css')
+        if (cancelled || !box.current) return
+        ml.current = lib
+        lib.setWorkerUrl(workerUrl)
+        const m = new lib.Map({
+          container: box.current,
+          style: BASEMAP_STYLE || PLAIN_STYLE,
+          bounds: bounds ?? undefined,
+          // phones: keep the cells above the bottom sheet (peek ≈ 32 % of the height)
+          fitBoundsOptions: {
+            padding: window.innerWidth < 768 ? { top: 56, left: 12, right: 12, bottom: Math.round(window.innerHeight * 0.34) } : 24,
+          },
+          attributionControl: false,
+          dragRotate: false,
+          pitchWithRotate: false,
+          maxZoom: 17,
+          minZoom: 11,
+        })
+        m.touchZoomRotate.disableRotation()
+        m.addControl(new lib.NavigationControl({ showCompass: false }), 'top-right')
+        m.getCanvas().setAttribute('aria-label', label)
+        m.on('load', () => {
+          m.addSource('cells', { type: 'geojson', data: toGeoJson([]) })
+          m.addLayer({
+            id: 'cells-fill',
+            type: 'fill',
+            source: 'cells',
+            paint: {
+              'fill-color': [
+                'case',
+                ['<', ['get', 'fit'], 0],
+                NO_DATA,
+                ['interpolate', ['linear'], ['get', 'fit'], 0, RAMP[0], 17, RAMP[1], 33, RAMP[2], 50, RAMP[3], 67, RAMP[4], 83, RAMP[5], 100, RAMP[6]],
+              ],
+              'fill-opacity': 0.72,
+            },
+          })
+          m.addLayer({
+            id: 'cells-line',
+            type: 'line',
+            source: 'cells',
+            paint: { 'line-color': '#ffffff', 'line-width': 0.4, 'line-opacity': 0.6 },
+          })
+          m.addLayer({
+            id: 'cells-outline',
+            type: 'line',
+            source: 'cells',
+            filter: ['==', ['get', 'outline'], 1],
+            paint: { 'line-color': '#111', 'line-width': 2 },
+          })
+          setReady(true)
+          onReady?.()
+        })
+        m.on('click', (e: MapMouseEvent) => {
+          const f = m.queryRenderedFeatures(e.point, { layers: ['cells-fill'] })[0]
+          clickRef.current([e.lngLat.lng, e.lngLat.lat], (f?.properties?.id as string) ?? null)
+        })
+        m.on('mousemove', 'cells-fill', () => (m.getCanvas().style.cursor = 'pointer'))
+        m.on('mouseleave', 'cells-fill', () => (m.getCanvas().style.cursor = ''))
+        map.current = m
+      } catch (e) {
+        console.error('map failed to load', e)
+        onFail?.()
+      }
+    })()
+    return () => {
+      cancelled = true
+      map.current?.remove()
+      map.current = null
+    }
+    // created once; bounds and label are read at creation
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // cells
+  useEffect(() => {
+    if (!ready || !map.current) return
+    ;(map.current.getSource('cells') as GeoJSONSource).setData(toGeoJson(cells))
+  }, [ready, cells])
+
+  // markers
+  useEffect(() => {
+    const lib = ml.current
+    if (!ready || !map.current || !lib) return
+    markerObjs.current.forEach((m) => m.remove())
+    markerObjs.current = markers.map((mk) => {
+      if (mk.kind === 'label') {
+        // orientation only (no basemap yet); hidden from screen readers, the cards name the areas
+        const el = document.createElement('span')
+        el.className = 'area-label'
+        el.setAttribute('aria-hidden', 'true')
+        el.textContent = mk.text
+        return new lib.Marker({ element: el, anchor: 'top', offset: [0, 14] }).setLngLat(mk.point).addTo(map.current!)
+      }
+      const el = document.createElement('button')
+      el.type = 'button'
+      el.className = mk.kind === 'pin' ? 'pin' : 'rank-marker'
+      el.title = mk.title
+      el.setAttribute('aria-label', mk.title)
+      el.innerHTML = `<span>${mk.text.replace(/[<>&]/g, '')}</span>`
+      if (mk.onClick) {
+        el.addEventListener('click', (ev) => {
+          ev.stopPropagation()
+          mk.onClick?.()
+        })
+      }
+      return new lib.Marker({ element: el, anchor: mk.kind === 'pin' ? 'bottom' : 'center' })
+        .setLngLat(mk.point)
+        .addTo(map.current!)
+    })
+  }, [ready, markers])
+
+  // popup (React content through a portal)
+  useEffect(() => {
+    const lib = ml.current
+    if (!ready || !map.current || !lib) return
+    popupObj.current?.remove()
+    popupObj.current = null
+    if (!popup) return
+    const p = new lib.Popup({ closeButton: true, maxWidth: '260px', offset: 8 })
+      .setLngLat(popup.point)
+      .setDOMContent(popupEl)
+      .addTo(map.current)
+    p.on('close', () => {
+      if (popupObj.current === p) closeRef.current?.()
+    })
+    popupObj.current = p
+  }, [ready, popup?.point, popupEl]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // fly to a focus point (Find → Check, Check → nearby)
+  useEffect(() => {
+    if (!ready || !map.current || !focus) return
+    map.current.flyTo({ center: focus, zoom: Math.max(map.current.getZoom(), 14.5), essential: true })
+  }, [ready, focus])
+
+  return (
+    <>
+      <div ref={box} className="map" />
+      {popup && createPortal(popup.content, popupEl)}
+    </>
+  )
+}
