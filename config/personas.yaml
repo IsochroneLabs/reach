@@ -1,9 +1,9 @@
 # Personas: predefined student profiles for demos, tests (deploy smoke test, Playwright fixtures)
-# and the onboarding quick start (docs/product.md). DRAFT (S0.3); the schema follows the student
+# and the "example profiles" in the profile panel (docs/product.md). DRAFT (S0.3); the schema follows the student
 # profile of the API (S1.4). Keys: programme (config/campus.yaml), modes (routing_profiles),
 # destinations: destination type → importance (0–3), optional fine_time_min and trips_per_week
-# (defaults from config/config.yaml), optional religion for place_of_worship, optional
-# max_rent_eur_m2. Names are invented.
+# (defaults from config/config.yaml), optional religion for place_of_worship. Rent is not part of
+# a profile (entered per listing in Check, product v1.1). Names are invented.
 
 lena:
   label: {en: "Lena, first semester biology", de: "Lena, Biologie im ersten Semester"}
@@ -15,7 +15,6 @@ lena:
     grocery: 2
     climbing: {importance: 2, trips_per_week: 2}
     main_station: 1
-  max_rent_eur_m2: 12
 
 arjun:
   label: {en: "Arjun, exchange master's in computer science", de: "Arjun, Austausch-Master Informatik"}

@@ -36,7 +36,7 @@ class, deficit, recommender, …).
 
 | Document | Binding for |
 |---|---|
-| `docs/product.md` | User, their questions, use cases U1–U3, non-goals, cut order |
+| `docs/product.md` | User, their questions, modes Find and Check, entry with defaults, non-goals, cut order |
 | `docs/architecture.md` | System: components, data flow, routing, deployment, decisions (O-numbers, D1–D5) |
 | `docs/methodology.md` | What is computed: destinations, modes, trip windows, travel times, fit, validation (V-numbers) |
 | `docs/data_contract.md` | Table, file and API schemas between pipeline and API |

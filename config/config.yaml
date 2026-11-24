@@ -83,7 +83,7 @@ calendar:
 # Destination types (meth. §3, docs/osm_tagging.md). DRAFT. Per type: labels, OSM tags (any pair
 # matches) or source "campus" (config/campus.yaml), optional require/exclude, location
 # ("point" or "access_points"), nearest_k stored by the pipeline (null = all), trip window, and the
-# onboarding defaults fine_time_min and trips_per_week (M2, checked in S2.0).
+# profile defaults fine_time_min and trips_per_week (M2, checked in S2.0).
 destination_types:
   campus_site:
     label: {en: Campus, de: Campus}

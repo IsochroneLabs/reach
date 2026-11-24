@@ -148,7 +148,7 @@ git push --force-with-lease      # never plain --force
 |---|---|---|
 | `v0.1.0` | Walking skeleton: placeholder page deployed through `main` → `deploy.yml` → Cloudflare | 30 Nov 2026 |
 | `v0.2.0` | Backend in production (pipeline + API on the server) | 14 Dec 2026 |
-| `v0.3.0` | Student web app (U1–U3) | 9 Jan 2027 |
+| `v0.3.0` | Student web app (Find and Check) | 9 Jan 2027 |
 | `v0.4.0` | Hardening | 16 Jan 2027 |
 | `v1.0.0` | Submission | 22 Jan 2027 |
 
