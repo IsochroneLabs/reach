@@ -4,7 +4,7 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
-- Interim deck of 25 Nov 2026 for product v1.1 (`slides/2026-11-25-interim/`, theme copied from the archive)
+- Interim deck of 25 Nov 2026 for product v1.1 (`slides/2026-11-25-interim/`, theme copied from the archive), structured by the supervisors' three questions: user, use, build
 - Transit engine decided (T1 → O17): OpenTripPlanner 2.10 for transit and bike + transit; transit time includes the wait at home (M6); bike + transit parks the bike (M5)
 - Settled Cloudflare Workers static assets for the frontend and documented the current static asset billing model.
 - Emptied dev for the rebuild; old project archived in archive/2026-11-21-planner (21 Nov 2026)
