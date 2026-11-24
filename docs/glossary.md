@@ -9,11 +9,16 @@ is not here is either plain English or needs an entry first.
 | Term | Meaning |
 |---|---|
 | **student** | The only user: a student moving to Tübingen who does not know the city yet (first semester, master's, exchange). |
-| **student profile** | The user's answers (programme, hobbies, modes, importance, fine times, optional budget). Lives only in the browser (URL and `localStorage`), never stored on the server. |
-| **persona** | A predefined student profile for demos, tests and quick start (`config/personas.yaml`). |
-| **place** | A point the user checks (address or pin, U2); answered with the values of its cell. |
+| **student profile** | The user's preferences (programme, modes, destinations, importance, trips per week, fine times). Starts as the default profile and is edited in the profile panel. Lives only in the browser (URL and `localStorage`), never stored on the server. |
+| **default profile** | The profile the app opens with before the user changes anything; without a programme it uses the default campus mix (`docs/product.md`). |
+| **profile panel** | The panel next to the map (bottom sheet on mobile) where the student edits the profile; replaces the onboarding questionnaire of product v1.0. |
+| **persona** | A predefined student profile for demos and tests, offered as "example profiles" in the profile panel (`config/personas.yaml`). |
+| **place** | A point the user checks (address or pin, *Check*); answered with the values of its cell. |
 | **area** | Readable unit for ranking and reasons: an official district of the core town or a Teilort (OSM admin levels 11 and 9). The map colours the cells inside it. |
-| **U1 / U2 / U3** | Use cases: explore the city, check a place, compare places (`docs/product.md`). |
+| **Find** | Mode: the map of cell fits and the best areas with reasons for the student profile (was U1). |
+| **Check** | Mode: fit, trips and rank of one place, or up to three places side by side (was U2 + U3). |
+| **listing rent** | Rent the student types in for a place in *Check*; kept in the browser, shown and compared, never part of the fit. |
+| **U1 / U2 / U3** | Use cases of product v1.0, replaced by *Find* (U1) and *Check* (U2 + U3) in v1.1. Still used in older docs. |
 | **reason** | One of the 2–4 plain-language facts that drive a result, e.g. "Morgenstelle 12 min by bus at 8:00". |
 
 ## Model
@@ -48,7 +53,7 @@ is not here is either plain English or needs an entry first.
 | **routing area** | City boundary plus the routing buffer; the OSM extract, destinations and stops are clipped to it. |
 | **routing buffer** | Distance around the city boundary (4 km) so trips can leave the city. |
 | **district** | Reporting unit from OSM `boundary=administrative` at levels 9 (Teilorte) and 11 (core-town districts); the **area** of the app. |
-| **address** | OSM feature with `addr:street` and `addr:housenumber` from the clipped extract; searched in PostGIS for U2 (no geocoding service). |
+| **address** | OSM feature with `addr:street` and `addr:housenumber` from the clipped extract; searched in PostGIS for *Check* (no geocoding service). |
 | **run / `run_id`** | One complete pipeline execution on one data snapshot (`YYYYMMDDTHHMMSSZ`); published as DB schema `run_<id>`. |
 | **stage** | One pipeline step (acquire, validate, tiles, travel times, validate results, publish, cleanup). |
 | **manifest** | File written by each stage: inputs with checksums, outputs with row counts, runtime, peak memory, status. |

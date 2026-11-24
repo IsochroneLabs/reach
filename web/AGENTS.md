@@ -4,7 +4,7 @@ Folder rules for the student web app. The root `AGENTS.md` applies; this file ad
 specific to `web/`.
 
 **Status (S0.5):** placeholder page (name, build SHA, API health) with Playwright smoke tests,
-deployed to Cloudflare by the workflows. The app itself (onboarding, map, place check, comparison;
+deployed to Cloudflare by the workflows. The app itself (map with profile panel, modes Find and Check;
 MapLibre GL JS) starts in Phase 2 with its own step plans.
 
 ## Layout

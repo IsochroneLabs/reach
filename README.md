@@ -22,15 +22,15 @@ its framing.
 
 ## What it does
 
-A student answers a few questions (programme, hobbies, how they get around, what matters how
-much, optional budget) and gets:
+The app opens on a map of Tübingen with a default student profile. The student adjusts it in a
+panel next to the map (programme, how they get around, destinations such as Mensa, climbing gym or
+nightlife, what matters how much), and the map updates at once. One profile, two modes:
 
-- **Explore (U1):** a map of Tübingen with the areas that fit them best, each with reasons such
-  as "Morgenstelle 12 min by bus at 8:00, climbing gym 8 min by bike, last bus home after
-  midnight".
-- **Check a place (U2):** an address or a pin (e.g. a WG listing) → their trips from there on
-  foot, by bike and by bus, with times, and how well the place fits their profile.
-- **Compare (U3):** two or three places side by side.
+- **Find:** the areas that fit them best, each with reasons such as "Morgenstelle 12 min by bus
+  at 8:00, climbing gym 8 min by bike, last bus home after midnight", so they know where to look
+  for a room.
+- **Check:** an address or a pin (e.g. a WG listing) → a fit score, their trips from there on
+  foot, by bike and by bus, and up to three places side by side, including the rents they type in.
 
 Times depend on when a trip happens (first lecture, evening, night home, weekend to the
 station). The answers stay in the browser; nothing personal is stored on a server. Details:
@@ -123,6 +123,6 @@ No public data APIs are called at runtime. Data is never committed to the reposi
 |---|---|---|
 | 30 Nov 2026 | Plan, foundation, walking skeleton deployed through the release chain | v0.1.0 |
 | 14 Dec 2026 | Backend: destinations, trip windows, transit, fit API in production | v0.2.0 |
-| 9 Jan 2027 | Student web app (U1–U3), user tests | v0.3.0 |
+| 9 Jan 2027 | Student web app (Find and Check), user tests | v0.3.0 |
 | 16 Jan 2027 | Hardening: scheduled refresh, backups, validation report | v0.4.0 |
 | 22 Jan 2027 | Submission | v1.0.0 |
