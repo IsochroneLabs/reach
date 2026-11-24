@@ -1,9 +1,9 @@
 # Deployment — reach
 
-> **Status:** v1.0 draft (21 Nov 2026). How code reaches users: environments, workflows, secrets,
+> **Status:** v1.1 draft (23 Nov 2026). How code reaches users: environments, workflows, secrets,
 > required checks and the server runbook. Architecture: [`architecture.md`](architecture.md) §11.
-> Cloudflare product checked in S0.5 (Workers static assets); parts that depend on D1–D4 (S1.2)
-> are marked.
+> Cloudflare product checked in S0.5 (Workers static assets); server and access settled on
+> 23 Nov 2026 (architecture O18–O21): team home server, Cloudflare Tunnel, own domain.
 
 ## Principles
 
@@ -21,8 +21,8 @@
 |---|---|---|---|
 | Local | `cd web && npm run dev` (proxies `/api` to the local API) | `make up` | test clip or Tübingen |
 | CI | build + Playwright with API fixtures | disposable PostGIS for contract tests; Docker builds without push | fixtures in the repo |
-| Preview | Cloudflare Workers Preview `pr-<number>` per same-repository PR, `dev` for the dev branch, `deploy-test` for a dispatch test | none or production API read-only (D4) | fixtures or production (D4) |
-| Production | Cloudflare Worker `reach` (static assets) | server (D1) via tunnel or Caddy (D2) | weekly refresh on the server |
+| Preview | Cloudflare Workers Preview `pr-<number>` per same-repository PR, `dev` for the dev branch, `deploy-test` for a dispatch test | production API, read-only (O21) | production |
+| Production | Cloudflare Worker `reach` (static assets) at `<domain>` (fallback `reach.<subdomain>.workers.dev`) | team home server (O18) at `api.<domain>` through the Cloudflare Tunnel (O19) | weekly refresh on the server |
 
 ## Cloudflare product and billing (checked 22 Nov 2026)
 
@@ -40,7 +40,7 @@ pricing if request-time Worker logic or another paid Cloudflare product is added
 Previews: `wrangler preview --name <name>` creates or
 updates a Preview of the same Worker at `<name>-reach.<subdomain>.workers.dev` with its own
 settings; Preview URLs are public ([Previews](https://developers.cloudflare.com/workers/previews/)).
-Production URL: `reach.<subdomain>.workers.dev` until D3. Deploys use the official
+Production URL: `https://<domain>` (Workers custom domain, O20); `reach.<subdomain>.workers.dev` stays reachable as fallback. Deploys use the official
 [`cloudflare/wrangler-action`](https://github.com/cloudflare/wrangler-action) pinned to a commit
 SHA, with Wrangler pinned in the workflows (`WRANGLER_VERSION`). The API and pipelines remain on
 the project server; Cloudflare hosts the frontend assets only.
@@ -100,11 +100,22 @@ repository or in logs.
 2. API token: My Profile or Manage Account → **Account API Tokens** → Create Token → template
    **Edit Cloudflare Workers** (as recommended in Cloudflare's
    [GitHub Actions guide](https://developers.cloudflare.com/workers/ci-cd/external-cicd/github-actions/))
-   → Account Resources: only the team account; Zone Resources: none needed while we use
-   `workers.dev` (if the form insists, a single zone) → TTL until 28 Feb 2027 → Create → copy once
+   → Account Resources: only the team account; Zone Resources: only the reach domain (needed for
+   the Workers custom domain, O20; exact permission **[VERIFY]** when the domain exists) → TTL until 28 Feb 2027 → Create → copy once
    into the GitHub secrets below. The same token may serve both environments; two tokens can be
    revoked separately.
 3. Account ID: Workers & Pages overview, right column.
+4. Domain (O20): buy it with Cloudflare Registrar (or move its nameservers to Cloudflare); then
+   Workers & Pages → `reach` → Settings → Domains & Routes → add `<domain>` as custom domain.
+5. Tunnel (O19): Zero Trust → Networks → Tunnels → Create a tunnel (cloudflared) → name `reach` →
+   copy the **tunnel token** into the server's `.env` (`CLOUDFLARE_TUNNEL_TOKEN`), never into GitHub.
+   Public hostnames: `api.<domain>` → `http://api:8000`; `ssh.<domain>` → `ssh://host.docker.internal:22`
+   (`cloudflared` runs in Docker; `compose.prod.yaml` maps `host.docker.internal` with
+   `extra_hosts: host-gateway`, S1.5).
+6. Access for SSH: Zero Trust → Access → Applications → Self-hosted → `ssh.<domain>`; policy 1:
+   the team's e-mails (browser login for people); policy 2: *Service Auth* with a new **service
+   token** `github-deploy` (Access → Service credentials) → its Client ID and Secret go into the
+   GitHub environment `production` below. TTL until 28 Feb 2027.
 
 ### GitHub (Settings → Environments)
 
@@ -116,8 +127,12 @@ repository or in logs.
 | `CLOUDFLARE_ACCOUNT_ID` | variable | target account for Wrangler | S0.6 |
 | `TEAM_WEBHOOK_URL` | secret | failure message of deploy and rollback (incoming webhook, posting only); optional, a warning if missing | S0.6 |
 | `WEB_URL` | variable | production URL, fallback if Wrangler prints none (`https://reach.<subdomain>.workers.dev`) | S0.6 |
-| `API_BASE` | variable | public API URL for the web build; leave unset until the backend runs | S1.5 |
-| backend access (`DEPLOY_HOST`, `DEPLOY_USER`, `DEPLOY_SSH_KEY`, `DEPLOY_KNOWN_HOSTS` for SSH, or tunnel credentials) | secrets | backend job reaches the server; exact list after D2 | S1.5 |
+| `API_BASE` | variable | public API URL for the web build: `https://api.<domain>`; leave unset until the backend runs | S1.5 |
+| `DEPLOY_HOST` | variable | SSH hostname behind Access: `ssh.<domain>` | S1.5 |
+| `DEPLOY_USER` | variable | deploy user on the server (`reach-deploy`) | S1.5 |
+| `DEPLOY_SSH_KEY` | secret | private key of the deploy user (ed25519, used only by `deploy.yml`) | S1.5 |
+| `DEPLOY_KNOWN_HOSTS` | secret | host key line of the server (`ssh-keyscan` through the tunnel, checked once by hand) | S1.5 |
+| `CF_ACCESS_CLIENT_ID`, `CF_ACCESS_CLIENT_SECRET` | secrets | Access service token `github-deploy`; `cloudflared access ssh` uses it as ProxyCommand (flag names **[VERIFY]** with `cloudflared access ssh --help`) | S1.5 |
 
 **`preview`** — Deployment branches: *No restriction* (PR branches and `dev` deploy previews).
 
@@ -125,7 +140,7 @@ repository or in logs.
 |---|---|---|---|
 | `CLOUDFLARE_API_TOKEN` | secret | `wrangler preview` in `ci.yml` and preview dispatches | S0.5 |
 | `CLOUDFLARE_ACCOUNT_ID` | variable | target account | S0.5 |
-| `PREVIEW_API_BASE` | variable | API URL for previews; unset = previews show "API not deployed yet" (D4) | optional |
+| `PREVIEW_API_BASE` | variable | API URL for previews: `https://api.<domain>` (O21); unset = previews show "API not deployed yet" | from S1.5 |
 | `TEAM_WEBHOOK_URL` | secret | failure message of preview dispatches | optional |
 
 Risk: a secret in `preview` is usable by workflows on any branch of this repository, and the
@@ -146,7 +161,7 @@ packages, and package visibility decides whether the server needs `GHCR_READ_TOK
 | `APP_READ_PASSWORD`, `PIPELINE_WRITE_PASSWORD`, `SUPERVISOR_READ_PASSWORD` | DB roles (`supervisor_read` [VERIFY], A5) |
 | `FAILURE_WEBHOOK_URL` | Failure message of the scheduled refresh |
 | `GHCR_READ_TOKEN` | Only if the images are private: pull from GHCR (classic token, `read:packages`) |
-| tunnel token | Only if D2 = tunnel |
+| `CLOUDFLARE_TUNNEL_TOKEN` | Token of the tunnel `reach` for the `cloudflared` service (O19) |
 
 All variables with comments: [`.env.example`](../.env.example).
 
@@ -164,14 +179,33 @@ Set after the S0.5 PR has run once (Settings → Branches → `dev` → Require 
 3. `deploy.yml` deploys; the run summary is linked in the release notes. Tags and GitHub Releases
    only on explicit instruction.
 
-## Server runbook (*outline; full version after D1–D2, S1.2/S1.5*)
+## Server runbook (team home server, O18–O21)
 
-1. Book the server (D1) — Rico, never an agent.
-2. Base setup: updates, non-root admin user, SSH keys of the team, no password login, firewall
-   (D2: tunnel = no inbound ports except SSH; Caddy = 22 and 443), swap.
-3. Docker Engine + Compose plugin; deploy user (if SSH deploy).
-4. Checkout of `compose.prod.yaml` and `config/`; `.env` from `.env.example` with real values.
-5. `make migrate`; first `make refresh`; check the validation report.
-6. Enable the scheduled refresh (S3.1) and backups (S3.2).
-7. Add the backend secrets to GitHub; run `deploy.yml` via `workflow_dispatch` on `dev` against
-   the server; then the rollback test with a deliberately broken SHA.
+Done by **Socke** (the server's owner), never by an agent; target: reachable before 7 Dec 2026
+(S1.5). Commands in angle brackets are placeholders.
+
+1. **Base system** (x86_64 Linux, Ubuntu/Debian): updates on; a non-root admin user; SSH keys only
+   (`PasswordAuthentication no`, `PermitRootLogin no`); swap ≥ 4 GB; automatic security updates
+   (`unattended-upgrades`). **No port forwarding on the home router** — everything public goes
+   through the tunnel.
+2. **Docker Engine + Compose plugin** from Docker's own repository; enable on boot.
+3. **Deploy user** `reach-deploy`: member of the `docker` group, its own `authorized_keys` with
+   only the public key of `DEPLOY_SSH_KEY`; home `/opt/reach` owned by it.
+4. **Cloudflare** (Cloudflare steps 4–6 above): domain, tunnel `reach` with `api.<domain>` and
+   `ssh.<domain>`, Access application + service token. Check from a laptop:
+   `ssh -o ProxyCommand="cloudflared access ssh --hostname %h" <admin>@ssh.<domain>`.
+5. **Files in `/opt/reach`**: `compose.prod.yaml`, `config/`, `Makefile` (from the release
+   commit; S1.5 adds the copy step to `deploy.yml`), and `.env` from `.env.example` with real
+   values (passwords, `CLOUDFLARE_TUNNEL_TOKEN`, `FAILURE_WEBHOOK_URL`); `chmod 600 .env`.
+6. **First start** (after S1.5 is merged): `docker compose -f compose.prod.yaml up -d`;
+   `make migrate`; first `make refresh` (S1.11); check the validation report and
+   `https://api.<domain>/api/health`.
+7. **GitHub**: add the `production` secrets and variables above; run `deploy.yml` via
+   `workflow_dispatch` on `dev` against the server; then the rollback test with a deliberately
+   broken SHA (S1.5 check).
+8. **Later** (S3.1, S3.2): scheduled refresh with `flock`, nightly `pg_dump`, restore test,
+   reboot test (all services `restart: unless-stopped`).
+
+Home-server specifics: a power or internet outage takes reach offline (the frontend stays up and
+shows "API not reachable"); the team webhook reports failed deploys and refreshes; the owner keeps
+the machine on until grading is done.

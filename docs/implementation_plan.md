@@ -17,8 +17,9 @@ explaining the differences in plain language.
 | **Next** | merge #80, then #81 (a human, after review) → set required checks on `dev` → preview URL from a `dev` push + `workflow_dispatch` of `deploy.yml` with target preview → S0.6 release PR v0.1.0 on instruction |
 | **Blocked** | S0.5 preview check and S0.6: Cloudflare account, API token and the GitHub environments `preview`/`production` (a human sets them up, `docs/deployment.md`) |
 | **Ready for the team** | S1.0 reference-trip sheet: 30 pairs, collection 1–12 Dec for Tue 15 / Sat 19 Dec (`docs/reference_trips.md`) |
-| **Decided** | T1 → O17 OpenTripPlanner for transit and bike + transit; M5, M6 (23 Nov 2026, `docs/juju-t1-decision`) |
-| **Open decisions** | D1 server · D2 backend access · D3 domain · D4 frontend–API wiring · D5 basemap · fit formula |
+| **Decided** | T1 → O17 OpenTripPlanner for transit and bike + transit; M5, M6 · D1–D4 → O18–O21: Konstantin's 16 GB home server, Cloudflare Tunnel, own domain, previews on the production API (23 Nov 2026) |
+| **Human to do for S1.5** | Socke: server setup from the runbook in `docs/deployment.md` before 7 Dec; a team member buys the domain and creates tunnel, Access service token and the `production` secrets |
+| **Open decisions** | D5 basemap · fit formula (proposal #85) · data contract for results (proposal #86) |
 | **PRs** | [#78](https://github.com/IsochroneLabs/reach/pull/78) sources of truth (merged) · [#79](https://github.com/IsochroneLabs/reach/pull/79) T1 spike report (review only, not merged) · [#80](https://github.com/IsochroneLabs/reach/pull/80) port the foundation (S0.4) · [#81](https://github.com/IsochroneLabs/reach/pull/81) walking skeleton (S0.5, contains #80) |
 | **Deviations** | S0.4 and S0.5 were built on `feature/juju-phase0` and `feature/juju-delivery-skeleton` instead of the `rico-…` branches named below (at Juju's request; Rico to confirm) |
 | **Risks now** | naldo GTFS feed ends 12 Dec 2026 (notes N14): v0.2.0 on 14 Dec needs a newer feed |
@@ -215,7 +216,7 @@ Code steps start after T1 and the fit formula are confirmed. Step plan first, wa
 - **Done when:** recommendation presented, your human said yes, recorded as an O-decision in
   `architecture.md` (version + change log), AGENTS.md rule updated.
 
-### S1.2 D1–D4 deployment decisions — target 3 Dec
+### S1.2 D1–D4 deployment decisions — target 3 Dec · decided 23 Nov 2026 (O18–O21: team home server, Tunnel, own domain)
 
 - **Branch:** `docs/rico-deploy-decisions`.
 - **Work:** D1 bwCloud vs. Hetzner (RAM, cost within 20 €, public IP/ports, how Actions reach

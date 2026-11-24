@@ -100,7 +100,7 @@ No public data APIs are called at runtime. Data is never committed to the reposi
 | Document | Content |
 |---|---|
 | [`docs/product.md`](docs/product.md) | User, questions, use cases, non-goals |
-| [`docs/architecture.md`](docs/architecture.md) | System, decisions (O-numbers, D1–D5) |
+| [`docs/architecture.md`](docs/architecture.md) | System, decisions (O-numbers, D5) |
 | [`docs/methodology.md`](docs/methodology.md) | Travel times, fit, validation (V-numbers) |
 | [`docs/data_contract.md`](docs/data_contract.md) | Tables, files, API responses |
 | [`docs/deployment.md`](docs/deployment.md) | Environments, workflows, secrets, runbook |
