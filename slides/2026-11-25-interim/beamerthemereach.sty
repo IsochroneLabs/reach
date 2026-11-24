@@ -1,0 +1,168 @@
+% Beamer theme for all reach decks. Rules behind the design: docs/presentations.md
+% (Papies, "Presentation Skills" workshop, 4 Nov 2026): high contrast, one accent colour,
+% a tracer in the header, numbered slides, a source line on every slide that shows a number.
+\NeedsTeXFormat{LaTeX2e}
+\ProvidesPackage{beamerthemereach}[2026/11/10 reach slide theme]
+
+% Fira Sans is the deck font; without it the deck still builds in Latin Modern Sans.
+\IfFileExists{FiraSans.sty}
+  {\RequirePackage[sfdefault,lining]{FiraSans}}
+  {\PackageWarningNoLine{beamerthemereach}{Fira Sans (FiraSans.sty) not found, using Latin
+     Modern Sans instead.\MessageBreak Install it with `sudo tlmgr install fira'}
+   \RequirePackage{lmodern}}
+
+% Reproducible PDF: date and /ID come from the deck name (YYYY-MM-DD-<topic>), not from the
+% clock or the build path, so a build from an editor and `make slides` give the same bytes.
+\ExplSyntaxOn
+\seq_new:N \l__reach_date_seq
+\cs_generate_variant:Nn \regex_extract_once:nnNT { nV }
+\sys_if_engine_pdftex:T
+  {
+    \regex_extract_once:nVNT { \A(\d{4})-(\d{2})-(\d{2})- } \c_sys_jobname_str
+      \l__reach_date_seq
+      {
+        \tl_set:Nx \l_tmpa_tl
+          {
+            D: \seq_item:Nn \l__reach_date_seq { 2 } \seq_item:Nn \l__reach_date_seq { 3 }
+            \seq_item:Nn \l__reach_date_seq { 4 } 000000Z
+          }
+        \pdfinfo { /CreationDate~(\l_tmpa_tl)~/ModDate~(\l_tmpa_tl) }
+        \pdftrailerid { reach~\c_sys_jobname_str }
+      }
+  }
+\ExplSyntaxOff
+\RequirePackage[T1]{fontenc}
+\RequirePackage{booktabs}
+\RequirePackage{appendixnumberbeamer}  % backup slides do not count in the total
+\RequirePackage{etoolbox}
+\RequirePackage{pgfplotstable}
+\RequirePackage{tikz}
+\RequirePackage{pgfplots}
+\pgfplotsset{compat=1.18}
+\usetikzlibrary{arrows.meta,calc,positioning,shapes.geometric}
+
+% Chart styles shared by all decks: ranking charts as horizontal bars, categories top to bottom,
+% no frame, small labels, legend on top (workshop part 3, docs/presentations.md).
+\pgfplotsset{
+  reach ranking/.style={
+    width=128mm, height=54mm, y dir=reverse, ytick=data, enlarge y limits=0.1,
+    axis x line*=bottom, axis y line*=left,
+    y axis line style={draw=none}, ytick style={draw=none},
+    xlabel style={font=\scriptsize}, ticklabel style={font=\scriptsize}},
+  reach legend/.style={
+    legend style={at={(0.5,1.02)},anchor=south,legend columns=-1,draw=none,
+      font=\scriptsize,/tikz/every even column/.append style={column sep=4mm}}},
+  reach box legend/.style={reach legend,
+    legend image code/.code={\fill[#1] (0,-0.8mm) rectangle (3mm,0.8mm);}},
+}
+
+% ---- colours -------------------------------------------------------------------------------
+% Class colours are the same as in the web app (web/src/palette.ts), so slides and map match.
+\definecolor{ink}{HTML}{1A1A1A}
+\definecolor{muted}{HTML}{6B6B6B}
+\definecolor{rule}{HTML}{D0D0D0}
+\definecolor{lack}{HTML}{6B0F3A}
+\definecolor{insufficient}{HTML}{C8552F}
+\definecolor{sufficient}{HTML}{8FD1C0}
+\definecolor{accent}{HTML}{6B0F3A}      % emphasis = "lack" colour, used sparingly
+\definecolor{iso}{HTML}{2E8B7A}         % isochrone outlines
+\definecolor{river}{HTML}{A9CFE0}
+\definecolor{street}{HTML}{BDBDBD}
+
+\setbeamercolor{normal text}{fg=ink,bg=white}
+\setbeamercolor{structure}{fg=ink}
+\setbeamercolor{alerted text}{fg=accent}
+\setbeamercolor{frametitle}{fg=ink}
+\setbeamercolor{title}{fg=ink}
+\setbeamercolor{subtitle}{fg=muted}
+\setbeamercolor{section in head/foot}{fg=ink}
+\setbeamercolor{footline}{fg=muted}
+\setbeamercolor{block title}{fg=white,bg=ink}
+\setbeamercolor{block body}{fg=ink,bg=black!5}
+\setbeamercolor{item}{fg=accent}
+
+% ---- fonts ---------------------------------------------------------------------------------
+\setbeamerfont{frametitle}{size=\large,series=\bfseries}
+\setbeamerfont{title}{size=\LARGE,series=\bfseries}
+\setbeamerfont{subtitle}{size=\large}
+\setbeamerfont{section in head/foot}{size=\scriptsize}
+\setbeamerfont{footline}{size=\scriptsize}
+\setbeamerfont{block title}{series=\bfseries}
+
+% ---- layout --------------------------------------------------------------------------------
+\setbeamertemplate{navigation symbols}{}
+\setbeamertemplate{itemize items}{\small\raise0.15ex\hbox{\textbullet}}
+\setbeamertemplate{itemize subitem}{\small\raise0.15ex\hbox{--}}
+\setbeamertemplate{enumerate items}[default]
+\setbeamertemplate{blocks}[default]
+\setbeamersize{text margin left=8mm,text margin right=8mm}
+
+% Tracer: all sections in the header, the current one in ink, the others shaded.
+\setbeamertemplate{section in head/foot shaded}[default][35]
+\setbeamertemplate{headline}{%
+  \vskip3mm%
+  \hbox to\paperwidth{\hskip8mm%
+    \usebeamerfont{section in head/foot}%
+    \insertsectionnavigationhorizontal{\dimexpr\paperwidth-16mm\relax}{}{\hfill}%
+    \hskip8mm}%
+  \vskip1mm{\color{rule}\hskip8mm\rule{\dimexpr\paperwidth-16mm\relax}{0.4pt}}%
+}
+
+% Action title: a full sentence (the slide's key message), up to two lines.
+\setbeamertemplate{frametitle}{%
+  \vskip1mm\usebeamerfont{frametitle}\usebeamercolor[fg]{frametitle}%
+  \parbox[t]{\linewidth}{\raggedright\insertframetitle}\par\vskip1mm}
+
+\setbeamertemplate{footline}{%
+  \usebeamerfont{footline}\usebeamercolor[fg]{footline}%
+  \hbox to\paperwidth{\hskip8mm\insertshorttitle\ $\cdot$ \insertshortdate\hfill
+    \insertframenumber\,/\,\inserttotalframenumber\hskip8mm}\vskip3mm}
+
+\setbeamertemplate{title page}{%
+  \vfill
+  {\usebeamerfont{title}\usebeamercolor[fg]{title}\inserttitle\par}
+  \vskip3mm
+  {\usebeamerfont{subtitle}\usebeamercolor[fg]{subtitle}\insertsubtitle\par}
+  \vskip8mm
+  {\color{accent}\rule{25mm}{2pt}}\par
+  \vskip5mm
+  {\normalsize\insertauthor\par}
+  \vskip1mm
+  {\small\color{muted}\insertinstitute\par\insertdate\par}
+  \vfill}
+
+% Section dividers are not used: the header tracer shows where we are.
+
+% \backupslides: starts the appendix; backup slides are numbered B1, B2, ... and do not count
+% in the total of the main slides.
+\newcommand{\backupslides}{%
+  \appendix
+  \setbeamertemplate{footline}{%
+    \usebeamerfont{footline}\usebeamercolor[fg]{footline}%
+    \hbox to\paperwidth{\hskip8mm\insertshorttitle\ $\cdot$ Backup\hfill
+      B\insertframenumber\hskip8mm}\vskip3mm}}
+
+% ---- helpers -------------------------------------------------------------------------------
+% \source{...}: source / run line at the bottom left of a frame. Mandatory on every frame that
+% shows a number.
+\newcommand{\source}[1]{%
+  \begin{tikzpicture}[remember picture,overlay]
+    \node[anchor=south west,inner sep=0pt,text width=\paperwidth-16mm,font=\tiny,
+          text=muted,align=left]
+      at ($(current page.south west)+(8mm,8.5mm)$) {Source: #1};
+  \end{tikzpicture}}
+
+% \keyfigure{number}{label}: one large number with a short label (used in rows of 2-4).
+\newcommand{\keyfigure}[2]{%
+  \begin{minipage}[t]{\linewidth}\centering
+    {\fontsize{20}{22}\selectfont\bfseries\color{accent}#1\par}\vskip1mm
+    {\footnotesize\color{ink}#2\par}
+  \end{minipage}}
+
+% \classchip[text colour]{fill colour}{label}: coloured box with a class name, as in the app
+% legend; use [ink] on the light "sufficient" colour.
+\newcommand{\classchip}[3][white]{%
+  \tikz[baseline=-0.6ex]\node[fill=#2,text=#1,font=\footnotesize\bfseries,
+    inner xsep=2mm,inner ysep=1mm,minimum width=24mm]{#3};}
+
+\endinput

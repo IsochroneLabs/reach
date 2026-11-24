@@ -1,0 +1,28 @@
+% !TEX root = 2026-11-25-interim.tex
+% Every number shown in the interim deck (25 Nov 2026) comes from here, with the document it was
+% taken from. There is no result run of the rebuild yet; the deck shows the plan and first steps.
+
+% ---- study area (archive run 20261110T223016Z, report_results.md; Zensus 2022 100 m grid) ---
+\newcommand{\factCells}{1,699}           % populated 100 m cells inside the city boundary
+\newcommand{\factResidents}{90,355}      % residents in these cells
+
+% ---- product and config (dev @ 23ceedb) ----------------------------------------------------
+\newcommand{\factDestTypes}{17}          % config/config.yaml destination_types
+\newcommand{\factTripWindows}{5}         % config/config.yaml trip_windows
+\newcommand{\factCampusSites}{4}         % config/campus.yaml sites
+\newcommand{\factProgrammes}{14}         % config/campus.yaml programmes (draft, [VERIFY])
+\newcommand{\factMaxPlaces}{3}           % docs/product.md v1.1: places compared in Check
+
+% ---- validation (docs/reference_trips.md, pipeline/tests/fixtures/reference_trips.csv on
+%      branch docs/juju-fit-formula; archive docs/validation_report.md V10) --------------------
+\newcommand{\factRefPairs}{30}           % reference cell x destination pairs (to be filled)
+\newcommand{\factVTenMedian}{0.5\,s}     % archive V10: median |delta| matrix vs. single route
+
+% ---- fit proposal (methodology §6 on branch docs/juju-fit-formula, S1.3, not confirmed) ----
+\newcommand{\factScoreAtFine}{0.9}       % s(t_d)
+\newcommand{\factScoreAtDouble}{0.1}     % s(2 t_d)
+
+% ---- schedule (docs/implementation_plan.md; course PDF) ------------------------------------
+\newcommand{\factSubmission}{22 Jan 2027}
+\newcommand{\factFinal}{29 Jan 2027}
+\newcommand{\factFeedEnd}{12 Dec 2026}   % notes N14: naldo GTFS feed_end_date

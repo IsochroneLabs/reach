@@ -1,0 +1,107 @@
+% !TEX root = ../2026-11-25-interim.tex
+% Product figures (docs/product.md v1.1):
+%   \productlinefigure  one profile, two modes, transitions
+%   \findmockup         wireframe of Find (desktop): header, profile panel, map, top areas
+%   \checkmockup        wireframe of Check with three places side by side
+% Wireframes are schematic; areas, times and fits are illustrative, not results.
+
+\tikzset{
+  wire/.style={draw=ink,line width=0.5pt,fill=white},
+  wirefill/.style={draw=rule,line width=0.4pt,fill=black!4},
+  wlabel/.style={font=\tiny,text=ink,align=left,anchor=north west,inner sep=1.2pt},
+  wmuted/.style={font=\tiny,text=muted,align=left,anchor=north west,inner sep=1.2pt},
+  modebox/.style={draw=ink,line width=0.7pt,fill=white,rounded corners=2pt,text width=46mm,
+    align=left,inner sep=2.5mm,font=\footnotesize},
+}
+
+\newcommand{\productlinefigure}{%
+  \begin{tikzpicture}
+    \node[fill=ink,text=white,rounded corners=2pt,text width=62mm,align=center,
+      inner sep=2.5mm,font=\footnotesize] (prof) at (0,0)
+      {\textbf{One student profile}\\[0.5mm]
+       starts with defaults $\cdot$ edited next to the map\\
+       programme $\cdot$ modes $\cdot$ destinations $\cdot$ importance};
+    \node[modebox,anchor=north] (find) at (-32mm,-14mm)
+      {{\color{accent}\bfseries Find}\hfill{\color{muted}\tiny was U1}\\[1mm]
+       \emph{``Where should I look for a room?''}\\[1mm]
+       Map of 100\,m cells coloured by fit; the three best areas, each with 2--4 reasons};
+    \node[modebox,anchor=north] (check) at (32mm,-14mm)
+      {{\color{accent}\bfseries Check}\hfill{\color{muted}\tiny was U2 + U3}\\[1mm]
+       \emph{``How good is this flat's location?''}\\[1mm]
+       Fit, rank in the city and trips for a listing; up to \factMaxPlaces{} places side by side,
+       with the rent the student types in};
+    \draw[flow] (prof.south) -- ++(0,-3mm) -| (find.north);
+    \draw[flow] (prof.south) -- ++(0,-3mm) -| (check.north);
+    \draw[flow] ([yshift=3mm]find.east) -- node[above,font=\tiny,text=muted]{click an area}
+      ([yshift=3mm]check.west);
+    \draw[flow] ([yshift=-3mm]check.west) -- node[below,font=\tiny,text=muted,align=center]
+      {better places\\nearby} ([yshift=-3mm]find.east);
+  \end{tikzpicture}}
+
+% Find: header, panel left, map with a cell heatmap, top-3 cards
+\newcommand{\findmockup}{%
+  \begin{tikzpicture}[x=1mm,y=1mm]
+    \draw[wire] (0,0) rectangle (100,58);
+    % header
+    \draw[wirefill] (0,52) rectangle (100,58);
+    \node[wlabel,font=\tiny\bfseries] at (1.5,57.5) {reach};
+    \draw[wire] (28,53) rectangle (48,57); \node[wlabel] at (29,56.8) {\textbf{Find} | Check};
+    \draw[wire] (62,53) rectangle (98,57); \node[wmuted] at (63,56.8) {Search an address \ldots};
+    % panel
+    \draw[wirefill] (0,0) rectangle (30,52);
+    \node[wlabel,font=\tiny\bfseries] at (1.5,51) {YOUR PROFILE};
+    \draw[draw=accent,line width=0.7pt,fill=white] (1.5,42) rectangle (28.5,47.5);
+    \node[wlabel,text=accent] at (2,47.3) {Programme: select\\for a better result};
+    \node[wlabel] at (1.5,40.5) {Getting around\\walk $\cdot$ bike $\cdot$ bus};
+    \node[wlabel] at (1.5,33) {Destinations};
+    \foreach \y/\t/\k in {29/Campus/3,25.5/Mensa/2,22/Grocery/2,18.5/Climbing/1,15/Station/1}{
+      \node[wlabel] at (1.5,\y) {\t};
+      \foreach \i in {1,2,3}{\pgfmathsetmacro\c{\i<=\k ? 1 : 0}
+        \ifdim\c pt>0pt \fill[ink] (19+\i*2.6,\y-1.3) circle (0.8);
+        \else \draw[muted,line width=0.3pt] (19+\i*2.6,\y-1.3) circle (0.8); \fi}}
+    \node[wmuted] at (1.5,9) {Example profiles:\\Lena $\cdot$ Arjun $\cdot$ Marie};
+    % map with heatmap cells
+    \begin{scope}
+      \clip (30,0) rectangle (100,52);
+      \foreach \x in {0,...,16}{\foreach \y in {0,...,12}{
+        \pgfmathsetmacro\v{max(0,min(100,100-1.3*((\x-6)^2+(\y-7)^2)-8*abs(sin(\x*40+\y*25))))}
+        \fill[accent!\v!white] (31+\x*4,1+\y*4) rectangle ++(3.8,3.8);}}
+      \draw[river,line width=1.6pt] (30,18) .. controls (55,24) and (70,12) .. (100,17);
+    \end{scope}
+    % top areas card
+    \draw[wire] (74,20) rectangle (98.5,50.5);
+    \node[wlabel,font=\tiny\bfseries] at (75,50) {Top areas for you};
+    \node[wlabel] at (75,46) {1 Area A \hfill fit 86};
+    \node[wmuted,text width=21mm] at (75,43) {campus 11 min by bus at 8:00;\\Mensa 6 min walk};
+    \node[wlabel] at (75,35.5) {2 Area B \hfill fit 81};
+    \node[wlabel] at (75,31) {3 Area C \hfill fit 77};
+    \fill[white] (31,0.8) rectangle (66,4.6);
+    \node[wmuted,anchor=west] at (31,2.7) {fit 0};
+    \shade[left color=white,right color=accent] (38,1.8) rectangle (58,3.6);
+    \node[wmuted,anchor=west] at (58.5,2.7) {100};
+  \end{tikzpicture}}
+
+% Check: three places side by side
+\newcommand{\checkmockup}{%
+  \begin{tikzpicture}[x=1mm,y=1mm]
+    \draw[wire] (0,0) rectangle (100,58);
+    \draw[wirefill] (0,52) rectangle (100,58);
+    \node[wlabel,font=\tiny\bfseries] at (1.5,57.5) {reach};
+    \draw[wire] (28,53) rectangle (48,57); \node[wlabel] at (29,56.8) {Find | \textbf{Check}};
+    \draw[wire] (62,53) rectangle (98,57); \node[wlabel] at (63,56.8) {Address of flat 3 \ldots};
+    \foreach \i/\n/\f/\r/\c/\b/\w in {0/Flat 1/84/better than 90\,\%/9/22/2 h 50,
+                                       1/Flat 2/71/better than 64\,\%/24/9/4 h 40,
+                                       2/Flat 3/58/better than 38\,\%/31/14/5 h 30}{
+      \begin{scope}[xshift=\i*33mm]
+        \draw[wire] (1.5,2) rectangle (32,50.5);
+        \node[wlabel,font=\tiny\bfseries] at (2.5,50) {\n};
+        \node[wlabel,font=\fontsize{11}{12}\selectfont\bfseries,text=accent] at (2.5,46.5) {\f};
+        \node[wmuted] at (2.5,40) {\r\\of places for you};
+        \draw[rule] (2.5,33.5) -- (31,33.5);
+        \node[wlabel] at (2.5,32.5) {Campus \hfill \c\ min bus\\Climbing \hfill \b\ min bike\\
+          Night home \hfill last bus 0:47};
+        \draw[rule] (2.5,20) -- (31,20);
+        \node[wlabel] at (2.5,19) {Per week on the way: \w};
+        \draw[wire] (2.5,8) rectangle (31,13.5); \node[wmuted] at (3,13.3) {Rent per month: EUR \ldots};
+      \end{scope}}
+  \end{tikzpicture}}

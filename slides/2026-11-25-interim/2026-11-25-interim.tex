@@ -1,0 +1,381 @@
+% !TEX program = pdflatex
+% !TEX encoding = UTF-8 Unicode
+% Interim presentation, 25 Nov 2026 (DS500), about 15 minutes. Product v1.1 (docs/product.md):
+% one student profile, two modes Find and Check. Rules: docs/presentations.md in
+% archive/2026-11-21-planner. Every number comes from facts.tex next to this file.
+\documentclass[aspectratio=169,10pt]{beamer}
+\usetheme{reach}
+\usetikzlibrary{fit,backgrounds}
+\input{facts}
+\input{figures/system}
+\input{figures/product}
+
+\title[reach $\cdot$ Interim presentation]{reach: where to live in Tübingen as a new student}
+\subtitle{Interim presentation $\cdot$ DS500 Data Science Project, Topic 9 ``The 15-Minute City''}
+\author{Rico $\cdot$ Socke $\cdot$ Juju}
+\institute{University of Tübingen, winter term 2026/27}
+\date[25 Nov 2026]{25 November 2026}
+
+\begin{document}
+
+{\setbeamertemplate{headline}{}\setbeamertemplate{footline}{}
+\begin{frame}
+  \titlepage
+\end{frame}}
+
+% ============================================================================================
+% Executive summary: the key message first (pyramid). Speaker: TBD
+\begin{frame}{reach shows new students how long their own everyday trips take from every part of
+  Tübingen, so they know where to look for a room and which flat to take}
+  \centering
+  \begin{tikzpicture}[
+      box/.style={draw=ink,line width=0.6pt,text width=40mm,align=flush left,inner sep=2.5mm,
+        font=\footnotesize,minimum height=27mm,anchor=north}]
+    \node[fill=ink,text=white,text width=132mm,align=center,inner sep=2.5mm,font=\small\bfseries]
+      (key) at (0,0)
+      {Where you live decides how long you spend on the way, and new students cannot see it};
+    \node[box] (a) at (-46mm,-11mm) {{\usebeamercolor[fg]{alerted text}\bfseries Find}\\[1mm]
+      The areas that fit the student's own profile best: campus, hobbies, modes, times of day};
+    \node[box] (b) at (0,-11mm) {{\usebeamercolor[fg]{alerted text}\bfseries Check}\\[1mm]
+      A score for a listing's location, compared with up to \factMaxPlaces{} other flats,
+      including the rent};
+    \node[box] (c) at (46mm,-11mm) {{\usebeamercolor[fg]{alerted text}\bfseries Explained}\\[1mm]
+      Every score comes with real travel times on foot, by bike (with hills) and by bus};
+    \foreach \n in {a,b,c} \draw[ink,line width=0.6pt] (key.south) -- (\n.north);
+    \node[font=\footnotesize,text=muted,anchor=north] at (0,-41mm)
+      {Built automatically from open data for all \factCells{} populated 100\,m cells of
+      Tübingen};
+  \end{tikzpicture}
+  \source{docs/product.md v1.1; cells: Zensus 2022, archive run 20261110T223016Z.}
+\end{frame}
+
+% ============================================================================================
+\section{Problem}
+% Speaker: TBD
+
+\begin{frame}{New students pick a room from far away, without knowing the hills, the buses or
+  where their campus is}
+  \begin{columns}[T,onlytextwidth]
+    \column{0.48\textwidth}
+      \textbf{The situation}\par\smallskip
+      \begin{itemize}
+        \item First-semester, master's and exchange students look for a WG room, often before
+              they arrive
+        \item District names mean nothing to them; listings only show the address
+        \item Tübingen has \factCampusSites{} campus sites in the valley and on the hills, and
+              a steep, hilly street network
+      \end{itemize}
+    \column{0.48\textwidth}
+      \textbf{What they do today}\par\smallskip
+      \begin{itemize}
+        \item One route at a time in a map app, for one listing at a time
+        \item Ask in WG and semester chat groups
+        \item Nothing combines \emph{their} trips (campus, Mensa, sport, the night bus home)
+              into one comparable answer
+      \end{itemize}
+  \end{columns}
+  \source{docs/product.md (user); config/campus.yaml (sites).}
+\end{frame}
+
+\begin{frame}{Our user is one group with six concrete questions; every feature must answer one of
+  them}
+  \begin{columns}[T,onlytextwidth]
+    \column{0.55\textwidth}
+      \begin{enumerate}\small
+        \item How long to my campus for the first lecture, and is the bus reliable then?
+        \item Can I get home at night after going out?
+        \item Where are the places for my sport or hobby?
+        \item Are groceries, the Mensa, a doctor and the station easy to reach?
+        \item Bike or bus? Tübingen is hilly.
+        \item Is this flat worth its rent compared with the other one?
+      \end{enumerate}
+    \column{0.40\textwidth}
+      \begin{block}{Example: Arjun}
+        \footnotesize Exchange master's in computer science (Sand and Morgenstelle), walks,
+        cycles and takes the bus, gym three times a week, goes out on Fridays.
+      \end{block}
+      \smallskip
+      {\footnotesize\color{muted}Not our users: long-time residents, commuters, families, city
+      planners.}
+  \end{columns}
+  \source{docs/product.md v1.1; persona from config/personas.yaml (invented).}
+\end{frame}
+
+% ============================================================================================
+\section{Product}
+% Speaker: TBD
+
+\begin{frame}{One profile drives two modes: Find answers ``where should I look?'', Check answers
+  ``is this flat well located?''}
+  \vspace{3mm}
+  \centering\productlinefigure\par
+  \vspace{3mm}
+  {\footnotesize\color{muted}Profile, places and rents stay in the browser (URL and local
+  storage); nothing personal is stored on a server.}
+  \source{docs/product.md v1.1 (team decision 24 Nov 2026).}
+\end{frame}
+
+\begin{frame}{Find opens on a map with sensible defaults, and every change to the profile
+  recolours it at once}
+  \begin{columns}[T,onlytextwidth]
+    \column{0.62\textwidth}
+      \centering\resizebox{\linewidth}{!}{\findmockup}\par
+    \column{0.35\textwidth}
+      \begin{itemize}\footnotesize
+        \item \textbf{No questionnaire:} a first result on load, with a default profile
+        \item \textbf{Programme first:} highlighted until set, because the campus drives the
+              result most
+        \item \textbf{Personal:} \factDestTypes{} destination types, importance and a ``fine''
+              time per destination
+        \item \textbf{Readable:} cells on the map, ranking and 2--4 reasons per area
+      \end{itemize}
+  \end{columns}
+  \source{Wireframe, areas and numbers illustrative, not results. docs/product.md v1.1; config/config.yaml (destination types).}
+\end{frame}
+
+\begin{frame}{Check scores a listing's location and compares up to three flats, including the
+  rent the student types in}
+  \begin{columns}[T,onlytextwidth]
+    \column{0.62\textwidth}
+      \centering\resizebox{\linewidth}{!}{\checkmockup}\par
+    \column{0.35\textwidth}
+      \begin{itemize}\footnotesize
+        \item \textbf{Address or pin} from a listing; addresses are searched in our own
+              database
+        \item \textbf{Fit 0--100} plus its rank in the city for this profile
+        \item \textbf{Trips} per destination, mode and time of day, and time per week
+        \item \textbf{Rent} typed in by the student: compared, never part of the score; no
+              scraping
+      \end{itemize}
+  \end{columns}
+  \source{Wireframe, flats and numbers illustrative, not results. docs/product.md v1.1.}
+\end{frame}
+
+% ============================================================================================
+\section{Method}
+% Speaker: TBD
+
+\begin{frame}{We moved from a fixed 15-minute threshold to a personal accessibility measure, because
+  the user's question is personal}
+  \begin{columns}[T,onlytextwidth]
+    \column{0.47\textwidth}
+      \textbf{Until 21 November: planner view}\par\smallskip
+      \begin{itemize}\small
+        \item Cumulative opportunities within 15 minutes for every resident
+              (Moreno et al., 2021)
+        \item Same budget for everybody; 14 and 16 minutes are different worlds
+        \item Users: city planners
+      \end{itemize}
+    \column{0.47\textwidth}
+      \textbf{Now: person-based, time-decayed}\par\smallskip
+      \begin{itemize}\small
+        \item Accessibility to \emph{one person's} activities at \emph{their} times
+              (Kwan, 1998; Geurs \& van Wee, 2004)
+        \item A smooth decay replaces the threshold (Hansen, 1959)
+        \item Users: students choosing where to live
+      \end{itemize}
+  \end{columns}
+  \vspace{5mm}
+  {\footnotesize Kept from the first version: 100\,m cells, routing along the street network,
+  automated validated runs and their validation experience.}
+  \source{methodology.md §9; full references in the backup.}
+\end{frame}
+
+\begin{frame}{The fit turns stored travel times into one explainable number per place and
+  student}
+  \begin{columns}[T,onlytextwidth]
+    \column{0.50\textwidth}
+      \begin{enumerate}\footnotesize
+        \item \textbf{Time per destination type} $T_d(i)$: fastest allowed mode from cell $i$
+              in the type's time window (\factTripWindows{} windows, e.g.\ 8:10 lecture, 0:30
+              night home)
+        \item \textbf{Score} $s_d = 1/\bigl(1+(T_d/(a\,t_d))^p\bigr)$ with the student's fine
+              time $t_d$: \factScoreAtFine{} at $t_d$, \factScoreAtDouble{} at $2t_d$
+        \item \textbf{Fit} $=100\cdot\sum_d w_d\,s_d / \sum_d w_d$, weights $w_d$ = importance
+        \item \textbf{Time per week} $\sum_d f_d\cdot 2\,T_d$ as a second, intuitive number
+      \end{enumerate}
+    \column{0.46\textwidth}
+      \centering
+      \begin{tikzpicture}
+        \begin{axis}[width=62mm,height=42mm,xmin=0,xmax=40,ymin=0,ymax=1.05,
+            xlabel={travel time [min]},ylabel={score $s_d$},
+            tick label style={font=\tiny},label style={font=\tiny},
+            xtick={0,10,15,20,30,40},ytick={0,0.1,0.5,0.9,1},axis lines=left]
+          \addplot[accent,line width=1pt,domain=0:40,samples=120]
+            {1/(1+(x/(1.4142*15))^6.34)};
+          \addplot[muted,dashed,line width=0.5pt] coordinates {(15,0) (15,0.9) (0,0.9)};
+          \addplot[muted,dashed,line width=0.5pt] coordinates {(30,0) (30,0.1) (0,0.1)};
+          \node[font=\tiny,text=muted,anchor=west] at (axis cs:16,0.95) {fine time 15 min};
+        \end{axis}
+      \end{tikzpicture}\par
+      {\tiny\color{muted}No cut-off: 16 minutes is not a failure when 15 is fine.}
+  \end{columns}
+  \source{methodology.md §6, proposal S1.3 of 23 Nov 2026 (branch docs/juju-fit-formula),
+    not yet confirmed.}
+\end{frame}
+
+% ============================================================================================
+\section{System}
+% Speaker: TBD
+
+\begin{frame}{One automated refresh turns open data into validated travel times; the API computes
+  each student's fit on request}
+  \vspace{1mm}
+  \centering\pipelinefigure\par
+  \vspace{4mm}
+  \begin{columns}[T,onlytextwidth]
+    \column{0.31\textwidth}\footnotesize\textbf{Raw times stored;} the fit is computed per
+      request, so no profile reaches the database
+    \column{0.31\textwidth}\footnotesize\textbf{Two engines:} Valhalla for walking and
+      cycling with slopes, OpenTripPlanner for buses
+    \column{0.31\textwidth}\footnotesize\textbf{Continuous delivery:} a merge to
+      \texttt{main} tests, deploys, smoke-tests, rolls back
+  \end{columns}
+  \source{architecture.md §3, §7, O17; deployment.md; workflows ci.yml and deploy.yml.}
+\end{frame}
+
+\begin{frame}{Validation checks the times against real journey planners, the results for
+  plausibility, and the app with real students}
+  \begin{columns}[T,onlytextwidth]
+    \column{0.48\textwidth}
+      \textbf{Data and method}
+      \begin{itemize}\footnotesize
+        \item V1: \factRefPairs{} reference trips from cells to destinations, compared with the
+              naldo/DB planner and route planners (median and 90th-percentile deviation)
+        \item V2/V3: every run checks plausibility (bus never faster than possible) and
+              completeness (every campus site routable); a failure stops the run
+        \item V4: rankings under $\pm25\,\%$ fit parameters and other time windows
+      \end{itemize}
+    \column{0.48\textwidth}
+      \textbf{Product}
+      \begin{itemize}\footnotesize
+        \item V6: interviews with new students on destinations and defaults; app test with 5
+              students and a task script
+        \item V7: smoke test after every deploy
+        \item V8: a teammate runs everything from the README
+      \end{itemize}
+      \smallskip
+      {\footnotesize\color{muted}From version 1: matrix vs.\ single routes, median deviation
+      \factVTenMedian{}.}
+  \end{columns}
+  \source{methodology.md §10 (V1--V8); docs/reference\_trips.md; archive validation report V10.}
+\end{frame}
+
+% ============================================================================================
+\section{Plan}
+% Speaker: TBD
+
+\begin{frame}{The foundation and the delivery chain are in place; the backend follows by mid
+  December, the app by early January}
+  \begin{columns}[T,onlytextwidth]
+    \column{0.36\textwidth}
+      \textbf{Done since 21 November}
+      \begin{itemize}\footnotesize
+        \item Product, method and architecture written down
+        \item Pipeline, database and API skeleton ported from version 1
+        \item CI, previews and production deploy with rollback
+        \item Transit engine chosen after a spike (OpenTripPlanner)
+      \end{itemize}
+    \column{0.60\textwidth}
+      \footnotesize
+      \begin{tabular}{@{}lll@{}}
+        \toprule
+        Target & Milestone & Release \\
+        \midrule
+        30 Nov & Walking skeleton live & v0.1.0 \\
+        14 Dec & Pipeline + API on the server & v0.2.0 \\
+        9 Jan & Find and Check in the browser & v0.3.0 \\
+        16 Jan & Scheduled refresh, validation report & v0.4.0 \\
+        \factSubmission & Submission & v1.0.0 \\
+        \bottomrule
+      \end{tabular}\par\medskip
+      \textbf{Risks:} timetable feed ends \factFeedEnd{} (newer feed needed);
+      server at home without SLA; Christmas break (cut order defined)
+  \end{columns}
+  \source{docs/implementation\_plan.md (milestones, status); notes N14.}
+\end{frame}
+
+\begin{frame}{We would like your view on three questions}
+  \begin{enumerate}
+    \item \textbf{Topic fit:} is a personal accessibility measure for students choosing where
+          to live a good interpretation of Topic 9?
+    \item \textbf{Access for supervisors:} do you need read-only database access, or is the
+          hosted app plus the repository enough?
+    \item \textbf{User tests:} is a small qualitative test (interviews, 5 app tests) enough
+          validation on the user side?
+  \end{enumerate}
+\end{frame}
+
+{\setbeamertemplate{headline}{}
+\begin{frame}
+  \vfill
+  {\Large\bfseries Thank you. Questions?\par}
+  \vskip4mm
+  {\color{accent}\rule{25mm}{2pt}}\par\vskip4mm
+  reach helps students who are new to Tübingen decide where to live: Find shows where to look,
+  Check rates a flat's location, and every score is explained with real travel times.\par
+  \vfill
+\end{frame}}
+
+% ============================================================================================
+\backupslides
+\section*{Backup}
+
+\begin{frame}{Backup: references and data sources}
+  \footnotesize
+  \begin{itemize}
+    \item Geurs, K. T., \& van Wee, B. (2004). Accessibility evaluation of land-use and transport
+          strategies. \emph{Journal of Transport Geography}, 12(2), 127--140.
+    \item Hansen, W. G. (1959). How accessibility shapes land use. \emph{Journal of the American
+          Institute of Planners}, 25(2), 73--76.
+    \item Kwan, M.-P. (1998). Space-time and integral measures of individual accessibility.
+          \emph{Geographical Analysis}, 30(3), 191--216.
+    \item Moreno, C., et al. (2021). Introducing the ``15-Minute City''. \emph{Smart Cities},
+          4(1), 93--111.
+  \end{itemize}
+  \medskip
+  \begin{tabular}{@{}lll@{}}
+    \toprule
+    Source & Used for & Licence \\
+    \midrule
+    OpenStreetMap (Geofabrik extract) & Streets, destinations, addresses & ODbL 1.0 \\
+    NVBW GTFS (naldo) & Bus timetable & dl-de/by-2-0 \\
+    Destatis Zensus 2022, 100\,m grid & Populated cells & dl-de/by-2-0 \\
+    Valhalla, OpenTripPlanner & Routing & MIT, LGPL \\
+    \bottomrule
+  \end{tabular}
+  \source{methodology.md (references); README.md (data sources).}
+\end{frame}
+
+\begin{frame}{Backup: architecture at runtime}
+  \vspace{8mm}
+  \centering\architecturefigure\par
+  \vspace{8mm}
+  \footnotesize The API reads only the \texttt{current} views of the last validated run. No
+  public ports for the database or the routing engines.
+  \source{architecture.md §3; O18--O21 on branch docs/juju-fit-formula (not yet in dev).}
+\end{frame}
+
+\begin{frame}{Backup: what we decided on 24 November and what is still open}
+  \begin{columns}[T,onlytextwidth]
+    \column{0.48\textwidth}
+      \textbf{Decided}
+      \begin{itemize}\footnotesize
+        \item Two modes Find and Check replace three use cases
+        \item Map with defaults instead of an onboarding questionnaire
+        \item Rent typed in per listing, never part of the fit
+        \item English first, German second
+      \end{itemize}
+    \column{0.48\textwidth}
+      \textbf{Open}
+      \begin{itemize}\footnotesize
+        \item Fit formula: proposal waiting for the team's yes
+        \item Default campus mix when no programme is chosen
+        \item Census rent grid as a reference, or drop it
+        \item Basemap without passing user data to third parties
+      \end{itemize}
+  \end{columns}
+  \source{docs/product.md v1.1; notes N16.}
+\end{frame}
+
+\end{document}
