@@ -4,6 +4,7 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+- Web app shell (S2.2): typed API client with a fixture mode on sample data of Tübingen, English/German texts, header with Find/Check switch and address search, responsive layout with a bottom sheet on phones, student profile and places in the URL hash and `localStorage`; default campus mix `campus.default_mix` (Tal + Morgenstelle)
 - Screen plan for the web app (S2.1, draft): screens for *Find* and *Check* on desktop and mobile, components, state in the URL hash and `localStorage`, fit request flow, texts EN/DE, basemap options (D5) and default campus mix proposals (`docs/app_screens.md`)
 - Product v1.1: two modes *Find* and *Check* instead of U1–U3, map with a default profile and a profile panel instead of an onboarding questionnaire, rent typed in per listing (never in the fit), English first (`docs/product.md`, plan Phase 2, glossary, personas)
 - Transit engine decided (T1 → O17): OpenTripPlanner 2.10 for transit and bike + transit; transit time includes the wait at home (M6); bike + transit parks the bike (M5)
