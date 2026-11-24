@@ -2,7 +2,8 @@ import type { Area } from '../api/types'
 import { cellCentre } from '../geo/laea'
 import { useI18n } from '../i18n/i18n'
 import { useFit } from '../remote/fit'
-import { MAX_PLACES } from '../settings'
+import { MAX_PLACES, NEARBY_RADIUS_M } from '../settings'
+import { nearbyCells } from '../logic/nearby'
 import { useStore } from '../state/store'
 import { DataNote } from './DataNote'
 import { Reasons } from './Reasons'
@@ -55,12 +56,32 @@ function AreaCard({ area, rank }: { area: Area; rank: number }) {
 }
 
 /** Find: the three best areas with 2–4 reasons each (docs/app_screens.md §1.1). */
+function NearbyNote() {
+  const { t, num } = useI18n()
+  const { state, dispatch } = useStore()
+  const fit = useFit()
+  const place = state.places.find((p) => p.id === state.nearbyOf)
+  if (!place || !fit.data) return null
+  const n = nearbyCells(state, fit.data.cells).length
+  const vars = { n, km: num(NEARBY_RADIUS_M / 1000, 1), place: place.label ?? t('check.place', { id: place.id }) }
+  return (
+    <div className="note nearby" role="status" data-testid="nearby-note">
+      <strong>{t('find.nearby', { place: vars.place })}</strong>
+      <p>{n ? t('find.nearby.count', vars) : t('find.nearby.none', vars)}</p>
+      <button type="button" className="btn-link small" onClick={() => dispatch({ type: 'nearby', id: null })}>
+        {t('find.nearby.clear')}
+      </button>
+    </div>
+  )
+}
+
 export function FindResults() {
   const { t } = useI18n()
   const fit = useFit()
   return (
     <section className="results" aria-labelledby="find-title" aria-busy={fit.updating}>
       <h2 id="find-title">{t('find.results')}</h2>
+      <NearbyNote />
       {fit.noWeight && <p className="note note-sample">{t('find.noneImportant')}</p>}
       {!fit.noWeight && !fit.data && !fit.error && (
         <ol className="plain">

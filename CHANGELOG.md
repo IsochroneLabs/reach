@@ -4,6 +4,7 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+- *Check* for one place (S2.5): address search or pin, fit, rank in the city, weekly travel time, trips by mode and trip window with bus details, optional listing rent kept in the browser, "better places nearby" in *Find*
 - *Find* (S2.4): MapLibre map with the cell fits, legend, rank markers and a cell popup; the three best areas with reasons, weekly travel time and data date; "Check here" opens *Check*
 - Profile panel (S2.3): programme hint, modes, destinations with importance, fine time and trips per week, example profiles with undo; every change recolours the results
 - Web app shell (S2.2): typed API client with a fixture mode on sample data of Tübingen, English/German texts, header with Find/Check switch and address search, responsive layout with a bottom sheet on phones, student profile and places in the URL hash and `localStorage`; default campus mix `campus.default_mix` (Tal + Morgenstelle)

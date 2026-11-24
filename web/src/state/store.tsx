@@ -57,9 +57,16 @@ function initialState(): AppState {
   const profile = fromHash.profile ?? stored ?? defaultProfile()
   const replaced =
     fromHash.profile && stored && JSON.stringify(stored) !== JSON.stringify(fromHash.profile) ? stored : null
+  const stored2 = Array.isArray(storedPlaces) ? storedPlaces : []
+  // Rents are not in a link unless the student asked; keep the ones typed in this browser.
+  const places = (fromHash.places ?? stored2).map((p) => {
+    if (p.rentEur != null) return p
+    const same = stored2.find((s) => s.cellId === p.cellId && s.label === p.label)
+    return same?.rentEur != null ? { ...p, rentEur: same.rentEur } : p
+  })
   return {
     profile,
-    places: (fromHash.places ?? (Array.isArray(storedPlaces) ? storedPlaces : [])).slice(0, MAX_PLACES),
+    places: places.slice(0, MAX_PLACES),
     mode: modeFromPath(window.location.pathname),
     nearbyOf: null,
     focus: null,

@@ -1,6 +1,7 @@
 import { lazy, Suspense, useMemo, useState } from 'react'
 
 import type { LonLat } from '../api/types'
+import { nearbyCells } from '../logic/nearby'
 import { cellCentre, cellIdAt } from '../geo/laea'
 import { useI18n } from '../i18n/i18n'
 import { useFit } from '../remote/fit'
@@ -55,6 +56,15 @@ export function MapArea() {
   }
 
   const markers: MapMarker[] = useMemo(() => {
+    const pins: MapMarker[] = state.places
+      .filter((p) => state.mode === 'check' || p.id === state.nearbyOf)
+      .map((p) => ({
+        key: `pin-${p.id}`,
+        point: p.point,
+        text: p.id,
+        kind: 'pin' as const,
+        title: `${t('check.place', { id: p.id })}: ${p.label ?? t('check.pin')}`,
+      }))
     if (state.mode === 'check') {
       return state.places.map((p) => ({
         key: p.id,
@@ -68,7 +78,7 @@ export function MapArea() {
       const c = cellCentre(a.best_cell_id)
       return c ? [{ key: `label-${a.area_id}`, point: c, text: a.name, kind: 'label' as const, title: a.name }] : []
     })
-    return labels.concat((fit.data?.areas ?? []).slice(0, 3).flatMap((a, i) => {
+    return labels.concat(pins, (fit.data?.areas ?? []).slice(0, 3).flatMap((a, i) => {
       const c = cellCentre(a.best_cell_id)
       return c
         ? [{
@@ -81,7 +91,7 @@ export function MapArea() {
           }]
         : []
     }))
-  }, [state.mode, state.places, fit.data, t])
+  }, [state.mode, state.places, state.nearbyOf, fit.data, t])
 
   const popupData = popupCell && fit.data?.cells[popupCell]
   const popup =
@@ -153,7 +163,9 @@ export function MapArea() {
   )
 }
 
-/** Cells to outline: in Find, the better cells near a place ("better places nearby", S2.6). */
+/** Cells to outline: in Find, the better cells near a place ("better places nearby"). */
 function useExtraCells(): Set<string> {
-  return useMemo(() => new Set<string>(), [])
+  const { state } = useStore()
+  const fit = useFit()
+  return useMemo(() => new Set(nearbyCells(state, fit.data?.cells)), [state, fit.data])
 }
