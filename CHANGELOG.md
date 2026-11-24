@@ -4,6 +4,7 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+- *Find* (S2.4): MapLibre map with the cell fits, legend, rank markers and a cell popup; the three best areas with reasons, weekly travel time and data date; "Check here" opens *Check*
 - Profile panel (S2.3): programme hint, modes, destinations with importance, fine time and trips per week, example profiles with undo; every change recolours the results
 - Web app shell (S2.2): typed API client with a fixture mode on sample data of Tübingen, English/German texts, header with Find/Check switch and address search, responsive layout with a bottom sheet on phones, student profile and places in the URL hash and `localStorage`; default campus mix `campus.default_mix` (Tal + Morgenstelle)
 - Screen plan for the web app (S2.1, draft): screens for *Find* and *Check* on desktop and mobile, components, state in the URL hash and `localStorage`, fit request flow, texts EN/DE, basemap options (D5) and default campus mix proposals (`docs/app_screens.md`)
