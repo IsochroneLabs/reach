@@ -70,7 +70,7 @@ once answered on `localhost:8002`).
 A building-based origin (residential buildings, footprint-weighted medoid) moved origins by 22 m
 (median, max 69 m) and changed ~2 % of results, in both directions. The centroid stays. A
 `/locate` snap check (origins far from a walkable edge) was never built; worth adding to
-`validate` if U2 answers look wrong at the edge of town.
+`validate` if *Check* answers look wrong at the edge of town.
 
 ## N7. The census misses part of the students
 
@@ -78,7 +78,7 @@ A building-based origin (residential buildings, footprint-weighted medoid) moved
 
 Zensus 2022 counts main residences on 15 May 2022. Students registered elsewhere and buildings
 finished after 2022 are missing from the populated cells; address cells (A1) cover new buildings
-for U2, not for the ranking. The rent grid excludes student halls (*ohne Wohnheime*), so halls of
+for *Check*, not for the ranking. The rent grid excludes student halls (*ohne Wohnheime*), so halls of
 the Studierendenwerk never get a rent value. **To do:** state both limits in the app; consider
 listing the halls as information (no scraping; only an openly licensed list).
 
@@ -152,3 +152,28 @@ the same. After 12 Dec no reference date per trip window can be found, so V3 fai
 production data and v0.2.0 (target 14 Dec) need a newer feed. **To do:** check early December
 whether NVBW has published the timetable from 13 Dec 2026; if not, decide how to label or pin an
 older feed before S1.11. First seen in the T1 spike (PR #79).
+
+## N16. Product v1.1 needs follow-ups in methodology, architecture and the API proposal
+
+**Status:** open · **Related:** `docs/product.md` v1.1, M1, M4, M7, S1.4, O-decisions on the Juju
+docs stack (PRs #83–#86)
+
+Product v1.1 (24 Nov 2026) replaces U1–U3 with the modes *Find* and *Check*, opens on a map with a
+default profile instead of an onboarding questionnaire, takes rent as a per-listing input and puts
+English first. `methodology.md`, `architecture.md` and `data_contract.md` were left unchanged in
+that branch, because they need an explicit yes (AGENTS.md) and are being rewritten on the Juju
+docs stack, which is not in `dev` yet. **To do** when the stack reaches `dev`:
+
+1. `POST /api/fit`: make `programme` optional; without it the API uses the default campus mix.
+   **Open:** which sites, which weights (equal, or by number of students).
+2. Wording: "onboarding" → "profile panel" (methodology §6 step 1, M7; data contract
+   `destination_types`), "U2" → "*Check*" (methodology §2, architecture §3 and §5, data contract
+   live route), "U1–U3" → "*Find* and *Check*".
+3. Rank in the city ("better than 80 % of places for your profile"): computed in the browser from
+   the cell fits `POST /api/fit` already returns; decide whether against populated cells only or
+   also address cells.
+4. Rent: the listing rent stays in the browser and never enters the fit (M4 settled that way).
+   **Open:** keep the Zensus rent grid as a reference in *Check* ("average here: €11/m², without
+   student halls", N7) or drop the source `zensus_rent`, the column `cells.rent_eur_m2` and its
+   validation.
+

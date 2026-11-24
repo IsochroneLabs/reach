@@ -12,13 +12,13 @@ explaining the differences in plain language.
 
 | | |
 |---|---|
-| **Done** | S0.1 (restatement, port table, answers of 21 Nov 2026) · S0.2 (this plan, confirmed 21 Nov 2026 with three changes) · S0.3 (sources of truth, PR #78 merged 21 Nov 2026) |
-| **In progress** | S0.4 port the foundation (PR #80: all checks run, yeses given 23 Nov 2026, **ready for a human to merge** with a merge commit) · S0.5 walking skeleton (PR #81: CI green, dependencies approved 23 Nov 2026; ready to merge after #80; preview and dispatch test need the Cloudflare/GitHub setup) |
-| **Next** | merge #80, then #81 (a human, after review) → set required checks on `dev` → preview URL from a `dev` push + `workflow_dispatch` of `deploy.yml` with target preview → S0.6 release PR v0.1.0 on instruction |
+| **Done** | S0.1 (restatement, port table, answers of 21 Nov 2026) · S0.2 (this plan, confirmed 21 Nov 2026 with three changes) · S0.3 (sources of truth, PR #78 merged 21 Nov 2026) · S0.4 foundation (PR #80, merged 24 Nov 2026) · S0.5 walking skeleton code (PR #81, merged 24 Nov 2026; preview and dispatch test still open) |
+| **In progress** | Product v1.1: two modes *Find* / *Check*, map with defaults instead of onboarding, rent per listing, English first (`docs/rico-two-modes`, draft PR; decisions of 24 Nov 2026) |
+| **Next** | set required checks on `dev` → preview URL from a `dev` push + `workflow_dispatch` of `deploy.yml` with target preview → S0.6 release PR v0.1.0 on instruction · bring the docs stack `docs/juju-t1-decision` … `docs/juju-fit-formula` (PRs #83–#86, merged only into each other) into `dev` · align its methodology and API proposal with product v1.1 (notes N16) |
 | **Blocked** | S0.5 preview check and S0.6: Cloudflare account, API token and the GitHub environments `preview`/`production` (a human sets them up, `docs/deployment.md`) |
-| **Decided** | T1 → O17 OpenTripPlanner for transit and bike + transit; M5, M6 (23 Nov 2026, `docs/juju-t1-decision`) |
-| **Open decisions** | D1 server · D2 backend access · D3 domain · D4 frontend–API wiring · D5 basemap · fit formula |
-| **PRs** | [#78](https://github.com/IsochroneLabs/reach/pull/78) sources of truth (merged) · [#79](https://github.com/IsochroneLabs/reach/pull/79) T1 spike report (review only, not merged) · [#80](https://github.com/IsochroneLabs/reach/pull/80) port the foundation (S0.4) · [#81](https://github.com/IsochroneLabs/reach/pull/81) walking skeleton (S0.5, contains #80) |
+| **Decided** | T1 → O17 OpenTripPlanner (PR #82, in `dev`); D1–D4 as O18–O21, fit formula proposal and API shapes on the Juju docs stack, **not yet in `dev`** |
+| **Open decisions** | D5 basemap · fit formula (proposal on the stack) · default campus mix without a programme · Zensus rent: keep as reference or drop (notes N16) |
+| **PRs** | [#78](https://github.com/IsochroneLabs/reach/pull/78) sources of truth (merged) · [#79](https://github.com/IsochroneLabs/reach/pull/79) T1 spike report (closed, not merged) · [#80](https://github.com/IsochroneLabs/reach/pull/80) foundation (merged) · [#81](https://github.com/IsochroneLabs/reach/pull/81) walking skeleton (merged) · [#82](https://github.com/IsochroneLabs/reach/pull/82) T1 as O17 (merged) · #83–#86 docs stack (merged into each other, not into `dev`) |
 | **Deviations** | S0.4 and S0.5 were built on `feature/juju-phase0` and `feature/juju-delivery-skeleton` instead of the `rico-…` branches named below (at Juju's request; Rico to confirm) |
 | **Risks now** | naldo GTFS feed ends 12 Dec 2026 (notes N14): v0.2.0 on 14 Dec needs a newer feed |
 | **Releases** | – (main still holds the old project of 31 Oct 2026) |
@@ -45,7 +45,7 @@ explaining the differences in plain language.
 |---|---|---|
 | 0 Plan and foundation | 30 Nov 2026 | **v0.1.0** walking skeleton: placeholder page through `main` → `deploy.yml` → Cloudflare; backend job skipped with a warning. First real test of the deploy chain. |
 | 1 Backend | 14 Dec 2026 | **v0.2.0** real production with backend: pipeline + API on the server of D1, deployed by `deploy.yml` with smoke test and rollback |
-| 2 Student web app | 9 Jan 2027 | **v0.3.0** U1–U3 in the browser |
+| 2 Student web app | 9 Jan 2027 | **v0.3.0** *Find* and *Check* in the browser |
 | 3 Hardening | 16 Jan 2027 | **v0.4.0** scheduled refresh, measured memory, backups, rollback drill, validation report |
 | Buffer | 22 Jan 2027 | **v1.0.0** submission |
 
@@ -57,8 +57,8 @@ Versions follow SemVer (`CONTRIBUTING.md`). Every release PR moves the `Unreleas
 
 | # | Assumption / answer |
 |---|---|
-| A1 | Origins = populated Zensus 100 m cells **plus** cells containing an OSM residential address (for U2); rankings use populated cells only. |
-| A2 | Computation per 100 m cell; ranking and reasons per district / Teilort (OSM admin levels 9 and 11); the map colours cells; U2 shows the user's own cell. |
+| A1 | Origins = populated Zensus 100 m cells **plus** cells containing an OSM residential address (for *Check*); rankings use populated cells only. |
+| A2 | Computation per 100 m cell; ranking and reasons per district / Teilort (OSM admin levels 9 and 11); the map colours cells; *Check* shows the user's own cell. |
 | A3 | Trip windows: weekday + reference date per window; GTFS times > 24:00 handled correctly; night window on Fri/Sat nights. |
 | A4 | Refresh runs **sequentially** (routing engines and pipeline not at peak at the same time); assumption for T1 and the 8 GB memory budget. |
 | A5 | Role `supervisor_read` kept, marked **[VERIFY]** (Rico checks whether it is a course requirement). |
@@ -295,7 +295,7 @@ Code steps start after T1 and the fit formula are confirmed. Step plan first, wa
 - **Endpoints:** `GET /api/health`, `GET /api/destination-types`, `GET /api/campus-sites`,
   `GET /api/addresses?q=` (PostGIS search), `POST /api/fit` (student profile → ranked areas with
   reasons, < 500 ms for the whole city; POST bodies not logged; cache keyed on the weight vector
-  only), `GET /api/cell/{id}` (all trips per mode and window), live route incl. a transit leg (U2).
+  only), `GET /api/cell/{id}` (all trips per mode and window), live route incl. a transit leg (*Check*).
 - **Checks:** unit tests, response-time test, integration test on the test clip; `make up`
   serves the API; Dockerfiles for all backend images build in CI; `deploy.yml` smoke test extended
   with one fit request (persona) and one cell request.
@@ -314,18 +314,18 @@ runs in production with backend (or its PR waits for approvals).
 
 ## Phase 2 — Student web app (target 9 Jan 2027)
 
-Starts after Phase 1 is merged into `dev`. Plan screens and components first, wait for yes.
+Starts after Phase 1 is merged into `dev`; S2.1 and the fixture-based parts of S2.2–S2.4 may start earlier because they need only the API shapes of S1.4 (API fixtures). Plan screens and components first, wait for yes. Product v1.1 (24 Nov 2026): two modes, no onboarding questionnaire.
 
 | Step | Branch | Content | Target |
 |---|---|---|---|
-| S2.0 | `docs/rico-user-interviews` | user test round 1: short interview guide on the onboarding questions (what students want to be asked, in which words); your human runs the interviews; findings feed S2.1 and `docs/validation.md` | before 17 Dec |
-| S2.1 | `docs/rico-app-screens` | screens, components, texts (DE/EN), onboarding questions from S2.0, D5 basemap research and decision | 17 Dec |
+| S2.0 | `docs/rico-user-interviews` | user test round 1: short interview guide on destinations, defaults and wording (which destinations students expect, whether the defaults fit, what the panel should call things); your human runs the interviews; findings feed S2.1 and `docs/validation.md` | before 17 Dec |
+| S2.1 | `docs/rico-app-screens` | screens and components for *Find*, *Check* and the profile panel (desktop + mobile bottom sheet), texts (EN first, DE), defaults from S2.0, D5 basemap research and decision | 17 Dec |
 | S2.2 | `feature/rico-app-shell` | app shell, i18n, student profile in URL/localStorage only, API base URL from build config | 19 Dec |
-| S2.3 | `feature/rico-onboarding` | 5–7 skippable questions, personas as quick start | 22 Dec |
-| S2.4 | `feature/rico-result-map` | U1: MapLibre map, best-fitting areas, plain-language reasons | 30 Dec |
-| S2.5 | `feature/rico-place-check` | U2: address search or pin, trips per mode, fit | 3 Jan |
-| S2.6 | `feature/rico-compare` | U3: two or three places side by side | 5 Jan |
-| S2.7 | `feature/rico-app-quality` | mobile-first, contrast, Playwright U1–U3 mobile + desktop with API fixtures, axe without serious violations | 7 Jan |
+| S2.3 | `feature/rico-profile-panel` | profile panel with the default profile, live update of the map, programme hint while no programme is set, personas as example profiles | 22 Dec |
+| S2.4 | `feature/rico-result-map` | *Find*: MapLibre map opening with the default profile, cell fits, best areas with plain-language reasons | 30 Dec |
+| S2.5 | `feature/rico-place-check` | *Check* for one place: address search in the header or pin, fit, rank in the city, trips per mode and window, optional listing rent | 3 Jan |
+| S2.6 | `feature/rico-compare` | *Check* for two or three places side by side, differences in plain language incl. rent, kept in the URL | 5 Jan |
+| S2.7 | `feature/rico-app-quality` | mobile-first, contrast, Playwright *Find* and *Check* mobile + desktop with API fixtures, axe without serious violations | 7 Jan |
 | S2.8 | `docs/rico-user-test` | user test round 2: short app test with a task script (find a place for persona X, check an address, compare two places) for 5 students, sessions run by your human in early January; findings → changes + section in `docs/validation.md` | 9 Jan |
 | S2.9 | release | `chore(release): v0.3.0` | 9 Jan |
 
@@ -353,7 +353,7 @@ Buffer until 22 Jan: fixes, final docs, `v1.0.0` release PR on instruction.
 | V3 | Completeness: campus sites found and routable, every hobby category ≥ 1 destination, GTFS covers all trip windows |
 | V4 | Sensitivity: rankings under fit parameters ±25 % and other trip windows (rank correlation); explanations match the numbers |
 | V5 | Matrix vs. single route (from the archive's V10) for walk and bike |
-| V6 | Users: interviews on the onboarding questions (S2.0) and the app test (S2.8) |
+| V6 | Users: interviews on destinations and defaults (S2.0) and the app test (S2.8) |
 | V7 | Deployment: smoke-test results per release |
 | V8 | Reproducibility: a teammate runs the pipeline from the README only |
 
@@ -364,10 +364,10 @@ Buffer until 22 Jan: fixes, final docs, `v1.0.0` release PR on instruction.
 | No transit engine fits 8 GB next to Valhalla, PostGIS and API | transit mode late or approximate | sequential refresh (A4), measure in S1.1, fallback "departures at nearby stops, labelled approximate" |
 | Night/weekend service not in the GTFS feed or feed expiring | trip windows fail | validity check fails loudly (S1.6); window dates configurable |
 | OSM incomplete for Mensa, university sports, hobbies | missing destinations | manual tables (`campus.yaml`), completeness check V3, gaps listed in the app |
-| No legal rent source | budget question unanswered | budget is the first cut after bike + transit; label clearly |
+| No legal rent source | rent context missing | rent is typed in per listing in *Check* (product v1.1); the input is the first cut after bike + transit |
 | Server not booked and set up soon after D1–D4 (3 Dec) | S1.5 and v0.2.0 with backend slip | runbook outline with D1–D4; S1.6–S1.10 do not depend on the server |
 | Cloudflare secrets not ready in time | S0.5/S0.6 blocked | list secrets early in `deployment.md`; backend job skips without secrets |
 | Two approvals for `main` over the holidays | releases wait | open release PRs early with a summary; plan reviews with Socke and Juju |
-| Christmas break and exam period | Phase 2 slips | cut order: bike + transit, rent, U3; buffer week |
+| Christmas break and exam period | Phase 2 slips | cut order: bike + transit, rent input, comparing several places; buffer week |
 | 20 € budget | server time limited | D1 with costs; server only from when it is needed until after grading |
 | Phase 0 in 9 days | late start of Phase 1 | docs short and factual; port as is where possible |

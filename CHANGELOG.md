@@ -4,6 +4,7 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+- Product v1.1: two modes *Find* and *Check* instead of U1–U3, map with a default profile and a profile panel instead of an onboarding questionnaire, rent typed in per listing (never in the fit), English first (`docs/product.md`, plan Phase 2, glossary, personas)
 - Transit engine decided (T1 → O17): OpenTripPlanner 2.10 for transit and bike + transit; transit time includes the wait at home (M6); bike + transit parks the bike (M5)
 - Settled Cloudflare Workers static assets for the frontend and documented the current static asset billing model.
 - Emptied dev for the rebuild; old project archived in archive/2026-11-21-planner (21 Nov 2026)
