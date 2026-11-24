@@ -15,7 +15,7 @@ test.beforeEach(async ({ page }) => {
   }
 })
 
-test('placeholder shows the name and the build SHA', async ({ page }) => {
+test('the page shows the name and the build SHA', async ({ page }) => {
   await page.goto('/')
   await expect(page.getByRole('heading', { level: 1, name: 'reach' })).toBeVisible()
   await expect(page.getByTestId('build-sha')).toHaveText(expectedSha)

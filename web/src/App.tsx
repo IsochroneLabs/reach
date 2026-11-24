@@ -1,55 +1,126 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
-import { API_BASE, BUILD_SHA } from './config'
-import { type ApiState, fetchHealth } from './health'
+import { BottomSheet, type SheetTab, type Snap } from './components/BottomSheet'
+import { CheckResults } from './components/CheckResults'
+import { FindResults } from './components/FindResults'
+import { Header } from './components/Header'
+import { MapArea } from './components/MapArea'
+import { ProfilePanel, ProgrammeHint } from './components/ProfilePanel'
+import { StatusBanner } from './components/StatusBanner'
+import { ToastProvider, useToast } from './components/Toast'
+import { FitProvider } from './remote/fit'
+import { RefsProvider, useRefs } from './remote/refs'
+import { useBreakpoint } from './hooks'
+import { I18nProvider, useI18n } from './i18n/i18n'
+import { sanitize } from './state/profile'
+import { StoreProvider, useStore } from './state/store'
 
-function apiText(state: ApiState): string {
-  switch (state.kind) {
-    case 'none':
-      return 'not deployed yet'
-    case 'loading':
-      return 'checking…'
-    case 'ok':
-      return `${state.health.status} (build ${state.health.build_sha})`
-    case 'error':
-      return `unreachable (${state.message})`
+/** Once the reference lists are in: drop unknown values from the loaded profile, tell the user. */
+function useLoadChecks() {
+  const refs = useRefs()
+  const { state, dispatch } = useStore()
+  const toast = useToast()
+  const { t } = useI18n()
+  const done = useRef(false)
+
+  useEffect(() => {
+    if (done.current || refs.kind !== 'ok') return
+    done.current = true
+    const { profile, dropped } = sanitize(state.profile, {
+      types: refs.refs.types,
+      programmes: refs.refs.programmes,
+      modes: refs.refs.meta.modes,
+    })
+    if (dropped) dispatch({ type: 'profile', profile })
+    if (dropped || state.badLink) toast(t('error.badLink'))
+    else if (state.replacedProfile) {
+      const previous = state.replacedProfile
+      toast(t('profile.fromLink'), {
+        label: t('profile.undo'),
+        run: () => dispatch({ type: 'profile', profile: previous }),
+      })
+    }
+    dispatch({ type: 'ackLoad' })
+  }, [refs, state, dispatch, toast, t])
+}
+
+function Shell() {
+  const bp = useBreakpoint()
+  const { t } = useI18n()
+  const { state } = useStore()
+  const [drawer, setDrawer] = useState(false)
+  const [tab, setTab] = useState<SheetTab>('results')
+  const [snap, setSnap] = useState<Snap>('peek')
+  useLoadChecks()
+
+  const results = state.mode === 'find' ? <FindResults /> : <CheckResults />
+
+  // Check on mobile: show the place card at half height when a place is added (state adjusted
+  // during render, https://react.dev/learn/you-might-not-need-an-effect).
+  const [seenPlaces, setSeenPlaces] = useState(state.places.length)
+  if (seenPlaces !== state.places.length) {
+    setSeenPlaces(state.places.length)
+    if (bp === 'S' && state.places.length > seenPlaces) {
+      setTab('results')
+      if (snap === 'peek') setSnap('half')
+    }
   }
+
+  return (
+    <div className={`app bp-${bp} mode-${state.mode}`}>
+      <a className="skip-link" href="#results">
+        {t(state.mode === 'find' ? 'skip.results' : 'skip.places')}
+      </a>
+      <Header onProfile={bp === 'M' ? () => setDrawer((d) => !d) : undefined} />
+      <StatusBanner />
+      <div className="layout">
+        {bp === 'L' && (
+          <aside className="col-profile" aria-label="profile">
+            <ProfilePanel />
+          </aside>
+        )}
+        {bp === 'M' && drawer && (
+          <aside className="drawer" aria-label="profile">
+            <ProfilePanel onClose={() => setDrawer(false)} />
+          </aside>
+        )}
+        <main className="col-map">
+          <MapArea />
+        </main>
+        {bp !== 'S' && (
+          <section id="results" className={`col-results${state.mode === 'check' && state.places.length > 1 ? ' wide' : ''}`}>
+            {results}
+          </section>
+        )}
+      </div>
+      {bp === 'S' && (
+        <BottomSheet
+          tab={tab}
+          onTab={setTab}
+          snap={snap}
+          onSnap={setSnap}
+          hint={<ProgrammeHint compact onOpen={() => { setTab('profile'); setSnap('full') }} />}
+          profileDot={!state.profile.programme}
+          results={<div id="results">{results}</div>}
+          profile={<ProfilePanel />}
+        />
+      )}
+    </div>
+  )
 }
 
 export default function App() {
-  const [api, setApi] = useState<ApiState>(API_BASE ? { kind: 'loading' } : { kind: 'none' })
-
-  useEffect(() => {
-    if (!API_BASE) return
-    const ctrl = new AbortController()
-    fetchHealth(API_BASE, ctrl.signal).then(setApi)
-    return () => ctrl.abort()
-  }, [])
-
   return (
-    <main>
-      <h1>reach</h1>
-      <p lang="en">
-        Where to live in Tübingen as a student: how long your everyday trips take from each part of
-        the city on foot, by bike and by bus.
-      </p>
-      <p lang="de">
-        Wo wohnen in Tübingen? Wie lange deine Alltagswege von jedem Teil der Stadt aus dauern – zu
-        Fuß, mit dem Rad und mit dem Bus.
-      </p>
-      <p className="soon">Coming soon · Demnächst</p>
-      <dl>
-        <dt>Build</dt>
-        <dd data-testid="build-sha">{BUILD_SHA}</dd>
-        <dt>API</dt>
-        <dd data-testid="api-status" data-state={api.kind}>
-          {apiText(api)}
-        </dd>
-      </dl>
-      <footer>
-        DS500 course project, University of Tübingen ·{' '}
-        <a href="https://github.com/IsochroneLabs/reach">Source on GitHub</a>
-      </footer>
-    </main>
+    <I18nProvider>
+      <ToastProvider>
+        <RefsProvider>
+          <StoreProvider>
+            <FitProvider>
+              <Shell />
+            </FitProvider>
+          </StoreProvider>
+        </RefsProvider>
+      </ToastProvider>
+    </I18nProvider>
   )
 }

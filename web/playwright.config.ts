@@ -26,6 +26,7 @@ export default defineConfig({
         command: `npm run build && npm run preview -- --host 127.0.0.1 --port ${PORT} --strictPort`,
         url: `http://127.0.0.1:${PORT}`,
         reuseExistingServer: !process.env.CI,
-        env: { VITE_API_BASE: '/api', VITE_BUILD_SHA: 'playwright' },
+        // Fixture mode for the data; /api/health still goes to /api and is answered by page.route.
+        env: { VITE_API_BASE: '/api', VITE_API_FIXTURES: '1', VITE_BUILD_SHA: 'playwright' },
       },
 })

@@ -1,6 +1,7 @@
 # App screens — reach web app
 
-> **Status:** v0.1 draft (24 Nov 2026), step S2.1. Proposal, waiting for the team's yes.
+> **Status:** v0.2 draft (24 Nov 2026), step S2.1, confirmed by Rico on 24 Nov 2026 with the
+> decisions in [§9](#9-open-points).
 > Built from `docs/product.md` v1.1 (binding) and the API proposal of S1.4 in
 > `docs/data_contract.md` (on `docs/juju-fit-formula`, not yet in `dev`). Where this page needs
 > something those documents do not have, it says so in [§9 Open points](#9-open-points); nothing
@@ -490,7 +491,7 @@ current language. Destination, programme and campus names come from the API (`la
 | `legs.walkToStop` | Walk to the stop {min} min | Fußweg zur Haltestelle {min} Min. |
 | `legs.wait` | Wait {min} min | Warten {min} Min. |
 | `legs.ride` | Ride {min} min ({line}) | Fahrt {min} Min. ({line}) |
-| `legs.transfers` | {n, plural, one {# transfer} other {# transfers}} | {n, plural, one {# Umstieg} other {# Umstiege}} |
+| `legs.transfers.one` / `.other` | {n} transfer / {n} transfers | {n} Umstieg / {n} Umstiege |
 | `legs.walkFromStop` | Walk from the stop {min} min | Fußweg von der Haltestelle {min} Min. |
 | `compare.title` | Compare | Vergleich |
 | `compare.inShort` | In short | Kurz gesagt |
@@ -520,8 +521,8 @@ current language. Destination, programme and campus names come from the API (`la
 | `footer.course` | DS500 course project, University of Tübingen | DS500-Kursprojekt, Universität Tübingen |
 | `footer.source` | Source on GitHub | Quellcode auf GitHub |
 
-Plural forms use a tiny formatter over `Intl.PluralRules` (the `{n, plural, …}` notation above is
-the only syntax it understands); no i18n library.
+Plural forms are two keys (`.one`, `.other`) chosen with `Intl.PluralRules`; no i18n library. The
+implemented key list is `web/src/i18n/en.ts`; this table shows the main keys.
 
 ## 7. Default campus mix without a programme (N16) — proposal, not decided
 
@@ -553,7 +554,14 @@ Noto Sans, OFL, self-hosted; no third-party fonts).
 
 ## 9. Open points
 
-Questions for the team are marked **Q**; they are also in the S2.1 report.
+**Decisions of 24 Nov 2026 (Rico):** Q1 (a) self-hosted tiles, as a proposed O-decision in notes
+N18 — Cloudflare static assets answer no Range requests, so the tiles ship unpacked as
+`{z}/{x}/{y}.pbf` and `pmtiles` is not installed; until then a plain background. Q2 option (1),
+`campus.default_mix` in `config/campus.yaml`. Q3 yes to `maplibre-gl` (6.19.0, exact) and
+`pmtiles`; `@axe-core/playwright` later. Q4 not in Juju's branches: used as PROPOSED in the
+fixtures and listed for Juju as notes N17. Points 5 (hash, data date per block) agreed.
+
+Questions for the team were marked **Q**:
 
 1. **Q1 — D5 basemap:** (a) self-hosted PMTiles recommended (§5.1), incl. the build-time exception
    to "data never passes through GitHub or Cloudflare".
@@ -582,4 +590,5 @@ Questions for the team are marked **Q**; they are also in the S2.1 report.
 
 | Version | Date | Change | Why |
 |---|---|---|---|
+| v0.2 draft | 2026-11-24 | Decisions Q1–Q4 recorded; plural keys as `.one`/`.other` | Rico's yes to S2.1 |
 | v0.1 draft | 2026-11-24 | First screen plan: screens, components, state model, request flow, texts EN/DE, D5 comparison, default campus mix, dependencies | Plan S2.1, product v1.1 |
