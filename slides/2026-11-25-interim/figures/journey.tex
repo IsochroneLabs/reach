@@ -1,11 +1,11 @@
 % !TEX root = ../2026-11-25-interim.tex
-% Journey figure (docs/product.md v1.1, persona Arjun from config/personas.yaml, invented):
-%   \journeyfigure  four stations from admission to writing to a WG, with the mode used
+% Journey figure (docs/product.md v1.1, persona Artur, invented):
+%   \journeyfigure  three stations from admission to applying to WGs, with the mode used
 % Schematic; no times, fits or places are results.
 
 \tikzset{
-  jstation/.style={draw=ink,line width=0.6pt,fill=white,rounded corners=2pt,text width=28mm,
-    align=flush left,inner sep=2mm,font=\footnotesize,anchor=north,minimum height=30mm},
+  jstation/.style={draw=ink,line width=0.6pt,fill=white,rounded corners=2pt,text width=36mm,
+    align=flush left,inner sep=2mm,font=\footnotesize,anchor=north,minimum height=26mm},
   jdot/.style={circle,fill=accent,inner sep=0pt,minimum size=2.6mm},
   jmode/.style={font=\footnotesize\bfseries,text=accent,anchor=south},
 }
@@ -14,10 +14,9 @@
   \begin{tikzpicture}
     \draw[flow,line width=0.8pt] (-68mm,0) -- (68mm,0);
     \foreach \x/\m/\h/\t in {
-        -51/Find/{Admitted, still abroad}/{Opens reach, picks the programme, adds gym and going out. Sees which areas fit.},
-        -17/Check/{First listings found}/{Pastes the address of each listing: fit, rank, trips to Sand, Morgenstelle, gym, night bus.},
-        17/{Check: compare}/{Two flats look good}/{Puts both side by side and types in the rents. Reads the differences in plain language.},
-        51/Decision/{Writes to one WG}/{Knows what a week from there will look like, before ever seeing Tübingen.}}{
+        -45/Find/{Admitted, still abroad}/{Opens reach, picks the programme, adds gym and going out. Sees which areas fit.},
+        0/Check/{First listings found}/{Pastes the address of each listing: fit, rank, trips to Sand, Morgenstelle, gym, night bus.},
+        45/Decision/{Applies to WGs}/{Applies to the WGs that suit best and sends the applications.}}{
       \node[jdot] at (\x mm,0) {};
       \node[jmode] at (\x mm,2.5mm) {\m};
       \node[jstation] at (\x mm,-4mm) {\textbf{\h}\\[1mm]\t};

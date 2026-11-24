@@ -1,23 +1,19 @@
 % !TEX root = 2026-11-25-interim.tex
 % Every number shown in the interim deck (25 Nov 2026) comes from here, with the document it was
 % taken from. There is no result run of the rebuild yet; the deck shows the user, the use cases
-% and the plan, no fits, shares or rankings of real places.
+% and what we build, no fits, shares or rankings of real places. Sources stay in these
+% comments; the slides show only external sources (team decision).
 
-% ---- study area (previous version: archive run 20261110T223016Z, report_results.md;
-%      Zensus 2022 100 m grid; the rebuild has no run yet) -------------------------------------
-\newcommand{\factCells}{1,699}           % populated 100 m cells inside the city boundary
+% ---- framing (given by Rico, 24 Nov 2026; external source still to be added) -------------
+\newcommand{\factNewStudents}{3,000}     % new students moving to Tübingen per year [VERIFY]
 
 % ---- product and config (dev @ f4fb3f8) ----------------------------------------------------
-\newcommand{\factNeeds}{6}               % docs/product.md v1.1, "The questions they have"
-\newcommand{\factDestTypes}{17}          % config/config.yaml destination_types
-\newcommand{\factTripWindows}{5}         % config/config.yaml trip_windows
 \newcommand{\factCampusSites}{4}         % config/campus.yaml sites
 \newcommand{\factMaxPlaces}{3}           % docs/product.md v1.1: places compared in Check
 \newcommand{\factMorningArrive}{8:10}    % config/config.yaml trip_windows.morning_lecture
 \newcommand{\factNightDepart}{0:30}      % config/config.yaml trip_windows.night_return (Sat)
 \newcommand{\factWalkKmh}{5.0}           % config/config.yaml routing_profiles.walk; arch. O2
 \newcommand{\factBikeKmh}{15}            % config/config.yaml routing_profiles.bike; arch. O2
-\newcommand{\factFitMs}{500}             % docs/product.md v1.1 quality goals: fit request
 
 % ---- validation (docs/methodology.md §10 on dev; archive docs/validation_report.md V10) ----
 \newcommand{\factRefPairsMin}{25}        % V1: at least 25 cell x destination pairs per mode
@@ -27,7 +23,3 @@
 % ---- fit proposal (methodology §6 on branch docs/juju-fit-formula, S1.3, not confirmed) ----
 \newcommand{\factScoreAtFine}{0.9}       % s(t_d)
 \newcommand{\factScoreAtDouble}{0.1}     % s(2 t_d)
-
-% ---- schedule (docs/implementation_plan.md on dev; notes N14) -------------------------------
-\newcommand{\factSubmission}{22 Jan 2027}
-\newcommand{\factFeedEnd}{12 Dec 2026}   % notes N14: naldo GTFS feed_end_date

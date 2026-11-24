@@ -1,6 +1,6 @@
 % !TEX root = ../2026-11-25-interim.tex
 % Product figures (docs/product.md v1.1):
-%   \productlinefigure  one profile, two modes, transitions
+%   \productlinefigure  one profile, two modes
 %   \findmockup         wireframe of Find (desktop): header, profile panel, map, top areas
 %   \checkmockup        wireframe of Check with three places side by side
 % Wireframes are schematic; areas, times and fits are illustrative, not results.
@@ -16,7 +16,7 @@
 
 \newcommand{\productlinefigure}{%
   \begin{tikzpicture}
-    \node[fill=ink,text=white,rounded corners=2pt,text width=62mm,align=center,
+    \node[fill=accent!20,text=ink,rounded corners=2pt,text width=62mm,align=center,
       inner sep=2.5mm,font=\footnotesize] (prof) at (0,0)
       {\textbf{One student profile}\\[0.5mm]
        starts with defaults $\cdot$ edited next to the map\\
@@ -32,10 +32,6 @@
        with the rent the student types in};
     \draw[flow] (prof.south) -- ++(0,-3mm) -| (find.north);
     \draw[flow] (prof.south) -- ++(0,-3mm) -| (check.north);
-    \draw[flow] ([yshift=3mm]find.east) -- node[above,font=\tiny,text=muted]{click an area}
-      ([yshift=3mm]check.west);
-    \draw[flow] ([yshift=-3mm]check.west) -- node[below,font=\tiny,text=muted,align=center]
-      {better places\\nearby} ([yshift=-3mm]find.east);
   \end{tikzpicture}}
 
 % Find: header, panel left, map with a cell heatmap, top-3 cards
@@ -59,7 +55,7 @@
       \foreach \i in {1,2,3}{\pgfmathsetmacro\c{\i<=\k ? 1 : 0}
         \ifdim\c pt>0pt \fill[ink] (19+\i*2.6,\y-1.3) circle (0.8);
         \else \draw[muted,line width=0.3pt] (19+\i*2.6,\y-1.3) circle (0.8); \fi}}
-    \node[wmuted] at (1.5,9) {Example profiles:\\Lena $\cdot$ Arjun $\cdot$ Marie};
+    \node[wmuted] at (1.5,9) {Example profiles:\\Lena $\cdot$ Artur $\cdot$ Marie};
     % map with heatmap cells
     \begin{scope}
       \clip (30,0) rectangle (100,52);
@@ -89,9 +85,9 @@
     \node[wlabel,font=\tiny\bfseries] at (1.5,57.5) {reach};
     \draw[wire] (28,53) rectangle (48,57); \node[wlabel] at (29,56.8) {Find | \textbf{Check}};
     \draw[wire] (62,53) rectangle (98,57); \node[wlabel] at (63,56.8) {Address of flat 3 \ldots};
-    \foreach \i/\n/\f/\r/\c/\b/\w in {0/Flat 1/84/better than 90\,\%/9/22/2 h 50,
-                                       1/Flat 2/71/better than 64\,\%/24/9/4 h 40,
-                                       2/Flat 3/58/better than 38\,\%/31/14/5 h 30}{
+    \foreach \i/\n/\f/\r/\c/\b in {0/Flat 1/84/better than 90\,\%/9/22,
+                                    1/Flat 2/71/better than 64\,\%/24/9,
+                                    2/Flat 3/58/better than 38\,\%/31/14}{
       \begin{scope}[xshift=\i*33mm]
         \draw[wire] (1.5,2) rectangle (32,50.5);
         \node[wlabel,font=\tiny\bfseries] at (2.5,50) {\n};
@@ -100,8 +96,6 @@
         \draw[rule] (2.5,33.5) -- (31,33.5);
         \node[wlabel] at (2.5,32.5) {Campus \hfill \c\ min bus\\Climbing \hfill \b\ min bike\\
           Night home \hfill last bus 0:47};
-        \draw[rule] (2.5,20) -- (31,20);
-        \node[wlabel] at (2.5,19) {Per week on the way: \w};
         \draw[wire] (2.5,8) rectangle (31,13.5); \node[wmuted] at (3,13.3) {Rent per month: EUR \ldots};
       \end{scope}}
   \end{tikzpicture}}

@@ -1,0 +1,29 @@
+% !TEX root = ../2026-11-25-interim.tex
+% Needs figure (docs/product.md v1.1 questions → data sources → app feature):
+%   \needsfigure{rows}  rows as {question}/{data}/{in the app}, three per slide
+% The model behind each row is in the backup (methodology §4–5). All rows are planned.
+
+\tikzset{
+  nneed/.style={fill=accent!20,text=ink,rounded corners=2pt,text width=44mm,align=flush left,
+    inner sep=2mm,font=\footnotesize\itshape,minimum height=12mm,anchor=west},
+  ndata/.style={fill=black!5,draw=muted,line width=0.4pt,rounded corners=2pt,text width=34mm,
+    align=flush left,inner sep=2mm,font=\footnotesize,minimum height=12mm,anchor=west},
+  napp/.style={draw=ink,line width=0.6pt,fill=white,rounded corners=2pt,text width=41mm,
+    align=flush left,inner sep=2mm,font=\footnotesize,minimum height=12mm,anchor=west},
+  nhead/.style={font=\footnotesize\bfseries,text=accent,anchor=south west,inner sep=0pt},
+}
+
+\newcommand{\needsfigure}[1]{%
+  \begin{tikzpicture}
+    \node[nhead] at (0,0) {The student asks};
+    \node[nhead] at (56mm,0) {Data};
+    \node[nhead] at (98mm,0) {In the app};
+    \foreach \q/\d/\a [count=\r] in {#1}{
+      \pgfmathsetmacro\yy{-9-(\r-1)*16}
+      \node[nneed] (q\r) at (0,\yy mm) {``\q''};
+      \node[ndata] (d\r) at (56mm,\yy mm) {\d};
+      \node[napp]  (a\r) at (98mm,\yy mm) {\a};
+      \draw[flow] (q\r.east) -- (d\r.west);
+      \draw[flow] (d\r.east) -- (a\r.west);
+    }
+  \end{tikzpicture}}
