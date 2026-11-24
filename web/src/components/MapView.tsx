@@ -194,10 +194,12 @@ export function MapView({
       }
       const el = document.createElement('button')
       el.type = 'button'
-      el.className = mk.kind === 'pin' ? 'pin' : 'rank-marker'
+      // MapLibre positions the element with its own transform, so the shape is an inner element
+      el.className = mk.kind === 'pin' ? 'pin-wrap' : 'rank-marker'
       el.title = mk.title
       el.setAttribute('aria-label', mk.title)
-      el.innerHTML = `<span>${mk.text.replace(/[<>&]/g, '')}</span>`
+      const text = mk.text.replace(/[<>&]/g, '')
+      el.innerHTML = mk.kind === 'pin' ? `<span class="pin"><span>${text}</span></span>` : `<span>${text}</span>`
       if (mk.onClick) {
         el.addEventListener('click', (ev) => {
           ev.stopPropagation()
