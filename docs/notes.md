@@ -239,3 +239,16 @@ with `run_worker_first` that cuts byte ranges (adds a Worker script; web/AGENTS.
 today), or R2 (another service). Until then the app shows a plain background
 (`VITE_BASEMAP_STYLE` empty); `maplibre-gl` 6.19.0 is installed, `pmtiles` is **not**, because it
 would be unused.
+
+## N19. With the default profile the proposed fit hardly separates central areas
+
+**Status:** observation on sample data, for the fit discussion (methodology §6, M1) ·
+**Related:** S2.3, N17
+
+On the web fixtures (modelled times, not routed) the default profile (no programme, walk + bike +
+bus, campus very important, Mensa, supermarket and station important) gives area fits between
+83 and 100; seven of ten areas score 97–100, so the *Find* map is almost one colour. Personas with
+fewer modes spread much more (Lena, walk + bus: 52–98). Cause: with all modes the fastest mode is
+usually the bike, and the proposal scores 0.9 at the fine time, so short trips saturate. To check
+on real times in S1.10: whether the map needs a relative colour scale next to the absolute fit, or
+whether the default fine times are too generous.
