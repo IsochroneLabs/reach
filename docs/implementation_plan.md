@@ -225,7 +225,7 @@ Code steps start after T1 and the fit formula are confirmed. Step plan first, wa
 - **Done when:** decisions recorded in `architecture.md`; runbook outline in `deployment.md`, so
   your human can book the server right away (I never create or book one).
 
-### S1.3 Fit formula — target 4 Dec
+### S1.3 Fit formula — target 4 Dec · proposal written 23 Nov 2026 (methodology §6), waiting for the yes
 
 - **Branch:** `docs/rico-fit-formula`.
 - **Work:** final proposal in `methodology.md`: smooth time decay around the user's "fine" time

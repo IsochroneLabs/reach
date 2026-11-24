@@ -1,6 +1,6 @@
 # Methodology — reach
 
-> **Status:** v1.1-draft (23 Nov 2026). Binding definition of **what** is computed: origins,
+> **Status:** v1.2-draft (23 Nov 2026). Binding definition of **what** is computed: origins,
 > destinations, modes, trip windows, travel times, the fit, explanations and validation.
 > [`architecture.md`](architecture.md) describes **how**. Every change bumps the version and adds
 > a line to the [Change log](#change-log). **[OPEN]** items are decided before the related code;
@@ -93,27 +93,68 @@ the run fails (V3).
 
 ## 6. Fit **[OPEN]**
 
-Proposal for discussion in S1.3; nothing is implemented before it is confirmed.
+**Proposal of S1.3 (23 Nov 2026), waiting for the team's yes** (M1, M7). Nothing is implemented
+before it is confirmed. Parameters live in `config/config.yaml` (`fit`, added with the code in
+S1.10), not in code.
 
 For a student profile with allowed modes *M*, destination types *D* (from programme and hobbies),
 importance *w_d* ∈ {0, 1, 2, 3}, fine time *t_d* (minutes) and trips per week *f_d*:
 
-1. **Best time per type:** *T_d(i)* = minimum over the allowed modes of the travel time to the
-   nearest destination of type *d* in the type's trip window. For `campus_site`: the mean over the
-   sites of the programme (or the site the student picks).
-2. **Smooth decay around the fine time** (no cut-off):
+1. **Time per type.** *T_d(i)* = minimum over the allowed modes of the stored travel time from
+   cell *i* to the nearest destination of type *d*, in the type's trip window (§5; for
+   `night_return` types the way home). No mixing of modes within one type.
+   **Campus (M7):** *T_campus(i) = Σ_s n_s · T_s(i) / Σ_s n_s* over the sites *s* of the
+   programme, weighted by the days per week *n_s* the student spends there. Default *n_s*: equal
+   (= plain mean); the onboarding lets the student set the days or pick one site.
+2. **Score per type: smooth decay with two readable anchors.**
 
-   *s_d(i) = 1 / (1 + (T_d(i) / (1.25 · t_d))^4)*
+   *s_d(i) = 1 / (1 + (T_d(i) / (a · t_d))^p)*
 
-   With *t_d* = 15 min: 10 min → 0.93, 15 min → 0.71, 20 min → 0.44, 30 min → 0.13.
-   Alternatives for S1.3: exponential decay beyond *t_d*; logistic in minutes.
-3. **Fit:** *fit(i) = 100 · Σ_d w_d · s_d(i) / Σ_d w_d* (0–100).
-4. **Weekly travel time:** *W(i) = Σ_d f_d · (T_d,to(i) + T_d,back(i))* in minutes per week; the
-   back trip uses the return window where one is defined, otherwise the same window. Shown next
-   to the fit as the intuitive measure ("about 3 h 40 min per week on the way").
+   *a* and *p* follow from two anchors instead of being tuned by hand: a trip of exactly the fine
+   time scores **0.9** ("fine" should feel good, M1) and a trip of **twice** the fine time scores
+   **0.1**. That gives *p* = log₂ 81 ≈ 6.34 and *a* = √2 ≈ 1.41 (the score is 0.5 at
+   1.41 · *t_d*). Config: `fit.score_at_fine: 0.9`, `fit.score_at_double: 0.1`.
 
-Worked examples with personas follow in S1.3. Sensitivity of the ranking to ±25 % of *t_d*, the
-exponent and the weights is V4.
+   | *t_d* | 5 min | 10 min | 15 min | 20 min | 25 min | 30 min | 40 min |
+   |---|---|---|---|---|---|---|---|
+   | 10 min | 1.00 | 0.90 | 0.41 | 0.10 | 0.03 | 0.01 | 0.00 |
+   | 15 min | 1.00 | 0.99 | 0.90 | 0.59 | 0.26 | 0.10 | 0.02 |
+   | 20 min | 1.00 | 1.00 | 0.98 | 0.90 | 0.69 | 0.41 | 0.10 |
+
+   Why this shape: no cut-off (a 16-minute trip is not a failure when 15 is fine), flat near zero
+   (5 vs. 8 minutes hardly matters), and it saturates (40 vs. 60 minutes to a weekly hobby does
+   not dominate the ranking). The draft of 21 Nov (*a* = 1.25, *p* = 4) gave only 0.71 at *t_d*.
+3. **Fit:** *fit(i) = 100 · Σ_d w_d · s_d(i) / Σ_d w_d* (0–100, rounded). Types with *w_d* = 0
+   are ignored. The fit compares places for **this** student; it is not a city-wide index.
+4. **Weekly travel time:** *W(i) = Σ_d f_d · 2 · T_d(i)* minutes per week, shown next to the fit
+   ("about 5 h per week on the way"). The back trip is approximated by the stored direction,
+   because computing every back trip would multiply the transit runtime (spike PR #79, risk 3);
+   the app says "about". For `nightlife` the stored direction is the night way home, so *W* errs
+   on the long side.
+5. **Areas (M3, unchanged proposal):** area value = median fit of its populated cells, plus its
+   best cell; rankings use populated cells only (A1).
+
+**Worked example (illustrative times, not Tübingen results).** Persona *Lena* (biology →
+Morgenstelle; walk + transit): campus *w* 3, *t* 20, 5×/week · Mensa 2, 15, 3× · grocery 2, 10,
+2× · climbing 2, 20, 2× · main station 1, 25, 0.5×.
+
+| Type | Cell A (on the hill near Morgenstelle) | *s* | Cell B (south of the river) | *s* |
+|---|---|---|---|---|
+| campus | 9 min walk | 1.00 | 24 min bus (incl. wait) | 0.74 |
+| Mensa | 10 min walk | 0.99 | 22 min bus | 0.44 |
+| grocery | 8 min walk | 0.97 | 6 min walk | 1.00 |
+| climbing | 25 min bus, evening | 0.69 | 12 min walk | 1.00 |
+| main station | 22 min bus, Saturday | 0.95 | 9 min walk | 1.00 |
+| **fit** | | **93** | | **81** |
+| **weekly travel time** | | **≈ 5 h 04 min** | | **≈ 7 h 33 min** |
+
+Reasons (§7) follow from the same numbers: A — strengths campus and Mensa on foot, weakness
+climbing (largest loss *w·(1−s)* = 0.63); B — strengths climbing, station and grocery, weaknesses
+Mensa (1.11) and campus (0.78). **M7 example** (*Marie*, medicine): Morgenstelle 3 days at 12 min,
+Schnarrenberg 2 days at 18 min → *T_campus* = 14.4 min instead of the plain mean 15.0 min.
+
+**Sensitivity (V4):** rankings under *t_d* ± 25 %, both anchors (0.8/0.95 and 0.05/0.2) and the
+weights ± 1 step; reported as rank correlation.
 
 ## 7. Explanations
 
@@ -163,8 +204,8 @@ Validation is graded. Results per release in `docs/validation.md` (*planned, S1.
 
 | ID | Question | Proposal |
 |---|---|---|
-| M1 | Fit formula (decay shape, parameters, weights) | §6 proposal; decide in S1.3 with persona examples. Calibrate so that *s(t_d)* ≈ 0.9 (a trip of exactly the fine time should feel good; the §6 draft gives 0.71) |
-| M7 | Several campus sites per programme | weight the sites by days per week the student spends there instead of the plain mean (§6 step 1); decide in S1.3 |
+| M1 | Fit formula (decay shape, parameters, weights) | §6 proposal of S1.3 (anchors 0.9 at *t_d*, 0.1 at 2 *t_d*); waiting for the team's yes |
+| M7 | Several campus sites per programme | §6 step 1: weighted by days per week, default equal; waiting for the team's yes |
 | M2 | Default fine times, trips per week and trip window per destination type | §3 drafts; check in user-test round 1 (S2.0) |
 | M3 | Area value from cell fits | median fit of the populated cells plus the best cell, with the share of cells above the city median |
 | M4 | Rent in the fit or as a filter | filter/label only |
@@ -180,6 +221,7 @@ Settled:
 
 | Version | Date | Change | Why |
 |---|---|---|---|
+| v1.2-draft | 2026-11-23 | §6 fit proposal of S1.3 (still [OPEN]): decay from two anchors (0.9 at the fine time, 0.1 at twice), campus sites weighted by days (M7), weekly time as 2 × stored direction, worked example | Plan S1.3; M1 calibration from the S0.3 review |
 | v1.1-draft | 2026-11-23 | §4: transit and bike + transit with OpenTripPlanner (O17); M6 decided (the wait at home counts: arrival − window time, or required arrival − latest departure); M5 decided (bike parked, `BICYCLE_PARKING`, still first cut) | T1 decided 23 Nov 2026 (spike PR #79); M6 so that rare buses show in the time students feel |
 | v1.0-draft | 2026-11-21 | New methodology for the student rebuild: origins and areas, destination types, modes, trip windows, fit proposal [OPEN], weekly travel time, explanations, rent, relation to classic measures, validation V1–V8 | Rebuild brief of 21 Nov 2026; plan S0.2 |
 
