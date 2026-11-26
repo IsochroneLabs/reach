@@ -180,7 +180,7 @@ The direction is described in §6; F1.1 turns it into a binding `docs/design.md`
   artifact for team review).
 - **Done when:** the team picked the direction and the type pairing from the prototype.
 - **State (26 Nov 2026):** `docs/design.md` v0.1 and `docs/design/prototype.html` on
-  `docs/juju-design-system`; open: pairing A or B, wordmark grotesk or blackletter.
+  `docs/juju-design-system`; open: pairing A or B. Blackletter wordmark dropped (Juju, 26 Nov 2026).
 
 ```text
 Step F1.1. Write docs/design.md for the reach web app from §6 of docs/extension_plan.md:
@@ -662,7 +662,7 @@ their logos, fonts, images or layouts.
 | Maison Margiela | white space, the blank white label, numbered tags | destinations and reasons as an index (`01 CAMPUS`, `02 SUPERMARKET`); small garment-tag labels with a hairline frame for mode, trip window and data date |
 | Rick Owens | radical reduction, dark concrete greys, monumental type | dark mode *Monolith*; the fit number set very large like a price |
 | Yeezy | neutral ground, tiny type, images do the work | listing grid: photos on a light grey ground, data in small uppercase micro type |
-| Chrome Hearts | gothic black and white, one ornament | optional blackletter wordmark "reach" as the only ornament (a nod to the university town), tested in F1.1 |
+| Chrome Hearts | gothic black and white, one ornament | ~~optional blackletter wordmark~~ dropped after the prototype review (Juju, 26 Nov 2026) |
 
 **Rules against the generic AI look** (become checkable rules in `docs/design.md`):
 
@@ -687,8 +687,7 @@ their logos, fonts, images or layouts.
 
 Fonts are self-hosted, OFL-licensed, chosen in F1.1 from candidates such as a system
 Helvetica/Arial stack (zero bytes), Host Grotesk or Schibsted Grotesk for text, IBM Plex Mono or
-JetBrains Mono for numbers, and UnifrakturMaguntia only for the wordmark (**[VERIFY]** licences in
-F1.1).
+JetBrains Mono for numbers (**[VERIFY]** licences in F1.2); the blackletter wordmark was dropped.
 
 ## 7. Glossary candidates (added in F0.2)
 

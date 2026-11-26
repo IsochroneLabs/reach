@@ -2,7 +2,7 @@
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Host+Grotesk:wght@400;600&family=IBM+Plex+Mono:wght@400;600&family=UnifrakturMaguntia&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Host+Grotesk:wght@400;600&family=IBM+Plex+Mono:wght@400;600&display=swap">
 <style>
 /* Atelier (docs/design.md): one ink on white paper, hairlines instead of shadows, radius 0,
    numbers as the largest marks. Layout: panel column | full-bleed map | results column.
@@ -19,14 +19,12 @@
   --water: #E2E2E0;
   --f-text: "Helvetica Neue", Helvetica, Arial, sans-serif;
   --f-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-  --f-mark: var(--f-text);
   --t-micro: 0.6875rem; --t-small: 0.8125rem; --t-body: 1rem; --t-title: 1.5rem;
   --t-figure: 4rem; --t-fit: 10rem;
   --s-1: 4px; --s-2: 8px; --s-3: 12px; --s-4: 16px; --s-5: 24px; --s-6: 32px; --s-7: 48px; --s-8: 96px;
   --ease: 160ms ease-out;
 }
 :root.type-b { --f-text: "Host Grotesk", "Helvetica Neue", Helvetica, Arial, sans-serif; --f-mono: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace; }
-:root.mark-black { --f-mark: "UnifrakturMaguntia", "Helvetica Neue", Helvetica, serif; }
 @media (prefers-reduced-motion: reduce) { :root { --ease: 0ms; } }
 
 * { box-sizing: border-box; }
@@ -69,8 +67,7 @@ header.app {
   display: grid; grid-template-columns: auto auto 1fr; gap: var(--s-5); align-items: center;
   min-height: 56px; border-bottom: 1px solid var(--ink);
 }
-.wordmark { font: 600 1.75rem/1 var(--f-mark); letter-spacing: -0.02em; }
-:root.mark-black .wordmark { font-weight: 400; font-size: 2.1rem; letter-spacing: 0; }
+.wordmark { font: 600 1.75rem/1 var(--f-text); letter-spacing: -0.02em; }
 .search { display: flex; flex-direction: column; gap: 2px; max-width: 420px; justify-self: end; width: 100%; }
 .search input { border: 0; border-bottom: 1px solid var(--ink); height: 32px; padding: 0; background: transparent; }
 .search input::placeholder { color: var(--grey-2); }
@@ -153,12 +150,6 @@ td.num { white-space: nowrap; }
     <div class="toggle" data-ctl="type">
       <button type="button" id="type-a" aria-pressed="true" data-v="a">A · System</button>
       <button type="button" id="type-b" aria-pressed="false" data-v="b">B · Host Grotesk + Plex Mono</button>
-    </div>
-  </div>
-  <div class="group"><span class="micro">Wordmark</span>
-    <div class="toggle" data-ctl="mark">
-      <button type="button" id="mark-g" aria-pressed="true" data-v="g">Grotesk</button>
-      <button type="button" id="mark-b" aria-pressed="false" data-v="b">Blackletter</button>
     </div>
   </div>
   <div class="group"><span class="micro">View</span>
@@ -379,10 +370,9 @@ td.num { white-space: nowrap; }
   });
 
   // review controls
-  var state = { type: load("type", "a"), mark: load("mark", "g"), tone: "casual", lang: "de" };
+  var state = { type: load("type", "a"), tone: "casual", lang: "de" };
   function apply() {
     root.classList.toggle("type-b", state.type === "b");
-    root.classList.toggle("mark-black", state.mark === "b");
     document.querySelectorAll("[data-ctl]").forEach(function (g) {
       var k = g.dataset.ctl; if (k === "view") return; setToggle(g, state[k]);
     });
@@ -393,7 +383,7 @@ td.num { white-space: nowrap; }
       var b = e.target.closest("button"); if (!b) return;
       var k = g.dataset.ctl;
       if (k === "view") { location.hash = b.dataset.v === "listing" ? "listing" : "find"; return; }
-      state[k] = b.dataset.v; if (k === "type" || k === "mark") store(k, b.dataset.v); apply();
+      state[k] = b.dataset.v; if (k === "type") store(k, b.dataset.v); apply();
     });
   });
 

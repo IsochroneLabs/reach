@@ -1,7 +1,7 @@
 # Design — reach web app
 
 > **Status:** v0.1 draft (26 Nov 2026), step F1.1 of [`extension_plan.md`](extension_plan.md).
-> Binding for the look of `web/` once the team has picked the type pairing and the wordmark from
+> Binding for the look of `web/` once the team has picked the type pairing from
 > the prototype ([`design/prototype.html`](design/prototype.html)). Direction ***Atelier***
 > (architecture O27, decision QF6 of 26 Nov 2026); light theme only, no dark mode for now.
 > Screens, components and texts stay in [`app_screens.md`](app_screens.md); this file decides how
@@ -11,7 +11,7 @@
 
 reach is a tool for one decision, where to live. It should feel like a well-made label
 in a garment: quiet, exact, and recognisable at a glance. The references are fashion houses whose
-websites sell through restraint. We take their principles and none of their material: no logos,
+websites sell through restraint (Maison Margiela, Rick Owens, Yeezy). We take their principles and none of their material: no logos,
 fonts, images, layouts or wording of a real brand.
 
 | Reference | What we take | Where it shows in reach |
@@ -19,7 +19,6 @@ fonts, images, layouts or wording of a real brand.
 | Maison Margiela | white space; the blank white label; numbers as the only decoration | small labels with a hairline frame for mode, trip window and data date ("tags"); ranks and steps as plain numerals |
 | Rick Owens | radical reduction; monumental type next to almost nothing | the fit set very large like a price; nothing competes with it |
 | Yeezy | neutral ground, tiny type, images carry the page | listing photos on a light grey ground, data in small uppercase micro type |
-| Chrome Hearts | one ornament in black and white | optional blackletter wordmark as the only ornament (a nod to the university town), decided from the prototype |
 
 Three sentences the design must make true:
 
@@ -83,7 +82,6 @@ from the prototype:
 |---|---|---|---|---|
 | **A** | system stack: `"Helvetica Neue", Helvetica, Arial, sans-serif` | `ui-monospace, "SF Mono", Menlo, Consolas, monospace` | 0 bytes, looks slightly different per device | system fonts |
 | **B** | Host Grotesk 400/600 | IBM Plex Mono 400/600 | ≈ 4 WOFF2 files, ≈ 120 KB **[VERIFY at download]**, self-hosted under `web/public/fonts/` | SIL OFL 1.1 (both) **[VERIFY licence files at download, F1.2]** |
-| Wordmark (optional) | UnifrakturMaguntia, only for the word "reach" in the header, or as an inline SVG path | – | one file or one SVG | SIL OFL 1.1 **[VERIFY]** |
 
 Fonts are never loaded from a third-party host in the app (root rule 9); the prototype loads B from
 Google Fonts only for the team review.
@@ -191,4 +189,5 @@ branches built them.
 
 | Version | Date | Change | Why |
 |---|---|---|---|
+| v0.1 draft | 2026-11-26 | Blackletter wordmark dropped (Juju); the wordmark is the word "reach" in the text family | Juju's review of the prototype |
 | v0.1 draft | 2026-11-26 | First design system: idea and references, rules R1–R10, colour tokens with measured contrast, two type pairings, scale, grid, components, map style with monochrome fit ramp, copy, patterns to replace | F1.1, decision QF6 *Atelier* |
