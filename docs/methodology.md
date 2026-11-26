@@ -1,6 +1,6 @@
 # Methodology — reach
 
-> **Status:** v1.2-draft (26 Nov 2026). Binding definition of **what** is computed: origins,
+> **Status:** v1.3-draft (26 Nov 2026). Binding definition of **what** is computed: origins,
 > destinations, modes, trip windows, travel times, the fit, explanations and validation.
 > [`architecture.md`](architecture.md) describes **how**. Every change bumps the version and adds
 > a line to the [Change log](#change-log). **[OPEN]** items are decided before the related code;
@@ -59,13 +59,20 @@ fitness).
 
 | Type | Label | Source | Use in the fit (§6) |
 |---|---|---|---|
-| `grocery` | brand (REWE, EDEKA, Lidl, ALDI SÜD, Kaufland, PENNY, Netto, Alnatura, denn's, …; others → `independent`) | `brand:wikidata`, then `brand`, then `name` | **favourite supermarkets:** the grocery term uses only the brands the student chose; none chosen → all supermarkets |
-| `sport` | category (e.g. tennis, table tennis, badminton, climbing/bouldering, swimming, fitness, team ball sports, running, martial arts, dance, yoga, rowing/canoe, cycling) | `sport=*` on `leisure=sports_centre`, `pitch`, `fitness_centre`, `swimming_pool`, `track`; `club=sport` | **every chosen category is its own term** |
-| `hobby` | category (e.g. music, arts and crafts, dance, makerspace, choir, chess) | hobby tags in `docs/osm_tagging.md` | every chosen category is its own term |
+| `grocery` | **brand** (EDEKA, ALDI SÜD, PENNY, Lidl, REWE, Netto, Kaufland, Norma, Alnatura, denn's; brands with fewer than 2 stores are not offered on their own) **and group** (organic, package-free, international, discounter, full-range, village and farm shop, other) | brand: `brand:wikidata`, then `brand`/`name`; group: tags (`organic=only`, `zero_waste=only`), brand, name patterns, first match wins | **favourite supermarkets:** the grocery term uses only the brands and groups the student chose (union); none chosen → all supermarkets |
+| `sport` | category: 25 categories from football to motor and model sports (`config/config.yaml`, `docs/osm_tagging.md` §5.2) | `sport=*` on sport `leisure` values and `club=sport`; the `leisure` value decides only if no sport value maps | **every chosen category is its own term** |
+| `hobby` | category: music, arts and culture centres, makerspace, chess | tags in `docs/osm_tagging.md` §5.3 | every chosen category is its own term |
 | `place_of_worship` | religion | `religion=*` | the term uses the chosen religion |
 
-The category list is fixed in F2.1 of [`extension_plan.md`](extension_plan.md) from the counts in
-the routing area; a category with no destination is not offered.
+**One place, one destination.** Features of the same label closer than `cluster_radius_m` (75 m)
+or inside the same `leisure=sports_centre` form one destination, represented by a point inside the
+largest feature (a tennis club with ten courts, or a shop mapped as node and building, counts once).
+Clustering is per label, so a sports centre with climbing and fitness is one destination in each
+category.
+
+**Offered labels.** Every label with at least `min_destinations` (1) destination after clustering
+is offered in the profile panel; with fewer than `few_note_below` (3) the app says "few places
+mapped in OSM". Counts of 26 Nov 2026 and known gaps: `docs/osm_tagging.md` §5, notes N23.
 
 ### 3.2 Programmes and campus sites (Alma)
 
@@ -274,6 +281,7 @@ Settled:
 
 | Version | Date | Change | Why |
 |---|---|---|---|
+| v1.3-draft | 2026-11-26 | §3.1: supermarkets get a group next to the brand (organic, package-free, international, discounter, full-range, village and farm shop, other); all 25 sport categories offered; clustering of same-label features within 75 m or one sports centre; offer rule (≥ 1 destination, note below 3) | F2.1 taxonomy measured on the extract; Juju's decisions of 26 Nov 2026 (groups clustered in the pipeline, "everything in") |
 | v1.2-draft | 2026-11-26 | §3.1 destination labels (favourite supermarkets by brand, sport and hobby categories replacing `gym`, `climbing`, `swimming`, `sports_club`, `music`; religion); §3.2 programmes and campus sites from Alma with degree and semester; §6: grocery uses the chosen brands, each sport/hobby category is its own term with the time to the amenity only (no trips per week, not in the weekly travel time), campus weighted by site shares (M7 settled); §8.1 listings, §8.2 application text; V9–V12; M8, M9; "onboarding" → "profile panel", "U2" → *Check* where touched | Team decisions QF1–QF6 after the interim presentation (Juju, `docs/extension_plan.md`) |
 | v1.1-draft | 2026-11-23 | §4: transit and bike + transit with OpenTripPlanner (O17); M6 decided (the wait at home counts: arrival − window time, or required arrival − latest departure); M5 decided (bike parked, `BICYCLE_PARKING`, still first cut) | T1 decided 23 Nov 2026 (spike PR #79); M6 so that rare buses show in the time students feel |
 | v1.0-draft | 2026-11-21 | New methodology for the student rebuild: origins and areas, destination types, modes, trip windows, fit proposal [OPEN], weekly travel time, explanations, rent, relation to classic measures, validation V1–V8 | Rebuild brief of 21 Nov 2026; plan S0.2 |

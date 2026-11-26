@@ -237,7 +237,12 @@ sheet. Built on fixtures inside F4.7; no separate branch.
 
 ### Phase F2 — Labelled destinations (supermarkets, sports, hobbies)
 
-#### F2.1 Taxonomy, measured on the extract — target 4 Dec
+#### F2.1 Taxonomy, measured on the extract — target 4 Dec · done (26 Nov 2026)
+
+- **State:** taxonomy decided by Juju (brands + groups clustered in the pipeline, all 25 sport
+  categories, 75 m clustering, four hobby categories); `config/config.yaml` → `destination_labels`
+  with a typed, validated model; counts in `docs/osm_tagging.md` §5; methodology v1.3-draft,
+  architecture v1.4-draft; notes N23.
 
 - **Branch:** `docs/juju-destination-labels` (+ `exp/juju-label-counts` for the measurement, not
   merged).
