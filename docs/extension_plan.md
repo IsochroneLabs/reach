@@ -172,13 +172,15 @@ Juju docs stack (PRs #83–#86) or with notes N16/N17, report it instead of pick
 
 The direction is described in §6; F1.1 turns it into a binding `docs/design.md`.
 
-#### F1.1 Design direction and prototype — target 4 Dec
+#### F1.1 Design direction and prototype — target 4 Dec · in review (26 Nov 2026)
 
 - **Branch:** `docs/juju-design-system`.
 - **Touches:** `docs/design.md` (new), `web/AGENTS.md` (one rule: follow `docs/design.md`),
   one static prototype page (outside `web/src`, e.g. `docs/design/prototype.html`, or a private
   artifact for team review).
 - **Done when:** the team picked the direction and the type pairing from the prototype.
+- **State (26 Nov 2026):** `docs/design.md` v0.1 and `docs/design/prototype.html` on
+  `docs/juju-design-system`; open: pairing A or B, wordmark grotesk or blackletter.
 
 ```text
 Step F1.1. Write docs/design.md for the reach web app from §6 of docs/extension_plan.md:

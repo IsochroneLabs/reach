@@ -1,0 +1,489 @@
+<title>reach Atelier prototype</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Host+Grotesk:wght@400;600&family=IBM+Plex+Mono:wght@400;600&family=UnifrakturMaguntia&display=swap">
+<style>
+/* Atelier (docs/design.md): one ink on white paper, hairlines instead of shadows, radius 0,
+   numbers as the largest marks. Layout: panel column | full-bleed map | results column.
+   Prototype for the team review only (F1.1); not shipped, the app self-hosts its fonts. */
+:root {
+  color-scheme: light;
+  --paper: #FFFFFF;
+  --wash: #F1F1EF;
+  --ink: #111111;
+  --grey-1: #555555;
+  --grey-2: #666666;
+  --rule: #D4D4D2;
+  --alert: #A4161A;
+  --water: #E2E2E0;
+  --f-text: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --f-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --f-mark: var(--f-text);
+  --t-micro: 0.6875rem; --t-small: 0.8125rem; --t-body: 1rem; --t-title: 1.5rem;
+  --t-figure: 4rem; --t-fit: 10rem;
+  --s-1: 4px; --s-2: 8px; --s-3: 12px; --s-4: 16px; --s-5: 24px; --s-6: 32px; --s-7: 48px; --s-8: 96px;
+  --ease: 160ms ease-out;
+}
+:root.type-b { --f-text: "Host Grotesk", "Helvetica Neue", Helvetica, Arial, sans-serif; --f-mono: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace; }
+:root.mark-black { --f-mark: "UnifrakturMaguntia", "Helvetica Neue", Helvetica, serif; }
+@media (prefers-reduced-motion: reduce) { :root { --ease: 0ms; } }
+
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--paper); color: var(--ink);
+  font: 400 var(--t-body)/1.5 var(--f-text);
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 0 var(--s-7);
+  -webkit-font-smoothing: antialiased;
+}
+button, input, textarea { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+h1, h2, h3, p { margin: 0; }
+.micro { font: 400 var(--t-micro)/14px var(--f-mono); text-transform: uppercase; letter-spacing: 0.08em; color: var(--grey-2); }
+.small { font-size: var(--t-small); line-height: 18px; color: var(--grey-1); }
+.num { font-family: var(--f-mono); font-variant-numeric: tabular-nums; }
+.title { font-size: var(--t-title); line-height: 28px; font-weight: 600; letter-spacing: -0.01em; text-wrap: balance; }
+
+/* review bar: prototype controls, not part of the app */
+.review {
+  display: flex; flex-wrap: wrap; gap: var(--s-2) var(--s-5); align-items: center;
+  padding-block: var(--s-2); border-bottom: 1px dashed var(--grey-2);
+}
+.review .group { display: flex; gap: var(--s-2); align-items: center; }
+
+/* text toggle (design.md §6) */
+.toggle { display: inline-flex; flex-wrap: wrap; gap: 0; }
+.toggle button {
+  border: 1px solid var(--ink); margin-left: -1px; background: var(--paper); cursor: pointer;
+  padding: 2px 8px; min-height: 28px; font: 400 var(--t-micro)/14px var(--f-mono);
+  text-transform: uppercase; letter-spacing: 0.08em; transition: background var(--ease), color var(--ease);
+}
+.toggle button:first-child { margin-left: 0; }
+.toggle button[aria-pressed="true"] { background: var(--ink); color: var(--paper); }
+.toggle.lg button { min-height: 40px; padding: 4px 12px; }
+
+/* header */
+header.app {
+  display: grid; grid-template-columns: auto auto 1fr; gap: var(--s-5); align-items: center;
+  min-height: 56px; border-bottom: 1px solid var(--ink);
+}
+.wordmark { font: 600 1.75rem/1 var(--f-mark); letter-spacing: -0.02em; }
+:root.mark-black .wordmark { font-weight: 400; font-size: 2.1rem; letter-spacing: 0; }
+.search { display: flex; flex-direction: column; gap: 2px; max-width: 420px; justify-self: end; width: 100%; }
+.search input { border: 0; border-bottom: 1px solid var(--ink); height: 32px; padding: 0; background: transparent; }
+.search input::placeholder { color: var(--grey-2); }
+
+/* three columns */
+.shell { display: grid; grid-template-columns: 320px minmax(0, 1fr) 380px; min-height: 720px; }
+.col { min-width: 0; padding: var(--s-5) var(--s-5) var(--s-5) 0; display: flex; flex-direction: column; gap: var(--s-5); }
+.col.panel { border-right: 1px solid var(--rule); }
+.col.results { border-left: 1px solid var(--rule); padding-left: var(--s-5); padding-right: 0; }
+.block { display: flex; flex-direction: column; gap: var(--s-2); }
+.block + .block { border-top: 1px solid var(--rule); padding-top: var(--s-4); }
+.row { display: flex; justify-content: space-between; gap: var(--s-3); align-items: baseline; }
+.mapwrap { position: relative; background: var(--wash); min-height: 520px; }
+.mapwrap svg { display: block; width: 100%; height: 100%; position: absolute; inset: 0; }
+.legend {
+  position: absolute; left: var(--s-4); bottom: var(--s-4); background: var(--paper);
+  border: 1px solid var(--ink); padding: var(--s-2) var(--s-3); display: flex; flex-direction: column; gap: var(--s-1);
+}
+.legend .steps { display: flex; gap: 2px; }
+.legend .steps span { width: 18px; height: 12px; }
+.legend .ends { display: flex; justify-content: space-between; }
+.maptag { position: absolute; right: var(--s-4); top: var(--s-4); display: flex; gap: var(--s-2); }
+.tag { display: inline-block; border: 1px solid var(--ink); padding: 1px 6px; font: 400 var(--t-micro)/14px var(--f-mono); text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink); background: var(--paper); }
+
+/* rank list */
+ol.rank { list-style: none; margin: 0; padding: 0; }
+ol.rank li { display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; gap: var(--s-1) var(--s-3); padding-block: var(--s-3); border-top: 1px solid var(--rule); }
+ol.rank li:first-child { border-top: 1px solid var(--ink); }
+ol.rank .n { font: 400 var(--t-small)/28px var(--f-mono); color: var(--grey-2); }
+ol.rank .fit { font: 400 var(--t-title)/28px var(--f-mono); font-variant-numeric: tabular-nums; }
+ol.rank .why { grid-column: 2 / 4; }
+ol.rank a { color: inherit; text-decoration: none; }
+ol.rank a:hover .title, ol.rank a:focus-visible .title { text-decoration: underline; text-underline-offset: 4px; text-decoration-thickness: 1px; }
+
+/* listing view */
+.listing { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: var(--s-6) var(--s-7); padding-top: var(--s-5); }
+.back { background: none; border: 0; padding: 0; cursor: pointer; display: inline-flex; gap: var(--s-2); align-items: center; }
+.back svg { width: 16px; height: 10px; }
+.photos { display: grid; grid-template-columns: 2fr 1fr; gap: var(--s-2); }
+.photo { background: var(--wash); aspect-ratio: 4 / 3; max-width: 100%; display: flex; align-items: flex-end; padding: var(--s-2); }
+.photo.big { grid-row: span 3; aspect-ratio: auto; min-height: 320px; }
+.figures { display: flex; flex-wrap: wrap; gap: var(--s-5) var(--s-7); align-items: flex-end; }
+.figure { display: flex; flex-direction: column; gap: var(--s-1); }
+.figure .v { font: 400 var(--t-figure)/1 var(--f-mono); font-variant-numeric: tabular-nums; letter-spacing: -0.03em; }
+.figure .v.fit { font-size: var(--t-fit); line-height: 0.85; letter-spacing: -0.05em; }
+.figure .v small { font: 400 var(--t-small)/1 var(--f-text); color: var(--grey-1); letter-spacing: 0; margin-left: var(--s-1); }
+.scroll { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: var(--t-body); }
+th { text-align: left; font: 400 var(--t-micro)/14px var(--f-mono); text-transform: uppercase; letter-spacing: 0.08em; color: var(--grey-2); padding: 0 var(--s-3) var(--s-2) 0; border-bottom: 1px solid var(--ink); white-space: nowrap; }
+td { padding: var(--s-2) var(--s-3) var(--s-2) 0; border-bottom: 1px solid var(--rule); vertical-align: baseline; }
+td.r, th.r { text-align: right; }
+td.num { white-space: nowrap; }
+.best { font-weight: 600; }
+.sheet { border: 1px solid var(--ink); padding: var(--s-4); display: flex; flex-direction: column; gap: var(--s-3); }
+.sheet textarea { width: 100%; min-height: 220px; border: 0; border-top: 1px solid var(--rule); padding: var(--s-3) 0 0; resize: vertical; background: transparent; line-height: 1.55; }
+.btn { border: 0; background: var(--ink); color: var(--paper); min-height: 40px; padding: 0 var(--s-4); cursor: pointer; font: 400 var(--t-micro)/14px var(--f-mono); text-transform: uppercase; letter-spacing: 0.08em; }
+.btn.secondary { background: none; color: var(--ink); padding: 0; text-decoration: underline; text-underline-offset: 4px; }
+.notice { border-top: 1px solid var(--rule); padding-top: var(--s-2); display: flex; gap: var(--s-3); }
+.view[hidden] { display: none !important; }
+
+@media (max-width: 1023px) {
+  .shell { grid-template-columns: minmax(0, 1fr); }
+  .col, .col.results { padding: var(--s-5) 0; border: 0; }
+  .col.panel { border-bottom: 1px solid var(--rule); order: 2; }
+  .mapwrap { min-height: 60vh; order: 1; }
+  .col.results { order: 3; }
+  .listing { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 600px) {
+  header.app { grid-template-columns: auto 1fr; }
+  .search { grid-column: 1 / -1; justify-self: stretch; max-width: none; padding-bottom: var(--s-2); }
+  :root { --t-fit: 6rem; --t-figure: 2.75rem; }
+  .photo.big { min-height: 220px; }
+}
+</style>
+
+<div class="review" role="region" aria-label="Prototype controls">
+  <span class="micro" style="color: var(--ink)">Review · F1.1</span>
+  <div class="group"><span class="micro">Type</span>
+    <div class="toggle" data-ctl="type">
+      <button type="button" id="type-a" aria-pressed="true" data-v="a">A · System</button>
+      <button type="button" id="type-b" aria-pressed="false" data-v="b">B · Host Grotesk + Plex Mono</button>
+    </div>
+  </div>
+  <div class="group"><span class="micro">Wordmark</span>
+    <div class="toggle" data-ctl="mark">
+      <button type="button" id="mark-g" aria-pressed="true" data-v="g">Grotesk</button>
+      <button type="button" id="mark-b" aria-pressed="false" data-v="b">Blackletter</button>
+    </div>
+  </div>
+  <div class="group"><span class="micro">View</span>
+    <div class="toggle" data-ctl="view">
+      <button type="button" id="view-find" aria-pressed="true" data-v="find">Find</button>
+      <button type="button" id="view-listing" aria-pressed="false" data-v="listing">Listing</button>
+    </div>
+  </div>
+  <span class="small">Sample data, schematic map. Not real listings or travel times.</span>
+</div>
+
+<header class="app">
+  <span class="wordmark">reach</span>
+  <div class="toggle lg" aria-label="Mode">
+    <button type="button" id="mode-find" aria-pressed="true">Find</button>
+    <button type="button" id="mode-check" aria-pressed="false">Check</button>
+  </div>
+  <label class="search" for="addr">
+    <span class="micro">Check an address or paste a listing</span>
+    <input id="addr" type="text" placeholder="Wilhelmstraße 30" autocomplete="off">
+  </label>
+</header>
+
+<!-- FIND -->
+<main class="view" id="find">
+  <div class="shell">
+    <aside class="col panel" aria-label="Your profile">
+      <div class="block">
+        <span class="micro">Programme</span>
+        <span class="title">Computer Science</span>
+        <div class="row"><span class="small">B.Sc. · Semester 1</span><button class="btn secondary" type="button">Change</button></div>
+        <span class="small num">Sand 62 % · Morgenstelle 38 %</span>
+      </div>
+      <div class="block">
+        <span class="micro">Getting around</span>
+        <div class="toggle" aria-label="Modes">
+          <button type="button" id="m-walk" aria-pressed="true">Walk</button>
+          <button type="button" id="m-bike" aria-pressed="true">Bike</button>
+          <button type="button" id="m-bus" aria-pressed="true">Bus</button>
+        </div>
+      </div>
+      <div class="block">
+        <span class="micro">Your supermarkets</span>
+        <div class="toggle" aria-label="Supermarkets">
+          <button type="button" id="g-lidl" aria-pressed="true">Lidl</button>
+          <button type="button" id="g-rewe" aria-pressed="true">REWE</button>
+          <button type="button" id="g-aldi" aria-pressed="false">ALDI SÜD</button>
+          <button type="button" id="g-edeka" aria-pressed="false">EDEKA</button>
+          <button type="button" id="g-alnatura" aria-pressed="false">Alnatura</button>
+        </div>
+        <span class="small">Only these count for your grocery trips.</span>
+      </div>
+      <div class="block">
+        <span class="micro">Sport and hobbies</span>
+        <div class="row"><span>Bouldering</span><span class="small">very important · 20 min</span></div>
+        <div class="row"><span>Tennis</span><span class="small">important · 20 min</span></div>
+        <button class="btn secondary" type="button" style="align-self: flex-start">Add sport or hobby</button>
+      </div>
+      <div class="block">
+        <span class="micro">Everyday</span>
+        <div class="row"><span>Mensa</span><span class="small">important · 15 min</span></div>
+        <div class="row"><span>Main station</span><span class="small">nice · 25 min</span></div>
+        <div class="row"><span>Going out</span><span class="small">nice · last bus home</span></div>
+      </div>
+    </aside>
+
+    <section class="mapwrap" aria-label="Map of fits for your profile">
+      <svg id="map" viewBox="0 0 640 520" preserveAspectRatio="xMidYMid slice" role="img" aria-label="Schematic map of Tübingen with fit per cell"></svg>
+      <div class="maptag"><span class="tag">Sample</span><span class="tag">Tue 08:10</span></div>
+      <div class="legend" aria-label="Legend">
+        <span class="micro" style="color: var(--ink)">Fit for you</span>
+        <div class="steps" id="steps"></div>
+        <div class="ends micro"><span>0</span><span>100</span></div>
+      </div>
+    </section>
+
+    <section class="col results" aria-label="Results">
+      <div class="block">
+        <span class="micro">Best areas for you</span>
+        <ol class="rank">
+          <li><span class="n">1</span><span class="title">Lustnau</span><span class="fit">91</span>
+            <span class="small why">Lidl 4 min on foot. Sand 11 min by bike. Bouldering 9 min by bike.</span></li>
+          <li><span class="n">2</span><span class="title">Altstadt</span><span class="fit">88</span>
+            <span class="small why">Mensa Wilhelmstraße 6 min on foot. Last bus home not needed.</span></li>
+          <li><span class="n">3</span><span class="title">Wanne</span><span class="fit">84</span>
+            <span class="small why">Morgenstelle 7 min on foot. Uphill from the centre by bike.</span></li>
+        </ol>
+      </div>
+      <div class="block">
+        <div class="row"><span class="micro">Listings · sorted by your fit</span><span class="micro">Today 06:30</span></div>
+        <ol class="rank">
+          <li><a href="#listing" style="display: contents"><span class="n">1</span><span class="title">Room in a 3-person flat share</span><span class="fit">86</span>
+            <span class="small why num">Lustnau · 16 m² · € 420 warm · from 1 Jan</span></a></li>
+          <li><span class="n">2</span><span class="title">Studio near the botanical garden</span><span class="fit">81</span>
+            <span class="small why num">Wanne · 22 m² · € 540 warm · from 15 Dec</span></li>
+          <li><span class="n">3</span><span class="title">Room in a 5-person flat share</span><span class="fit">73</span>
+            <span class="small why num">Südstadt · 14 m² · € 390 warm · from 1 Feb</span></li>
+        </ol>
+      </div>
+      <p class="small">Weekly travel time and fit use your profile. Data: OSM 24 Nov, timetable naldo, listings checked today 06:30.</p>
+    </section>
+  </div>
+</main>
+
+<!-- LISTING -->
+<main class="view" id="listing" hidden>
+  <div class="listing">
+    <div style="display: flex; flex-direction: column; gap: var(--s-5); min-width: 0">
+      <button class="back micro" type="button" id="back" style="color: var(--ink)">
+        <svg viewBox="0 0 16 10" aria-hidden="true"><path d="M15 5H1M5 1 1 5l4 4" fill="none" stroke="currentColor" stroke-width="1"/></svg>
+        Back to the map
+      </button>
+      <div class="block">
+        <div style="display: flex; gap: var(--s-2); flex-wrap: wrap">
+          <span class="tag">Sample listing</span><span class="tag">Flat share room</span><span class="tag">Online since 24 Nov</span>
+        </div>
+        <h1 class="title" style="font-size: 2rem; line-height: 36px">Room in a 3-person flat share, Lustnau</h1>
+        <span class="small">Street known, house number not published. Times are approximate.</span>
+      </div>
+      <div class="photos" aria-label="Photos">
+        <div class="photo big"><span class="micro">Photo 1 of 6 · loaded from the source when opened</span></div>
+        <div class="photo"><span class="micro">2</span></div>
+        <div class="photo"><span class="micro">3</span></div>
+        <div class="photo"><span class="micro">4</span></div>
+      </div>
+      <div class="block">
+        <span class="micro">The flat</span>
+        <div class="scroll"><table>
+          <tbody>
+            <tr><td>Cold rent</td><td class="r num">€ 330</td></tr>
+            <tr><td>Utilities</td><td class="r num">€ 90</td></tr>
+            <tr><td>Deposit</td><td class="r num">€ 840</td></tr>
+            <tr><td>Flat</td><td class="r num">3 rooms · 74 m²</td></tr>
+            <tr><td>Flatmates</td><td class="r num">2 · aged 24–27</td></tr>
+            <tr><td>Available</td><td class="r num">1 Jan 2027 · open end</td></tr>
+            <tr><td>Furnished</td><td class="r">partly</td></tr>
+            <tr><td>Features</td><td class="r">internet 100 Mbit/s, washing machine, balcony</td></tr>
+          </tbody>
+        </table></div>
+        <a class="small" href="#listing" style="color: var(--ink)">Open the original ad</a>
+      </div>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: var(--s-6); min-width: 0">
+      <div class="figures">
+        <div class="figure"><span class="micro">Fit for you</span><span class="v fit">86</span></div>
+        <div class="figure"><span class="micro">Rent, warm</span><span class="v">420<small>€ / month</small></span></div>
+        <div class="figure"><span class="micro">Size</span><span class="v">16<small>m²</small></span></div>
+      </div>
+      <p class="small">Better than 88 % of places in Tübingen for your profile. About 3 h 10 min per week on the way, without sport and hobbies.</p>
+
+      <div class="block">
+        <span class="micro">Your trips from here · minutes</span>
+        <div class="scroll"><table>
+          <thead><tr><th>To</th><th class="r">Walk</th><th class="r">Bike</th><th class="r">Bus</th><th>When</th></tr></thead>
+          <tbody>
+            <tr><td>Sand <span class="small">62 %</span></td><td class="r num">31</td><td class="r num best">11</td><td class="r num">17</td><td class="num small">Tue 08:10</td></tr>
+            <tr><td>Morgenstelle <span class="small">38 %</span></td><td class="r num">38</td><td class="r num best">14</td><td class="r num">19</td><td class="num small">Tue 08:10</td></tr>
+            <tr><td>Mensa Wilhelmstraße</td><td class="r num">18</td><td class="r num best">6</td><td class="r num">10</td><td class="num small">Tue 12:00</td></tr>
+            <tr><td>Lidl</td><td class="r num best">4</td><td class="r num">2</td><td class="r num">–</td><td class="num small">Tue 18:00</td></tr>
+            <tr><td>Bouldering</td><td class="r num">27</td><td class="r num best">9</td><td class="r num">15</td><td class="num small">Tue 18:00</td></tr>
+            <tr><td>Tennis</td><td class="r num">12</td><td class="r num best">5</td><td class="r num">11</td><td class="num small">Tue 18:00</td></tr>
+            <tr><td>Main station</td><td class="r num">34</td><td class="r num best">12</td><td class="r num">14</td><td class="num small">Sat 10:00</td></tr>
+          </tbody>
+        </table></div>
+        <span class="small">Bold: the mode that counts for you. Last bus home from the Altstadt on Friday night: 0:41.</span>
+      </div>
+
+      <div class="block">
+        <span class="micro">Why</span>
+        <ol class="rank">
+          <li><span class="n">1</span><span>Lidl 4 min on foot.</span><span></span></li>
+          <li><span class="n">2</span><span>Sand 11 min by bike, uphill on the way there.</span><span></span></li>
+          <li><span class="n">3</span><span>Bouldering 9 min by bike, 15 min by bus at 18:00.</span><span></span></li>
+        </ol>
+      </div>
+
+      <section class="sheet" aria-label="Application text">
+        <div class="row"><span class="micro" style="color: var(--ink)">Draft a message</span><span class="micro">Stays in your browser</span></div>
+        <div style="display: flex; gap: var(--s-3); flex-wrap: wrap">
+          <div class="toggle" data-ctl="tone" aria-label="Tone">
+            <button type="button" id="tone-casual" aria-pressed="true" data-v="casual">Casual</button>
+            <button type="button" id="tone-friendly" aria-pressed="false" data-v="friendly">Friendly</button>
+            <button type="button" id="tone-formal" aria-pressed="false" data-v="formal">Formal</button>
+          </div>
+          <div class="toggle" data-ctl="lang" aria-label="Language">
+            <button type="button" id="lang-de" aria-pressed="true" data-v="de">DE</button>
+            <button type="button" id="lang-en" aria-pressed="false" data-v="en">EN</button>
+          </div>
+        </div>
+        <label class="micro" for="msg">Text · gaps in [brackets] are yours to fill</label>
+        <textarea id="msg" spellcheck="false"></textarea>
+        <div class="row"><button class="btn" type="button" id="copy">Copy text</button><span class="small" id="copied" aria-live="polite"></span></div>
+      </section>
+    </div>
+  </div>
+</main>
+
+<script>
+(function () {
+  var root = document.documentElement;
+  var RAMP = ["#EFEFEF", "#D2D2D2", "#B0B0B0", "#8C8C8C", "#686868", "#444444", "#1C1C1C"];
+
+  function setToggle(group, v) {
+    group.querySelectorAll("button").forEach(function (b) { b.setAttribute("aria-pressed", String(b.dataset.v === v)); });
+  }
+  function store(k, v) { try { localStorage.setItem("reach-proto-" + k, v); } catch (e) {} }
+  function load(k, d) { try { return localStorage.getItem("reach-proto-" + k) || d; } catch (e) { return d; } }
+
+  // plain toggles in the app (multi-select look only)
+  document.querySelectorAll(".toggle:not([data-ctl])").forEach(function (g) {
+    var single = g.getAttribute("aria-label") === "Mode";
+    g.addEventListener("click", function (e) {
+      var b = e.target.closest("button"); if (!b) return;
+      if (single) { g.querySelectorAll("button").forEach(function (x) { x.setAttribute("aria-pressed", String(x === b)); }); }
+      else { b.setAttribute("aria-pressed", String(b.getAttribute("aria-pressed") !== "true")); }
+    });
+  });
+
+  // review controls
+  var state = { type: load("type", "a"), mark: load("mark", "g"), tone: "casual", lang: "de" };
+  function apply() {
+    root.classList.toggle("type-b", state.type === "b");
+    root.classList.toggle("mark-black", state.mark === "b");
+    document.querySelectorAll("[data-ctl]").forEach(function (g) {
+      var k = g.dataset.ctl; if (k === "view") return; setToggle(g, state[k]);
+    });
+    renderMsg();
+  }
+  document.querySelectorAll("[data-ctl]").forEach(function (g) {
+    g.addEventListener("click", function (e) {
+      var b = e.target.closest("button"); if (!b) return;
+      var k = g.dataset.ctl;
+      if (k === "view") { location.hash = b.dataset.v === "listing" ? "listing" : "find"; return; }
+      state[k] = b.dataset.v; if (k === "type" || k === "mark") store(k, b.dataset.v); apply();
+    });
+  });
+
+  // views on the hash
+  function route() {
+    var v = location.hash === "#listing" ? "listing" : "find";
+    document.getElementById("find").hidden = v !== "find";
+    document.getElementById("listing").hidden = v !== "listing";
+    setToggle(document.querySelector('[data-ctl="view"]'), v);
+    window.scrollTo(0, 0);
+  }
+  window.addEventListener("hashchange", route);
+  document.getElementById("back").addEventListener("click", function () { location.hash = "find"; });
+
+  // legend
+  var steps = document.getElementById("steps");
+  RAMP.forEach(function (c) { var s = document.createElement("span"); s.style.background = c; steps.appendChild(s); });
+
+  // schematic map: 100 m cells as a grid, fit from distance to Sand, Morgenstelle and the centre
+  var NS = "http://www.w3.org/2000/svg";
+  var svg = document.getElementById("map");
+  function el(n, a) { var e = document.createElementNS(NS, n); for (var k in a) e.setAttribute(k, a[k]); return e; }
+  function rnd(i, j) { var x = Math.sin(i * 127.1 + j * 311.7) * 43758.5453; return x - Math.floor(x); }
+  var C = 12, W = 640, H = 520;
+  var sites = [[400, 190, 0.62], [250, 170, 0.38]], centre = [330, 300];
+  function inside(x, y) {
+    var dx = (x - 330) / 270, dy = (y - 270) / 200;
+    return dx * dx + dy * dy + 0.18 * Math.sin(x / 41) * Math.cos(y / 37) < 1;
+  }
+  var g = el("g", {});
+  for (var y = 0; y < H; y += C) {
+    for (var x = 0; x < W; x += C) {
+      var cx = x + C / 2, cy = y + C / 2;
+      if (!inside(cx, cy) || Math.abs(cy - (330 + 22 * Math.sin(cx / 70))) < 9) continue;
+      var t = 0;
+      sites.forEach(function (s) { t += s[2] * Math.hypot(cx - s[0], cy - s[1]); });
+      var dc = Math.hypot(cx - centre[0], cy - centre[1]);
+      var hill = cy < 200 ? (200 - cy) * 0.35 : 0;
+      var score = 100 - 0.22 * t - 0.08 * dc - hill + 14 * (rnd(x, y) - 0.5);
+      if (rnd(y, x) > 0.985) { g.appendChild(el("rect", { x: x, y: y, width: C, height: C, fill: "url(#hatch)" })); continue; }
+      var k = Math.max(0, Math.min(6, Math.floor(score / 100 * 7)));
+      g.appendChild(el("rect", { x: x + 0.5, y: y + 0.5, width: C - 1, height: C - 1, fill: RAMP[k], "fill-opacity": 0.72 }));
+    }
+  }
+  var defs = el("defs", {});
+  var pat = el("pattern", { id: "hatch", width: 6, height: 6, patternUnits: "userSpaceOnUse", patternTransform: "rotate(45)" });
+  pat.appendChild(el("line", { x1: 0, y1: 0, x2: 0, y2: 6, stroke: "#666666", "stroke-width": 1 }));
+  defs.appendChild(pat); svg.appendChild(defs);
+  var river = el("path", { d: Array.from({ length: 65 }, function (_, i) { var px = i * 10; return (i ? "L" : "M") + px + " " + (330 + 22 * Math.sin(px / 70)).toFixed(1); }).join(" "), fill: "none", stroke: "#E2E2E0", "stroke-width": 16 });
+  svg.appendChild(river); svg.appendChild(g);
+  var labels = [["Altstadt", 318, 296], ["Lustnau", 470, 262], ["Wanne", 372, 150], ["Waldhäuser-Ost", 300, 92], ["Südstadt", 330, 392], ["Derendingen", 300, 452], ["Weststadt", 168, 296], ["Neckar", 560, 352]];
+  labels.forEach(function (l) {
+    var t = el("text", { x: l[1], y: l[2], "font-size": 12, fill: "#555555", stroke: "#FFFFFF", "stroke-width": 3, "paint-order": "stroke", "font-family": "var(--f-text)" });
+    t.style.fontFamily = "var(--f-text)"; t.textContent = l[0]; svg.appendChild(t);
+  });
+  [["1", 478, 236], ["2", 392, 132], ["3", 344, 372]].forEach(function (p) {
+    svg.appendChild(el("rect", { x: p[1] - 9, y: p[2] - 9, width: 18, height: 18, fill: "#111111", stroke: "#FFFFFF", "stroke-width": 2 }));
+    var t = el("text", { x: p[1], y: p[2] + 4, "font-size": 11, fill: "#FFFFFF", "text-anchor": "middle" });
+    t.style.fontFamily = "var(--f-mono)"; t.textContent = p[0]; svg.appendChild(t);
+  });
+  sites.forEach(function (s, i) {
+    svg.appendChild(el("rect", { x: s[0] - 4, y: s[1] - 4, width: 8, height: 8, fill: "#111111" }));
+    var t = el("text", { x: s[0] + 8, y: s[1] + 4, "font-size": 11, fill: "#111111", stroke: "#FFFFFF", "stroke-width": 3, "paint-order": "stroke" });
+    t.style.fontFamily = "var(--f-mono)"; t.textContent = i ? "MORGENSTELLE" : "SAND"; svg.appendChild(t);
+  });
+
+  // application text from templates (methodology §8.2): no invented facts, gaps in brackets
+  var L = { flatmates: "2", district: "Lustnau", from: "1. Januar", fromEn: "1 January" };
+  var T = {
+    de: {
+      casual: "Hey ihr zwei,\n\nich bin [Name], [Alter], und studiere ab dem Semesterstart Informatik (B.Sc.) in Tübingen, erstes Semester. Euer Zimmer in " + L.district + " ab dem " + L.from + " passt richtig gut: in elf Minuten bin ich mit dem Rad am Sand, und der Lidl ist um die Ecke.\n\nIn meiner Freizeit gehe ich bouldern und spiele Tennis. [Ein, zwei Sätze über dich und wie du in einer WG lebst.]\n\nHättet ihr Lust auf ein Kennenlernen, gern auch per Video?\n\nViele Grüße\n[Name]",
+      friendly: "Hallo zusammen,\n\nmein Name ist [Name], ich bin [Alter] und beginne mein Informatikstudium (B.Sc.) in Tübingen im ersten Semester. Euer Zimmer in " + L.district + " ab dem " + L.from + " hat mich sofort angesprochen, auch weil ich von dort gut zum Sand und zur Morgenstelle komme.\n\nNeben dem Studium bin ich gern beim Bouldern und Tennis. [Ein, zwei Sätze über dich und wie du in einer WG lebst.]\n\nIch würde mich freuen, euch kennenzulernen, vor Ort oder per Video.\n\nViele Grüße\n[Name]",
+      formal: "Guten Tag,\n\nich interessiere mich für das Zimmer in " + L.district + " ab dem " + L.from + ". Ich heiße [Name], bin [Alter] Jahre alt und beginne das Bachelorstudium Informatik an der Universität Tübingen.\n\nIn meiner Freizeit bouldere ich und spiele Tennis. [Ein, zwei Sätze über dich.]\n\nÜber eine Einladung zu einem Besichtigungs- oder Videotermin würde ich mich freuen.\n\nMit freundlichen Grüßen\n[Name]"
+    },
+    en: {
+      casual: "Hi both,\n\nI'm [name], [age], and I'm starting Computer Science (B.Sc.) in Tübingen, first semester. Your room in " + L.district + " from " + L.fromEn + " fits really well: Sand is eleven minutes by bike and the Lidl is round the corner.\n\nIn my free time I go bouldering and play tennis. [A sentence or two about you and how you like to live in a flat share.]\n\nWould you like to meet, in person or on a video call?\n\nBest\n[name]",
+      friendly: "Hello,\n\nmy name is [name], I'm [age] and I'm starting my Computer Science degree (B.Sc.) in Tübingen. Your room in " + L.district + " from " + L.fromEn + " caught my eye, also because Sand and Morgenstelle are easy to reach from there.\n\nBesides studying I like bouldering and tennis. [A sentence or two about you and how you like to live in a flat share.]\n\nI'd be glad to meet you, in person or on a video call.\n\nKind regards\n[name]",
+      formal: "Dear flatmates,\n\nI am interested in the room in " + L.district + " from " + L.fromEn + ". My name is [name], I am [age] years old and I am beginning the Bachelor's programme in Computer Science at the University of Tübingen.\n\nIn my free time I go bouldering and play tennis. [A sentence or two about you.]\n\nI would welcome an invitation to a viewing or a video call.\n\nYours sincerely\n[name]"
+    }
+  };
+  var msg = document.getElementById("msg");
+  function renderMsg() { msg.value = T[state.lang][state.tone]; }
+  document.getElementById("copy").addEventListener("click", function () {
+    var out = document.getElementById("copied");
+    function fallback() { msg.focus(); msg.select(); out.textContent = "Selected. Press Ctrl+C or Cmd+C."; }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(msg.value).then(function () { out.textContent = "Copied."; }, fallback);
+    } else { fallback(); }
+  });
+
+  apply(); route();
+})();
+</script>
