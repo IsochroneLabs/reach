@@ -1,9 +1,9 @@
 # Extension plan — programmes, labelled destinations, listings, design
 
-> **Status:** v0.1 draft (26 Nov 2026), written for Juju after the interim presentation of
-> 25 Nov 2026. **Not confirmed.** Nothing in this file changes `product.md`, `architecture.md`,
-> `methodology.md` or `data_contract.md`; phase F0 brings the needed changes to the team as
-> questions with a recommendation. Progress of the steps is tracked in the status block of
+> **Status:** v0.2 draft (26 Nov 2026), written for Juju after the interim presentation of
+> 25 Nov 2026. **Decisions QF1–QF6 taken by Juju on 26 Nov 2026** (§2) and recorded in
+> `architecture.md` v1.3-draft (O22–O27) and `methodology.md` v1.2-draft. Still open from F0.2:
+> `product.md` v1.2 and the data-contract tables (they come with F2.4, F3.4, F4.1). Progress of the steps is tracked in the status block of
 > [`implementation_plan.md`](implementation_plan.md) like every other step; this file holds the
 > steps, their order and a ready-to-paste prompt per step.
 
@@ -30,16 +30,29 @@ and ask first. The extensions touch these points:
 
 | # | What the extension needs | Conflicts with | Proposal |
 |---|---|---|---|
-| C1 | Listings from WG-Gesucht | `product.md` non-goal "no scraping of listing sites"; WG-Gesucht AGB §7 (12) "Eine Vervielfältigung der Angebote des Internetportals ist nur mit vorheriger Zustimmung der SMP GmbH & Co. KG gestattet", §8 (4) protection of the "gesamte Daten- und Datenbankstruktur" (read 26 Nov 2026); German database right (§ 87b UrhG); photos are the uploaders' copyright; listings contain personal data of third parties (names, ages, faces, phone numbers) | See **QF1**: write to SMP for permission now; build the source-agnostic listing model; ship the import **in the student's own browser** (variant C) as the default and the daily server crawl (variant A) only with written permission |
-| C2 | A daily listing job that writes to PostGIS | Architecture rule 6 / O7 ("only `publish` writes results"), O16 (sequential heavy steps) | A second, small writer `publish_listings` with its own schema `listings` and the same atomic switch; a lock so it never overlaps `make refresh` (architecture change, ask first) |
-| C3 | Alma as a data source | Architecture §4 lists no university source; O8 (no public data APIs **at runtime**: not violated, Alma is read by the pipeline once per semester) | New source `alma` in §4 with provenance, refresh per semester, manual overrides in `config/campus.yaml` (architecture change) |
-| C4 | Several campus sites weighted by weekly hours | Methodology §6 ("several = mean time"), open point M7 | Weight sites by the weekly hours of compulsory courses per site (closes M7; methodology change) |
-| C5 | Favourite supermarkets, sport categories | Methodology §3 (one list of destination types, nearest k per type) | A **destination label** below the type (brand or category); travel times stored for the nearest k per type **and** per label; fit uses the chosen labels (methodology + data contract change) |
-| C6 | Live routing of an arbitrary listing point | Architecture rule 9: caches key only on the weight vector | No cache for point routing; one request routes one point to all needed destinations in < 2 s |
-| C7 | Application text with an LLM (optional) | Rule 9 (privacy), "no new paid service without asking" | **QF2**: templates in the browser first; an LLM only after an explicit yes |
-| C8 | Self-hosted web fonts | `web/src/index.css` comment "System fonts only" (privacy rule, no third-party fonts) | Self-host OFL fonts from our own origin (no third party); every font file is a dependency decision (ask first) |
+| C1 *(decided: A, O24; risk in N20)* | Listings from WG-Gesucht | `product.md` non-goal "no scraping of listing sites"; WG-Gesucht AGB §7 (12) "Eine Vervielfältigung der Angebote des Internetportals ist nur mit vorheriger Zustimmung der SMP GmbH & Co. KG gestattet", §8 (4) protection of the "gesamte Daten- und Datenbankstruktur" (read 26 Nov 2026); German database right (§ 87b UrhG); photos are the uploaders' copyright; listings contain personal data of third parties (names, ages, faces, phone numbers) | See **QF1**: write to SMP for permission now; build the source-agnostic listing model; ship the import **in the student's own browser** (variant C) as the default and the daily server crawl (variant A) only with written permission |
+| C2 *(settled, O24)* | A daily listing job that writes to PostGIS | Architecture rule 6 / O7 ("only `publish` writes results"), O16 (sequential heavy steps) | A second, small writer `publish_listings` with its own schema `listings` and the same atomic switch; a lock so it never overlaps `make refresh` (architecture change, ask first) |
+| C3 *(settled, O23)* | Alma as a data source | Architecture §4 lists no university source; O8 (no public data APIs **at runtime**: not violated, Alma is read by the pipeline once per semester) | New source `alma` in §4 with provenance, refresh per semester, manual overrides in `config/campus.yaml` (architecture change) |
+| C4 *(settled, M7)* | Several campus sites weighted by weekly hours | Methodology §6 ("several = mean time"), open point M7 | Weight sites by the weekly hours of compulsory courses per site (closes M7; methodology change) |
+| C5 *(settled, O22)* | Favourite supermarkets, sport categories | Methodology §3 (one list of destination types, nearest k per type) | A **destination label** below the type (brand or category); travel times stored for the nearest k per type **and** per label; fit uses the chosen labels (methodology + data contract change) |
+| C6 *(settled, O25)* | Live routing of an arbitrary listing point | Architecture rule 9: caches key only on the weight vector | No cache for point routing; one request routes one point to all needed destinations in < 2 s |
+| C7 *(settled, O26)* | Application text with an LLM (optional) | Rule 9 (privacy), "no new paid service without asking" | **QF2**: templates in the browser first; an LLM only after an explicit yes |
+| C8 *(settled, O27)* | Self-hosted web fonts | `web/src/index.css` comment "System fonts only" (privacy rule, no third-party fonts) | Self-host OFL fonts from our own origin (no third party); every font file is a dependency decision (ask first) |
 
-## 2. Questions for the team (F0.1) — each with a recommendation
+## 2. Decisions (F0.1)
+
+Taken by Juju on 26 Nov 2026; Rico and Socke review them in the PR.
+
+| # | Decision | Recorded in |
+|---|---|---|
+| **QF1** | **(A)** WG-Gesucht is crawled daily on the server. The permission request (appendix A) is still sent; data minimisation and the off switch stay (notes N20) | architecture O24, methodology §8.1 |
+| **QF2** | **(a)** templates in the browser now; **(b)** LLM variant kept as a plan, needs its own yes | architecture O26, methodology §8.2 |
+| **QF3** | **(i)** the grocery term uses the nearest of the chosen brands | architecture O22, methodology §6 |
+| **QF4** | **(i)** every chosen sport/hobby category is its own term, **but only the time to the amenity**: no trips per week, not part of the weekly travel time | architecture O22, methodology §3.1, §6 |
+| **QF5** | **(ii)** the student picks the semester (default 1) **and the degree (bachelor/master)** | architecture O23, methodology §3.2 |
+| **QF6** | **Atelier**; no dark mode for now | architecture O27 |
+
+### Questions as asked (for reference)
 
 | # | Question | Options | Recommendation |
 |---|---|---|---|
@@ -74,9 +87,9 @@ that include Christmas and exams. Keep to the cut order (§5).
 | F4.2 | listing parser + anonymised fixtures | F4.1 | 18 Dec |
 | F2.5 | profile panel: favourite supermarkets, sports and hobbies | F2.4, F1.2 | 22 Dec |
 | F3.4 | programmes in data contract, publish, API, fit weights | F3.3, S1.10 | 22 Dec |
-| F4.3 | variant C: bookmarklet + paste box | F4.2 | 22 Dec |
+| F4.3 | variant C: bookmarklet + paste box (**fallback only**, if the crawl is blocked or refused) | F4.2 | on demand |
 | F4.5 | geocoding + routing of a listing point | F4.1, S1.10 | 8 Jan |
-| F4.4 | variant A: daily crawl job (only with permission) | F4.2, F4.5, QF1 = A | 12 Jan |
+| F4.4 | variant A: daily crawl job | F4.2, F4.5 | 12 Jan |
 | F3.5 | programme search + "where you study" in the app | F3.4, F1.3 | 8 Jan |
 | F4.6 | listing API | F4.5 | 8 Jan |
 | F4.7 | listings in *Find* and *Check* (incl. F1.4 listing components) | F4.6, F1.3 | 12 Jan |
@@ -86,7 +99,7 @@ that include Christmas and exams. Keep to the cut order (§5).
 | F5.2 | validation V9–V12 in `docs/validation.md`, user test incl. listings | all | 16 Jan |
 
 Releases: what is merged by 9 Jan goes into **v0.3.0** (expected: F1.1–F1.3, F2, F3.1–F3.4,
-F4.3); the rest into **v0.4.0** (16 Jan); fixes into **v1.0.0**.
+F4.1–F4.2); the rest into **v0.4.0** (16 Jan); fixes into **v1.0.0**.
 
 ## 4. Steps and prompts
 
@@ -172,7 +185,7 @@ principles, the anti-slop rules as checkable rules, design tokens (colour, type 
 rules/lines, motion), the grid for desktop and mobile, the component vocabulary (index label,
 garment-tag label, hairline table, big number, text toggle, inverted selection), map style
 (monochrome basemap, monochrome fit ramp, no-data hatching), copy tone with good/bad examples,
-and dark mode. Then build ONE static prototype page that shows Find and a listing detail in the
+(no dark mode for now, QF6). Then build ONE static prototype page that shows Find and a listing detail in the
 Atelier direction with two type pairings side by side, so the team can choose. Read
 web/src/index.css and the components first; name every current pattern that breaks a rule
 (e.g. pill buttons, shadows, rounded radius, teal accent, viridis ramp). Do not copy logos,
@@ -192,8 +205,7 @@ OFL-licensed fonts we can self-host, with licence links verified; no font is add
 ```text
 Step F1.2. Implement the tokens and base styles of docs/design.md in web/: CSS custom
 properties, type scale, self-hosted fonts (ask first: list each font file, size and licence),
-reset of radius/shadow/accent, focus styles that stay visible in the new look, dark mode via
-prefers-color-scheme plus a toggle kept in localStorage. Restyle the shell, header, profile
+reset of radius/shadow/accent, focus styles that stay visible in the new look (light theme only, QF6). Restyle the shell, header, profile
 panel, bottom sheet, toast and status banner. No new npm dependency. Keep every existing test
 green; add Playwright screenshots of Find on mobile and desktop to the PR description.
 ```
@@ -244,7 +256,7 @@ community_centre, leisure=hackerspace|dance, club=*). Propose (1) a brand normal
 "independent") keyed on brand:wikidata with name fallback, and (2) sport categories (racket:
 tennis, table tennis, badminton, squash, padel; climbing/bouldering; swimming; fitness; team ball
 sports; running/athletics; martial arts; dance; yoga; rowing/canoe; cycling; equestrian; …) and
-hobby categories, each with its OSM tags. Report counts per label, labels with < 1 destination,
+hobby categories, each with its OSM tags (methodology §3.1). Report counts per label, labels with < 1 destination,
 and polygons vs. points. Write the result to docs/osm_tagging.md and the config keys (new keys
 only, commented). Keep the measurement script on the exp branch.
 ```
@@ -308,8 +320,8 @@ name the destination. Response-time test for the whole city; POST bodies stay un
 
 ```text
 Step F2.5. In the profile panel add "Your supermarkets" (multi-select of brands with counts,
-default: any) and "Sports and hobbies" (categories grouped, searchable, each with importance,
-trips per week and fine time as for other destinations), styled per docs/design.md (text
+default: any) and "Sports and hobbies" (categories grouped, searchable, each with importance and
+fine time only: no trips per week, methodology §6 QF4), styled per docs/design.md (text
 toggles, no chips with icons). Encode the choice compactly in the URL hash; extend the hash
 tests. Show the chosen destinations as small labelled points on the map. Update fixtures and
 add a Playwright test: pick Lidl + tennis, check the reasons mention both.
@@ -412,7 +424,7 @@ Compare persona fits before/after and list the differences in the PR.
 
 ```text
 Step F3.5. Replace the programme list in the profile panel by a search over the programmes API
-(degree filter, semester select, default 1), keep the default campus mix when none is chosen.
+(degree select bachelor/master, semester select, default 1; methodology §3.2), keep the default campus mix when none is chosen.
 Add a map layer "Where you study": the student's buildings as points sized by weekly hours, with
 an indexed list as the non-map alternative. In Check show the time to each site and its weight.
 Styled per docs/design.md; URL hash and fixtures updated; Playwright test.
@@ -464,7 +476,7 @@ warm/cold rent, size, flatmates, features, address parts, image URLs. Unknown fi
 with a warning; a missing address is an error the UI can explain. No network in tests.
 ```
 
-#### F4.3 Variant C: "Send to reach" — target 22 Dec
+#### F4.3 Variant C: "Send to reach" — fallback only (QF1 = A)
 
 - **Branch:** `feature/juju-listing-import`.
 - **Touches:** bookmarklet (built from `extract.ts`, offered on an about page), paste box in the
@@ -483,7 +495,7 @@ POST address search. Document in the about page what happens to the data. Playwr
 fixture page.
 ```
 
-#### F4.4 Variant A: daily crawl job — target 12 Jan, only if QF1 = A
+#### F4.4 Variant A: daily crawl job — target 12 Jan
 
 - **Branch:** `feature/juju-listing-crawl`.
 - **Touches:** `pipeline/src/reach_pipeline/listings/crawl.py`, `stages/publish_listings.py`,
@@ -493,7 +505,7 @@ fixture page.
   switches `listings.current` atomically; stops on captcha or structure change and notifies.
 
 ```text
-Step F4.4. Only after the written permission recorded in §2 (QF1 = A). Implement make listings:
+Step F4.4. QF1 = A (architecture O24, notes N20). Implement make listings:
 crawl the Tübingen search result pages from config, fetch detail pages only for new or changed
 listing ids, parse with listings/parse.py, geocode and route (F4.5), validate (V12: parse rate,
 geocode precision shares, freshness), write a manifest and switch listings.current atomically in
@@ -574,7 +586,7 @@ the length WG-Gesucht messages usually have. Copy button, no server call. Snapsh
 tone and language.
 ```
 
-#### F4.9 Daily schedule on the server — target 14 Jan, only if QF1 = A
+#### F4.9 Daily schedule on the server — target 14 Jan
 
 - **Branch:** `feature/juju-listing-schedule` (together with S3.1).
 - **Touches:** systemd timer or cron on the server (`docs/deployment.md` runbook), lock with the
@@ -715,4 +727,5 @@ per site) · **listing** (a room or flat offer from a listing source) · **listi
 
 | Version | Date | Change | Why |
 |---|---|---|---|
+| v0.2 draft | 2026-11-26 | Decisions QF1–QF6 recorded (§2); conflicts C1–C8 settled; steps adapted (crawl is the main path, browser import only as fallback; sport/hobby without trips per week; degree choice; no dark mode) | Juju's decisions; architecture v1.3-draft, methodology v1.2-draft |
 | v0.1 draft | 2026-11-26 | First extension plan: conflicts C1–C8, questions QF1–QF6, phases F0–F5 with prompts, cut order, V9–V12, design direction | Juju's request after the interim presentation of 25 Nov 2026 |
