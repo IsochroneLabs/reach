@@ -2,8 +2,9 @@
 
 > **Status:** v0.2 draft (26 Nov 2026), written for Juju after the interim presentation of
 > 25 Nov 2026. **Decisions QF1–QF6 taken by Juju on 26 Nov 2026** (§2) and recorded in
-> `architecture.md` v1.3-draft (O22–O27) and `methodology.md` v1.2-draft. Still open from F0.2:
-> `product.md` v1.2 and the data-contract tables (they come with F2.4, F3.4, F4.1). Progress of the steps is tracked in the status block of
+> `architecture.md` v1.3-draft (O22–O27), `methodology.md` v1.2-draft, `product.md` v1.2 and
+> AGENTS.md rule 6. Still open from F0.2: the data-contract tables (they come with F2.4, F3.4,
+> F4.1). Progress of the steps is tracked in the status block of
 > [`implementation_plan.md`](implementation_plan.md) like every other step; this file holds the
 > steps, their order and a ready-to-paste prompt per step.
 

@@ -266,8 +266,8 @@ the uploaders; listings carry personal data of third parties. `robots.txt` does 
 listing pages. **To do:** send the request of appendix A before the crawl runs in production and
 record the answer here; keep the data minimisation of O24; keep `listings.enabled` switchable so the
 app works without listings; if SMP refuses, switch the crawl off and fall back to the import in
-the student's browser (extension plan F4.3). `product.md` still lists "no scraping of listing
-sites" as a non-goal and must be updated (v1.2) before code lands.
+the student's browser (extension plan F4.3). `product.md` v1.2 (26 Nov 2026) replaced the non-goal
+"no scraping of listing sites" by data limits (no contact data, no photo copies, WG-Gesucht only).
 
 ## N21. Alma was not reachable from outside the university network
 
@@ -281,7 +281,7 @@ university for an export (extension plan appendix B).
 
 ## N22. AGENTS.md rule 6 needs the listings writer
 
-**Status:** open, needs a yes for AGENTS.md · **Related:** architecture O7, O24
+**Status:** settled 26 Nov 2026 (Juju's yes; rule 6 extended) · **Related:** architecture O7, O24
 
 AGENTS.md architecture rule 6 says "Only `publish` writes results to PostGIS". With O24,
 `publish_listings` writes the `lst_<id>` schemas and the `listings` views. **To do:** extend rule 6

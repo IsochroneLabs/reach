@@ -118,8 +118,9 @@ the Never list or the Ask-first list.
 4. **No hard-coded values:** speeds, tags, trip windows, limits, URLs and paths come from
    `config/` or `.env`.
 5. **Store raw travel times;** the fit, rankings and reasons are derived at read time by the API.
-6. **Only `publish` writes results to PostGIS;** `cleanup` only drops old run schemas. The API
-   reads only `current`.
+6. **Only `publish` and `publish_listings` write results to PostGIS;** `cleanup` only drops old
+   run and listing snapshot schemas. The API reads only `current` and `listings` (architecture
+   O7, O24).
 7. **Stages are idempotent** and write a manifest; each stage checks the previous one.
 8. **No public data APIs at runtime** (Overpass, Nominatim, journey planners). OSM data comes
    from the clipped Geofabrik extract; addresses are searched in PostGIS.
