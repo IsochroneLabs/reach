@@ -1,6 +1,6 @@
 # Architecture — reach
 
-> **Status:** v1.2-draft (23 Nov 2026). Target architecture of the rebuild. Every change bumps the
+> **Status:** v1.3-draft (26 Nov 2026). Target architecture of the rebuild. Every change bumps the
 > version and adds a line to the [Change log](#change-log). Decisions are listed in
 > [Section 13](#13-decisions); items marked **[OPEN]** are settled before the related code is
 > written. What is computed (destinations, travel times, fit, validation) is defined in
@@ -17,6 +17,12 @@ times from every relevant 100 m cell to the destinations students care about (wa
 Valhalla, transit with OpenTripPlanner) for several trip windows, and publishes them to PostGIS.
 An API computes the personal fit and the reasons at request time; a static web app on Cloudflare
 shows them. A release PR into `main` deploys everything automatically.
+
+Two smaller inputs complete the picture (decided 26 Nov 2026, O22–O27): once per semester the
+pipeline reads the compulsory courses of every programme from the university's public course
+catalogue (Alma) and maps them to buildings and campus sites; and once a day a separate listings
+job fetches the current WG-Gesucht offers for Tübingen, geocodes them, routes them to the same
+destinations and publishes them next to the run, so the app can show and compare real listings.
 
 ## 2. Principles
 
@@ -42,6 +48,8 @@ flowchart LR
         OSM["Geofabrik OSM extract"]
         GTFS["NVBW GTFS (naldo)"]
         ZEN["Zensus 2022 100 m grid<br/>population, rent"]
+        ALMA["Alma course catalogue<br/>(per semester)"]
+        WGG["WG-Gesucht offers<br/>(daily)"]
     end
 
     subgraph Server["Server (D1), Docker Compose"]
@@ -51,7 +59,7 @@ flowchart LR
         VAL["Valhalla"]
         TE["OpenTripPlanner<br/>(transit engine, O17)"]
         PIPE["Pipeline<br/>(run to completion)"]
-        TIMER["Scheduler<br/>make refresh"]
+        TIMER["Scheduler<br/>make refresh (weekly)<br/>make listings (daily)"]
     end
 
     subgraph CF["Cloudflare"]
@@ -74,6 +82,7 @@ flowchart LR
     PIPE --> VAL
     PIPE --> TE
     PIPE -->|validated run| DB
+    PIPE -->|validated listings snapshot| DB
     DEP --> GHCR
     DEP --> WEB
     DEP -->|deploy by SHA| Server
@@ -81,13 +90,13 @@ flowchart LR
 
 | Component | Runs | Responsibility |
 |---|---|---|
-| Web app | Cloudflare (static) | Onboarding, map, place check, comparison; profile in the browser |
+| Web app | Cloudflare (static) | *Find* map, *Check* (places and listings), comparison, application text; profile in the browser |
 | Tunnel or Caddy | always (D2) | Public HTTPS entry to the API; no other port is reachable |
 | FastAPI | always | Reference data, address search, fit, cell detail, live routes |
 | PostGIS | always | Published runs, addresses, provenance, validation reports |
 | Valhalla | always | Walk and bike: matrix (pipeline), route (live) |
-| OpenTripPlanner (transit engine) | always (O17); restarted after `travel_times` | Transit and bike + transit: per-pair trips in the pipeline, live transit route for U2 |
-| Pipeline | on schedule / on demand | acquire → … → publish → cleanup |
+| OpenTripPlanner (transit engine) | always (O17); restarted after `travel_times` | Transit and bike + transit: per-pair trips in the pipeline, live transit route for *Check* |
+| Pipeline | on schedule / on demand | `make refresh`: acquire → … → publish → cleanup (weekly); `make listings`: listing crawl → validate → route → `publish_listings` (daily, O24) |
 
 ## 4. Data sources
 
@@ -98,11 +107,15 @@ flowchart LR
 | Zensus 2022 population, 100 m grid | Populated cells (origins) | static (15 May 2022) | dl-de/by-2-0 |
 | Zensus 2022 average net cold rent per m², 100 m grid | Optional rent per cell (rented flats in residential buildings, no student halls; uncertain values in brackets, suppressed cells missing) | static | dl-de/by-2-0 |
 | Elevation tiles (`valhalla_build_elevation`) | Grades on every edge | once, cached | per source |
-| `config/campus.yaml` | Campus sites per programme | manual, reviewed by the team | – |
+| Alma (HISinOne), public course catalogue of the University of Tübingen | Programmes (degree, name), compulsory modules with recommended semester, course sessions (weekday, time, room, building), building addresses (O23) | once per semester, reused while unchanged | university terms of use **[VERIFY]** (F3.1); reachability from the server **[VERIFY]** (notes N21) |
+| `config/campus.yaml` | Campus sites, Mensa list, default campus mix; **manual overrides** that win over Alma; fallback programme → site table while Alma is not available | manual, reviewed by the team | – |
+| WG-Gesucht, public offers for Tübingen (WG rooms, studios, flats) | Listings: parameters, address as published, image URLs, short description (O24) | daily (listings job) | WG-Gesucht AGB; permission requested from SMP GmbH & Co. KG **[VERIFY]** (notes N20); data minimised, images linked, never copied |
 
 Known limits (shown in the app and in `validation.md`): census values of small cells are
 perturbed; the census counts main residences in May 2022; OSM completeness varies per
-destination type; the timetable is a schedule, not real-time.
+destination type and label; the timetable is a schedule, not real-time; Alma lists rooms per
+semester and may change during it; listings are as published by their authors (addresses often
+without house number) and up to one day old.
 
 ## 5. Spatial model
 
@@ -125,15 +138,18 @@ destination type; the timetable is a schedule, not real-time.
 - **Populated cells:** Zensus cells with residents whose centroid lies inside the city boundary
   (archive run: 1,699 cells, 99.9 % of residents).
 - **Address cells:** cells without residents but with an OSM residential address inside the city
-  (new buildings since 2022, U2). They are routed like populated cells but never ranked.
+  (new buildings since 2022, *Check*). They are routed like populated cells but never ranked.
 - **Origin point:** the cell centroid (archive V6: a building-based origin changes ~2 % of results,
   in both directions; the centroid is robust).
+- **Listing points** (O24, O25): geocoded listing addresses. They are routed as points of their
+  own, never ranked and never part of a cell's value. Geocode precision decides what is shown
+  (methodology §8.1).
 
 ### 5.4 Areas (A2)
 
 Computation per cell. Ranking and reasons per **area**: the 23 core-town districts (OSM admin
 level 11) and 8 Teilorte (level 9); level 10 overlaps level 11 and is not used. The map colours
-the cells inside an area; U2 always shows the user's own cell.
+the cells inside an area; *Check* always shows the user's own cell.
 
 ## 6. Routing
 
@@ -161,7 +177,9 @@ before. Walk and bike do not depend on the window; transit does.
 ### 6.3 What the pipeline computes
 
 For every origin cell, destination type and mode: the travel time to the **nearest k**
-destinations of the type (all campus sites always), per trip window for transit. Walk and bike
+destinations of the type **and** to the nearest *k_label* destinations of every destination label
+of the type (O22; brands for `grocery`, categories for `sport` and `hobby`), deduplicated; all
+campus sites used by any programme always (O23); per trip window for transit. Walk and bike
 use Valhalla matrices in cell blocks with a straight-line prefilter. Transit has no matrix API
 (OTP 2 is a journey planner): the stage sends one OTP query per cell × destination pair and trip
 window, with candidates prefiltered by straight line (the `2k` nearest per type) and bounded
@@ -183,14 +201,25 @@ departures per hour at the first stop (from GTFS, not from the engine), for reas
    N4); the refresh restarts it after the travel-time stage or limits threads (A4).
 6. Valhalla listens only on the internal Docker network.
 
+### 6.5 Point routing for listings and *Check* (O25)
+
+A listing or a checked place is one point. It is routed with the same code and the same target
+rule as a cell (nearest k per type and per label, all campus sites): walk and bike as one Valhalla
+`costmatrix` request (one source, many targets), transit as OTP queries per trip window with
+bounded concurrency. The daily listings job routes every new or moved listing; the API answers
+`POST /api/place` live for a single point (target < 2 s on the server). Point results are not
+cached (caches key only on the weight vector, principle 6). Listing times are stored with the
+`run_id` whose destinations they were routed against; after a newer run is published, the next
+listings job re-routes, and until then the API falls back to live point routing.
+
 ## 7. Pipeline
 
 One Python package, one entry point, idempotent stages with manifests.
 
 | Stage | Output | Notes |
 |---|---|---|
-| `acquire` | raw files + provenance | skips unchanged downloads, retries with backoff |
-| `validate` | cleaned layers (GeoParquet, EPSG:25832): cells, districts, destinations, campus sites, addresses, stops; report part 1 | fails on schema, coverage, completeness or GTFS window errors |
+| `acquire` | raw files + provenance | skips unchanged downloads, retries with backoff; source `alma` fetched once per semester (rate-limited crawl) and reused while the semester is unchanged (O23) |
+| `validate` | cleaned layers (GeoParquet, EPSG:25832): cells, districts, destinations **with labels** (O22), campus sites, campus buildings, programmes and programme sites (O23), addresses, stops; report part 1 | fails on schema, coverage, completeness (incl. every offered label, V10; building match rate, V9) or GTFS window errors |
 | `tiles` | `valhalla_tiles.tar` with elevation | built by the one-shot `valhalla-build` from `make refresh`, only if the OSM snapshot changed (O5) |
 | transit build | OTP graph (`graph.obj`) from the clipped OSM extract and the GTFS feed clipped to the routing area | one-shot `--build --save` inside `make refresh`, after `tiles` (O17) |
 | `travel_times` | raw times cell × destination × mode × trip window (+ transit legs, departures) | batched, runtime and peak memory logged |
@@ -201,29 +230,58 @@ One Python package, one entry point, idempotent stages with manifests.
 `make refresh` runs these steps **one after the other** on the host (A4); the pipeline container
 has no Docker socket. Intermediate files live in `data/` (git-ignored).
 
+**Listings job** (`make listings`, daily, O24). Small and separate from the refresh; both take the
+same `flock`, so they never run at the same time (O16):
+
+| Step | Output | Notes |
+|---|---|---|
+| `listings_acquire` | raw search and detail pages + provenance | Tübingen search pages from config; detail pages only for new or changed listing ids; polite rate limit; stops and notifies on captcha or unexpected page structure, never bypasses bot protection |
+| `listings_validate` | listings (GeoParquet, EPSG:25832) with geocode precision; report (V12) | parse with one field spec; contact data stripped, no names stored; geocoding against `current.addresses` (house → street → district) |
+| `listings_travel_times` | raw times listing × destination × mode × trip window | point routing of §6.5 for new, moved or re-routed listings only |
+| `publish_listings` | schema `lst_<id>`, `listings` views switched atomically | the second and only other writer of results (exception to O7, O24); keeps the last 3 snapshots; listings missing from the source for N days (config) are dropped |
+
 ## 8. Database
 
 Schemas: `run_<id>` (one per published run), `current` (views on the latest published run; the
-API reads only these), `meta` (`runs`, `data_sources`, `schema_migrations`). Roles: `app_read`
+API reads only these), `lst_<id>` (one per published listings snapshot) and `listings` (views on
+the latest snapshot; the API reads these for listings), `meta` (`runs`, `data_sources`,
+`schema_migrations`; listing snapshots are recorded in `meta.runs` with their own kind). Roles: `app_read`
 (API), `pipeline_write` (pipeline), `supervisor_read` (read-only for supervisors, **[VERIFY]**
 whether the course requires it, A5). Tables: [`data_contract.md`](data_contract.md) (results
-planned in S1.4).
+planned in S1.4; labels, programmes and listings planned in F2.4, F3.4 and F4.1 of
+[`extension_plan.md`](extension_plan.md)).
 
 ## 9. API
 
-FastAPI, read-only on `current`. Planned endpoints (S1.10): `GET /api/health` (incl. build SHA),
-`GET /api/destination-types`, `GET /api/campus-sites`, `GET /api/addresses?q=`, `POST /api/fit`
-(student profile → ranked areas and cells with reasons), `GET /api/cell/{id}` (all trips per mode
-and window), live route incl. a transit leg (U2). Rules: CORS allowlist for the frontend origins
-(D4); token-bucket rate limit per client IP; POST bodies are not logged; caches key only on the
-weight vector of the profile; ETag per run.
+FastAPI, read-only on `current` and `listings`. Planned endpoints (S1.10): `GET /api/health`
+(incl. build SHA), `GET /api/destination-types` (with labels and counts, O22),
+`GET /api/campus-sites`, `GET /api/addresses?q=`, `POST /api/fit` (student profile incl.
+programme, degree, semester and chosen labels → ranked areas and cells with reasons),
+`GET /api/cell/{id}` (all trips per mode and window), live route incl. a transit leg (*Check*).
+Added by the extensions (O23–O25): `GET /api/programmes` (search, degree filter),
+`GET /api/programmes/{id}?semester=` (sites, buildings, weekly hours), `POST /api/place` (one point
+→ raw times, live, no cache), `GET /api/listings` (filters), `GET /api/listings/{id}` (detail and
+raw times), `POST /api/listings/fit` (profile → fit per listing). Rules: CORS allowlist for the
+frontend origins (D4); token-bucket rate limit per client IP; POST bodies are not logged; caches
+key only on the weight vector of the profile; ETag per run and per listings snapshot; listing
+images are returned as links, never proxied or stored.
 
 ## 10. Frontend
 
 React + TypeScript + Vite + MapLibre GL JS, built to static files and deployed to Cloudflare
 (previews for PRs and `dev`, production from `main`). API base URL from build-time config. The
 student profile lives in the URL and `localStorage`. Basemap per D5 (no user data to third
-parties). OSM, GTFS and Zensus attribution always visible.
+parties). OSM, GTFS and Zensus attribution always visible; listings name and link their source.
+
+- **Design (O27):** design direction *Atelier*, binding in `docs/design.md` (*planned, F1.1*):
+  white space, typography as the main graphic element, hairlines instead of shadows, radius 0, one
+  ink colour plus greys, monochrome map ramp, explicit rules against generic UI patterns. Fonts are
+  OFL-licensed and self-hosted on our own origin (no third-party font host).
+- **Listing images** load from the listing source's own image host in the student's browser,
+  only when the student opens a listing (not on the map or in the list), and the about page says
+  so; reach never copies them.
+- **Application text (O26):** generated in the browser from templates (profile + listing + a few
+  personal lines in `localStorage`); nothing is sent to the server.
 
 ## 11. Delivery
 
@@ -247,7 +305,8 @@ skipped with a warning. The data refresh is separate: a scheduled job on the ser
 | Server | per D1; Linux, Docker Engine + Compose, swap |
 | Memory budget | 8 GB target, measured on first deploy **[VERIFY]**: PostGIS ≈ 0.5 GB, API ≈ 0.2 GB, Valhalla idle < 0.1 GB but 1.4–3 GB during large matrices (archive N4), OTP ≈ 0.9 GB graph build, ≈ 1.35 GB during `travel_times`, ≈ 0.6 GB idle after the restart (spike, PR #79); `validate` up to ≈ 3.8 GB during the OSM clip (notes N11); the refresh runs heavy steps one after the other (A4) |
 | Public access | per D2; PostGIS, Valhalla and the transit engine never reachable from outside |
-| Scheduler | weekly `make refresh` (S3.1), `flock` against overlaps, failure webhook |
+| Scheduler | weekly `make refresh` (S3.1) and daily `make listings` (time from config, F4.9), one shared `flock` against overlaps, failure webhook; Alma once per semester inside the refresh |
+| Listings job budget | small: a few hundred listings, only new or moved ones routed; runtime and peak memory measured on the server **[VERIFY]**; must finish well inside the gap between two refreshes |
 | Backups | nightly `pg_dump` to a volume; results are reproducible from the pipeline (S3.2) |
 | Restarts | `restart: unless-stopped` and health checks on all services |
 
@@ -274,6 +333,19 @@ skipped with a warning. The data refresh is separate: a scheduled job on the ser
 | O15 | Trip windows with weekday + reference date; GTFS times > 24:00; night window on Fri/Sat | A3 |
 | O16 | Refresh runs heavy steps sequentially (assumption for T1 and the memory budget) | A4 |
 | O17 | **Transit engine = OpenTripPlanner 2.10** (official image `opentripplanner/opentripplanner`, pinned by digest, LGPL-3.0, run unmodified) for `transit` and `bike_transit`; Valhalla stays for `walk` and `bike`. Pipeline: graph build after `tiles`, then one query per pair and window with bounded concurrency; API: live transit route from the same service, internal network only. Valhalla multimodal is out (no multimodal `sources_to_targets`, no arrive-by); r5py is out (no trips after midnight, no arrive-by, no server for the live route). Fallback if OTP fails on the server: departures at nearby stops from GTFS, labelled approximate | T1 spike, PR #79 (report on the branch `exp/juju-transit-engine`, not merged by design), decided 23 Nov 2026 |
+
+### Settled (26 Nov 2026, extensions after the interim presentation)
+
+O18–O21 are reserved for D1–D4 as proposed on the Juju docs stack (PRs #83–#86, not yet in `dev`).
+
+| ID | Decision | Origin |
+|---|---|---|
+| O22 | **Destination labels.** A destination type can have labels: the brand for `grocery` (normalised from `brand:wikidata`, `brand`, `name`; others → `independent`), categories for the new types `sport` and `hobby` (from `sport=*` and hobby tags), the religion for `place_of_worship`. A destination can carry several labels. Travel times are stored for the nearest k per type and the nearest *k_label* per label (both from config) | QF3 (i), QF4 (i), extension plan F2 |
+| O23 | **Programmes from Alma.** New source `alma`, read by `acquire` once per semester from the public course catalogue (rate-limited, generic user agent, raw pages kept as provenance); `validate` maps compulsory course sessions → rooms → buildings → OSM addresses → campus sites and computes the weekly hours per programme × degree × semester × site. `config/campus.yaml` holds manual overrides that win, and stays the fallback while Alma is unavailable | QF5 (ii) with degree choice, extension plan F3 |
+| O24 | **Listings from WG-Gesucht, crawled daily on the server** by a separate listings job (`make listings`) with its own snapshot schemas `lst_<id>`, the views `listings` and the writer `publish_listings` (the only exception to O7). Data minimisation: no names or contact data, description shortened and stripped of contact data, images as links only, rows dropped N days after they leave the source. Polite crawling (rate limit from config, only new or changed detail pages), stop and notify on captcha or structure change, no bypassing of bot protection. Permission from SMP GmbH & Co. KG requested; the crawl can be switched off in config (`listings.enabled`) without affecting the rest of the app | QF1 (A), decided by Juju 26 Nov 2026; legal risk recorded in notes N20 |
+| O25 | **Point routing** for listings and *Check*: same targets and engines as cells (§6.5); listings routed in the daily job, single points live via `POST /api/place`; no caching of point results; listing times tied to the `run_id` they were routed against | extension plan F4.5 |
+| O26 | **Application text** from templates in the browser (DE/EN, three tones; profile, listing and personal lines kept in `localStorage`); nothing sent to the server. An LLM-generated variant is **planned**, not decided: it needs its own yes (provider, key as a secret, cost, privacy review, explicit opt-in) | QF2 (a) now, (b) as a plan |
+| O27 | **Frontend design direction *Atelier*** (light, editorial, minimal), binding through `docs/design.md`; self-hosted OFL fonts | QF6, extension plan §6 |
 
 ### Open
 
@@ -308,6 +380,7 @@ reach/
 
 | Version | Date | Change | Why |
 |---|---|---|---|
+| v1.3-draft | 2026-11-26 | Settled O22–O27: destination labels (brands, sport and hobby categories), programmes from Alma (per semester, `campus.yaml` as overrides), daily WG-Gesucht listings job with its own schema and `publish_listings`, point routing for listings and *Check*, application text in the browser (LLM variant planned), design direction *Atelier*; §1, §3, §4, §5.3, §6.3, §6.5 (new), §7, §8, §9, §10, §12 updated | Team decisions QF1–QF6 after the interim presentation (Juju, `docs/extension_plan.md`) |
 | v1.2-draft | 2026-11-23 | Settled T1 as O17 (OpenTripPlanner 2.10 for transit and bike + transit, per-pair queries, live transit route); §1, §3, §6.1, §6.3, §7, §12 updated | T1 spike (PR #79): only OTP covers arrive-by, trips after midnight, bike parking, legs and a live route within the memory budget |
 | v1.1-draft | 2026-11-22 | Settled O11 on Cloudflare Workers static assets and recorded current static asset billing; updated the free-hostname option to `workers.dev` | The frontend is a static Vite SPA; no edge compute is needed for the current deployment |
 | v1.0-draft | 2026-11-21 | New architecture for the student rebuild: raw travel times per cell × destination × mode × trip window, fit at request time, Cloudflare frontend, release-driven deploy; carried-over decisions renumbered O1–O16 with origin; T1 and D1–D5 open | Rebuild brief of 21 Nov 2026; plan S0.2 |

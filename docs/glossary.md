@@ -9,7 +9,7 @@ is not here is either plain English or needs an entry first.
 | Term | Meaning |
 |---|---|
 | **student** | The only user: a student moving to Tübingen who does not know the city yet (first semester, master's, exchange). |
-| **student profile** | The user's preferences (programme, modes, destinations, importance, trips per week, fine times). Starts as the default profile and is edited in the profile panel. Lives only in the browser (URL and `localStorage`), never stored on the server. |
+| **student profile** | The user's preferences (degree, programme and semester, modes, favourite supermarkets, sport and hobby categories, destinations, importance, trips per week, fine times). Starts as the default profile and is edited in the profile panel. Lives only in the browser (URL and `localStorage`), never stored on the server. |
 | **default profile** | The profile the app opens with before the user changes anything; without a programme it uses the default campus mix (`docs/product.md`). |
 | **profile panel** | The panel next to the map (bottom sheet on mobile) where the student edits the profile; replaces the onboarding questionnaire of product v1.0. |
 | **persona** | A predefined student profile for demos and tests, offered as "example profiles" in the profile panel (`config/personas.yaml`). |
@@ -29,8 +29,13 @@ is not here is either plain English or needs an entry first.
 | **origin** | Routing start point of a cell (the cell centroid). |
 | **origin kind** | Why a cell is routed: `populated` (residents in the Zensus grid) or `address` (no residents, but an OSM residential address); rankings use populated cells only. |
 | **destination** | A place the student travels to (a campus site, a Mensa, a supermarket, a climbing gym, …). |
-| **destination type** | Group of destinations with one meaning for the student: `campus_site`, `mensa`, `grocery`, `climbing`, … (`config/config.yaml`, `docs/osm_tagging.md`). |
-| **campus site** | University location from the manual table `config/campus.yaml`; a programme maps to one or more sites. |
+| **destination type** | Group of destinations with one meaning for the student: `campus_site`, `mensa`, `grocery`, `sport`, `hobby`, … (`config/config.yaml`, `docs/osm_tagging.md`). |
+| **destination label** | Subgroup inside a destination type that the student chooses between: the brand for `grocery`, the category for `sport` and `hobby` (tennis, climbing, choir, …), the religion for `place_of_worship` (architecture O22, methodology §3.1). A destination can carry several labels. |
+| **favourite supermarkets** | The brands a student picks; the grocery term then uses only these brands (methodology §6). |
+| **sport category / hobby category** | Label of the types `sport` and `hobby`; every chosen category is its own fit term, scored on the time to the nearest amenity only (no trips per week). |
+| **campus site** | University location: a cluster of buildings derived from Alma and the sites of `config/campus.yaml` (manual overrides win); a programme maps to one or more sites. |
+| **Alma** | The university's course catalogue (HISinOne); the pipeline reads its public part once per semester for programmes, compulsory courses, rooms and buildings (architecture O23). |
+| **programme site share** | Share of a programme's weekly hours of compulsory sessions in one semester held at a campus site; weights the campus term (methodology §3.2). |
 | **mode** | How the student travels: `walk`, `bike`, `transit`, optionally `bike_transit` (bike to a stop, park, ride, walk). No car. |
 | **routing profile** | A mode with its settings (speed, costing options, engine), e.g. `walk` = Valhalla `pedestrian` at 5.0 km/h. |
 | **trip window** | When a trip happens: weekday, reference date, time and direction (e.g. arrive at campus by 8:10 on a Tuesday; return home after 0:30 on a Friday night). Defined in `config/config.yaml`. |
@@ -38,11 +43,16 @@ is not here is either plain English or needs an entry first.
 | **travel time** | Door-to-door time of one trip in one mode and trip window; for transit: walk to the stop + wait + ride + transfers + walk to the destination. Stored raw. |
 | **transit legs** | The parts of a transit travel time (access walk, wait, in-vehicle, transfers, egress walk); used for reasons. |
 | **departures** | Scheduled departures per hour at a stop in a trip window (GTFS); basis of "is the bus reliable at that time". Schedule only, no delay data. |
-| **nearest k** | The pipeline stores travel times to the `k` nearest destinations per destination type (all campus sites always). |
+| **nearest k** | The pipeline stores travel times to the `k` nearest destinations per destination type and to the `k_label` nearest per destination label (all campus sites always). |
 | **fit** | How well a place matches a student profile, 0–100, computed by the API at request time from stored travel times (`docs/methodology.md`, formula **[OPEN]**). |
 | **fine time** | The travel time a student says feels fine for a destination type; the fit decays smoothly around it (no hard cut-off). |
 | **importance** | How much a destination type matters to the student (weight in the fit). |
-| **weekly travel time** | Estimated minutes per week: trips per week × travel time per trip, summed over destination types. Second, intuitive measure next to the fit. |
+| **weekly travel time** | Estimated minutes per week: trips per week × travel time per trip, summed over destination types that have trips per week (not sport and hobby categories). Second, intuitive measure next to the fit. |
+| **listing** | A room or flat offer from a listing source (WG-Gesucht), shown with its parameters, linked photos, travel times and fit; refreshed daily (architecture O24, methodology §8.1). |
+| **listings job** | `make listings`: daily crawl → validate → route → `publish_listings` into the `listings` views; separate from the refresh, same lock. |
+| **geocode precision** | How exactly a listing address is located: `house`, `street` (times labelled approximate) or `district` (no point routing). |
+| **point routing** | Routing one point (a listing or a checked place) to the same targets as a cell (architecture §6.5). |
+| **application text** | A draft message to apply for a listing, generated in the browser from templates (methodology §8.2). |
 | **rent** | Zensus 2022 average net cold rent per m² on the 100 m grid (rented flats in residential buildings, no student halls); shown only where published, always labelled. |
 
 ## Data and pipeline

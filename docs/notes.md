@@ -252,3 +252,38 @@ fewer modes spread much more (Lena, walk + bus: 52–98). Cause: with all modes 
 usually the bike, and the proposal scores 0.9 at the fine time, so short trips saturate. To check
 on real times in S1.10: whether the map needs a relative colour scale next to the absolute fit, or
 whether the default fine times are too generous.
+
+## N20. Daily WG-Gesucht crawl: permission pending, legal risk accepted for now
+
+**Status:** open · **Related:** architecture O24, methodology §8.1, `docs/extension_plan.md` §1 C1,
+appendix A
+
+The team chose the daily server crawl (QF1 = A, Juju, 26 Nov 2026). The WG-Gesucht AGB (read 26 Nov
+2026) say in §7 (12) "Eine Vervielfältigung der Angebote des Internetportals ist nur mit vorheriger
+Zustimmung der SMP GmbH & Co. KG gestattet" and protect the "gesamte Daten- und Datenbankstruktur"
+(§8 (4)); systematic extraction is also covered by the database right (§ 87b UrhG); photos belong to
+the uploaders; listings carry personal data of third parties. `robots.txt` does not disallow the
+listing pages. **To do:** send the request of appendix A before the crawl runs in production and
+record the answer here; keep the data minimisation of O24; keep `listings.enabled` switchable so the
+app works without listings; if SMP refuses, switch the crawl off and fall back to the import in
+the student's browser (extension plan F4.3). `product.md` still lists "no scraping of listing
+sites" as a non-goal and must be updated (v1.2) before code lands.
+
+## N21. Alma was not reachable from outside the university network
+
+**Status:** open · **Related:** architecture O23, §4, extension plan F3.1
+
+On 26 Nov 2026 `alma.uni-tuebingen.de` refused connections from outside (connection refused on
+443); the university says the public course catalogue needs no login. **To do (F3.1):** test from
+eduroam/VPN and from the server of D1; if the server cannot reach Alma, run the semester crawl from
+a team machine inside the network and hand the raw pages to `acquire` as a file source, or ask the
+university for an export (extension plan appendix B).
+
+## N22. AGENTS.md rule 6 needs the listings writer
+
+**Status:** open, needs a yes for AGENTS.md · **Related:** architecture O7, O24
+
+AGENTS.md architecture rule 6 says "Only `publish` writes results to PostGIS". With O24,
+`publish_listings` writes the `lst_<id>` schemas and the `listings` views. **To do:** extend rule 6
+to "Only `publish` and `publish_listings` write …; the API reads only `current` and `listings`"
+after the team's yes.
