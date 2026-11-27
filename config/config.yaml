@@ -486,3 +486,13 @@ api:
   db_pool:
     min_size: 1
     max_size: 4
+  # Fit parameters (methodology §6, M1 settled 27 Nov 2026): s = 1 / (1 + (T / (a·t))^p).
+  fit:
+    a: 1.25
+    p: 4
+  # POST /api/addresses/search: at most `limit` hits, queries shorter than min_chars are refused.
+  address_search:
+    limit: 10
+    min_chars: 3
+  # Seconds between checks whether `current` points at another run (then the model reloads).
+  model_refresh_s: 60
