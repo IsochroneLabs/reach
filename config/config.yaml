@@ -40,8 +40,16 @@ routing_profiles:
     speed_kmh: 15.0  # archive O15
     costing_options:
       bicycle_type: Hybrid
-  # transit and bike_transit: OpenTripPlanner (O17, BICYCLE_PARKING for bike_transit); keys are added
-  # in S1.7; access/egress walking at 5.0 km/h.
+  # OpenTripPlanner (O17): walk 5.0 km/h to and from the stops; bike + transit parks the bike at the
+  # first stop (BICYCLE_PARKING, M5). Speeds go to the OTP router config (S1.7).
+  transit:
+    engine: otp
+    speed_kmh: 5.0
+    access: WALK
+  bike_transit:
+    engine: otp
+    speed_kmh: 15.0
+    access: BICYCLE_PARKING
 
 # Trip windows (O15, A3, meth. §5). DRAFT values, checked with students in S2.0 (M2).
 # weekday: day of the reference date; time: HH:MM local time; direction: "to" (depart at / arrive
@@ -157,51 +165,21 @@ destination_types:
     trip_window: evening
     fine_time_min: 10
     trips_per_week: 1
-  gym:
-    label: {en: Gym, de: Fitnessstudio}
-    tags: [{leisure: fitness_centre}]
-    location: point
-    nearest_k: 3
+  # Containers (meth. §3.1, QF4): never a term themselves; the student picks categories, each a
+  # term of its own ("sport:tennis") with the time to the amenity only (trips_per_week 0).
+  # Destinations come from destination_labels (nearest_k_label per category).
+  sport:
+    label: {en: Sport, de: Sport}
+    source: labels
     trip_window: evening
     fine_time_min: 20
-    trips_per_week: 2
-  climbing:
-    label: {en: Climbing, de: Klettern}
-    tags: [{leisure: sports_centre}, {leisure: pitch}]
-    require: [{sport: climbing}]
-    exclude: [{access: private}, {access: "no"}, {access: customers}]
-    location: point
-    nearest_k: 3
+    trips_per_week: 0
+  hobby:
+    label: {en: Hobbies, de: Hobbys}
+    source: labels
     trip_window: evening
     fine_time_min: 20
-    trips_per_week: 2
-  swimming:
-    label: {en: Swimming, de: Schwimmen}
-    tags: [{leisure: sports_centre}, {leisure: water_park}, {leisure: swimming_pool}]
-    require: [{sport: swimming}, {access: "yes"}, {access: public}]
-    exclude: [{access: private}, {access: "no"}, {access: customers}]
-    location: point
-    nearest_k: 3
-    trip_window: evening
-    fine_time_min: 20
-    trips_per_week: 1
-  sports_club:
-    label: {en: Sports club, de: Sportverein}
-    tags: [{leisure: sports_centre}]
-    exclude: [{access: private}, {access: "no"}, {access: customers}]
-    location: point
-    nearest_k: 3
-    trip_window: evening
-    fine_time_min: 20
-    trips_per_week: 2
-  music:
-    label: {en: Music, de: Musik}
-    tags: [{amenity: music_school}, {amenity: music_venue}]
-    location: point
-    nearest_k: 3
-    trip_window: evening
-    fine_time_min: 20
-    trips_per_week: 1
+    trips_per_week: 0
   nightlife:
     label: {en: Going out, de: Ausgehen}
     tags: [{amenity: bar}, {amenity: pub}, {amenity: nightclub}, {amenity: biergarten}]
@@ -230,8 +208,8 @@ destination_types:
 
 # Destination labels (meth. §3.1, arch. O22): brands and groups of supermarkets, sport and hobby
 # categories, religion. Taxonomy decided 26 Nov 2026 (extension plan F2.1), counts in
-# docs/osm_tagging.md §5. Read by the pipeline from F2.2 on; until then the hobby types gym,
-# climbing, swimming, sports_club and music above stay in use (replaced in F2.2/F2.5).
+# docs/osm_tagging.md §5. The former types gym, climbing, swimming, sports_club and music are
+# replaced by the containers sport and hobby (S1.6, 27 Nov 2026).
 destination_labels:
   # A label is offered in the profile panel when it has at least `min_destinations` destinations
   # after clustering.
@@ -338,6 +316,21 @@ destination_labels:
   # place_of_worship: one label per value of this OSM key.
   religion_key: religion
 
+# Features of one destination type with the same name closer than this (m) are one destination
+# (e.g. a station mapped as node and as area; S1.6).
+destination_merge_m: 75
+
+# Address cells (arch. O13, A1): Zensus cells without residents that contain an OSM address of a
+# possible home. An addressed object counts unless it carries one of exclude_keys or its building
+# type is listed (S1.6).
+address_cells:
+  exclude_keys: [shop, amenity, office, craft, tourism, industrial, healthcare]
+  non_residential_buildings:
+    [industrial, commercial, retail, warehouse, garage, garages, shed, church, chapel, school,
+     university, college, kindergarten, hospital, public, civic, office, service, hut, roof,
+     carport, barn, stable, greenhouse, sports_hall, parking, train_station, supermarket,
+     transformer_tower, religious]
+
 # Access points for destination types with location "access_points" (archive, meth. §3).
 access_points:
   spacing_m: 50
@@ -399,6 +392,18 @@ valhalla:
   # Must not exceed service_limits.<costing>.max_matrix_location_pairs in config/valhalla.json.
   max_matrix_pairs: 25000
 
+# OpenTripPlanner (O17, S1.7). URL from OTP_URL (.env / compose); null here on purpose. Values from
+# the T1 spike (PR #79): 4 threads ≈ 120 pairs/s, build 0.9 GB, serving 1.35 GB.
+otp:
+  url: null
+  concurrency: 4
+  timeout_s: 60
+  retries: 3
+  backoff_s: 2
+  itineraries: 3
+  build_heap: 3g
+  serve_heap: 2g
+
 # Travel-time stage (S1.8, arch. §6.3). DRAFT.
 travel_times:
   # Cells grouped into square blocks; one matrix per block and Valhalla profile (archive: 500 m).
@@ -409,6 +414,9 @@ travel_times:
   # Transit candidates per group = this × nearest_k (or nearest_k_label): the nearest by straight
   # line is often not the nearest by bus (arch. §6.3, "the 2k nearest per type").
   transit_candidate_factor: 2
+  # Reliability (meth. §4): departures per stop counted from the window time over this many minutes
+  # (before it for arrive-by windows).
+  reliability_window_min: 60
 
 # Validation limits (arch. §7, meth. §10). DRAFT for the new checks.
 validation:

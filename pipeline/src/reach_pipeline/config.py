@@ -53,12 +53,24 @@ class Districts(_Model):
 
 
 class RoutingProfile(_Model):
-    """One routing profile (arch. §6.1); transit profiles follow with T1."""
+    """One routing profile (arch. §6.1): Valhalla for walk and bike, OpenTripPlanner for transit
+    and bike + transit (O17)."""
 
-    engine: Literal["valhalla"]
-    costing: Literal["pedestrian", "bicycle"]
+    engine: Literal["valhalla", "otp"]
+    # Valhalla only.
+    costing: Literal["pedestrian", "bicycle"] | None = None
     speed_kmh: float = Field(gt=0)
     costing_options: dict[str, Any] = Field(default_factory=dict)
+    # OTP only: how the first stop is reached (WALK, or BICYCLE_PARKING for bike + transit).
+    access: Literal["WALK", "BICYCLE_PARKING"] | None = None
+
+    @model_validator(mode="after")
+    def _engine_fields(self):
+        if self.engine == "valhalla" and (self.costing is None or self.access is not None):
+            raise ValueError("valhalla profiles need a costing and take no access mode")
+        if self.engine == "otp" and (self.access is None or self.costing is not None):
+            raise ValueError("otp profiles need an access mode and take no costing")
+        return self
 
     @field_validator("costing_options")
     @classmethod
@@ -137,8 +149,9 @@ class DestinationType(_Model):
     """One destination type (meth. §3, docs/osm_tagging.md)."""
 
     label: Label
-    # "osm": features matching `tags`; "campus": sites from config/campus.yaml.
-    source: Literal["osm", "campus"] = "osm"
+    # "osm": features matching `tags`; "campus": sites from config/campus.yaml; "labels": a
+    # container whose destinations are the categories of destination_labels (sport, hobby).
+    source: Literal["osm", "campus", "labels"] = "osm"
     tags: list[dict[str, str]] = Field(default_factory=list)
     # Conditions on the matched features, each one `key: value`; `;`-separated OSM values match
     # if any part matches. `require`: at least one must hold (empty = no restriction);
@@ -146,8 +159,8 @@ class DestinationType(_Model):
     require: list[dict[str, str]] = Field(default_factory=list)
     exclude: list[dict[str, str]] = Field(default_factory=list)
     location: Literal["point", "access_points"] | None = None
-    # Nearest destinations stored per cell; null = all.
-    nearest_k: int | None = Field(ge=1)
+    # Nearest destinations stored per cell; null = all (labels containers: unused, leave out).
+    nearest_k: int | None = Field(default=None, ge=1)
     trip_window: str
     fine_time_min: float = Field(gt=0)
     trips_per_week: float = Field(ge=0)
@@ -161,8 +174,10 @@ class DestinationType(_Model):
     def _source_fields(self):
         if self.source == "osm" and (not self.tags or self.location is None):
             raise ValueError("source osm needs tags and a location")
-        if self.source == "campus" and (self.tags or self.location is not None):
-            raise ValueError("source campus takes no tags or location (config/campus.yaml)")
+        if self.source != "osm" and (self.tags or self.location is not None):
+            raise ValueError(f"source {self.source} takes no tags or location")
+        if self.source == "labels" and (self.nearest_k is not None or self.trips_per_week):
+            raise ValueError("source labels takes no nearest_k and no trips_per_week")
         return self
 
 
@@ -307,6 +322,13 @@ class AccessPoints(_Model):
     outline_simplify_m: float = Field(default=2.0, gt=0)
 
 
+class AddressCells(_Model):
+    """Which addressed OSM objects create address cells (arch. O13, A1)."""
+
+    exclude_keys: list[str] = Field(default_factory=list)
+    non_residential_buildings: list[str] = Field(default_factory=list)
+
+
 class Source(_Model):
     url: str = Field(pattern=r"^https://")
     md5_url: str | None = Field(default=None, pattern=r"^https://")
@@ -353,12 +375,28 @@ class Valhalla(_Model):
     max_matrix_pairs: int = Field(ge=1)
 
 
+class Otp(_Model):
+    """OpenTripPlanner (O17): URL from $OTP_URL; queried per pair with bounded concurrency."""
+
+    url: str | None = Field(default=None, pattern=r"^https?://")
+    concurrency: int = Field(ge=1)
+    timeout_s: float = Field(gt=0)
+    retries: int = Field(ge=0)
+    backoff_s: float = Field(ge=0)
+    # Itineraries OTP returns per query; the best one is kept (meth. §4, M6).
+    itineraries: int = Field(ge=1)
+    # Graph build: Java heap and the extra days of service around the reference dates.
+    build_heap: str = Field(pattern=r"^\d+[mg]$")
+    serve_heap: str = Field(pattern=r"^\d+[mg]$")
+
+
 class TravelTimes(_Model):
     """Travel-time stage (S1.8, arch. §6.3)."""
 
     block_size_m: float = Field(gt=0)
     search_radius_m: float = Field(gt=0)
     transit_candidate_factor: int = Field(default=2, ge=1)
+    reliability_window_min: int = Field(default=60, ge=1, le=240)
 
 
 class ShareLimits(_Model):
@@ -404,10 +442,14 @@ class Config(_Model):
     # Optional: without it `validate` writes no destination_labels layer; validated when present.
     destination_labels: DestinationLabels | None = None
     access_points: AccessPoints
+    address_cells: AddressCells
+    # Features of one type with the same name closer than this merge into one destination.
+    destination_merge_m: float = Field(default=75, gt=0)
     sources: Sources
     download: Download
     tiles: Tiles
     valhalla: Valhalla
+    otp: Otp | None = None
     travel_times: TravelTimes
     validation: Validation
     database: Database
