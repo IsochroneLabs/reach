@@ -50,6 +50,9 @@ this file adds the stage pattern and wins where it is more specific.
 - **Raw inputs:** `acquire.raw_path(raw_dir, source, file)`; later stages never download.
 - **Trip windows:** `gtfs.reference_date` picks one date per trip window (weekday, holidays in
   `calendar`, active services). Service days beyond 24:00 for night windows follow in S1.6.
+- **Listings (O24):** `listings/parse.py` reads WG-Gesucht pages without network and never keeps
+  names or contact data; tests use the anonymised pages in `tests/fixtures/listings/` (built by
+  `make_fixtures.py`), never raw pages.
 - **Valhalla:** only through `valhalla/client.py` (`ValhallaClient`: async httpx, at most
   `valhalla.concurrency` requests in flight, retries on timeouts/5xx, `matrix()` with compact
   output, NaN = unreachable, targets split above `valhalla.max_matrix_pairs`). URL from

@@ -4,6 +4,7 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+- Listings (F4.2): parser for WG-Gesucht ad and search pages with the field spec of the data contract (contact data stripped, partial results with warnings instead of errors) and five anonymised fixtures
 - *Check* compare (S2.6): two or three places side by side with the differences in plain language (fit, weekly travel time against rent, largest per-destination gaps), shareable link with rents only on request
 - *Check* for one place (S2.5): address search or pin, fit, rank in the city, weekly travel time, trips by mode and trip window with bus details, optional listing rent kept in the browser, "better places nearby" in *Find*
 - *Find* (S2.4): MapLibre map with the cell fits, legend, rank markers and a cell popup; the three best areas with reasons, weekly travel time and data date; "Check here" opens *Check*
