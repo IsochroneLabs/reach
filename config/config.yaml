@@ -319,6 +319,31 @@ database:
 cleanup:
   keep_published_runs: 3
 
+# Daily listings job (arch. O24, §7; data contract "Listings", PROPOSED in F4.1). Off until the
+# permission of SMP GmbH & Co. KG is recorded in notes N20; the app works without listings.
+listings:
+  enabled: false
+  source: wg_gesucht
+  base_url: https://www.wg-gesucht.de
+  # Search result pages for Tübingen (city id 127), 20 ads per page; {page} counts from 0.
+  # Checked by hand 27 Nov 2026 (one request per path).
+  search_paths:
+    wg_room: /wg-zimmer-in-Tuebingen.127.0.1.{page}.html
+    studio: /1-zimmer-wohnungen-in-Tuebingen.127.1.1.{page}.html
+    flat: /wohnungen-in-Tuebingen.127.2.1.{page}.html
+  max_search_pages: 10
+  # Polite crawling: one request at a time, at least request_interval_s apart; generic client name,
+  # no personal contact data (AGENTS.md).
+  request_interval_s: 20
+  timeout_s: 30
+  user_agent: "reach-student-project (University of Tuebingen course project)"
+  # Listings missing from the search pages are dropped after this many days (O24).
+  retention_days: 3
+  keep_snapshots: 3
+  # Free text kept per listing, after contact data is stripped.
+  description_max_chars: 400
+  title_max_chars: 120
+
 # API (arch. §9), read by reach_api.settings; the pipeline ignores this section. DRAFT.
 api:
   # Frontend origins allowed by CORS (D3/D4): production and preview hostnames follow in S0.5/S1.2.
