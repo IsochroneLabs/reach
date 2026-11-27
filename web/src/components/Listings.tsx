@@ -72,27 +72,49 @@ function Card({ listing }: { listing: Listing }) {
 }
 
 /** The fastest trip per destination type in the student's modes, for the listing detail. */
-function useListingTrips(listing: Listing): { rows: [string, Trip][]; detail: CellDetail | null } {
+function useListingPlace(listing: Listing): {
+  rows: [string, Trip][]
+  detail: CellDetail | null
+  failed: boolean
+} {
   const refs = useRefs()
   const { state } = useStore()
-  const [answer, setAnswer] = useState<{ cellId: string; detail: CellDetail } | null>(null)
-  const cellId = listing.cell_id
+  const [answer, setAnswer] = useState<{ key: string; detail: CellDetail | null; failed?: boolean } | null>(null)
+  const profileKey = JSON.stringify(state.profile)
+  const key = `${listing.listing_id}|${profileKey}`
 
   useEffect(() => {
-    if (!cellId || refs.kind !== 'ok') return
+    if (refs.kind !== 'ok' || (!listing.point && !listing.cell_id)) return
     const ctrl = new AbortController()
     const body = normalise(state.profile, refs.refs.types)
-    getApi()
-      .then((api) => api.cell(cellId, body, ctrl.signal))
-      .then((d) => setAnswer({ cellId, detail: d }))
-      .catch(() => setAnswer(null))
+    ;(async () => {
+      const api = await getApi()
+      try {
+        const detail = listing.point
+          ? await api.place(listing.point, body, ctrl.signal)
+          : await api.cell(listing.cell_id!, body, ctrl.signal)
+        if (!ctrl.signal.aborted) setAnswer({ key, detail })
+      } catch {
+        // the point route may fail (engine down, outside the area): fall back to the cell times
+        if (listing.point && listing.cell_id && !ctrl.signal.aborted) {
+          try {
+            const detail = await api.cell(listing.cell_id, body, ctrl.signal)
+            if (!ctrl.signal.aborted) setAnswer({ key, detail })
+            return
+          } catch {
+            /* fall through */
+          }
+        }
+        if (!ctrl.signal.aborted) setAnswer({ key, detail: null, failed: true })
+      }
+    })()
     return () => ctrl.abort()
-    // the profile is re-read when it changes; the listing's cell is the key
+    // the profile is re-read when it changes; the listing and profile form the key
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cellId, refs.kind, JSON.stringify(state.profile)])
+  }, [key, refs.kind])
 
-  // an answer for another cell (or for the previous profile) is not shown as this listing's
-  const detail = answer?.cellId === cellId ? answer.detail : null
+  const detail = answer?.key === key ? answer.detail : null
+  const failed = answer?.key === key && !!answer.failed
 
   const best = new Map<string, Trip>()
   for (const tr of detail?.trips ?? []) {
@@ -104,17 +126,27 @@ function useListingTrips(listing: Listing): { rows: [string, Trip][]; detail: Ce
     .filter(([, v]) => v.importance > 0)
     .sort((a, b) => b[1].importance - a[1].importance)
   const rows = order
-    .map(([key]) => [key, best.get(key.split(':')[0])] as const)
+    .map(([k]) => [k, best.get(k.split(':')[0])] as const)
     .filter((r): r is readonly [string, Trip] => !!r[1])
     .slice(0, 4)
-  return { rows: rows as [string, Trip][], detail }
+  return { rows: rows as [string, Trip][], detail, failed }
 }
 
-function Trips({ listing }: { listing: Listing }) {
+function Trips({
+  listing,
+  rows,
+  detail,
+  failed,
+}: {
+  listing: Listing
+  rows: [string, Trip][]
+  detail: CellDetail | null
+  failed: boolean
+}) {
   const { t, duration } = useI18n()
   const name = useDestName()
-  const { rows, detail } = useListingTrips(listing)
-  if (!listing.cell_id) return <p className="muted small">{t('listings.noTrips')}</p>
+  if (failed) return <p className="muted small">{t('listings.noTrips')}</p>
+  if (!listing.point && !listing.cell_id) return <p className="muted small">{t('listings.noTrips')}</p>
   if (!detail) return <p className="muted small">{t('listings.tripsLoading')}</p>
   if (!rows.length) return <p className="muted small">{t('listings.noTrips')}</p>
   return (
@@ -136,6 +168,9 @@ function Detail({ listing }: { listing: Listing }) {
   const { t, duration, date } = useI18n()
   const { select } = useListings()
   const { dispatch } = useStore()
+  const { rows, detail, failed } = useListingPlace(listing)
+  const fit = detail?.fit ?? listing.fit ?? null
+  const weekly = detail?.weekly_min ?? listing.weekly_min
   const eur = rent(listing)
   const check = () => {
     if (!listing.point) return
@@ -161,8 +196,8 @@ function Detail({ listing }: { listing: Listing }) {
       </p>
       <Photo listing={listing} big />
       <div className="listing-figure">
-        <FitBadge fit={listing.fit ?? null} />
-        {listing.weekly_min != null && <span className="muted small">{t('weekly.short', { time: duration(listing.weekly_min) })}</span>}
+        <FitBadge fit={fit} />
+        {weekly != null && <span className="muted small">{t('weekly.short', { time: duration(weekly) })}</span>}
       </div>
       <dl className="listing-params">
         <dt>{t('listings.rent')}</dt>
@@ -180,7 +215,7 @@ function Detail({ listing }: { listing: Listing }) {
           </>
         )}
       </dl>
-      <Trips listing={listing} />
+      <Trips listing={listing} rows={rows} detail={detail} failed={failed} />
       {listing.features?.length ? <p className="small">{listing.features.join(' · ')}</p> : null}
       {listing.description_excerpt ? <p className="small">{listing.description_excerpt}</p> : null}
       <div className="listing-actions">

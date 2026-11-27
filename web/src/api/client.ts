@@ -9,6 +9,7 @@ import {
   type FitResponse,
   type LabelDestination,
   type Listing,
+  type LonLat,
   type Meta,
   type Persona,
   type Programme,
@@ -25,6 +26,8 @@ export interface Api {
   searchAddresses(q: string, signal?: AbortSignal): Promise<AddressHit[]>
   fit(profile: FitRequest, signal?: AbortSignal): Promise<FitResponse>
   cell(cellId: string, profile: FitRequest, signal?: AbortSignal): Promise<CellDetail>
+  /** F4.5: exact times from one point (listing address or pin), no cache. */
+  place(point: LonLat, profile: FitRequest, signal?: AbortSignal): Promise<CellDetail>
   /** PROPOSED (F4.6): current listings with the fit of their cell, best first. */
   listings(profile: FitRequest, signal?: AbortSignal): Promise<Listing[]>
 }
@@ -70,6 +73,7 @@ export function makeApi(t: Transport): Api {
     searchAddresses: (q, s) => t('POST', '/addresses/search', { q }, s) as Promise<AddressHit[]>,
     fit: (p, s) => t('POST', '/fit', p, s) as Promise<FitResponse>,
     cell: (id, p, s) => t('POST', `/cell/${encodeURIComponent(id)}`, p, s) as Promise<CellDetail>,
+    place: (point, p, s) => t('POST', '/place', { point, profile: p }, s) as Promise<CellDetail>,
     listings: (p, s) => t('POST', '/listings/fit', p, s) as Promise<Listing[]>,
   }
 }

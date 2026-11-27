@@ -6,7 +6,7 @@
  * computes the fit on the server (architecture rule 5) and this file is never used with an API.
  * Also used by Playwright (tests/fixtures.ts) to answer /api/* requests.
  */
-import { cellCentre } from '../../geo/laea.ts'
+import { cellCentre, cellIdAt } from '../../geo/laea.ts'
 import {
   ApiError,
   type AddressHit,
@@ -397,6 +397,12 @@ export function handle(method: string, path: string, body?: unknown): unknown {
   if (method === 'POST') {
     if (path === '/fit') return fit(p)
     if (path === '/listings/fit') return listingsFit(p)
+    if (path === '/place') {
+      const b = body as { point: LonLat; profile: FitRequest }
+      const id = cellIdAt(b.point)
+      if (!id) throw new ApiError(404, 'point outside the sample cells')
+      return { ...cell(id, b.profile), point: b.point }
+    }
     if (path === '/addresses/search') return search((body as { q: string }).q)
     const m = /^\/cell\/([^/]+)$/.exec(path)
     if (m) return cell(decodeURIComponent(m[1]), p)
