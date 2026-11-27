@@ -7,6 +7,7 @@ import {
   type DestinationType,
   type FitRequest,
   type FitResponse,
+  type LabelDestination,
   type Meta,
   type Persona,
   type Programme,
@@ -19,6 +20,7 @@ export interface Api {
   campusSites(signal?: AbortSignal): Promise<CampusSite[]>
   programmes(signal?: AbortSignal): Promise<Programme[]>
   personas(signal?: AbortSignal): Promise<Persona[]>
+  labelDestinations(signal?: AbortSignal): Promise<LabelDestination[]>
   searchAddresses(q: string, signal?: AbortSignal): Promise<AddressHit[]>
   fit(profile: FitRequest, signal?: AbortSignal): Promise<FitResponse>
   cell(cellId: string, profile: FitRequest, signal?: AbortSignal): Promise<CellDetail>
@@ -60,6 +62,7 @@ export function makeApi(t: Transport): Api {
     campusSites: (s) => t('GET', '/campus-sites', undefined, s) as Promise<CampusSite[]>,
     programmes: (s) => t('GET', '/programmes', undefined, s) as Promise<Programme[]>,
     personas: (s) => t('GET', '/personas', undefined, s) as Promise<Persona[]>,
+    labelDestinations: (s) => t('GET', '/label-destinations', undefined, s) as Promise<LabelDestination[]>,
     // PROPOSED (N17): POST, so the typed address never lands in an access log.
     searchAddresses: (q, s) => t('POST', '/addresses/search', { q }, s) as Promise<AddressHit[]>,
     fit: (p, s) => t('POST', '/fit', p, s) as Promise<FitResponse>,

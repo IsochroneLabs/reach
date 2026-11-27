@@ -2,30 +2,11 @@ import type { Mode } from '../api/types'
 import { useRefs } from '../remote/refs'
 import { useI18n } from '../i18n/i18n'
 
-/** Small mode icons (inline SVG, no icon font or third-party assets). */
+/** The mode as a tag ("BIKE"): micro text in an ink frame (docs/design.md §6, no icons). */
 export function ModeIcon({ mode, title }: { mode: Mode; title?: string }) {
   const { t } = useI18n()
-  const label = title ?? t(`mode.${mode}`)
-  const paths: Record<Mode, string> = {
-    walk: 'M13 4a2 2 0 1 1-4 0 2 2 0 0 1 4 0ZM10 8l-3 3 1.5 1.5L10 11v4l-2 6h2.2l1.8-5 2 2v3h2v-4l-2.5-2.5.7-3.2L16 13h3v-2h-2.2l-2-3.2A2 2 0 0 0 13 7h-1.5Z',
-    bike: 'M5 18a3 3 0 1 1 0-6 3 3 0 0 1 0 6Zm14 0a3 3 0 1 1 0-6 3 3 0 0 1 0 6ZM5 16.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Zm14 0a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3ZM12 15l-2-4 3-2 2 3h3v1.5h-3.8L13 11.3l-1 .7 1.5 3Zm3-8.5a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3Z',
-    transit: 'M6 4h12a2 2 0 0 1 2 2v10a2 2 0 0 1-1 1.7V20h-2.5v-2h-9v2H5v-2.3A2 2 0 0 1 4 16V6a2 2 0 0 1 2-2Zm0 2v5h12V6Zm1.5 7.5a1.2 1.2 0 1 0 0 2.4 1.2 1.2 0 0 0 0-2.4Zm9 0a1.2 1.2 0 1 0 0 2.4 1.2 1.2 0 0 0 0-2.4Z',
-    bike_transit: 'M6 4h12a2 2 0 0 1 2 2v7H4V6a2 2 0 0 1 2-2Zm0 2v5h12V6ZM6 20a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5Zm12 0a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5Z',
-  }
-  if (title === '') {
-    // decorative: the text next to it names the mode
-    return (
-      <svg className="mode-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
-        <path d={paths[mode]} fill="currentColor" />
-      </svg>
-    )
-  }
-  return (
-    <svg className="mode-icon" viewBox="0 0 24 24" width="16" height="16" role="img" aria-label={label}>
-      <title>{label}</title>
-      <path d={paths[mode]} fill="currentColor" />
-    </svg>
-  )
+  if (title === '') return null // decorative: the text next to it names the mode
+  return <span className="tag mode-tag">{title ?? t(`mode.${mode}`)}</span>
 }
 
 /** "Tue, arrive by 8:10" for a trip window key. */

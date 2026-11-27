@@ -41,6 +41,8 @@ typed API client. Until the API of S1.10 is deployed it runs in **fixture mode**
   the browser; also on when `VITE_API_BASE` is empty) and `VITE_BASEMAP_STYLE` (basemap style on
   our own origin, D5; empty = plain background). New variables go into `src/config.ts`,
   `src/vite-env.d.ts`, this list and `.env.example`.
+- **Look (F1.2):** tokens and rules of `docs/design.md` (*Atelier*) live in `src/index.css`; fonts are
+  files in `public/fonts/` with their OFL licence, never an npm package or a third-party host.
 - **Privacy (root rule 9):** the student profile lives in the URL and `localStorage` only; no
   cookies, tracking, analytics or third-party scripts and fonts.
 - **Every number on screen is explainable** (docs/product.md): show data date, trip window, mode
