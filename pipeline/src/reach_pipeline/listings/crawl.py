@@ -34,6 +34,9 @@ log = logging.getLogger(__name__)
 CRS = "EPSG:25832"
 SNAPSHOTS = "listings"
 _BLOCKED = re.compile(r"captcha|Sicherheitsabfrage|Zugriff verweigert|Access denied", re.I)
+# Markers of a real search or ad page; a block word on such a page (e.g. a login captcha
+# script) is not a block.
+_CONTENT = ("wgg-list-card", "detailed-view-title", "Anzeigennummer")
 
 
 class Fetcher:
@@ -61,8 +64,12 @@ class Fetcher:
         finally:
             self._last = time.monotonic()
             self.requests += 1
-        if r.status_code in (403, 429) or _BLOCKED.search(r.text[:20000] if r.text else ""):
+        if r.status_code in (403, 429):
             raise ExternalError(f"listings: blocked at {url} (HTTP {r.status_code}); stopping")
+        word = _BLOCKED.search(r.text or "")
+        content = any(mark in (r.text or "") for mark in _CONTENT)
+        if word and not content:
+            raise ExternalError(f"listings: block page at {url} ({word.group(0)!r}); stopping")
         if r.status_code != 200:
             raise ExternalError(f"listings: GET {url} → HTTP {r.status_code}")
         return r.text

@@ -104,5 +104,10 @@ def test_block_page_stops(tmp_path) -> None:
     cfg = _cfg(tmp_path)
     t = httpx.MockTransport(lambda r: httpx.Response(200, text="Bitte lösen Sie das Captcha"))
     f = crawl.Fetcher(cfg.listings, httpx.Client(base_url=cfg.listings.base_url, transport=t))
-    with pytest.raises(ExternalError, match="blocked"):
+    with pytest.raises(ExternalError, match="block page"):
         f.get("/x")
+    ok = httpx.MockTransport(
+        lambda r: httpx.Response(200, text='<script src="recaptcha.js"></script>' + CARD)
+    )
+    f = crawl.Fetcher(cfg.listings, httpx.Client(base_url=cfg.listings.base_url, transport=ok))
+    assert "recaptcha" in f.get("/y")
