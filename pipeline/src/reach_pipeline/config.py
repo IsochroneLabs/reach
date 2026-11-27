@@ -375,6 +375,14 @@ class Valhalla(_Model):
     max_matrix_pairs: int = Field(ge=1)
 
 
+class OtpVerify(_Model):
+    """Transit trip `transit verify` must find in the served graph."""
+
+    route: list[tuple[float, float]] = Field(min_length=2, max_length=2)
+    trip_window: str
+    max_minutes: float = Field(gt=0)
+
+
 class Otp(_Model):
     """OpenTripPlanner (O17): URL from $OTP_URL; queried per pair with bounded concurrency."""
 
@@ -388,6 +396,7 @@ class Otp(_Model):
     # Graph build: Java heap and the extra days of service around the reference dates.
     build_heap: str = Field(pattern=r"^\d+[mg]$")
     serve_heap: str = Field(pattern=r"^\d+[mg]$")
+    verify: OtpVerify
 
 
 class TravelTimes(_Model):
@@ -433,6 +442,8 @@ class Cleanup(_Model):
 
 class Config(_Model):
     data_dir: Path
+    # Time zone of the trip windows (meth. §5).
+    timezone: str = "Europe/Berlin"
     study_area: StudyArea
     districts: Districts
     routing_profiles: dict[str, RoutingProfile] = Field(min_length=1)

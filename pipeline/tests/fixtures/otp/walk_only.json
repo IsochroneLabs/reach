@@ -1,0 +1,53 @@
+{
+ "variables": {
+  "o": {
+   "latitude": 48.5204,
+   "longitude": 9.0568
+  },
+  "d": {
+   "latitude": 48.52,
+   "longitude": 9.056
+  },
+  "dt": {
+   "earliestDeparture": "2026-12-01T18:00:00+01:00"
+  },
+  "access": [
+   "WALK"
+  ],
+  "first": 3
+ },
+ "response": {
+  "data": {
+   "planConnection": {
+    "edges": [
+     {
+      "node": {
+       "start": "2026-12-01T18:00:00+01:00",
+       "end": "2026-12-01T18:02:25+01:00",
+       "duration": 145,
+       "waitingTime": 0,
+       "walkTime": 145,
+       "numberOfTransfers": 0,
+       "legs": [
+        {
+         "mode": "WALK",
+         "duration": 145.0,
+         "start": {
+          "scheduledTime": "2026-12-01T18:00:00+01:00"
+         },
+         "end": {
+          "scheduledTime": "2026-12-01T18:02:25+01:00"
+         },
+         "from": {
+          "name": "Origin"
+         },
+         "route": null
+        }
+       ]
+      }
+     }
+    ]
+   }
+  }
+ }
+}

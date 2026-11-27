@@ -12,17 +12,20 @@ export REACH_CONFIG
 # .env (connection strings, passwords, webhook) is passed to the pipeline when it exists;
 # variables already set in the shell or on the make command line win.
 PIPELINE = uv run $(if $(wildcard .env),--env-file .env) python -m reach_pipeline
-# Stages after `tiles verify` in `make refresh` (arch. §7); travel_times (S1.8) and
+# Stages after `transit verify` in `make refresh` (arch. §7); travel_times (S1.8) and
 # validate_results (S1.9) are added before publish when they exist.
 REFRESH_STAGES = publish cleanup
 # data_dir of the selected config; Valhalla tiles live in <data_dir>/valhalla (host bind mount).
 DATA_DIR = $(shell uv run --quiet python -c "from reach_pipeline.config import load_config; print(load_config('$(REACH_CONFIG)').data_dir)")
 VALHALLA_DIR = $(abspath $(DATA_DIR)/valhalla)
-COMPOSE = VALHALLA_DIR=$(VALHALLA_DIR) docker compose
+# OpenTripPlanner graph served from <data_dir>/otp (O17); heap sizes from the otp section.
+OTP_DIR = $(abspath $(DATA_DIR)/otp)
+OTP_HEAPS = $(shell uv run --quiet python -c "from reach_pipeline.config import load_config; o = load_config('$(REACH_CONFIG)').otp; print(f'OTP_BUILD_HEAP={o.build_heap} OTP_SERVE_HEAP={o.serve_heap}' if o else '')")
+COMPOSE = VALHALLA_DIR=$(VALHALLA_DIR) OTP_DIR=$(OTP_DIR) $(OTP_HEAPS) docker compose
 # Stages that call Valhalla: `make pipeline` first makes sure it runs with config/valhalla.json.
 VALHALLA_STAGES = run tiles
 
-.PHONY: help up down logs pipeline migrate refresh tiles-build valhalla-config test lint format
+.PHONY: help up down logs pipeline migrate refresh tiles-build transit-build otp-up valhalla-config test lint format
 
 help: ## list targets
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-10s %s\n", $$1, $$2}'
@@ -30,9 +33,10 @@ help: ## list targets
 .env:
 	@echo "Missing .env: copy .env.example to .env and set the passwords." >&2; exit 1
 
-up: .env ## start db, api and valhalla (once tiles exist) and wait until they are healthy
+up: .env ## start db, api, valhalla and otp (once their graphs exist) and wait until healthy
 	@$(COMPOSE) up -d --build --wait db api
 	@$(MAKE) --no-print-directory valhalla-config
+	@$(MAKE) --no-print-directory otp-up
 
 down: ## stop the local stack (volumes are kept)
 	docker compose down
@@ -50,7 +54,7 @@ migrate: .env ## create/update DB roles, meta schema and migrations (needs DATAB
 # restart → verify → remaining stages. Without a rebuild, `up` only makes sure Valhalla serves
 # this config's tiles (no restart if it already does). The scheduled job on the server (S3.1)
 # calls this target.
-refresh: .env ## acquire, validate, rebuild + swap tiles if needed, restart valhalla, publish, cleanup
+refresh: .env ## acquire, validate, tiles, transit graph, travel times, checks, publish, cleanup
 	$(PIPELINE) acquire
 	$(PIPELINE) validate
 	$(PIPELINE) tiles check
@@ -58,7 +62,30 @@ refresh: .env ## acquire, validate, rebuild + swap tiles if needed, restart valh
 	if [ -f "$$flag" ]; then $(MAKE) --no-print-directory tiles-build FLAG="$$flag"; \
 	else echo "tiles up to date, no rebuild"; $(MAKE) --no-print-directory valhalla-config; fi
 	$(PIPELINE) tiles verify
+	$(PIPELINE) transit prepare
+	@$(MAKE) --no-print-directory transit-build BUILD_DIR="$(DATA_DIR)/runs/$$(ls $(DATA_DIR)/runs | tail -n 1)/transit"
+	$(PIPELINE) transit verify
 	@for stage in $(REFRESH_STAGES); do $(PIPELINE) $$stage || exit $$?; done
+
+# Internal step of `refresh` (O17): build the OTP graph in the run's transit/ directory with the
+# one-shot otp-build container (a few seconds), copy graph.obj and router-config.json into
+# $(OTP_DIR) (previous graph kept as graph.prev.obj) and recreate otp.
+transit-build:
+	@test -n "$(BUILD_DIR)" || { echo "BUILD_DIR=<run>/transit is required" >&2; exit 2; }
+	@set -e; start=$$(date +%s); \
+	OTP_BUILD_DIR="$(abspath $(BUILD_DIR))" $(COMPOSE) --profile build run --rm otp-build; \
+	echo "transit graph build took $$(( $$(date +%s) - start )) s"; \
+	mkdir -p "$(OTP_DIR)"; \
+	if [ -f "$(OTP_DIR)/graph.obj" ]; then mv "$(OTP_DIR)/graph.obj" "$(OTP_DIR)/graph.prev.obj"; fi; \
+	cp "$(BUILD_DIR)/graph.obj" "$(BUILD_DIR)/router-config.json" "$(OTP_DIR)/"; \
+	rm -f "$(BUILD_DIR)/graph.obj"; \
+	$(COMPOSE) up -d --wait --force-recreate otp; \
+	echo "transit graph swapped in and otp restarted ($(OTP_DIR))"
+
+# Start otp if a graph exists (make up).
+otp-up:
+	@if [ -f "$(OTP_DIR)/graph.obj" ]; then $(COMPOSE) up -d --wait otp; \
+	else echo "No transit graph in $(OTP_DIR) yet: otp not started (run make refresh)" >&2; fi
 
 # Internal step of `refresh`: build into $(VALHALLA_DIR)/build, then swap with two `mv` on the
 # same file system (live tiles kept as valhalla_tiles.prev.tar for rollback) and restart.

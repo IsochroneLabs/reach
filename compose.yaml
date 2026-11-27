@@ -1,7 +1,7 @@
-# Local development stack (arch. §12). `make up` starts db, api and valhalla (once tiles exist).
-# Profiles: "build" = valhalla-build (started by `make refresh`), "pipeline" = pipeline image.
-# Host ports bind to 127.0.0.1 only; production uses compose.prod.yaml (S1.5) without published
-# db/valhalla ports (AGENTS.md rule 10). The transit engine follows with T1 (S1.7).
+# Local development stack (arch. §12). `make up` starts db, api, valhalla and otp (once their
+# graphs exist). Profiles: "build" = valhalla-build and otp-build (started by `make refresh`),
+# "pipeline" = pipeline image. Host ports bind to 127.0.0.1 only; production uses
+# compose.prod.yaml without published db/valhalla/otp ports (AGENTS.md rule 10).
 name: reach
 
 services:
@@ -85,6 +85,39 @@ services:
       - ${VALHALLA_DIR:-./data/valhalla}/build:/data/valhalla
       - ${VALHALLA_DIR:-./data/valhalla}/elevation:/data/valhalla/elevation
 
+  otp:
+    # OpenTripPlanner 2.10 (arch. O17), official image pinned by digest (multi-arch index), run
+    # unmodified (LGPL-3.0). Serves $OTP_DIR/graph.obj with the router-config.json next to it;
+    # `make refresh` builds a new graph and swaps it in. JAVA_OPTS sets the heap (otp.serve_heap).
+    image: opentripplanner/opentripplanner:2.10.0@sha256:8d54e5c589186707ee365417f2202dc878c451fa3001b8edff07019531100933
+    command: ["--load", "--serve"]
+    environment:
+      JAVA_OPTS: -Xmx${OTP_SERVE_HEAP:-2g}
+    volumes:
+      - ${OTP_DIR:-./data/otp}:/var/opentripplanner
+    ports:
+      - "127.0.0.1:${OTP_PORT:-8080}:8080"
+    healthcheck:
+      # The image has bash but no curl: a TCP connect to the GraphQL port.
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/8080"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    restart: unless-stopped
+
+  otp-build:
+    # One-shot graph build started by `make refresh` (O17): reads the inputs `pipeline transit
+    # prepare` wrote (clipped GTFS, routing-area PBF, build-config.json) from $OTP_BUILD_DIR and
+    # writes graph.obj there; the host then copies it into $OTP_DIR.
+    image: opentripplanner/opentripplanner:2.10.0@sha256:8d54e5c589186707ee365417f2202dc878c451fa3001b8edff07019531100933
+    profiles: [build]
+    command: ["--build", "--save"]
+    environment:
+      JAVA_OPTS: -Xmx${OTP_BUILD_HEAP:-3g}
+    volumes:
+      - ${OTP_BUILD_DIR:-./data/otp/build}:/var/opentripplanner
+
   api:
     # Image from infra/api.Dockerfile (reach-api, no dev dependencies). Locally api/src and
     # config/ are bind-mounted and uvicorn reloads on changes; production (S1.5) runs the
@@ -101,6 +134,7 @@ services:
     environment:
       DATABASE_URL_API: ${DATABASE_URL_API:?set DATABASE_URL_API in .env}
       VALHALLA_URL: http://valhalla:8002
+      OTP_URL: http://otp:8080
       REACH_CONFIG: ${REACH_CONFIG:-config/config.yaml}
     ports:
       # `npm run dev` in web/ proxies /api to this port (local development only).
@@ -132,6 +166,7 @@ services:
     environment:
       REACH_CONFIG: ${REACH_CONFIG:-config/config.yaml}
       VALHALLA_URL: http://valhalla:8002
+      OTP_URL: http://otp:8080
       DATABASE_URL_PIPELINE: postgresql://pipeline_write:${PIPELINE_WRITE_PASSWORD:-}@db:5432/${POSTGRES_DB:-reach}
       FAILURE_WEBHOOK_URL: ${FAILURE_WEBHOOK_URL:-}
     volumes:

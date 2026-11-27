@@ -6,6 +6,8 @@
 
 # Local directory for raw downloads and per-run outputs (git-ignored).
 data_dir: data
+# Time zone of the trip windows (meth. §5).
+timezone: Europe/Berlin
 
 study_area:
   city_name: Tübingen
@@ -349,11 +351,12 @@ sources:
     md5_url: https://download.geofabrik.de/europe/germany/baden-wuerttemberg/tuebingen-regbez/tuebingen-regbez-latest.osm.pbf.md5
     licence: ODbL 1.0
   gtfs:
-    # NVBW GTFS for the naldo network ("mit Liniennetz"). OpenTripPlanner (O17) needs more
-    # members (routes.txt, agency.txt, transfers.txt, shapes optional); added in S1.7.
+    # NVBW GTFS for the naldo network ("mit Liniennetz"). routes, agency and transfers for
+    # OpenTripPlanner (O17, S1.7); shapes.txt (581 MB) is not needed and stays in the zip.
     url: https://www.nvbw.de/fileadmin/user_upload/service/open_data/fahrplandaten_mit_liniennetz/naldo.zip
     licence: dl-de/by-2-0, ODbL
-    members: [stops.txt, stop_times.txt, trips.txt, calendar.txt, calendar_dates.txt, feed_info.txt]
+    members: [stops.txt, stop_times.txt, trips.txt, calendar.txt, calendar_dates.txt, feed_info.txt,
+              routes.txt, agency.txt, transfers.txt]
   zensus:
     # Zensus 2022 population, 100 m grid; columns GITTER_ID_100m;x_mp_100m;y_mp_100m;Einwohner.
     url: https://www.destatis.de/static/DE/zensus/gitterdaten/Zensus2022_Bevoelkerungszahl.zip
@@ -403,6 +406,11 @@ otp:
   itineraries: 3
   build_heap: 3g
   serve_heap: 2g
+  # `transit verify`: Hauptbahnhof → Morgenstelle in the morning window must use a bus.
+  verify:
+    route: [[9.0555, 48.5157], [9.0350, 48.5370]]
+    trip_window: morning_lecture
+    max_minutes: 40
 
 # Travel-time stage (S1.8, arch. §6.3). DRAFT.
 travel_times:
