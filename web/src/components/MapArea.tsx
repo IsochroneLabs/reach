@@ -230,7 +230,11 @@ export function MapArea() {
           className="map-toggle"
           aria-pressed={listings.enabled}
           title={t('map.toggle.listings.title')}
-          onClick={() => listings.setEnabled(!listings.enabled)}
+          onClick={() => {
+            const on = !listings.enabled
+            listings.setEnabled(on)
+            if (on && state.mode === 'check') dispatch({ type: 'mode', mode: 'find' })
+          }}
         >
           {t('map.toggle.listings')}
         </button>
