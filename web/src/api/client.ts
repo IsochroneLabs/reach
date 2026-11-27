@@ -7,6 +7,8 @@ import {
   type DestinationType,
   type FitRequest,
   type FitResponse,
+  type LabelDestination,
+  type Listing,
   type Meta,
   type Persona,
   type Programme,
@@ -19,9 +21,12 @@ export interface Api {
   campusSites(signal?: AbortSignal): Promise<CampusSite[]>
   programmes(signal?: AbortSignal): Promise<Programme[]>
   personas(signal?: AbortSignal): Promise<Persona[]>
+  labelDestinations(signal?: AbortSignal): Promise<LabelDestination[]>
   searchAddresses(q: string, signal?: AbortSignal): Promise<AddressHit[]>
   fit(profile: FitRequest, signal?: AbortSignal): Promise<FitResponse>
   cell(cellId: string, profile: FitRequest, signal?: AbortSignal): Promise<CellDetail>
+  /** PROPOSED (F4.6): current listings with the fit of their cell, best first. */
+  listings(profile: FitRequest, signal?: AbortSignal): Promise<Listing[]>
 }
 
 /** One request: method, path below the API base, optional JSON body. */
@@ -60,10 +65,12 @@ export function makeApi(t: Transport): Api {
     campusSites: (s) => t('GET', '/campus-sites', undefined, s) as Promise<CampusSite[]>,
     programmes: (s) => t('GET', '/programmes', undefined, s) as Promise<Programme[]>,
     personas: (s) => t('GET', '/personas', undefined, s) as Promise<Persona[]>,
+    labelDestinations: (s) => t('GET', '/label-destinations', undefined, s) as Promise<LabelDestination[]>,
     // PROPOSED (N17): POST, so the typed address never lands in an access log.
     searchAddresses: (q, s) => t('POST', '/addresses/search', { q }, s) as Promise<AddressHit[]>,
     fit: (p, s) => t('POST', '/fit', p, s) as Promise<FitResponse>,
     cell: (id, p, s) => t('POST', `/cell/${encodeURIComponent(id)}`, p, s) as Promise<CellDetail>,
+    listings: (p, s) => t('POST', '/listings/fit', p, s) as Promise<Listing[]>,
   }
 }
 

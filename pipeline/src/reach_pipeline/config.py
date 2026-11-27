@@ -53,12 +53,24 @@ class Districts(_Model):
 
 
 class RoutingProfile(_Model):
-    """One routing profile (arch. §6.1); transit profiles follow with T1."""
+    """One routing profile (arch. §6.1): Valhalla for walk and bike, OpenTripPlanner for transit
+    and bike + transit (O17)."""
 
-    engine: Literal["valhalla"]
-    costing: Literal["pedestrian", "bicycle"]
+    engine: Literal["valhalla", "otp"]
+    # Valhalla only.
+    costing: Literal["pedestrian", "bicycle"] | None = None
     speed_kmh: float = Field(gt=0)
     costing_options: dict[str, Any] = Field(default_factory=dict)
+    # OTP only: how the first stop is reached (WALK, or BICYCLE_PARKING for bike + transit).
+    access: Literal["WALK", "BICYCLE_PARKING"] | None = None
+
+    @model_validator(mode="after")
+    def _engine_fields(self):
+        if self.engine == "valhalla" and (self.costing is None or self.access is not None):
+            raise ValueError("valhalla profiles need a costing and take no access mode")
+        if self.engine == "otp" and (self.access is None or self.costing is not None):
+            raise ValueError("otp profiles need an access mode and take no costing")
+        return self
 
     @field_validator("costing_options")
     @classmethod
@@ -137,8 +149,9 @@ class DestinationType(_Model):
     """One destination type (meth. §3, docs/osm_tagging.md)."""
 
     label: Label
-    # "osm": features matching `tags`; "campus": sites from config/campus.yaml.
-    source: Literal["osm", "campus"] = "osm"
+    # "osm": features matching `tags`; "campus": sites from config/campus.yaml; "labels": a
+    # container whose destinations are the categories of destination_labels (sport, hobby).
+    source: Literal["osm", "campus", "labels"] = "osm"
     tags: list[dict[str, str]] = Field(default_factory=list)
     # Conditions on the matched features, each one `key: value`; `;`-separated OSM values match
     # if any part matches. `require`: at least one must hold (empty = no restriction);
@@ -146,8 +159,8 @@ class DestinationType(_Model):
     require: list[dict[str, str]] = Field(default_factory=list)
     exclude: list[dict[str, str]] = Field(default_factory=list)
     location: Literal["point", "access_points"] | None = None
-    # Nearest destinations stored per cell; null = all.
-    nearest_k: int | None = Field(ge=1)
+    # Nearest destinations stored per cell; null = all (labels containers: unused, leave out).
+    nearest_k: int | None = Field(default=None, ge=1)
     trip_window: str
     fine_time_min: float = Field(gt=0)
     trips_per_week: float = Field(ge=0)
@@ -161,8 +174,143 @@ class DestinationType(_Model):
     def _source_fields(self):
         if self.source == "osm" and (not self.tags or self.location is None):
             raise ValueError("source osm needs tags and a location")
-        if self.source == "campus" and (self.tags or self.location is not None):
-            raise ValueError("source campus takes no tags or location (config/campus.yaml)")
+        if self.source != "osm" and (self.tags or self.location is not None):
+            raise ValueError(f"source {self.source} takes no tags or location")
+        if self.source == "labels" and (self.nearest_k is not None or self.trips_per_week):
+            raise ValueError("source labels takes no nearest_k and no trips_per_week")
+        return self
+
+
+class Brand(_Model):
+    """A supermarket brand (meth. §3.1): matched by brand:wikidata, then by brand/name substring."""
+
+    label: str = Field(min_length=1)
+    wikidata: list[str] = Field(default_factory=list)
+    names: list[str] = Field(default_factory=list)
+
+
+class LabelGroup(_Model):
+    """A supermarket group: matches by tag, by brand key or by a regex on the name."""
+
+    label: Label
+    tags: list[dict[str, str]] = Field(default_factory=list)
+    brands: list[str] = Field(default_factory=list)
+    name_patterns: list[str] = Field(default_factory=list)
+
+    @field_validator("tags")
+    @classmethod
+    def _one_pair_per_tag(cls, v: list[dict[str, str]]):
+        return _check_tag_pairs(v)
+
+    @field_validator("name_patterns")
+    @classmethod
+    def _valid_regex(cls, v: list[str]):
+        for pattern in v:
+            try:
+                re.compile(pattern)
+            except re.error as exc:
+                raise ValueError(f"invalid name pattern {pattern!r}: {exc}") from exc
+        return v
+
+
+class GroceryLabels(_Model):
+    brand_min_stores: int = Field(ge=1)
+    brands: dict[str, Brand] = Field(min_length=1)
+    groups: dict[str, LabelGroup] = Field(min_length=1)
+    fallback: str
+
+    @model_validator(mode="after")
+    def _references(self):
+        unknown = sorted(
+            f"{g}: {b}"
+            for g, grp in self.groups.items()
+            for b in grp.brands
+            if b not in self.brands
+        )
+        if unknown:
+            raise ValueError(f"groups name unknown brands {unknown}")
+        fallback = self.groups.get(self.fallback)
+        if fallback is None:
+            raise ValueError(f"fallback group {self.fallback!r} is not a group")
+        if fallback.tags or fallback.brands or fallback.name_patterns:
+            raise ValueError(f"fallback group {self.fallback!r} must have no rules")
+        return self
+
+
+class Category(_Model):
+    """A sport or hobby category: sport=* values, leisure values and/or tags."""
+
+    label: Label
+    sport: list[str] = Field(default_factory=list)
+    leisure: list[str] = Field(default_factory=list)
+    tags: list[dict[str, str]] = Field(default_factory=list)
+
+    @field_validator("tags")
+    @classmethod
+    def _one_pair_per_tag(cls, v: list[dict[str, str]]):
+        return _check_tag_pairs(v)
+
+    @model_validator(mode="after")
+    def _has_rule(self):
+        if not (self.sport or self.leisure or self.tags):
+            raise ValueError("a category needs sport values, leisure values or tags")
+        return self
+
+
+def _unique_values(categories: dict[str, Category], attr: str) -> None:
+    owner: dict[str, str] = {}
+    for name, cat in categories.items():
+        for value in getattr(cat, attr):
+            if value in owner:
+                raise ValueError(f"{attr} value {value!r} in both {owner[value]} and {name}")
+            owner[value] = name
+
+
+class SportLabels(_Model):
+    leisure: list[str] = Field(min_length=1)
+    swimming_pool_access: list[str] = Field(default_factory=list)
+    ignore_values: list[str] = Field(default_factory=list)
+    categories: dict[str, Category] = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def _consistent(self):
+        _unique_values(self.categories, "sport")
+        _unique_values(self.categories, "leisure")
+        stray = sorted(
+            v for c in self.categories.values() for v in c.leisure if v not in self.leisure
+        )
+        if stray:
+            raise ValueError(f"category leisure values missing from sport.leisure: {stray}")
+        return self
+
+
+class HobbyLabels(_Model):
+    categories: dict[str, Category] = Field(min_length=1)
+
+
+class DestinationLabels(_Model):
+    """Brands, groups and categories below destination types (meth. §3.1, arch. O22)."""
+
+    min_destinations: int = Field(ge=1)
+    nearest_k_label: int = Field(default=2, ge=1)
+    cluster_radius_m: float = Field(gt=0)
+    exclude_access: list[str] = Field(default_factory=list)
+    grocery: GroceryLabels
+    sport: SportLabels
+    hobby: HobbyLabels
+    religion_key: str = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def _snake_case_keys(self):
+        keys = [
+            *self.grocery.brands,
+            *self.grocery.groups,
+            *self.sport.categories,
+            *self.hobby.categories,
+        ]
+        bad = sorted(k for k in keys if not _ID_RE.match(k))
+        if bad:
+            raise ValueError(f"label ids must be lower snake_case, got {bad}")
         return self
 
 
@@ -172,6 +320,13 @@ class AccessPoints(_Model):
     walkable_highways: list[str] = Field(min_length=1)
     # Tolerance (m) of the park outline kept for display only (never used for routing).
     outline_simplify_m: float = Field(default=2.0, gt=0)
+
+
+class AddressCells(_Model):
+    """Which addressed OSM objects create address cells (arch. O13, A1)."""
+
+    exclude_keys: list[str] = Field(default_factory=list)
+    non_residential_buildings: list[str] = Field(default_factory=list)
 
 
 class Source(_Model):
@@ -220,11 +375,67 @@ class Valhalla(_Model):
     max_matrix_pairs: int = Field(ge=1)
 
 
+class OtpVerify(_Model):
+    """Transit trip `transit verify` must find in the served graph."""
+
+    route: list[tuple[float, float]] = Field(min_length=2, max_length=2)
+    trip_window: str
+    max_minutes: float = Field(gt=0)
+
+
+class Alma(_Model):
+    """Public Alma timetable (F3.2, notes N23a): one reference teaching week, polite crawl."""
+
+    base_url: str = Field(pattern=r"^https://")
+    day_view_path: str = Field(min_length=1)
+    user_agent: str = Field(min_length=1)
+    semester: str = Field(min_length=1)  # as Alma writes it, e.g. "Wintersemester 2026/27"
+    reference_week: date  # a Monday of the lecture period
+    weekdays: int = Field(default=5, ge=1, le=7)
+    rows_per_page: int = Field(gt=0)
+    rate_limit_s: float = Field(ge=5)
+    timeout_s: float = Field(gt=0)
+    retries: int = Field(ge=0)
+    backoff_s: float = Field(ge=0)
+
+    @property
+    def semester_key(self) -> str:
+        return re.sub(r"[^a-z0-9]+", "_", self.semester.lower()).strip("_")
+
+    @field_validator("reference_week")
+    @classmethod
+    def _monday(cls, v: date) -> date:
+        if v.weekday() != 0:
+            raise ValueError("reference_week must be a Monday")
+        return v
+
+
+class Otp(_Model):
+    """OpenTripPlanner (O17): URL from $OTP_URL; queried per pair with bounded concurrency."""
+
+    url: str | None = Field(default=None, pattern=r"^https?://")
+    concurrency: int = Field(ge=1)
+    timeout_s: float = Field(gt=0)
+    retries: int = Field(ge=0)
+    backoff_s: float = Field(ge=0)
+    # Itineraries OTP returns per query; the best one is kept (meth. §4, M6).
+    itineraries: int = Field(ge=1)
+    # Graph build: Java heap and the extra days of service around the reference dates.
+    build_heap: str = Field(pattern=r"^\d+[mg]$")
+    serve_heap: str = Field(pattern=r"^\d+[mg]$")
+    verify: OtpVerify
+
+
 class TravelTimes(_Model):
     """Travel-time stage (S1.8, arch. §6.3)."""
 
     block_size_m: float = Field(gt=0)
     search_radius_m: float = Field(gt=0)
+    transit_candidate_factor: int = Field(default=2, ge=1)
+    transit_candidate_factor_label: int = Field(default=1, ge=1)
+    modes: list[str] = Field(default_factory=lambda: ["walk", "bike", "transit"], min_length=1)
+    otp_batch: int = Field(default=5000, ge=1)
+    reliability_window_min: int = Field(default=60, ge=1, le=240)
 
 
 class ShareLimits(_Model):
@@ -240,12 +451,19 @@ class ShareLimits(_Model):
         return self
 
 
+class ResultLimits(_Model):
+    unreachable_warn_above: float = Field(ge=0, le=1)
+    unreachable_fail_above: float = Field(ge=0, le=1)
+    max_transit_kmh: float = Field(gt=0)
+
+
 class Validation(_Model):
     population_tolerance_pct: float = Field(ge=0)
     official_population: int | None = Field(default=None, gt=0)
     min_scored_share: float = Field(ge=0, le=1)
     min_destinations_per_type: int = Field(ge=0)
     bike_not_slower_than_walk: ShareLimits
+    results: ResultLimits
 
 
 class Database(_Model):
@@ -259,23 +477,59 @@ class Cleanup(_Model):
     keep_published_runs: int = Field(ge=1)
 
 
+class Listings(_Model):
+    """Daily listings job (arch. O24, notes N20); `enabled` switches the crawl on or off."""
+
+    enabled: bool
+    source: Literal["wg_gesucht"]
+    base_url: str = Field(pattern=r"^https://")
+    search_paths: dict[Literal["wg_room", "studio", "flat"], str] = Field(min_length=1)
+    max_search_pages: int = Field(ge=1)
+    request_interval_s: float = Field(ge=10)
+    timeout_s: float = Field(gt=0)
+    user_agent: str = Field(min_length=1)
+    retention_days: int = Field(ge=0)
+    keep_snapshots: int = Field(ge=1)
+    description_max_chars: int = Field(ge=0)
+    title_max_chars: int = Field(ge=1)
+
+    @field_validator("search_paths")
+    @classmethod
+    def _paged(cls, v: dict[str, str]):
+        bad = sorted(k for k, path in v.items() if "{page}" not in path or not path.startswith("/"))
+        if bad:
+            raise ValueError(f"search paths need a leading / and a {{page}} placeholder: {bad}")
+        return v
+
+
 class Config(_Model):
     data_dir: Path
+    # Time zone of the trip windows (meth. §5).
+    timezone: str = "Europe/Berlin"
     study_area: StudyArea
     districts: Districts
     routing_profiles: dict[str, RoutingProfile] = Field(min_length=1)
     trip_windows: dict[str, TripWindow] = Field(min_length=1)
     calendar: Calendar
     destination_types: dict[str, DestinationType] = Field(min_length=1)
+    # Optional: without it `validate` writes no destination_labels layer; validated when present.
+    destination_labels: DestinationLabels | None = None
     access_points: AccessPoints
+    address_cells: AddressCells
+    # Features of one type with the same name closer than this merge into one destination.
+    destination_merge_m: float = Field(default=75, gt=0)
     sources: Sources
     download: Download
     tiles: Tiles
     valhalla: Valhalla
+    otp: Otp | None = None
+    # Optional: the Alma crawl (`python -m reach_pipeline.alma`, F3.2); no stage depends on it.
+    alma: Alma | None = None
     travel_times: TravelTimes
     validation: Validation
     database: Database
     cleanup: Cleanup
+    listings: Listings | None = None
     # Read and validated by reach_api.settings; kept as is here.
     api: dict[str, Any] = Field(default_factory=dict)
 
@@ -286,6 +540,13 @@ class Config(_Model):
         if bad:
             raise ValueError(f"ids must be lower snake_case, got {bad}")
         return v
+
+    @model_validator(mode="after")
+    def _modes_exist(self):
+        unknown = sorted(set(self.travel_times.modes) - set(self.routing_profiles))
+        if unknown:
+            raise ValueError(f"travel_times.modes: unknown routing profiles {unknown}")
+        return self
 
     @model_validator(mode="after")
     def _trip_windows_exist(self):

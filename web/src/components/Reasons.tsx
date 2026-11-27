@@ -1,16 +1,12 @@
 import type { Reason } from '../api/types'
 import { useI18n } from '../i18n/i18n'
-import { useRefs } from '../remote/refs'
+import { useDestName } from '../remote/refs'
 import { Minutes } from './Minutes'
 
 /** Structured reasons from the API, worded in the browser (data contract: wording never in the API). */
 export function Reasons({ reasons }: { reasons: Reason[] }) {
-  const { t, label } = useI18n()
-  const refs = useRefs()
-  const typeLabel = (k: string) => {
-    const x = refs.kind === 'ok' ? refs.refs.types.find((d) => d.destination_type === k) : null
-    return x ? label(x.label) : k
-  }
+  const { t } = useI18n()
+  const typeLabel = useDestName()
   return (
     <ul className="reasons">
       {reasons.map((r, i) => {
@@ -18,13 +14,15 @@ export function Reasons({ reasons }: { reasons: Reason[] }) {
         if (r.kind === 'reliability') {
           return (
             <li key={i} className="reason reason-reliability">
-              <span className="reason-mark" aria-hidden="true">◷</span>
+              <span className="reason-index" aria-hidden="true">{String(i + 1).padStart(2, '0')}</span>
+              <span className="reason-mark" aria-hidden="true">·</span>
               <span>{t('reason.reliability.last', { time: String(r.value ?? '–') })}</span>
             </li>
           )
         }
         return (
           <li key={i} className={`reason reason-${r.kind}`}>
+            <span className="reason-index" aria-hidden="true">{String(i + 1).padStart(2, '0')}</span>
             <span className="reason-mark" aria-hidden="true">{r.kind === 'strength' ? '+' : '−'}</span>
             <span>
               <span className="visually-hidden">{r.kind === 'strength' ? 'Strength: ' : 'Weakness: '}</span>

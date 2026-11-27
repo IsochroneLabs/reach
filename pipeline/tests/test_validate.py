@@ -7,9 +7,11 @@ from pathlib import Path
 from typing import Any
 
 import geopandas as gpd
+import pandas as pd
 import pytest
 from shapely.geometry import Point, box
 
+from reach_pipeline.campus import load_campus
 from reach_pipeline.config import load_config
 from reach_pipeline.context import RunContext
 from reach_pipeline.stages import validate
@@ -41,6 +43,17 @@ def _result(**overrides: Any) -> dict[str, Any]:
         "stops": gpd.GeoDataFrame({"stop_id": ["s1"]}, geometry=[Point(2, 2)], crs=CRS),
         "districts": gpd.GeoDataFrame({"district_id": ["r1"]}, geometry=[CITY], crs=CRS),
         "routing_area": gpd.GeoDataFrame(geometry=[CITY.buffer(4000)], crs=CRS),
+        "destinations": gpd.GeoDataFrame(
+            {"destination_id": ["grocery:n1"]}, geometry=[Point(3, 3)], crs=CRS
+        ),
+        "addresses": gpd.GeoDataFrame({"address_id": [1]}, geometry=[Point(4, 4)], crs=CRS),
+        "stop_departures": pd.DataFrame(
+            {
+                "stop_id": ["s1", "s1"],
+                "departures": [6, 2],
+                "trip_window": ["morning_lecture", "night"],
+            }
+        ),
     }
     result = {
         "layers": layers,
@@ -55,6 +68,9 @@ def _result(**overrides: Any) -> dict[str, Any]:
         "gtfs_valid_to": date(2026, 12, 12),
         "reference_dates": {"morning_lecture": date(2026, 11, 24), "night": date(2026, 11, 28)},
         "active_services": {"2026-11-24": 470, "2026-11-28": 210},
+        "campus": load_campus(REPO / "config" / "config.yaml"),
+        "campus_match_m": {"campus_site:tal": 40.0},
+        "destination_counts": {"grocery": 1, "campus_site": 4},
     }
     return {**result, **overrides}
 
@@ -135,3 +151,17 @@ def test_markdown_lists_reference_dates(ctx: RunContext) -> None:
     }
     md = validate._markdown(report)
     assert "| morning_lecture | 2026-11-24 | 470 |" in md and "| night | none | 0 |" in md
+
+
+def test_destination_checks(ctx: RunContext) -> None:
+    status = _status(
+        validate.checks(
+            ctx,
+            _result(
+                destination_counts={"grocery": 0, "campus_site": 4},
+                campus_match_m={"campus_site:tal": 900.0},
+            ),
+        )
+    )
+    assert status["destinations"] == "fail"  # a type without destinations
+    assert status["campus_match"] == "warn"  # 900 m > match_radius_m

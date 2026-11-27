@@ -4,8 +4,9 @@
  *
  *   #v=1&p=prog:biology;m:wbt;d:campus_site.3,mensa.2..2&pl=9.05650,48.51080,Hechinger%20Str.%2012|…&r=450,
  *
- * Destinations: type.importance.fine.trips (empty part = type default). Modes: w walk, b bike,
- * t transit, x bike + transit. Rents (r) only when the student ticks "include rents in the link".
+ * Destinations: key.importance.fine.trips (empty part = type default; key = a type or a sport or
+ * hobby category such as `sport:tennis`). Favourite supermarkets: `g:lidl.organic`. Modes: w walk,
+ * b bike, t transit, x bike + transit. Rents (r) only when the student ticks "include rents in the link".
  * Standalone (no imports besides types), so node --test can load it.
  */
 import type { Importance, Mode } from '../api/types'
@@ -36,6 +37,7 @@ export function encodeHash(profile: StudentProfile, places: Place[], withRents: 
     profile.programme ? `prog:${profile.programme}` : '',
     `m:${profile.modes.map((m) => MODE_CODE[m]).join('')}`,
     `d:${d}`,
+    profile.labels?.grocery?.length ? `g:${profile.labels.grocery.join('.')}` : '',
   ]
     .filter(Boolean)
     .join(';')
@@ -89,6 +91,10 @@ export function decodeHash(hash: string, cellIdAt: (p: [number, number]) => stri
           else if (t !== undefined) out.bad = true
           profile.destinations[type] = v
         }
+      } else if (key === 'g') {
+        const grocery = value.split('.').filter((x) => /^[a-z0-9_]+$/.test(x))
+        if (grocery.length !== value.split('.').filter(Boolean).length) out.bad = true
+        if (grocery.length) profile.labels = { grocery }
       } else out.bad = true
     }
     out.profile = profile

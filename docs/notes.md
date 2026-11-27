@@ -205,6 +205,17 @@ API is built, take, change or reject each point and the app follows.
    `GET /api/personas` → `[{persona, label: {en, de}, profile}]` (from `config/campus.yaml` and
    `config/personas.yaml`). Without them the app would have to copy YAML into the bundle.
 
+6. **Destination labels (F2.5, extension plan; added 27 Nov 2026):** `GET /api/destination-types`
+   adds `labels: [{label, kind: brand|group|category, name: {en, de}, destinations}]`; the fit
+   profile adds `labels: {grocery: [label]}` (favourite supermarkets: the grocery term is the
+   nearest of the chosen brands and groups, QF3) and takes sport and hobby categories as their own
+   keys in `destinations` (`"sport:tennis": {importance, fine_time_min}`, never in the weekly time,
+   QF4); `sport` and `hobby` are containers and never a term themselves. `GET
+   /api/label-destinations` → `[{destination_id, destination_type, labels, name, point}]` draws
+   the chosen places on the map. The fixtures replace `gym`, `climbing`, `swimming`,
+   `sports_club` and `music` with `sport`/`hobby` categories (methodology v1.3-draft §3);
+   `config/personas.yaml` still uses the old types until S1.6 changes `destination_types`.
+
 Also used by *Check*, smaller: `POST /api/cell/{id}` adds `weekly_min`, `populated` and
 `fit_parts: [{destination_type, minutes, mode, score, weight, share}]` (share of the fit per
 destination for the trips table), and `legs` of a transit trip carry `first_stop`, `first_route`,
@@ -214,8 +225,16 @@ with a real API.
 
 ## N18. Basemap (D5): self-hosted vector tiles — proposal for a new O-decision
 
-**Status:** proposal, waiting for Rico's yes before it goes into `architecture.md` ·
+**Status:** implemented for the demo on 27 Nov 2026 as a self-hosted GeoJSON; the O-number and
+Rico's yes for the vector-tile build are still open ·
 **Related:** D5, A6, `docs/app_screens.md` §5.1, decided in principle 24 Nov 2026
+
+**Demo implementation (27 Nov 2026, Juju's request):** `web/public/basemap/` ships a 4.5 MB
+simplified GeoJSON of roads, water, green spaces and rail (21,017 features) from the 27 Nov OSM
+extract, plus a hand-written monochrome MapLibre style; `MapView` loads `/basemap/style.json` when
+`VITE_BASEMAP_STYLE` is empty. No tile host, no glyphs, no new npm package; the file is public OSM
+data, not pipeline data. Limits: no buildings, footpaths or labels, one file for the city instead
+of tiles. The vector-tile build below stays the production target.
 
 **Proposal (O-number on acceptance):** The basemap is a vector-tile extract of public
 OpenStreetMap data for the routing area (z ≤ 15), built in CI from a public Protomaps build and
@@ -252,3 +271,117 @@ fewer modes spread much more (Lena, walk + bus: 52–98). Cause: with all modes 
 usually the bike, and the proposal scores 0.9 at the fine time, so short trips saturate. To check
 on real times in S1.10: whether the map needs a relative colour scale next to the absolute fit, or
 whether the default fine times are too generous.
+
+## N20. Daily WG-Gesucht crawl: permission pending, legal risk accepted for now
+
+**Status:** decided 27 Nov 2026 (Juju: the crawl is allowed for the academic project; run it at a
+low rate with the data minimisation of O24; the request of appendix A is still worth sending) · **Related:** architecture O24, methodology §8.1, `docs/extension_plan.md` §1 C1,
+appendix A
+
+The team chose the daily server crawl (QF1 = A, Juju, 26 Nov 2026). The WG-Gesucht AGB (read 26 Nov
+2026) say in §7 (12) "Eine Vervielfältigung der Angebote des Internetportals ist nur mit vorheriger
+Zustimmung der SMP GmbH & Co. KG gestattet" and protect the "gesamte Daten- und Datenbankstruktur"
+(§8 (4)); systematic extraction is also covered by the database right (§ 87b UrhG); photos belong to
+the uploaders; listings carry personal data of third parties. `robots.txt` does not disallow the
+listing pages. **To do:** send the request of appendix A before the crawl runs in production and
+record the answer here; keep the data minimisation of O24; keep `listings.enabled` switchable so the
+app works without listings; if SMP refuses, switch the crawl off and fall back to the import in
+the student's browser (extension plan F4.3). `product.md` v1.2 (26 Nov 2026) replaced the non-goal
+"no scraping of listing sites" by data limits (no contact data, no photo copies, WG-Gesucht only).
+
+**Requests so far (27 Nov 2026, Juju's go "scrape it with a low rate"):** for the parser fixtures
+(F4.2) 9 pages were fetched by hand: 3 search pages (WG rooms, 1-room flats, flats) and 6 ads, at
+least 20 s apart, with a generic user agent, no login, `robots.txt` read first (listing pages not
+disallowed). Raw pages stay in `data/listings_raw/` on Juju's machine (git-ignored); the committed
+fixtures are reduced and anonymised (`pipeline/tests/fixtures/listings/README.md`). No crawl runs
+until the permission is recorded here.
+
+## N21. Alma was not reachable from outside the university network
+
+**Status:** open · **Related:** architecture O23, §4, extension plan F3.1
+
+On 26 Nov 2026 `alma.uni-tuebingen.de` refused connections from outside (connection refused on
+443); the university says the public course catalogue needs no login. **To do (F3.1):** test from
+eduroam/VPN and from the server of D1; if the server cannot reach Alma, run the semester crawl from
+a team machine inside the network and hand the raw pages to `acquire` as a file source, or ask the
+university for an export (extension plan appendix B).
+
+## N22. AGENTS.md rule 6 needs the listings writer
+
+**Status:** settled 26 Nov 2026 (Juju's yes; rule 6 extended) · **Related:** architecture O7, O24
+
+AGENTS.md architecture rule 6 says "Only `publish` writes results to PostGIS". With O24,
+`publish_listings` writes the `lst_<id>` schemas and the `listings` views. **To do:** extend rule 6
+to "Only `publish` and `publish_listings` write …; the API reads only `current` and `listings`"
+after the team's yes.
+
+## N23. OSM gaps for sport, hobby and supermarket labels
+
+**Status:** open · **Related:** methodology §3.1, `docs/osm_tagging.md` §5, V10, N9
+
+Measured 26 Nov 2026 on the routing-area extract (F2.1):
+
+- **Under-mapped indoor sports:** yoga 3, martial arts 3, squash/badminton 2, rowing 1
+  destination(s); clubs that train in school halls are rarely mapped. These categories are offered
+  ("everything in") without a remark in the app (Juju, 27 Nov 2026: "it is as it is").
+- **Outdoor equipment counts as a place:** most `table_tennis` (55) and many `basketball` (53)
+  and `chess` (6) destinations are tables, hoops and boards in parks and school yards, not clubs.
+- **School pitches** usually carry no `access` tag and count as public.
+- **Supermarkets in `other`:** Bonus (2), Emmiy, Schmackes (Wanne) have no tag that tells their
+  kind; 18 of 87 supermarkets have no `brand`.
+
+**To do:** spot checks of V10 (10 supermarkets, 10 sport places); team members who know a place
+may add `sport=*`, `organic=only` or `brand` by hand (N9); re-count in F2.2 on the current extract.
+
+## N24. Alma: polite crawl of the day view decided; shares from one reference week
+
+**Status:** decided 27 Nov 2026 (Juju: "als akademisches Projekt dürfen wir es"; another course
+group crawled Alma before) · **Related:** N21, N23a (branch `docs/juju-alma-recon`), architecture
+O23, methodology §3.2, extension plan F3.2–F3.4
+
+Alma's `robots.txt` disallows all crawlers except Googlebot (N23a). Juju decided on 27 Nov 2026 that
+the team crawls it anyway, politely: `python -m reach_pipeline.alma crawl` fetches the public day
+view "Tagesaktuelle Veranstaltungen" (no login) for the weekdays of one reference teaching week
+(`alma.reference_week`), two requests per day (`rate_limit_s` = 20 s apart), user agent naming the
+course project, once per semester; pages are kept under `data/raw/alma/<semester>/`. One page holds
+a whole day (≈ 1 150 sessions with title, time, module number, room and building). Lecturer names
+are never parsed or stored outside the raw pages; committed fixtures are synthetic.
+
+**Deviation from F3.1–F3.3 as planned:** instead of programme → module tree → courses, the
+programme of a session comes from its **module number prefix** and the site from its **building
+name**, both by patterns in `config/campus.yaml` (`alma.programme_numbers`,
+`alma.building_sites`). `shares` sums the weekly session hours per programme × site. Sessions
+without a number (≈ 45 %) or room do not count. This gives the sites and shares of the larger
+programmes; humanities and social sciences have few prefixed numbers. Methodology §3.2 (shares
+from course hours) is met in spirit; the module-tree path stays possible later. **To do:** decide
+whether the API weights a programme's sites by these shares (data contract: a `shares` array next
+to `programmes.sites`) or keeps equal weights; review the building patterns against the
+"buildings without site" list the command logs.
+
+## N25. Label destinations far outside the cells slow the transit routing
+
+**Status:** open · **Related:** methodology §3.1, `stages/travel_times.py`, N23
+
+The full-city run of 27 Nov 2026 routes every cell to the nearest sport/hobby category even when
+that is far away, e.g. `sport:golf` (Golfclub Schönbuch, ≈ 5 km north of the last cell).
+OpenTripPlanner cannot link that point to its street graph ("Couldn't link …" in the OTP log),
+and each failed query takes about 1 s instead of 20 ms, so the transit step drops from ≈ 230 to
+≈ 60 queries/s for a while. **To do:** in `travel_times`, query each destination point once
+first and skip the points OTP cannot link (time = unreachable, counted in the result report); or
+limit label destinations to the routing area minus a margin in `validate`.
+
+## N26. Listings in the demo: cell fit, hotlinked photos, permission still open
+
+**Status:** building block 27 Nov 2026 · **Related:** F4.4, F4.6, F4.7, architecture O24, notes N20, data contract *Listings*
+
+A real crawl of the Tübingen WG-Gesucht search pages (one page per kind, 20 s between requests,
+60 ads) ran on 27 Nov 2026: snapshot `data/listings/20261127T090214Z` (60 listings, 386 image links),
+published as `lst_20261127t090214z`. A second attempt the same morning stopped after 18 minutes on
+a captcha page of a detail ad and wrote no snapshot (the crawler stops on a block page, as
+designed); the 09:02 UTC snapshot stays current. *Find* shows the listings behind the toggle with
+the fit and weekly
+time of the listing's **cell**, not of its point; F4.5 point routing is not built yet. 45 of the
+60 fall into a populated cell, and `street`/`marker` geocodes are labelled "address approximate".
+Images stay links to the source; some WG-Gesucht images answer 403 and the card then shows the
+hatched placeholder. The SMP permission request (extension plan appendix A) is still not sent
+(N20); the crawl stays local to the demo until it is.

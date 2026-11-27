@@ -17,10 +17,20 @@ from reach_pipeline.context import RunContext, is_run_id, latest_run_id, new_run
 from reach_pipeline.errors import ConfigError, PipelineError
 from reach_pipeline.manifest import Manifest, write_manifest
 from reach_pipeline.metrics import Measurement, measure
-from reach_pipeline.stages import acquire, cleanup, publish, tiles, validate
+from reach_pipeline.stages import (
+    acquire,
+    cleanup,
+    publish,
+    tiles,
+    transit,
+    travel_times,
+    validate,
+    validate_results,
+)
 
 DEFAULT_CONFIG = "config/config.yaml"
-TILES_ACTIONS = ("check", "verify")
+# Subcommands of the stages whose build runs on the host (make refresh); "verify" = the stage.
+ACTIONS = {"tiles": ("check", "verify"), "transit": ("prepare", "verify")}
 
 # The first stage starts a new run; every other stage reuses the latest run by default.
 FIRST_STAGE = "acquire"
@@ -30,15 +40,15 @@ STAGES: dict[str, Callable[[RunContext], Manifest]] = {
     acquire.STAGE: acquire.run,
     validate.STAGE: validate.run,
     tiles.STAGE: tiles.run,  # `tiles verify`; `tiles check` is called on its own (make refresh)
+    transit.STAGE: transit.run,  # `transit verify`; `transit prepare` as above
+    travel_times.STAGE: travel_times.run,
+    validate_results.STAGE: validate_results.run,
     publish.STAGE: publish.run,
     cleanup.STAGE: cleanup.run,
 }
 # Stages that follow, with the plan step that implements them: a single one fails with a clear
 # message, `run` logs each as skipped. Move a stage to STAGES when it is implemented.
-PLANNED: dict[str, str] = {
-    "travel_times": "S1.8",
-    "validate_results": "S1.9",
-}
+PLANNED: dict[str, str] = {}
 # Commands that are not stages: no run id, no manifest.
 MIGRATE = "migrate"
 
@@ -72,8 +82,11 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     parser.add_argument(
         "action",
         nargs="?",
-        choices=TILES_ACTIONS,
-        help="tiles only: 'check' (write the rebuild flag) or 'verify' (default)",
+        choices=sorted({a for actions in ACTIONS.values() for a in actions}),
+        help=(
+            "tiles: 'check' (write the rebuild flag) or 'verify' (default); "
+            "transit: 'prepare' (write the graph inputs) or 'verify' (default)"
+        ),
     )
     parser.add_argument(
         "--run-id",
@@ -132,11 +145,11 @@ def _run_stage(name: str, ctx: RunContext) -> Manifest:
         _current_stage.reset(token)
 
 
-def _tiles_check(ctx: RunContext) -> None:
-    """`tiles check`: writes the rebuild flag file only, no manifest (arch. §7)."""
-    token = _current_stage.set(TILES)
+def _pre_build(stage: str, ctx: RunContext) -> None:
+    """`tiles check` / `transit prepare`: files for the host build only, no manifest (arch. §7)."""
+    token = _current_stage.set(stage)
     try:
-        tiles.check(ctx)
+        tiles.check(ctx) if stage == TILES else transit.prepare(ctx)
     finally:
         _current_stage.reset(token)
 
@@ -167,8 +180,8 @@ def main(argv: list[str] | None = None) -> int:
     run_id: str | None = None
     stage = args.stage
     try:
-        if args.action and args.stage != TILES:
-            raise ConfigError(f"{args.action!r} is only valid for the tiles stage")
+        if args.action and args.action not in ACTIONS.get(args.stage, ()):
+            raise ConfigError(f"{args.action!r} is not a subcommand of stage {args.stage!r}")
         if args.stage in PLANNED:
             raise ConfigError(
                 f"stage {args.stage!r} is not implemented yet (planned in {PLANNED[args.stage]})"
@@ -181,8 +194,8 @@ def main(argv: list[str] | None = None) -> int:
         run_id = _resolve_run_id(args.run_id, args.stage, config.data_dir / "runs")
         ctx = RunContext(config=config, config_path=config_path, run_id=run_id)
         log.info("run %s, config %s", run_id, config_path)
-        if args.action == "check":
-            _tiles_check(ctx)
+        if args.action in ("check", "prepare"):
+            _pre_build(args.stage, ctx)
             return 0
         names = list(STAGES) if args.stage == "run" else [args.stage]
         for name in names:

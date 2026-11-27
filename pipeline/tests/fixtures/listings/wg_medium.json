@@ -1,0 +1,55 @@
+{
+  "listing_id": "wg_gesucht:90000003",
+  "source": "wg_gesucht",
+  "source_url": "https://www.wg-gesucht.de/wg-zimmer-in-Tuebingen-Derendingen.90000003.html",
+  "kind": "wg_room",
+  "title": "Schönes helles WG-Zimmer in 2er WG",
+  "rent_total_eur": 530,
+  "rent_cold_eur": 348,
+  "utilities_eur": 182,
+  "other_costs_eur": null,
+  "deposit_eur": 600,
+  "transfer_fee_eur": null,
+  "size_m2": 20.0,
+  "flat_size_m2": null,
+  "rooms": null,
+  "household_size": 2,
+  "flatmates_women": 1,
+  "flatmates_men": 0,
+  "flatmates_diverse": 0,
+  "flatmates_age_min": 26,
+  "flatmates_age_max": 26,
+  "looking_for_gender": "any",
+  "looking_for_age_min": 23,
+  "looking_for_age_max": 30,
+  "wg_types": [
+    "Studenten-WG",
+    "Berufstätigen-WG"
+  ],
+  "languages": [
+    "Deutsch"
+  ],
+  "smoking": "Rauchen nicht erwünscht",
+  "available_from": "2026-12-01",
+  "available_to": null,
+  "furnished": "partly",
+  "features": [
+    "internet"
+  ],
+  "district": "Derendingen",
+  "postcode": "72072",
+  "address_text": "Füllmaurerstraße",
+  "source_lat": 48.501,
+  "source_lon": 9.061,
+  "image_urls": [
+    "https://img.wg-gesucht.de/media/up/fixture/90000003_1.large.jpg",
+    "https://img.wg-gesucht.de/media/up/fixture/90000003_2.large.jpg",
+    "https://img.wg-gesucht.de/media/up/fixture/90000003_3.large.jpg"
+  ],
+  "description_excerpt": "Teilmöbliertes Zimmer in einer 2er-WG, hell und ruhig, mit großem Fenster. Bäcker und Bus sind um die Ecke, mit dem Rad ist man schnell in der Stadt. Gemeinsames Wohnzimmer und Küche, entspanntes Zusammenleben.",
+  "online_text": "2 Stunden",
+  "online_since": "2026-11-27T10:00:00+00:00",
+  "fetched_at": "2026-11-27T12:00:00+00:00",
+  "warnings": [],
+  "errors": []
+}
