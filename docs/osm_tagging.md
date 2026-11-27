@@ -48,6 +48,7 @@ its tags match a destination type in the config, so the result is only as good a
 |---|---|---|
 | park, sports_club, swimming, climbing | `private`, `no`, `customers` | must be usable by the public |
 | grocery, pharmacy, doctor, gym, nightlife | none | `customers` is normal for shops and businesses |
+| destination labels: sport, hobby, religion (§5) | `private`, `no` | paid gyms, climbing halls and clubs (`customers`) are open to anyone who pays; supermarkets are never filtered |
 
 Validation reports the number of excluded features per type and value.
 
@@ -76,7 +77,7 @@ Validation reports the number of excluded features per type and value.
 Taxonomy in `config/config.yaml` → `destination_labels` (methodology §3.1, architecture O22),
 decided by Juju on 26 Nov 2026. Counted on the routing-area extract of the T1 spike (Geofabrik
 `tuebingen-regbez`, 21 Nov 2026, city + 4 km) with the exploration script on
-`exp/juju-label-counts`. *Features* are OSM objects after the access filter; *destinations* are
+`exp/juju-label-counts`. *Features* are OSM objects after the access filter (§3); *destinations* are
 what remains after clustering (same label within 75 m or inside the same
 `leisure=sports_centre`). A node and a building outline of the same shop count as one destination.
 
@@ -131,22 +132,22 @@ The category comes from `sport=*` (`;` values split); **only if no sport value m
 `leisure` value decide (a fitness centre tagged `sport=yoga` is yoga, a track with `sport=bmx` is
 skate). `leisure=swimming_pool` counts only with `access=yes|public` (garden pools are untagged).
 `sport` = `multi`, `mixed`, `unknown` is ignored. Every category with at least one destination is
-offered (decision "everything in"); below 3 the app says "few places mapped".
+offered (decision "everything in"), without a remark on the count.
 
 | label | features | destinations | examples |
 |---|---|---|---|
-| football | 369 | 144 | Affenkäfig Feuerhägle, Alter Lustnauer Sportplatz, Bolzplatz, Bolzplatz Gartenstraße |
+| football | 371 | 145 | Affenkäfig Feuerhägle, Alter Lustnauer Sportplatz, Bolzplatz, Bolzplatz Gartenstraße |
 | table_tennis | 94 | 55 |  |
 | basketball | 112 | 53 | Affenkäfig Feuerhägle, Basketballkorb, Freilufthalle Holderfeld, Panzerhalle |
 | tennis | 270 | 41 | TC Nehren, TC Unterjesingen, TSG Tübingen, Tennisclub Dettenhausen |
 | athletics | 86 | 34 | Finnenbahn, SV-Bahn, Turnhalle Feuerhägle |
+| volleyball | 75 | 34 | Beachvolleyballfeld Freibad Entringen, TSG Tübingen |
 | equestrian | 88 | 33 | Abreiteplatz und Geländestrecke Reit- und Fahrverein Lustnau e.V., Erlenhof, Immenhof, Kehrerhof |
-| volleyball | 73 | 33 | TSG Tübingen |
+| shooting_archery | 49 | 19 | Ammerbucher Sportschützen, Bogenschießplatz, Bogenwelt Indoor Schießanlage, Castle Archers |
 | boules | 35 | 18 | Boule Platz, Hufeisenplatz SV Gniebel |
-| shooting_archery | 47 | 18 | Ammerbucher Sportschützen, Bogenschießplatz, Castle Archers, KKSV Ohmenhausen e.V. |
 | fitness | 19 | 15 | 3 in One Bewegungspark, Anytime Gym, Cabriolo, Clever fit |
 | skate | 26 | 13 | 3 in One Bewegungspark, Dirtpark Wurmlingen, Fun-Park "Madach-Hägle", Halfpipe |
-| swimming | 19 | 11 | Freibad, Freibad Entringen, Freibad Mössingen, Hallenbad |
+| swimming | 20 | 12 | Freibad, Freibad Entringen, Freibad Mössingen, Hallenbad |
 | motor_model | 14 | 8 | Flugmodellsport-Club Reutlingen e.V., Flugsportverein Ammerbuch e.V., MFC Kusterdingen e.V., Modellflugplatz |
 | cycling | 15 | 7 | 3 in One Bewegungspark, BMX-Bahn TSV Betzingen, Bikepark Gomaringen, Dirtpark Wurmlingen |
 | handball | 12 | 6 |  |
@@ -156,8 +157,8 @@ offered (decision "everything in"); below 3 the app says "few places mapped".
 | golf | 6 | 5 | Golfclub Schloss Kressbach, Golfclub Schönbuch, Kleiner Schlossplatz |
 | martial_arts | 3 | 3 | JSV Tübingen e.V., Kampfkunstzentrum Rottenburg, Taekwondo Creti |
 | yoga | 3 | 3 | Der Yogasalon, Namasté, Yoga Circle Tübingen |
+| bowling | 2 | 2 | Bowlingcenter Rottenburg |
 | racket_indoor | 4 | 2 | Cabriolo, Squashinsel |
-| bowling | 1 | 1 | Bowlingcenter Rottenburg |
 | water_sports | 1 | 1 | Ruderverein Fidelia |
 
 Caveats: `table_tennis` and many `basketball` destinations are outdoor tables and hoops in parks

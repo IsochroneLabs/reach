@@ -277,7 +277,6 @@ class DestinationLabels(_Model):
     """Brands, groups and categories below destination types (meth. §3.1, arch. O22)."""
 
     min_destinations: int = Field(ge=1)
-    few_note_below: int = Field(ge=1)
     cluster_radius_m: float = Field(gt=0)
     exclude_access: list[str] = Field(default_factory=list)
     grocery: GroceryLabels

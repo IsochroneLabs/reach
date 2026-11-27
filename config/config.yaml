@@ -234,14 +234,15 @@ destination_types:
 # climbing, swimming, sports_club and music above stay in use (replaced in F2.2/F2.5).
 destination_labels:
   # A label is offered in the profile panel when it has at least `min_destinations` destinations
-  # after clustering; below `few_note_below` the app says "few places mapped in OSM".
+  # after clustering.
   min_destinations: 1
-  few_note_below: 3
   # Features of the same label closer than this, or inside the same leisure=sports_centre, form
   # one destination (a tennis club with ten courts is one place, meth. §3.1).
   cluster_radius_m: 75
-  # Features with these access values never count (docs/osm_tagging.md §3).
-  exclude_access: [private, "no", customers]
+  # Sport, hobby and religion features with these access values never count (docs/osm_tagging.md
+  # §3). Not `customers`: paid gyms, climbing halls and clubs are open to anyone who pays.
+  # Supermarkets are never filtered by access.
+  exclude_access: [private, "no"]
   grocery:
     # Brands with fewer stores in the routing area are not offered on their own; their stores
     # keep their group label.
@@ -321,7 +322,7 @@ destination_labels:
       cycling: {label: {en: Cycling and mountain biking, de: Radsport und Mountainbike}, sport: [cycling, mtb]}
       golf: {label: {en: Golf and minigolf, de: Golf und Minigolf}, sport: [golf, minigolf], leisure: [golf_course]}
       ice_sports: {label: {en: Ice skating and ice hockey, de: Eislaufen und Eishockey}, sport: [ice_skating, ice_hockey, curling], leisure: [ice_rink]}
-      bowling: {label: {en: Bowling and billiards, de: "Kegeln, Bowling und Billard"}, sport: [9pin, 10pin, bowling, billiards]}
+      bowling: {label: {en: "Bowling, billiards and table football", de: "Kegeln, Bowling, Billard und Kicker"}, sport: [9pin, 10pin, bowling, billiards, table_soccer]}
       motor_model: {label: {en: "Motor, model and air sports", de: "Motor-, Modell- und Flugsport"}, sport: [motocross, trial, karting, motor, model_aerodrome, aviation, rc_car]}
   hobby:
     # A feature belongs to a category if it matches any of its tags (`;` values split).
