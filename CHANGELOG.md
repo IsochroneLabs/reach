@@ -4,6 +4,12 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+- Alma programme sites (F3.2–F3.4): polite crawl of the public Alma day view for one reference teaching week (`python -m reach_pipeline.alma crawl|shares`, 20 s between requests, no names stored), building → campus site and module number → programme patterns in `config/campus.yaml`, site shares per programme in `programmes.shares` and in the fit's campus time (data contract v1.2.0 draft, notes N24)
+- Fit API (S1.10): `GET /api/meta`, `/destination-types` (with labels), `/label-destinations`, `/campus-sites`, `/programmes`, `/personas`; `POST /api/addresses/search`, `/api/fit` (whole city from an in-memory model of `current.travel_times`, areas with reasons, cached on run + profile), `/api/cell/{id}` (trips with bus legs and the last departure home)
+- Travel times and result checks (S1.8, S1.9): stage `travel_times` (Valhalla `costmatrix` for walk and bike, OpenTripPlanner per pair for transit and bike + transit, per trip window; transit capped by walking), stage `validate_results` (V2–V8 checks, report), `publish` loads all tables of data contract v1.1.0
+- Transit (S1.7): OpenTripPlanner 2.10 service in `compose.yaml` (graph build and serve), stage `transit` (GTFS clip, build config, verify route), `make refresh` builds the graph
+- Destinations, addresses and address cells (S1.6): campus sites, Mensas and OSM destinations per type, address search table, address cells as origins next to populated cells, departures per stop and trip window
+- Fit formula settled (S1.3, methodology v1.4-draft): s = 1 / (1 + (T / (1.25·t))⁴), worked example
 - Routing targets per cell (F2.3 building block): nearest k per destination type and per offered label, deduplicated, wider candidate set for transit; config `nearest_k_label` and `transit_candidate_factor`
 - Destination labels in `validate` (F2.2): supermarket brands and groups, 25 sport and 4 hobby categories and religions from OSM, same-label features within 75 m or one sports centre merged; `validate/destination_labels.parquet` and label counts with check V10 in report part 1
 - Design *Atelier* for *Find* and *Check* (F1.3): fit as a large mono number, ranks and reasons as indexed lists, modes as text tags, hairline trips table, monochrome seven-step fit ramp with hatched no-data cells and a square legend

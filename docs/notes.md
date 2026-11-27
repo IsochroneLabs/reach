@@ -266,7 +266,8 @@ whether the default fine times are too generous.
 
 ## N20. Daily WG-Gesucht crawl: permission pending, legal risk accepted for now
 
-**Status:** open · **Related:** architecture O24, methodology §8.1, `docs/extension_plan.md` §1 C1,
+**Status:** decided 27 Nov 2026 (Juju: the crawl is allowed for the academic project; run it at a
+low rate with the data minimisation of O24; the request of appendix A is still worth sending) · **Related:** architecture O24, methodology §8.1, `docs/extension_plan.md` §1 C1,
 appendix A
 
 The team chose the daily server crawl (QF1 = A, Juju, 26 Nov 2026). The WG-Gesucht AGB (read 26 Nov
@@ -316,3 +317,40 @@ Measured 26 Nov 2026 on the routing-area extract (F2.1):
 
 **To do:** spot checks of V10 (10 supermarkets, 10 sport places); team members who know a place
 may add `sport=*`, `organic=only` or `brand` by hand (N9); re-count in F2.2 on the current extract.
+
+## N24. Alma: polite crawl of the day view decided; shares from one reference week
+
+**Status:** decided 27 Nov 2026 (Juju: "als akademisches Projekt dürfen wir es"; another course
+group crawled Alma before) · **Related:** N21, N23a (branch `docs/juju-alma-recon`), architecture
+O23, methodology §3.2, extension plan F3.2–F3.4
+
+Alma's `robots.txt` disallows all crawlers except Googlebot (N23a). Juju decided on 27 Nov 2026 that
+the team crawls it anyway, politely: `python -m reach_pipeline.alma crawl` fetches the public day
+view "Tagesaktuelle Veranstaltungen" (no login) for the weekdays of one reference teaching week
+(`alma.reference_week`), two requests per day (`rate_limit_s` = 20 s apart), user agent naming the
+course project, once per semester; pages are kept under `data/raw/alma/<semester>/`. One page holds
+a whole day (≈ 1 150 sessions with title, time, module number, room and building). Lecturer names
+are never parsed or stored outside the raw pages; committed fixtures are synthetic.
+
+**Deviation from F3.1–F3.3 as planned:** instead of programme → module tree → courses, the
+programme of a session comes from its **module number prefix** and the site from its **building
+name**, both by patterns in `config/campus.yaml` (`alma.programme_numbers`,
+`alma.building_sites`). `shares` sums the weekly session hours per programme × site. Sessions
+without a number (≈ 45 %) or room do not count. This gives the sites and shares of the larger
+programmes; humanities and social sciences have few prefixed numbers. Methodology §3.2 (shares
+from course hours) is met in spirit; the module-tree path stays possible later. **To do:** decide
+whether the API weights a programme's sites by these shares (data contract: a `shares` array next
+to `programmes.sites`) or keeps equal weights; review the building patterns against the
+"buildings without site" list the command logs.
+
+## N25. Label destinations far outside the cells slow the transit routing
+
+**Status:** open · **Related:** methodology §3.1, `stages/travel_times.py`, N23
+
+The full-city run of 27 Nov 2026 routes every cell to the nearest sport/hobby category even when
+that is far away, e.g. `sport:golf` (Golfclub Schönbuch, ≈ 5 km north of the last cell).
+OpenTripPlanner cannot link that point to its street graph ("Couldn't link …" in the OTP log),
+and each failed query takes about 1 s instead of 20 ms, so the transit step drops from ≈ 230 to
+≈ 60 queries/s for a while. **To do:** in `travel_times`, query each destination point once
+first and skip the points OTP cannot link (time = unreachable, counted in the result report); or
+limit label destinations to the routing area minus a margin in `validate`.
