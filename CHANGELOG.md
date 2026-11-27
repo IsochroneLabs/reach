@@ -4,6 +4,7 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+- Design *Atelier* in the web app (F1.2): tokens of `docs/design.md` (one ink, greys, hairlines, radius 0, no shadows), self-hosted Host Grotesk and IBM Plex Mono (SIL OFL 1.1, 112 KB), restyled header, profile panel, bottom sheet, toast and notices; text instead of icons in the header and mode toggles
 - Profile panel (F2.5): favourite supermarkets (brands and kinds of shop, nearest of them counts) and sport/hobby categories as destinations of their own (importance and fine time, no trips per week); choice in the link (`g:` part, `sport:tennis` keys), chosen places on the map; sample data with labels
 - *Check* compare (S2.6): two or three places side by side with the differences in plain language (fit, weekly travel time against rent, largest per-destination gaps), shareable link with rents only on request
 - *Check* for one place (S2.5): address search or pin, fit, rank in the city, weekly travel time, trips by mode and trip window with bus details, optional listing rent kept in the browser, "better places nearby" in *Find*
