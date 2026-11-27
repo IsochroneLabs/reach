@@ -205,6 +205,17 @@ API is built, take, change or reject each point and the app follows.
    `GET /api/personas` → `[{persona, label: {en, de}, profile}]` (from `config/campus.yaml` and
    `config/personas.yaml`). Without them the app would have to copy YAML into the bundle.
 
+6. **Destination labels (F2.5, extension plan; added 27 Nov 2026):** `GET /api/destination-types`
+   adds `labels: [{label, kind: brand|group|category, name: {en, de}, destinations}]`; the fit
+   profile adds `labels: {grocery: [label]}` (favourite supermarkets: the grocery term is the
+   nearest of the chosen brands and groups, QF3) and takes sport and hobby categories as their own
+   keys in `destinations` (`"sport:tennis": {importance, fine_time_min}`, never in the weekly time,
+   QF4); `sport` and `hobby` are containers and never a term themselves. `GET
+   /api/label-destinations` → `[{destination_id, destination_type, labels, name, point}]` draws
+   the chosen places on the map. The fixtures replace `gym`, `climbing`, `swimming`,
+   `sports_club` and `music` with `sport`/`hobby` categories (methodology v1.3-draft §3);
+   `config/personas.yaml` still uses the old types until S1.6 changes `destination_types`.
+
 Also used by *Check*, smaller: `POST /api/cell/{id}` adds `weekly_min`, `populated` and
 `fit_parts: [{destination_type, minutes, mode, score, weight, share}]` (share of the fit per
 destination for the trips table), and `legs` of a transit trip carry `first_stop`, `first_route`,
