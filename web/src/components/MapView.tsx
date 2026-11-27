@@ -5,6 +5,7 @@ import type { GeoJSONSource, Map as MlMap, MapMouseEvent, Marker, Popup } from '
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url'
 
 import type { LonLat } from '../api/types'
+import type { RouteLine } from '../remote/listings'
 import { BASEMAP_STYLE } from '../config'
 import { cellRing } from '../geo/laea'
 
@@ -74,6 +75,8 @@ export function MapView({
   cells,
   showCells,
   markers,
+  routes,
+  universitySites,
   focus,
   label,
   popup,
@@ -86,6 +89,10 @@ export function MapView({
   /** false = hide the 100 m grid and its legend (the map toggle) */
   showCells: boolean
   markers: MapMarker[]
+  /** live walk/bike routes of the selected listing (F4.5) */
+  routes: RouteLine[]
+  /** campus sites of the profile's programme; their buildings get the stronger outline */
+  universitySites: string[]
   focus: LonLat | null
   label: string
   popup: { point: LonLat; content: ReactNode; onClose: () => void } | null
@@ -136,6 +143,21 @@ export function MapView({
         m.addControl(new lib.NavigationControl({ showCompass: false }), 'top-right')
         m.getCanvas().setAttribute('aria-label', label)
         m.on('load', () => {
+          // university buildings of the OSM extract, below the cells; the outlines go above
+          m.addSource('university', { type: 'geojson', data: '/basemap/university.geojson' })
+          m.addLayer({
+            id: 'university-fill',
+            type: 'fill',
+            source: 'university',
+            paint: { 'fill-color': '#111111', 'fill-opacity': 0.05 },
+          })
+          m.addLayer({
+            id: 'university-fill-active',
+            type: 'fill',
+            source: 'university',
+            filter: ['in', ['get', 'site'], ['literal', []]],
+            paint: { 'fill-color': '#111111', 'fill-opacity': 0.12 },
+          })
           m.addSource('cells', { type: 'geojson', data: toGeoJson([]) })
           m.addImage('hatch', hatchImage())
           m.addLayer({
@@ -167,7 +189,40 @@ export function MapView({
             type: 'line',
             source: 'cells',
             filter: ['==', ['get', 'outline'], 1],
-            paint: { 'line-color': '#111111', 'line-width': 2 },
+            paint: { 'line-color': '#111111', 'line-width': 2.4 },
+          })
+          // university outlines above the cells: grey for all, ink for the programme's sites
+          m.addLayer({
+            id: 'university-line',
+            type: 'line',
+            source: 'university',
+            paint: { 'line-color': '#8f8f8b', 'line-width': 1 },
+          })
+          m.addLayer({
+            id: 'university-line-active',
+            type: 'line',
+            source: 'university',
+            filter: ['in', ['get', 'site'], ['literal', []]],
+            paint: { 'line-color': '#111111', 'line-width': 2.4 },
+          })
+          // live routes of the selected listing (F4.5), above the cells and outlines
+          m.addSource('routes', {
+            type: 'geojson',
+            data: { type: 'FeatureCollection', features: [] },
+          })
+          m.addLayer({
+            id: 'routes-casing',
+            type: 'line',
+            source: 'routes',
+            layout: { 'line-cap': 'round', 'line-join': 'round' },
+            paint: { 'line-color': '#ffffff', 'line-width': 5, 'line-opacity': 0.9 },
+          })
+          m.addLayer({
+            id: 'routes-line',
+            type: 'line',
+            source: 'routes',
+            layout: { 'line-cap': 'round', 'line-join': 'round' },
+            paint: { 'line-color': '#111111', 'line-width': 2.4 },
           })
           setReady(true)
           onReady?.()
@@ -207,6 +262,28 @@ export function MapView({
       map.current.setLayoutProperty(id, 'visibility', visibility)
     }
   }, [ready, showCells])
+
+  // routes of the selected listing
+  useEffect(() => {
+    if (!ready || !map.current) return
+    const source = map.current.getSource('routes') as GeoJSONSource | undefined
+    source?.setData({
+      type: 'FeatureCollection',
+      features: routes.map((r) => ({
+        type: 'Feature' as const,
+        properties: { mode: r.mode },
+        geometry: { type: 'LineString' as const, coordinates: r.coordinates },
+      })),
+    })
+  }, [ready, routes])
+
+  // highlight the buildings of the programme's campus sites
+  useEffect(() => {
+    if (!ready || !map.current) return
+    const filter = ['in', ['get', 'site'], ['literal', universitySites]] as never
+    map.current.setFilter('university-line-active', filter)
+    map.current.setFilter('university-fill-active', filter)
+  }, [ready, universitySites])
 
   // markers
   useEffect(() => {

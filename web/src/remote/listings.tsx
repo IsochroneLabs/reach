@@ -1,11 +1,18 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 
 import { getApi } from '../api/client'
-import { ApiError, type Listing } from '../api/types'
+import { ApiError, type Listing, type LonLat, type Mode } from '../api/types'
 import { FIT_DEBOUNCE_MS } from '../settings'
 import { normalise, profileKey, type StudentProfile } from '../state/profile'
 import { useStore } from '../state/store'
 import { useRefs } from './refs'
+
+/** One live route line drawn on the map (F4.5): walk or bike only. */
+export interface RouteLine {
+  key: string
+  coordinates: LonLat[]
+  mode: Mode
+}
 
 export interface ListingsState {
   /** "WG-Gesucht listings" toggle of Find; off by default. */
@@ -18,6 +25,9 @@ export interface ListingsState {
   selected: Listing | null
   select: (id: string | null) => void
   retry: () => void
+  /** routes of the selected listing's fastest trips, drawn by the map */
+  routes: RouteLine[]
+  setRoutes: (lines: RouteLine[]) => void
 }
 
 const Ctx = createContext<ListingsState | null>(null)
@@ -35,6 +45,7 @@ export function ListingsProvider({ children }: { children: ReactNode }) {
   const [updating, setUpdating] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [routes, setRoutesState] = useState<RouteLine[]>([])
   const [attempt, setAttempt] = useState(0)
   const cache = useRef(new Map<string, Listing[]>())
   const seq = useRef(0)
@@ -79,10 +90,17 @@ export function ListingsProvider({ children }: { children: ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabled, key, types, attempt])
 
-  const select = useCallback((id: string | null) => setSelectedId(id), [])
+  const select = useCallback((id: string | null) => {
+    setSelectedId(id)
+    setRoutesState([])
+  }, [])
+  const setRoutes = useCallback((lines: RouteLine[]) => setRoutesState(lines), [])
   const toggle = useCallback((on: boolean) => {
     setEnabled(on)
-    if (!on) setSelectedId(null)
+    if (!on) {
+      setSelectedId(null)
+      setRoutesState([])
+    }
   }, [])
   const retry = useCallback(() => setAttempt((n) => n + 1), [])
 
@@ -99,6 +117,8 @@ export function ListingsProvider({ children }: { children: ReactNode }) {
     selected,
     select,
     retry,
+    routes,
+    setRoutes,
   }
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>
 }

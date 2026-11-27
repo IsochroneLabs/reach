@@ -33,3 +33,26 @@ uv run --package reach-pipeline python web/scripts/make-basemap.py \
 
 `style.json` only reads the two properties `kind` (`road`, `path` is not emitted, `rail`,
 `water`, `waterway`, `forest`, `green`) and `class` (`major`, `minor` for roads).
+
+## University buildings
+
+`university.geojson` (214 footprints, 64 KB) outlines the university buildings: OSM buildings with
+`amenity=university`, `building=university`, operator Universität Tübingen / Universitätsklinikum
+Tübingen, or a name matching the campus patterns in `config/campus.yaml`, within 2.5 km of a campus
+site. Each feature has `site` (nearest campus site) and `name`. `MapView.tsx` draws a light fill
+below the cells and a hairline above them; the programme's sites get the ink outline and a stronger
+fill (F3.4/F4.5). The file is public OSM data, like the basemap, never fetched at runtime from a
+third party.
+
+```sh
+osmium tags-filter /tmp/basemap/tuebingen.osm.pbf -o /tmp/basemap/buildings.osm.pbf \
+  -O w/building w/amenity=university w/operator
+osmium export /tmp/basemap/buildings.osm.pbf -f geojsonseq \
+  -o /tmp/basemap/buildings.geojsonseq --geometry-types=polygon -a type,id
+uv run --package reach-pipeline python web/scripts/make-university.py \
+  --input /tmp/basemap/buildings.geojsonseq \
+  --output web/public/basemap/university.geojson
+```
+
+The live *Wege* (routes) of a listing are not in the basemap: `POST /api/route` returns one
+Valhalla walk or bike line, and `MapView.tsx` draws the fastest ones above the cells (F4.5).

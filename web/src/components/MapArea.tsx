@@ -45,7 +45,13 @@ export function MapArea() {
   const { state, dispatch } = useStore()
   const toast = useToast()
   const listings = useListings()
-  const { enabled: listingsOn, data: listingsData, select: selectListing } = listings
+  const {
+    enabled: listingsOn,
+    data: listingsData,
+    select: selectListing,
+    selected: selectedListing,
+    routes,
+  } = listings
   const [popupCell, setPopupCell] = useState<string | null>(null)
   const [failed, setFailed] = useState(false)
   const [loaded, setLoaded] = useState(false)
@@ -91,11 +97,20 @@ export function MapArea() {
       }))
   }, [refs, state.profile, t])
 
+  // buildings of the programme's campus sites get the stronger outline (F3.4/F4.5)
+  const universitySites = useMemo(() => {
+    if (refs.kind !== 'ok') return []
+    if (state.profile.programme) {
+      return refs.refs.programmes.find((p) => p.programme === state.profile.programme)?.sites ?? []
+    }
+    return refs.refs.sites.filter((s) => (s.default_share ?? 0) > 0).map((s) => s.site_id)
+  }, [refs, state.profile.programme])
+
   // open WG-Gesucht ads in Find (F4.7): one square per listing with a point
   const listingPins: MapMarker[] = useMemo(() => {
     if (!listingsOn || !listingsData) return []
     return listingsData
-      .filter((l) => l.point)
+      .filter((l) => l.point && (!selectedListing || l.listing_id === selectedListing.listing_id))
       .map((l) => {
         const eur = l.rent_total_eur ?? l.rent_cold_eur
         return {
@@ -109,7 +124,7 @@ export function MapArea() {
           onClick: () => selectListing(l.listing_id),
         }
       })
-  }, [listingsOn, listingsData, selectListing, t])
+  }, [listingsOn, listingsData, selectListing, selectedListing, t])
 
   const markers: MapMarker[] = useMemo(() => {
     const pins: MapMarker[] = state.places
@@ -195,7 +210,9 @@ export function MapArea() {
             cells={cells}
             showCells={showCells}
             markers={markers}
-            focus={state.focus}
+            routes={routes}
+            universitySites={universitySites}
+            focus={selectedListing?.point ?? state.focus}
             label={t('map.label')}
             popup={popup}
             onMapClick={onMapClick}

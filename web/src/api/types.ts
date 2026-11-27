@@ -237,3 +237,10 @@ export class ApiError extends Error {
     this.retryAfterS = retryAfterS
   }
 }
+
+/** F4.5: one live walk or bike route from a point to a published destination. */
+export interface RouteFeature {
+  type: 'Feature'
+  properties: { time_s: number; length_m: number; mode: 'walk' | 'bike' }
+  geometry: { type: 'LineString'; coordinates: LonLat[] }
+}

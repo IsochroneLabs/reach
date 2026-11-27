@@ -13,6 +13,7 @@ import {
   type Meta,
   type Persona,
   type Programme,
+  type RouteFeature,
 } from './types'
 
 /** Everything the app asks the API. Profiles go only in POST bodies (root rule 9). */
@@ -28,6 +29,8 @@ export interface Api {
   cell(cellId: string, profile: FitRequest, signal?: AbortSignal): Promise<CellDetail>
   /** F4.5: exact times from one point (listing address or pin), no cache. */
   place(point: LonLat, profile: FitRequest, signal?: AbortSignal): Promise<CellDetail>
+  /** F4.5: geometry of one walk or bike route to a published destination. */
+  route(origin: LonLat, destinationId: string, mode: 'walk' | 'bike', signal?: AbortSignal): Promise<RouteFeature>
   /** PROPOSED (F4.6): current listings with the fit of their cell, best first. */
   listings(profile: FitRequest, signal?: AbortSignal): Promise<Listing[]>
 }
@@ -74,6 +77,8 @@ export function makeApi(t: Transport): Api {
     fit: (p, s) => t('POST', '/fit', p, s) as Promise<FitResponse>,
     cell: (id, p, s) => t('POST', `/cell/${encodeURIComponent(id)}`, p, s) as Promise<CellDetail>,
     place: (point, p, s) => t('POST', '/place', { point, profile: p }, s) as Promise<CellDetail>,
+    route: (origin, id, mode, s) =>
+      t('POST', '/route', { origin, destination_id: id, mode }, s) as Promise<RouteFeature>,
     listings: (p, s) => t('POST', '/listings/fit', p, s) as Promise<Listing[]>,
   }
 }

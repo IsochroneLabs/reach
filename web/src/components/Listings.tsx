@@ -5,7 +5,7 @@ import type { CellDetail, Listing, Trip } from '../api/types'
 import { cellIdAt } from '../geo/laea'
 import { useI18n } from '../i18n/i18n'
 import { useDestName, useRefs } from '../remote/refs'
-import { useListings } from '../remote/listings'
+import { useListings, type RouteLine } from '../remote/listings'
 import { normalise } from '../state/profile'
 import { useStore } from '../state/store'
 import { FitBadge } from './FitBadge'
@@ -150,28 +150,70 @@ function Trips({
   if (!detail) return <p className="muted small">{t('listings.tripsLoading')}</p>
   if (!rows.length) return <p className="muted small">{t('listings.noTrips')}</p>
   return (
-    <table className="listing-trips">
-      <tbody>
+    <div className="trips">
+      <h4 className="trips-title">{t('trips.title')}</h4>
+      <table className="listing-trips">
+        <tbody>
         {rows.map(([key, tr]) => (
           <tr key={key}>
             <th scope="row">{name(key)}</th>
             <td className="num">{tr.minutes != null ? duration(tr.minutes) : '–'}</td>
             <td className="muted small">{tr.mode ? t(`mode.${tr.mode}.by`) : ''}</td>
           </tr>
-        ))}
-      </tbody>
-    </table>
+          ))}
+        </tbody>
+      </table>
+    </div>
   )
 }
 
 function Detail({ listing }: { listing: Listing }) {
   const { t, duration, date } = useI18n()
-  const { select } = useListings()
-  const { dispatch } = useStore()
+  const { select, setRoutes } = useListings()
+  const { state, dispatch } = useStore()
   const { rows, detail, failed } = useListingPlace(listing)
   const fit = detail?.fit ?? listing.fit ?? null
   const weekly = detail?.weekly_min ?? listing.weekly_min
   const eur = rent(listing)
+
+  // draw the fastest walk/bike trips of the point on the map (F4.5); transit has no geometry
+  useEffect(() => {
+    if (!detail || !listing.point) return
+    const best = new Map<string, Trip>()
+    for (const tr of detail.trips) {
+      if (tr.minutes == null || !state.profile.modes.includes(tr.mode)) continue
+      const cur = best.get(tr.destination_type)
+      if (!cur || (cur.minutes ?? Infinity) > tr.minutes) best.set(tr.destination_type, tr)
+    }
+    const wanted = [...best.values()].filter((tr) => tr.mode === 'walk' || tr.mode === 'bike').slice(0, 4)
+    let cancelled = false
+    ;(async () => {
+      const api = await getApi()
+      const lines = (
+        await Promise.all(
+          wanted.map(async (tr) => {
+            try {
+              const feature = await api.route(listing.point!, tr.destination_id, tr.mode as 'walk' | 'bike')
+              return {
+                key: `${tr.destination_type}:${tr.destination_id}`,
+                coordinates: feature.geometry.coordinates,
+                mode: tr.mode as RouteLine['mode'],
+              }
+            } catch {
+              return null
+            }
+          }),
+        )
+      ).filter((x): x is RouteLine => x !== null)
+      if (!cancelled) setRoutes(lines)
+    })()
+    return () => {
+      cancelled = true
+      setRoutes([])
+    }
+    // detail changes with the profile; state.profile.modes is part of the hook's key
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [detail, listing.point, setRoutes])
   const check = () => {
     if (!listing.point) return
     dispatch({

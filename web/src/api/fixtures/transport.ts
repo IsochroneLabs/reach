@@ -403,6 +403,17 @@ export function handle(method: string, path: string, body?: unknown): unknown {
       if (!id) throw new ApiError(404, 'point outside the sample cells')
       return { ...cell(id, b.profile), point: b.point }
     }
+    if (path === '/route') {
+      const b = body as { origin: LonLat; destination_id: string; mode: 'walk' | 'bike' }
+      return {
+        type: 'Feature',
+        properties: { time_s: 600, length_m: 1200, mode: b.mode },
+        geometry: {
+          type: 'LineString',
+          coordinates: [b.origin, [b.origin[0] + 0.01, b.origin[1] + 0.005]],
+        },
+      }
+    }
     if (path === '/addresses/search') return search((body as { q: string }).q)
     const m = /^\/cell\/([^/]+)$/.exec(path)
     if (m) return cell(decodeURIComponent(m[1]), p)
