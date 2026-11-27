@@ -180,6 +180,8 @@ async def campus_sites(d: D) -> list[dict[str, Any]]:
         {
             "site_id": r["site_id"],
             "name": r["name"],
+            "address": r["address"],
+            "area": r["area"],
             "programmes": sorted(p for p, sites in progs["sites"].items() if r["site_id"] in sites),
             "point": [round(r["lon"], 6), round(r["lat"], 6)],
             "default_share": float(r["default_share"]),
@@ -192,7 +194,13 @@ async def campus_sites(d: D) -> list[dict[str, Any]]:
 async def programmes(d: D) -> list[dict[str, Any]]:
     m = await _model(d)
     return [
-        {"programme": p, "label": _label(row), "sites": list(row["sites"])}
+        {
+            "programme": p,
+            "label": _label(row),
+            "degree": row["degree"],
+            "basis": row["basis"],
+            "sites": list(row["sites"]),
+        }
         | ({"shares": list(row["shares"])} if _has(row.get("shares")) else {})
         for p, row in m.programmes.sort_index().iterrows()
     ]

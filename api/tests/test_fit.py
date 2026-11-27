@@ -104,8 +104,10 @@ def _model() -> Model:
         programmes=pd.DataFrame(
             {
                 "programme": ["biology"],
-                "label_en": ["Biology"],
-                "label_de": ["Biologie"],
+                "label_en": ["Biology (Bachelor)"],
+                "label_de": ["Biologie (Bachelor)"],
+                "degree": ["Bachelor"],
+                "basis": ["compulsory"],
                 "sites": [["morgenstelle"]],
             }
         ),

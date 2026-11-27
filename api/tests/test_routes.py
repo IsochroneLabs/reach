@@ -119,7 +119,15 @@ def test_reference_routes_and_search() -> None:
             {"label": "Wilhelmstr. 5, Tübingen", "cell_id": "A", "lon": 9.06, "lat": 48.5}
         ],
         q.Q_SITES: [
-            {"site_id": "morgenstelle", "name": "M", "lon": 9.0, "lat": 48.5, "default_share": 0.5}
+            {
+                "site_id": "morgenstelle",
+                "name": "M",
+                "address": "Auf der Morgenstelle 16",
+                "area": "morgenstelle",
+                "lon": 9.0,
+                "lat": 48.5,
+                "default_share": 0.5,
+            }
         ],
     }
     client, db = _client(rows)
@@ -127,8 +135,10 @@ def test_reference_routes_and_search() -> None:
     assert [lab["label"] for lab in types["sport"]["labels"]] == ["tennis"]
     assert types["grocery"]["labels"][0]["kind"] == "brand"
     sites = client.get("/api/campus-sites").json()
-    assert sites[0]["programmes"] == ["biology"]
-    assert client.get("/api/programmes").json()[0]["sites"] == ["morgenstelle"]
+    assert sites[0]["programmes"] == ["biology"] and sites[0]["area"] == "morgenstelle"
+    prog = client.get("/api/programmes").json()[0]
+    assert prog["sites"] == ["morgenstelle"]
+    assert prog["degree"] == "Bachelor" and prog["basis"] == "compulsory"
     hits = client.post("/api/addresses/search", json={"q": "Wilhelmstraße 5"}).json()
     assert hits[0]["cell_id"] == "A" and db.params[-1][0] == ["%wilhelmstr%", "%5%"]
     assert client.post("/api/addresses/search", json={"q": "ab"}).status_code == 422
