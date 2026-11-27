@@ -26,7 +26,7 @@ import psycopg
 import shapely
 
 from reach_pipeline import campus as campus_mod
-from reach_pipeline import db
+from reach_pipeline import db, osm_details
 from reach_pipeline.config import Config, pipeline_sections, section_digest
 from reach_pipeline.context import RunContext
 from reach_pipeline.errors import ConfigError, ExternalError, StageValidationError
@@ -123,8 +123,10 @@ def _reference_tables(ctx: RunContext, part1: dict[str, Any]) -> dict[str, pd.Da
         ]
     ).astype({"nearest_k": "Int16"})
     campus = campus_mod.load_campus(ctx.config_path)
-    pts = campus_mod.destinations(campus)
-    sites = pts[pts["destination_type"] == "campus_site"]
+    # the points the run routed to (validate/destinations.parquet), not campus.yaml as it is now:
+    # an edited site point takes effect with the next validate, never half (notes N29)
+    routed = gpd.read_parquet(_paths(ctx)["destinations"])
+    sites = routed[routed["destination_type"] == "campus_site"].drop_duplicates("destination_id")
     site_ids = sites["destination_id"].str.removeprefix("campus_site:")
     campus_sites = pd.DataFrame(
         {
@@ -221,10 +223,17 @@ def tables(ctx: RunContext) -> dict[str, pd.DataFrame]:
         "travel_times": pd.read_parquet(p["travel_times"]),
         "validation_report": report_frame(part1, part2),
     }
+    lab = None
     if p["destination_labels"].exists():
         lab = gpd.read_parquet(p["destination_labels"])
         cols = [c for c in LABEL_COLUMNS if c != "geometry"]
         out["destination_labels"] = pd.DataFrame(lab[cols]).assign(geom=db.ewkb(lab.geometry))
+    # opening hours, website, wheelchair from the OSM exports of validate (notes N29)
+    osm_dir = ctx.stage_dir(validate.STAGE) / "osm"
+    details = osm_details.read([osm_dir / "destinations.geojsonseq", osm_dir / "labels.geojsonseq"])
+    out["destination_details"] = osm_details.for_destinations(
+        dest, lab, details, osm_details.window_times(ctx.config)
+    )
     return out
 
 

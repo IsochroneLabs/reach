@@ -1,6 +1,6 @@
 # Data contract — reach
 
-> **Status:** v1.2.0 draft (27 Nov 2026). Binding for the tables, files and API responses exchanged
+> **Status:** v1.3.0 draft (27 Nov 2026). Binding for the tables, files and API responses exchanged
 > between pipeline and API once a step implements them; every change needs confirmation
 > (AGENTS.md) and a data-contract test. Parts carried over from the archive are marked *(ported,
 > S0.4)*; result tables and API responses are fixed in S1.4 (pre-approved by Juju on 27 Nov 2026, review
@@ -75,6 +75,7 @@ of them in one transaction. Raw values only: the fit, rankings and reasons are d
 | `districts` | `district_id` PK `text` (OSM id, e.g. `r2830772`), `name` `text`, `admin_level` `smallint`, `geom` `MultiPolygon` |
 | `destination_types` | `destination_type` PK `text`, `label_en`, `label_de` `text`, `source` `text` (`osm`/`campus`/`labels`), `trip_window` `text`, `fine_time_min` `real`, `trips_per_week` `real`, `nearest_k` `smallint` (null = all) |
 | `destinations` | `destination_id` PK `text` (`<type>:<osm_id>`, campus `<type>:<key>`), `destination_type` `text`, `name` `text` (`''` if unnamed), `osm_id` `text`, `geom` `Point` (first routing point; parks are routed from all their access points and keep the shortest time) |
+| `destination_details` | `destination_id` PK `text` (of `destinations` or `destination_labels`), `opening_hours`, `website`, `wheelchair` `text` NULL (OSM tags as tagged), `open_in_window` `boolean` NULL (open at the type's trip window time; NULL = unknown) — notes N29 |
 | `destination_labels` | as `validate/destination_labels.parquet` below; `destination_id` PK, `osm_ids` `text`, `n_features` `integer`, `offered` `boolean`, `geom` `Point` |
 | `campus_sites` | `site_id` PK `text` (key in `config/campus.yaml`), `name` `text`, `default_share` `real` (0 if not in `default_mix`), `geom` `Point`; destination id `campus_site:<site_id>` |
 | `programmes` | `programme` PK `text`, `label_en`, `label_de` `text`, `sites` `text[]`, `shares` `double precision[]` NULL (per site, from Alma, N24; NULL = equal weights) |
@@ -152,7 +153,10 @@ destination_type, name, minutes, mode, trip_window, value?}`: up to 2 strengths 
 1 weakness with *s* < 0.6, for night windows by transit the departure home; 2–4 reasons.
 **Trip**: `{destination_type, destination_id, name, mode, trip_window, minutes, legs?:
 {access_min, wait_min, in_vehicle_min, egress_min, transfers, first_stop, first_route, walk_only,
-last_departure}}`. **FitPart**: `{destination_type, minutes, mode, score, weight, share}`.
+last_departure}, point?, share?, opening_hours?, website?, wheelchair?, open_in_window?}`:
+`point` [lon, lat] of the destination, `share` (campus sites only) of the student's campus time;
+the campus trips are only the student's sites (programme, campus days or default mix); the OSM
+fields come from `destination_details` when the run has it (N29). **FitPart**: `{destination_type, minutes, mode, score, weight, share}`.
 
 ## Files (`data/runs/<run_id>/<stage>/`)
 
@@ -348,6 +352,7 @@ geocoding, the point (`POST /api/place`). Nothing of it is stored on the server.
 
 | Version | Date | Change | Why |
 |---|---|---|---|
+| v1.3.0 draft | 2026-11-27 | `destination_details` (OSM opening hours, website, wheelchair, open at the trip window); Trip `point`, `share`, OSM fields; campus trips only of the student's sites; `campus_sites.geom` = the routed point of the run | Wrong campus in routes and unlabelled destinations on the map (Juju, 27 Nov 2026; notes N29) |
 | proposed (F4.5) | 2026-11-27 | `POST /api/place` (point → nearest targets, walk/bike matrix, transit per window, fit from point times, no cache) and `POST /api/route` (walk/bike geometry) | F4.5, architecture O25, V11 |
 | proposed (F4.6) | 2026-11-27 | API of the current listings (`GET /api/listings`, `POST /api/listings/fit`, fit from the cell until F4.5) | F4.6 built on the F4.1 proposal |
 | proposed (F4.1) | 2026-11-27 | Listings: schema `lst_<id>` (`listings`, `listing_travel_times`, `listing_report`), views `listings.*`, retention, personal-data reductions, parser output, variant C, files | Extension plan F4.1, architecture O24/O25; version bump once the team confirms |

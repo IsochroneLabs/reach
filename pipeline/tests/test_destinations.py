@@ -50,7 +50,8 @@ def _features() -> gpd.GeoDataFrame:
 
 
 def test_types_access_points_and_merging(cfg) -> None:
-    area = box(X0 - 5000, Y0 - 5000, X0 + 5000, Y0 + 5000)
+    # wide enough for all four campus sites (Sand is ≈ 5.3 km east of X0)
+    area = box(X0 - 6000, Y0 - 6000, X0 + 6000, Y0 + 6000)
     dest = destinations.build(_features(), campus.load_campus(REPO / "config" / "x"), cfg, area)
     per_type = dest.groupby("destination_type")["destination_id"].nunique().to_dict()
     assert per_type["grocery"] == 1
