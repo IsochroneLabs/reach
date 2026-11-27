@@ -287,3 +287,21 @@ AGENTS.md architecture rule 6 says "Only `publish` writes results to PostGIS". W
 `publish_listings` writes the `lst_<id>` schemas and the `listings` views. **To do:** extend rule 6
 to "Only `publish` and `publish_listings` write …; the API reads only `current` and `listings`"
 after the team's yes.
+
+## N23. OSM gaps for sport, hobby and supermarket labels
+
+**Status:** open · **Related:** methodology §3.1, `docs/osm_tagging.md` §5, V10, N9
+
+Measured 26 Nov 2026 on the routing-area extract (F2.1):
+
+- **Under-mapped indoor sports:** yoga 3, martial arts 3, squash/badminton 2, rowing 1
+  destination(s); clubs that train in school halls are rarely mapped. These categories are offered
+  ("everything in") without a remark in the app (Juju, 27 Nov 2026: "it is as it is").
+- **Outdoor equipment counts as a place:** most `table_tennis` (55) and many `basketball` (53)
+  and `chess` (6) destinations are tables, hoops and boards in parks and school yards, not clubs.
+- **School pitches** usually carry no `access` tag and count as public.
+- **Supermarkets in `other`:** Bonus (2), Emmiy, Schmackes (Wanne) have no tag that tells their
+  kind; 18 of 87 supermarkets have no `brand`.
+
+**To do:** spot checks of V10 (10 supermarkets, 10 sport places); team members who know a place
+may add `sport=*`, `organic=only` or `brand` by hand (N9); re-count in F2.2 on the current extract.

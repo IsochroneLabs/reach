@@ -36,6 +36,12 @@ def test_repo_config_loads() -> None:
     assert cfg.destination_types["campus_site"].source == "campus"
     assert cfg.destination_types["grocery"].tags == [{"shop": "supermarket"}]
     assert cfg.sources.zensus_rent is not None
+    labels = cfg.destination_labels
+    assert labels is not None
+    assert labels.grocery.fallback == "other"
+    assert "organic" in labels.grocery.groups
+    assert labels.sport.categories["tennis"].sport == ["tennis"]
+    assert "chess" in labels.hobby.categories
 
 
 def test_test_clip_extends_repo_config() -> None:
@@ -105,6 +111,23 @@ def _set(data: dict[str, Any], dotted: str, value: Any) -> dict[str, Any]:
         ("travel_times.block_size_m", 0, "travel_times.block_size_m"),
         ("tiles.verify.max_detour_factor", 0.9, "tiles.verify.max_detour_factor"),
         ("tiles.verify.costing", "auto", "tiles.verify.costing"),
+        ("destination_labels.cluster_radius_m", 0, "destination_labels.cluster_radius_m"),
+        ("destination_labels.grocery.fallback", "bio", "fallback group 'bio' is not a group"),
+        ("destination_labels.grocery.groups.discount.brands", ["spar"], "unknown brands"),
+        (
+            "destination_labels.grocery.groups.local.name_patterns",
+            ["(laden"],
+            "invalid name pattern",
+        ),
+        ("destination_labels.grocery.groups.other.tags", [{"shop": "x"}], "must have no rules"),
+        ("destination_labels.sport.categories.tennis.sport", ["soccer"], "in both football and"),
+        ("destination_labels.sport.categories.golf.leisure", ["golf_park"], "missing from sport"),
+        ("destination_labels.hobby.categories.chess.tags", [], "needs sport values, leisure"),
+        (
+            "destination_labels.hobby.categories",
+            {"Chess": {"label": {"en": "C", "de": "S"}, "tags": [{"sport": "chess"}]}},
+            "lower snake_case",
+        ),
     ],
 )
 def test_invalid_config_fails_clearly(
@@ -114,6 +137,12 @@ def test_invalid_config_fails_clearly(
     with pytest.raises(ConfigError, match="invalid config") as exc:
         load_config(path)
     assert expected in str(exc.value)
+
+
+def test_destination_labels_are_optional(tmp_path: Path, base: dict[str, Any]) -> None:
+    data = copy.deepcopy(base)
+    del data["destination_labels"]
+    assert load_config(_write(tmp_path, data)).destination_labels is None
 
 
 def test_missing_file(tmp_path: Path) -> None:

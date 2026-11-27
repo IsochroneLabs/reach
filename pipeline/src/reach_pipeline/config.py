@@ -166,6 +166,138 @@ class DestinationType(_Model):
         return self
 
 
+class Brand(_Model):
+    """A supermarket brand (meth. §3.1): matched by brand:wikidata, then by brand/name substring."""
+
+    label: str = Field(min_length=1)
+    wikidata: list[str] = Field(default_factory=list)
+    names: list[str] = Field(default_factory=list)
+
+
+class LabelGroup(_Model):
+    """A supermarket group: matches by tag, by brand key or by a regex on the name."""
+
+    label: Label
+    tags: list[dict[str, str]] = Field(default_factory=list)
+    brands: list[str] = Field(default_factory=list)
+    name_patterns: list[str] = Field(default_factory=list)
+
+    @field_validator("tags")
+    @classmethod
+    def _one_pair_per_tag(cls, v: list[dict[str, str]]):
+        return _check_tag_pairs(v)
+
+    @field_validator("name_patterns")
+    @classmethod
+    def _valid_regex(cls, v: list[str]):
+        for pattern in v:
+            try:
+                re.compile(pattern)
+            except re.error as exc:
+                raise ValueError(f"invalid name pattern {pattern!r}: {exc}") from exc
+        return v
+
+
+class GroceryLabels(_Model):
+    brand_min_stores: int = Field(ge=1)
+    brands: dict[str, Brand] = Field(min_length=1)
+    groups: dict[str, LabelGroup] = Field(min_length=1)
+    fallback: str
+
+    @model_validator(mode="after")
+    def _references(self):
+        unknown = sorted(
+            f"{g}: {b}"
+            for g, grp in self.groups.items()
+            for b in grp.brands
+            if b not in self.brands
+        )
+        if unknown:
+            raise ValueError(f"groups name unknown brands {unknown}")
+        fallback = self.groups.get(self.fallback)
+        if fallback is None:
+            raise ValueError(f"fallback group {self.fallback!r} is not a group")
+        if fallback.tags or fallback.brands or fallback.name_patterns:
+            raise ValueError(f"fallback group {self.fallback!r} must have no rules")
+        return self
+
+
+class Category(_Model):
+    """A sport or hobby category: sport=* values, leisure values and/or tags."""
+
+    label: Label
+    sport: list[str] = Field(default_factory=list)
+    leisure: list[str] = Field(default_factory=list)
+    tags: list[dict[str, str]] = Field(default_factory=list)
+
+    @field_validator("tags")
+    @classmethod
+    def _one_pair_per_tag(cls, v: list[dict[str, str]]):
+        return _check_tag_pairs(v)
+
+    @model_validator(mode="after")
+    def _has_rule(self):
+        if not (self.sport or self.leisure or self.tags):
+            raise ValueError("a category needs sport values, leisure values or tags")
+        return self
+
+
+def _unique_values(categories: dict[str, Category], attr: str) -> None:
+    owner: dict[str, str] = {}
+    for name, cat in categories.items():
+        for value in getattr(cat, attr):
+            if value in owner:
+                raise ValueError(f"{attr} value {value!r} in both {owner[value]} and {name}")
+            owner[value] = name
+
+
+class SportLabels(_Model):
+    leisure: list[str] = Field(min_length=1)
+    swimming_pool_access: list[str] = Field(default_factory=list)
+    ignore_values: list[str] = Field(default_factory=list)
+    categories: dict[str, Category] = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def _consistent(self):
+        _unique_values(self.categories, "sport")
+        _unique_values(self.categories, "leisure")
+        stray = sorted(
+            v for c in self.categories.values() for v in c.leisure if v not in self.leisure
+        )
+        if stray:
+            raise ValueError(f"category leisure values missing from sport.leisure: {stray}")
+        return self
+
+
+class HobbyLabels(_Model):
+    categories: dict[str, Category] = Field(min_length=1)
+
+
+class DestinationLabels(_Model):
+    """Brands, groups and categories below destination types (meth. §3.1, arch. O22)."""
+
+    min_destinations: int = Field(ge=1)
+    cluster_radius_m: float = Field(gt=0)
+    exclude_access: list[str] = Field(default_factory=list)
+    grocery: GroceryLabels
+    sport: SportLabels
+    hobby: HobbyLabels
+    religion_key: str = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def _snake_case_keys(self):
+        keys = [
+            *self.grocery.brands,
+            *self.grocery.groups,
+            *self.sport.categories,
+            *self.hobby.categories,
+        ]
+        bad = sorted(k for k in keys if not _ID_RE.match(k))
+        if bad:
+            raise ValueError(f"label ids must be lower snake_case, got {bad}")
+        return self
+
+
 class AccessPoints(_Model):
     spacing_m: float = Field(gt=0)
     max_points: int = Field(ge=1)
@@ -267,6 +399,8 @@ class Config(_Model):
     trip_windows: dict[str, TripWindow] = Field(min_length=1)
     calendar: Calendar
     destination_types: dict[str, DestinationType] = Field(min_length=1)
+    # Optional until F2.2 reads it (extension plan); validated whenever present.
+    destination_labels: DestinationLabels | None = None
     access_points: AccessPoints
     sources: Sources
     download: Download

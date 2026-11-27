@@ -228,6 +228,112 @@ destination_types:
     fine_time_min: 20
     trips_per_week: 1
 
+# Destination labels (meth. §3.1, arch. O22): brands and groups of supermarkets, sport and hobby
+# categories, religion. Taxonomy decided 26 Nov 2026 (extension plan F2.1), counts in
+# docs/osm_tagging.md §5. Read by the pipeline from F2.2 on; until then the hobby types gym,
+# climbing, swimming, sports_club and music above stay in use (replaced in F2.2/F2.5).
+destination_labels:
+  # A label is offered in the profile panel when it has at least `min_destinations` destinations
+  # after clustering.
+  min_destinations: 1
+  # Features of the same label closer than this, or inside the same leisure=sports_centre, form
+  # one destination (a tennis club with ten courts is one place, meth. §3.1).
+  cluster_radius_m: 75
+  # Sport, hobby and religion features with these access values never count (docs/osm_tagging.md
+  # §3). Not `customers`: paid gyms, climbing halls and clubs are open to anyone who pays.
+  # Supermarkets are never filtered by access.
+  exclude_access: [private, "no"]
+  grocery:
+    # Brands with fewer stores in the routing area are not offered on their own; their stores
+    # keep their group label.
+    brand_min_stores: 2
+    # Matched by brand:wikidata first, then by a case-insensitive substring of brand or name.
+    brands:
+      edeka: {label: EDEKA, wikidata: [Q701755], names: [edeka]}
+      aldi_sued: {label: ALDI SÜD, wikidata: [Q41171672], names: [aldi]}
+      lidl: {label: Lidl, wikidata: [Q151954], names: [lidl]}
+      penny: {label: PENNY, wikidata: [Q284688], names: [penny]}
+      netto: {label: Netto, wikidata: [Q879858], names: [netto]}
+      rewe: {label: REWE, wikidata: [Q16968817], names: [rewe]}
+      kaufland: {label: Kaufland, wikidata: [Q685967], names: [kaufland]}
+      norma: {label: Norma, wikidata: [Q450180], names: [norma]}
+      denns: {label: denn's Biomarkt, wikidata: [Q48883773], names: [denns, "denn's"]}
+      alnatura: {label: Alnatura, wikidata: [Q876811], names: [alnatura]}
+      mix_markt: {label: Mix Markt, wikidata: [Q327854], names: [mix markt]}
+      nahkauf: {label: Nahkauf, wikidata: [Q57515238], names: [nahkauf]}
+    # Every supermarket also gets exactly one group; groups are tried in this order and the first
+    # match wins. A group matches by tag, by brand key, or by a case-insensitive regular
+    # expression on name, alt_name or short_name. `fallback` takes the rest.
+    groups:
+      organic:
+        label: {en: Organic, de: Bio}
+        tags: [{organic: only}]
+        brands: [alnatura, denns]
+      zero_waste:
+        label: {en: Package-free, de: Unverpackt}
+        tags: [{zero_waste: only}, {bulk_purchase: only}]
+      international:
+        label: {en: International, de: International}
+        brands: [mix_markt]
+        name_patterns: [asia, "t(ü|ue)rk", orient, salam, schami, ikram, afro, polsk, russ, bazar]
+      discount:
+        label: {en: Discounter, de: Discounter}
+        brands: [aldi_sued, lidl, penny, netto, norma]
+      full_range:
+        label: {en: Full-range supermarket, de: Vollsortimenter}
+        brands: [edeka, rewe, kaufland, nahkauf]
+      local:
+        label: {en: Village and farm shop, de: Dorf- und Hofladen}
+        name_patterns: [dorfladen, hofladen, marktladen, "-laden$"]
+      other:
+        label: {en: Other supermarket, de: Sonstiger Supermarkt}
+    fallback: other
+  sport:
+    # Candidate features: these leisure values and club=sport. The category comes from sport=*
+    # (`;`-separated values); only if no sport value maps to a category, from the leisure values
+    # listed in a category (a fitness centre tagged sport=yoga is yoga, a track with sport=bmx is skate).
+    leisure: [sports_centre, pitch, fitness_centre, swimming_pool, track, sports_hall, water_park,
+              ice_rink, golf_course, horse_riding, dance]
+    # leisure=swimming_pool counts only with these access values (garden pools are untagged).
+    swimming_pool_access: ["yes", public]
+    # sport values that say nothing a student can choose by.
+    ignore_values: [multi, mixed, unknown]
+    categories:
+      football: {label: {en: Football, de: Fußball}, sport: [soccer, five-a-side, futsal]}
+      tennis: {label: {en: Tennis, de: Tennis}, sport: [tennis]}
+      basketball: {label: {en: Basketball, de: Basketball}, sport: [basketball]}
+      table_tennis: {label: {en: Table tennis, de: Tischtennis}, sport: [table_tennis]}
+      volleyball: {label: {en: Volleyball and beach volleyball, de: Volleyball und Beachvolleyball}, sport: [volleyball, beachvolleyball]}
+      handball: {label: {en: Handball, de: Handball}, sport: [handball]}
+      other_team: {label: {en: "Hockey, rugby, baseball and more", de: "Hockey, Rugby, Baseball und mehr"}, sport: [field_hockey, hockey, rugby_union, rugby_league, rugby, baseball, softball, american_football, ultimate, cricket]}
+      athletics: {label: {en: Athletics and running, de: Leichtathletik und Laufen}, sport: [athletics, running], leisure: [track]}
+      climbing: {label: {en: Climbing and bouldering, de: Klettern und Bouldern}, sport: [climbing, bouldering, climbing_adventure]}
+      swimming: {label: {en: Swimming, de: Schwimmen}, sport: [swimming], leisure: [water_park]}
+      fitness: {label: {en: Fitness, de: Fitness}, sport: [fitness, crossfit], leisure: [fitness_centre]}
+      yoga: {label: {en: Yoga and pilates, de: Yoga und Pilates}, sport: [yoga, pilates]}
+      dance: {label: {en: Dance, de: Tanzen}, sport: [dance], leisure: [dance]}
+      martial_arts: {label: {en: Martial arts and fencing, de: Kampfsport und Fechten}, sport: [martial_arts, judo, taekwondo, karate, aikido, boxing, kickboxing, wrestling, fencing]}
+      racket_indoor: {label: {en: "Squash, badminton and padel", de: "Squash, Badminton und Padel"}, sport: [squash, badminton, padel]}
+      water_sports: {label: {en: "Rowing, canoeing and sailing", de: "Rudern, Kanu und Segeln"}, sport: [rowing, canoe, sailing, stand_up_paddleboarding, surfing, diving]}
+      equestrian: {label: {en: Horse riding, de: Reiten}, sport: [equestrian], leisure: [horse_riding]}
+      shooting_archery: {label: {en: Shooting and archery, de: Schießen und Bogensport}, sport: [shooting, archery]}
+      boules: {label: {en: Boules and throwing games, de: Boule und Wurfspiele}, sport: [boules, petanque, horseshoes]}
+      skate: {label: {en: "Skate, BMX and parkour", de: "Skate, BMX und Parkour"}, sport: [skateboard, roller_skating, inline_skating, kick_scooter, bmx, parkour]}
+      cycling: {label: {en: Cycling and mountain biking, de: Radsport und Mountainbike}, sport: [cycling, mtb]}
+      golf: {label: {en: Golf and minigolf, de: Golf und Minigolf}, sport: [golf, minigolf], leisure: [golf_course]}
+      ice_sports: {label: {en: Ice skating and ice hockey, de: Eislaufen und Eishockey}, sport: [ice_skating, ice_hockey, curling], leisure: [ice_rink]}
+      bowling: {label: {en: "Bowling, billiards and table football", de: "Kegeln, Bowling, Billard und Kicker"}, sport: [9pin, 10pin, bowling, billiards, table_soccer]}
+      motor_model: {label: {en: "Motor, model and air sports", de: "Motor-, Modell- und Flugsport"}, sport: [motocross, trial, karting, motor, model_aerodrome, aviation, rc_car]}
+  hobby:
+    # A feature belongs to a category if it matches any of its tags (`;` values split).
+    categories:
+      music: {label: {en: Music, de: Musik}, tags: [{amenity: music_school}, {club: music}]}
+      arts: {label: {en: Arts and culture centres, de: Kunst und Kultur}, tags: [{amenity: arts_centre}]}
+      makerspace: {label: {en: Makerspace, de: Makerspace}, tags: [{leisure: hackerspace}]}
+      chess: {label: {en: Chess, de: Schach}, tags: [{sport: chess}, {club: chess}]}
+  # place_of_worship: one label per value of this OSM key.
+  religion_key: religion
+
 # Access points for destination types with location "access_points" (archive, meth. §3).
 access_points:
   spacing_m: 50

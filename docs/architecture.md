@@ -1,6 +1,6 @@
 # Architecture — reach
 
-> **Status:** v1.3-draft (26 Nov 2026). Target architecture of the rebuild. Every change bumps the
+> **Status:** v1.4-draft (26 Nov 2026). Target architecture of the rebuild. Every change bumps the
 > version and adds a line to the [Change log](#change-log). Decisions are listed in
 > [Section 13](#13-decisions); items marked **[OPEN]** are settled before the related code is
 > written. What is computed (destinations, travel times, fit, validation) is defined in
@@ -340,7 +340,7 @@ O18–O21 are reserved for D1–D4 as proposed on the Juju docs stack (PRs #83�
 
 | ID | Decision | Origin |
 |---|---|---|
-| O22 | **Destination labels.** A destination type can have labels: the brand for `grocery` (normalised from `brand:wikidata`, `brand`, `name`; others → `independent`), categories for the new types `sport` and `hobby` (from `sport=*` and hobby tags), the religion for `place_of_worship`. A destination can carry several labels. Travel times are stored for the nearest k per type and the nearest *k_label* per label (both from config) | QF3 (i), QF4 (i), extension plan F2 |
+| O22 | **Destination labels.** A destination type can have labels: the brand and a group for `grocery` (brand normalised from `brand:wikidata`, `brand`, `name`; group from tags, brand and name patterns: organic, package-free, international, discounter, full-range, village and farm shop, other), categories for the new types `sport` and `hobby` (from `sport=*` and hobby tags), the religion for `place_of_worship`. A destination can carry several labels; features of one label within 75 m or one sports centre are one destination. Travel times are stored for the nearest k per type and the nearest *k_label* per label (both from config) | QF3 (i), QF4 (i), extension plan F2 |
 | O23 | **Programmes from Alma.** New source `alma`, read by `acquire` once per semester from the public course catalogue (rate-limited, generic user agent, raw pages kept as provenance); `validate` maps compulsory course sessions → rooms → buildings → OSM addresses → campus sites and computes the weekly hours per programme × degree × semester × site. `config/campus.yaml` holds manual overrides that win, and stays the fallback while Alma is unavailable | QF5 (ii) with degree choice, extension plan F3 |
 | O24 | **Listings from WG-Gesucht, crawled daily on the server** by a separate listings job (`make listings`) with its own snapshot schemas `lst_<id>`, the views `listings` and the writer `publish_listings` (the only exception to O7). Data minimisation: no names or contact data, description shortened and stripped of contact data, images as links only, rows dropped N days after they leave the source. Polite crawling (rate limit from config, only new or changed detail pages), stop and notify on captcha or structure change, no bypassing of bot protection. Permission from SMP GmbH & Co. KG requested; the crawl can be switched off in config (`listings.enabled`) without affecting the rest of the app | QF1 (A), decided by Juju 26 Nov 2026; legal risk recorded in notes N20 |
 | O25 | **Point routing** for listings and *Check*: same targets and engines as cells (§6.5); listings routed in the daily job, single points live via `POST /api/place`; no caching of point results; listing times tied to the `run_id` they were routed against | extension plan F4.5 |
@@ -380,6 +380,7 @@ reach/
 
 | Version | Date | Change | Why |
 |---|---|---|---|
+| v1.4-draft | 2026-11-26 | O22: supermarket groups next to brands, clustering of same-label features | F2.1 (Juju's decision to cluster unbranded supermarkets in the pipeline) |
 | v1.3-draft | 2026-11-26 | Settled O22–O27: destination labels (brands, sport and hobby categories), programmes from Alma (per semester, `campus.yaml` as overrides), daily WG-Gesucht listings job with its own schema and `publish_listings`, point routing for listings and *Check*, application text in the browser (LLM variant planned), design direction *Atelier*; §1, §3, §4, §5.3, §6.3, §6.5 (new), §7, §8, §9, §10, §12 updated | Team decisions QF1–QF6 after the interim presentation (Juju, `docs/extension_plan.md`) |
 | v1.2-draft | 2026-11-23 | Settled T1 as O17 (OpenTripPlanner 2.10 for transit and bike + transit, per-pair queries, live transit route); §1, §3, §6.1, §6.3, §7, §12 updated | T1 spike (PR #79): only OTP covers arrive-by, trips after midnight, bike parking, legs and a live route within the memory budget |
 | v1.1-draft | 2026-11-22 | Settled O11 on Cloudflare Workers static assets and recorded current static asset billing; updated the free-hostname option to `workers.dev` | The frontend is a static Vite SPA; no edge compute is needed for the current deployment |
