@@ -399,7 +399,7 @@ class Config(_Model):
     trip_windows: dict[str, TripWindow] = Field(min_length=1)
     calendar: Calendar
     destination_types: dict[str, DestinationType] = Field(min_length=1)
-    # Optional until F2.2 reads it (extension plan); validated whenever present.
+    # Optional: without it `validate` writes no destination_labels layer; validated when present.
     destination_labels: DestinationLabels | None = None
     access_points: AccessPoints
     sources: Sources

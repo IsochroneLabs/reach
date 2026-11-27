@@ -1,6 +1,6 @@
 # Data contract — reach
 
-> **Status:** v1.0.1 draft (21 Nov 2026). Binding for the tables, files and API responses exchanged
+> **Status:** v1.0.2 draft (27 Nov 2026). Binding for the tables, files and API responses exchanged
 > between pipeline and API once a step implements them; every change needs confirmation
 > (AGENTS.md) and a data-contract test. Parts carried over from the archive are marked *(ported,
 > S0.4)*; result tables and API responses are *(planned, S1.4)*.
@@ -127,8 +127,30 @@ hard-linked from the previous run).
 in the tables above), `routing.osm.pbf` (input of the tile build) and report part 1
 (`report_inputs.json` + `.md`: summary incl. the reference date per trip window, checks `crs`,
 `non_empty`, `district_coverage`, `population_total`, `origin_coverage`, `cells_inside_boundary`,
-`gtfs_trip_windows`, `holiday_calendar`). `tiles/`: `rebuild_needed` (shell variables for the
-build, written by `tiles check`) and `verify.json`.
+`gtfs_trip_windows`, `holiday_calendar`, `destination_labels`). `tiles/`: `rebuild_needed` (shell
+variables for the build, written by `tiles check`) and `verify.json`.
+
+### `validate/destination_labels.parquet` *(F2.2, draft)*
+
+GeoParquet, EPSG:25832, one row per destination **and label** (methodology §3.1: clustering is per
+label, so a sports centre with climbing and fitness is one row in each category). Written when
+`destination_labels` is configured; S1.6 links it to `destinations`, F2.4 publishes it.
+
+| Column | Type | Description |
+|---|---|---|
+| `destination_id` | string | `<destination_type>:<label>:<osm_id>` of the largest feature of the cluster; unique |
+| `destination_type` | string | `grocery`, `sport`, `hobby`, `place_of_worship` |
+| `label_kind` | string | `brand` or `group` (grocery), `category` (sport, hobby), `religion` |
+| `label` | string | key in `config.destination_labels` (religion: the OSM value, `unknown` if missing) |
+| `name` | string | name of the largest named feature, `""` if none |
+| `n_features` | integer | OSM objects merged into this destination |
+| `osm_ids` | string | `;`-separated `n…`/`w…`/`r…` ids, sorted |
+| `offered` | boolean | label has ≥ `min_destinations` destinations (brands: ≥ `brand_min_stores`) |
+| `geometry` | Point | inside the largest feature of the cluster |
+
+Report part 1 lists destinations and features per label (`summary.destination_labels`); check
+`destination_labels` (V10) fails without any supermarket and warns with the configured labels that
+are not offered.
 
 ### Other stage files *(planned, S1.6–S1.9)*
 
@@ -139,5 +161,6 @@ specified with their steps.
 
 | Version | Date | Change | Why |
 |---|---|---|---|
+| v1.0.2 draft | 2026-11-27 | `validate/destination_labels.parquet` and check `destination_labels` (V10) | F2.2 (extension plan) |
 | v1.0.1 draft | 2026-11-21 | S0.4: run-schema subset (`cells`, `districts`, `stops`, `validation_report`) and the `validate/` and `tiles/` files documented as ported; `meta.runs.reference_weekday` holds the earliest trip-window date until S1.4 | Port of the foundation (plan S0.4) |
 | v1.0 draft | 2026-11-21 | New contract for the rebuild: conventions, roles, `meta` and manifest carried over from the archive (v0.17); result tables and API responses planned for S1.4 | Rebuild brief of 21 Nov 2026 |

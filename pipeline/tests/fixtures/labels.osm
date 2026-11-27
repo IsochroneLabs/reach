@@ -1,0 +1,60 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!-- Hand-made fixture for test_labels.py: supermarkets (brand by wikidata and by name,
+     international, organic, other), tennis courts (two within 75 m, one far), two gyms in one
+     sports centre, a soccer/basketball pitch, a track without sport, a garden pool and a public
+     pool, a private climbing centre, an untagged pitch, a music school, two places of worship. -->
+<osm version="0.6" generator="reach tests">
+ <node id="101" version="1" lat="48.52000" lon="9.05000"><tag k="shop" v="supermarket"/><tag k="name" v="REWE City"/><tag k="brand:wikidata" v="Q16968817"/><tag k="access" v="customers"/></node>
+ <node id="102" version="1" lat="48.53000" lon="9.05000"><tag k="shop" v="supermarket"/><tag k="name" v="REWE"/><tag k="brand" v="REWE"/></node>
+ <node id="103" version="1" lat="48.52000" lon="9.06000"><tag k="shop" v="supermarket"/><tag k="name" v="Asia Markt Wang"/></node>
+ <node id="104" version="1" lat="48.52500" lon="9.06500"><tag k="shop" v="supermarket"/><tag k="name" v="Bioladen Lustnau"/><tag k="organic" v="only"/></node>
+ <node id="105" version="1" lat="48.51500" lon="9.07000"><tag k="shop" v="supermarket"/><tag k="name" v="Kiosk Eck"/></node>
+ <node id="106" version="1" lat="48.51000" lon="9.04000"/>
+ <node id="107" version="1" lat="48.51000" lon="9.04040"/>
+ <node id="108" version="1" lat="48.51030" lon="9.04040"/>
+ <node id="109" version="1" lat="48.51030" lon="9.04000"/>
+ <node id="110" version="1" lat="48.51000" lon="9.04100"/>
+ <node id="111" version="1" lat="48.51000" lon="9.04140"/>
+ <node id="112" version="1" lat="48.51030" lon="9.04140"/>
+ <node id="113" version="1" lat="48.51030" lon="9.04100"/>
+ <node id="114" version="1" lat="48.51500" lon="9.04000"/>
+ <node id="115" version="1" lat="48.51500" lon="9.04040"/>
+ <node id="116" version="1" lat="48.51530" lon="9.04040"/>
+ <node id="117" version="1" lat="48.51530" lon="9.04000"/>
+ <node id="118" version="1" lat="48.50000" lon="9.05000"/>
+ <node id="119" version="1" lat="48.50000" lon="9.05400"/>
+ <node id="120" version="1" lat="48.50300" lon="9.05400"/>
+ <node id="121" version="1" lat="48.50300" lon="9.05000"/>
+ <node id="122" version="1" lat="48.50050" lon="9.05050"><tag k="leisure" v="fitness_centre"/><tag k="name" v="Gym Nord"/></node>
+ <node id="123" version="1" lat="48.50250" lon="9.05350"><tag k="leisure" v="fitness_centre"/><tag k="sport" v="fitness"/></node>
+ <node id="124" version="1" lat="48.54000" lon="9.04000"/>
+ <node id="125" version="1" lat="48.54000" lon="9.04120"/>
+ <node id="126" version="1" lat="48.54080" lon="9.04120"/>
+ <node id="127" version="1" lat="48.54080" lon="9.04000"/>
+ <node id="128" version="1" lat="48.54100" lon="9.04200"/>
+ <node id="129" version="1" lat="48.54100" lon="9.04280"/>
+ <node id="130" version="1" lat="48.54160" lon="9.04280"/>
+ <node id="131" version="1" lat="48.54160" lon="9.04200"/>
+ <node id="132" version="1" lat="48.54500" lon="9.05000"/>
+ <node id="133" version="1" lat="48.54500" lon="9.05020"/>
+ <node id="134" version="1" lat="48.54520" lon="9.05020"/>
+ <node id="135" version="1" lat="48.54520" lon="9.05000"/>
+ <node id="136" version="1" lat="48.54600" lon="9.05200"/>
+ <node id="137" version="1" lat="48.54600" lon="9.05240"/>
+ <node id="138" version="1" lat="48.54640" lon="9.05240"/>
+ <node id="139" version="1" lat="48.54640" lon="9.05200"/>
+ <node id="140" version="1" lat="48.54700" lon="9.05500"><tag k="leisure" v="sports_centre"/><tag k="sport" v="climbing"/><tag k="access" v="private"/></node>
+ <node id="141" version="1" lat="48.54800" lon="9.05600"><tag k="leisure" v="pitch"/></node>
+ <node id="142" version="1" lat="48.55000" lon="9.06000"><tag k="amenity" v="music_school"/><tag k="name" v="Musikschule"/></node>
+ <node id="143" version="1" lat="48.55100" lon="9.06100"><tag k="amenity" v="place_of_worship"/><tag k="religion" v="christian"/><tag k="name" v="Kirche"/></node>
+ <node id="144" version="1" lat="48.55200" lon="9.06200"><tag k="amenity" v="place_of_worship"/></node>
+ <node id="145" version="1" lat="48.55300" lon="9.06300"><tag k="amenity" v="cafe"/><tag k="name" v="not a candidate"/></node>
+ <way id="201" version="1"><nd ref="106"/><nd ref="107"/><nd ref="108"/><nd ref="109"/><nd ref="106"/><tag k="leisure" v="pitch"/><tag k="sport" v="tennis"/></way>
+ <way id="202" version="1"><nd ref="110"/><nd ref="111"/><nd ref="112"/><nd ref="113"/><nd ref="110"/><tag k="leisure" v="pitch"/><tag k="sport" v="tennis"/></way>
+ <way id="203" version="1"><nd ref="114"/><nd ref="115"/><nd ref="116"/><nd ref="117"/><nd ref="114"/><tag k="leisure" v="pitch"/><tag k="sport" v="tennis"/></way>
+ <way id="204" version="1"><nd ref="118"/><nd ref="119"/><nd ref="120"/><nd ref="121"/><nd ref="118"/><tag k="leisure" v="sports_centre"/><tag k="name" v="Sportpark"/></way>
+ <way id="205" version="1"><nd ref="124"/><nd ref="125"/><nd ref="126"/><nd ref="127"/><nd ref="124"/><tag k="leisure" v="pitch"/><tag k="sport" v="soccer;basketball"/></way>
+ <way id="206" version="1"><nd ref="128"/><nd ref="129"/><nd ref="130"/><nd ref="131"/><nd ref="128"/><tag k="leisure" v="track"/></way>
+ <way id="207" version="1"><nd ref="132"/><nd ref="133"/><nd ref="134"/><nd ref="135"/><nd ref="132"/><tag k="leisure" v="swimming_pool"/></way>
+ <way id="208" version="1"><nd ref="136"/><nd ref="137"/><nd ref="138"/><nd ref="139"/><nd ref="136"/><tag k="leisure" v="swimming_pool"/><tag k="sport" v="swimming"/><tag k="access" v="yes"/></way>
+</osm>
