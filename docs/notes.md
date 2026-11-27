@@ -271,13 +271,49 @@ the student's browser (extension plan F4.3). `product.md` v1.2 (26 Nov 2026) rep
 
 ## N21. Alma was not reachable from outside the university network
 
-**Status:** open · **Related:** architecture O23, §4, extension plan F3.1
+**Status:** answered by N23a (27 Nov 2026) · **Related:** architecture O23, §4, extension plan F3.1
 
 On 26 Nov 2026 `alma.uni-tuebingen.de` refused connections from outside (connection refused on
 443); the university says the public course catalogue needs no login. **To do (F3.1):** test from
 eduroam/VPN and from the server of D1; if the server cannot reach Alma, run the semester crawl from
 a team machine inside the network and hand the raw pages to `acquire` as a file source, or ask the
 university for an export (extension plan appendix B).
+
+## N23a. Alma recon (F3.1): reachable via VPN, but robots.txt disallows every crawler
+
+**Status:** open, decision needed · **Related:** architecture O23, methodology §3.2, extension
+plan F3.1–F3.4, N21
+
+Checked on 27 Nov 2026 from the university VPN with two requests (generic user agent):
+
+- **Reachable:** `https://alma.uni-tuebingen.de/` answers inside the VPN (HTTP 200, a redirect page
+  into HISinOne); from outside it refuses connections (N21). Whether the server of D1 can reach it
+  is unknown until the server exists.
+- **robots.txt** (`https://alma.uni-tuebingen.de/robots.txt`): `User-Agent: *` → `Disallow: /`.
+  Only `Googlebot` gets a few allowed paths (public course search, sitemap, published course
+  pages). An automated crawler of ours is therefore **not allowed**, whatever the terms of use say.
+  I stopped after these two requests: no catalogue page, module tree or iCal export was fetched,
+  so page structure, exports and crawl time are not answered.
+- **uni-tuebingen.de** (`robots.txt` read the same day) allows crawlers except `/typo3/` and one
+  styleguide path: programme pages and the departments' address pages may be read.
+
+**Options:**
+
+1. **Ask the university for an export** (extension plan appendix B): programmes → modules with
+   recommended semester → courses with weekday, time and building, once per semester, as CSV or
+   JSON. Clean and allowed; answer time unknown. *Recommended, in parallel with 2.*
+2. **Programme → department → building from uni-tuebingen.de** (crawler allowed): every
+   programme page names its faculty/department; the department pages list their buildings and
+   addresses; buildings are matched to the campus sites of `config/campus.yaml`. Gives the
+   *sites* of a programme and an even semester-independent share, not the course timetable;
+   methodology §3.2 (shares per semester from course hours) would change to "shares from the
+   department's buildings" until the export arrives (ask first: methodology change).
+3. **Manual collection by the team** for the 10–15 largest programmes from the Alma pages in a
+   browser (a person, not a crawler), stored as a reviewed table in `config/campus.yaml`.
+4. Keep the current hand-made programme → site table (`config/campus.yaml`, [VERIFY]).
+
+**To do:** Juju decides between 1–4; F3.2 (`alma` source in `acquire`) is not built as planned
+while robots.txt disallows it.
 
 ## N22. AGENTS.md rule 6 needs the listings writer
 
