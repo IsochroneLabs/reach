@@ -1,16 +1,18 @@
-"""Course sessions from the public Alma timetable → campus shares per programme (F3.2, F3.3).
+"""Course sessions from the public Alma timetable (F3.2, notes N23a, N31).
 
 Alma (HISinOne) lists every session of a day on the public page "Tagesaktuelle Veranstaltungen"
-(no login). For one reference teaching week we fetch one page per weekday (all rows on one page),
-keep title, start, end, module number, kind, room and building (never people's names), match
-the building to a campus site and the module number to a programme (both by patterns in the
-`alma` section of `config/campus.yaml`) and sum the session hours per programme and site.
+(no login). For one reference teaching week we fetch one page per weekday (all rows on one page)
+and keep course id, title, start, end, module number, parallel group, kind, room and building
+(never people's names). `address_of` maps Alma's building names to the university's official
+buildings (`alma.building_addresses` in `config/campus.yaml`); which programmes a course belongs
+to comes from its detail page (`alma_courses.py`), the hours per programme and building from
+`programmes.py`.
 
 Polite by design (team decision, notes N23a): one session, two requests per day, `rate_limit_s`
 between requests, identifying user agent, retries only for network errors, once per semester;
 raw pages are kept under `data/raw/alma/<semester>/` and reused.
 
-Usage: `uv run python -m reach_pipeline.alma crawl|shares [--config config/config.yaml]`.
+Usage: `uv run python -m reach_pipeline.alma crawl|sessions [--config config/config.yaml]`.
 """
 
 from __future__ import annotations
@@ -28,7 +30,6 @@ from pathlib import Path
 import httpx
 import pandas as pd
 
-from reach_pipeline import uni_buildings
 from reach_pipeline.campus import Campus, load_campus
 from reach_pipeline.config import Alma, load_config
 from reach_pipeline.errors import ExternalError, StageValidationError
@@ -41,8 +42,31 @@ TABLE = (
     ":coursesAndExaminationsOnDateListTable"
 )
 # Table columns of the day view (HISinOne CSS classes `columnN`); lecturers (10, 11) are skipped.
-COLUMNS = {1: "title", 3: "start", 4: "end", 6: "number", 9: "kind", 12: "room", 13: "semester"}
-SESSION_COLUMNS = ["day", "title", "start", "end", "number", "kind", "room", "building", "semester"]
+COLUMNS = {
+    1: "title",
+    3: "start",
+    4: "end",
+    6: "number",
+    7: "group",
+    9: "kind",
+    12: "room",
+    13: "semester",
+}
+SESSION_COLUMNS = [
+    "day",
+    "unit_id",
+    "period_id",
+    "title",
+    "start",
+    "end",
+    "number",
+    "group",
+    "kind",
+    "room",
+    "building",
+    "semester",
+]
+_UNIT = re.compile(r"unitId=(\d+)&(?:amp;)?periodId=(\d*)")
 _TAG = re.compile(r"<[^>]+>")
 _SPACE = re.compile(r"\s+")
 
@@ -130,8 +154,10 @@ def parse_day(page: str, day: date) -> pd.DataFrame:
             if (m := re.search(r"\bcolumn(\d+)\b", attrs)) and int(m.group(1)) in COLUMNS
         }
         if 3 in cols and 4 in cols and re.fullmatch(r"\d\d:\d\d", cols[3]):
-            rows.append({COLUMNS[k]: cols.get(k, "") for k in COLUMNS})
-    out = pd.DataFrame(rows, columns=list(COLUMNS.values()))
+            unit = _UNIT.search(tr)
+            ids = {"unit_id": unit.group(1), "period_id": unit.group(2)} if unit else {}
+            rows.append({COLUMNS[k]: cols.get(k, "") for k in COLUMNS} | ids)
+    out = pd.DataFrame(rows, columns=[*COLUMNS.values(), "unit_id", "period_id"]).fillna("")
     if total and len(out) != int(total.group(1).replace(".", "")):
         raise StageValidationError(
             f"alma: {day.isoformat()} shows {len(out)} of {total.group(1)} sessions (paging?)"
@@ -158,49 +184,14 @@ def address_of(buildings: pd.Series, campus: Campus) -> pd.Series:
     return out
 
 
-def site_of(buildings: pd.Series, campus: Campus, table: pd.DataFrame) -> pd.Series:
-    """Campus site per Alma building name: its official building, then that building's nearest
-    site in `config/university_buildings.csv` (notes N30)."""
-    sites = table.set_index("title")["site"]
-    return address_of(buildings, campus).map(sites)
-
-
-def programme_of(numbers: pd.Series, campus: Campus) -> pd.Series:
-    """Programme per module number from `alma.programme_numbers` (first matching pattern)."""
-    out = pd.Series(pd.NA, index=numbers.index, dtype="object")
-    for prog, patterns in campus.alma.programme_numbers.items():
-        hit = out.isna() & numbers.str.match("|".join(f"(?:{p})" for p in patterns))
-        out[hit] = prog
-    return out
-
-
-def shares(
-    sessions: pd.DataFrame, campus: Campus, semester: str, table: pd.DataFrame
-) -> pd.DataFrame:
-    """Weekly session hours and share per programme × site (sessions of `semester` only, at most
-    `max_session_h` long, with a room, a known programme and a known site)."""
-    s = sessions[(sessions["semester"] == semester) & (sessions["room"] != "")].copy()
-    s["hours"] = _hours(s["start"], s["end"])
-    s = s[(s["hours"] > 0) & (s["hours"] <= campus.alma.max_session_h)]
-    s["site"] = site_of(s["building"], campus, table)
-    s["programme"] = programme_of(s["number"], campus)
-    s = s.dropna(subset=["site", "programme"])
-    hours = s.groupby(["programme", "site"], as_index=False)["hours"].sum()
-    hours["share"] = hours["hours"] / hours.groupby("programme")["hours"].transform("sum")
-    return hours.sort_values(["programme", "share"], ascending=[True, False], ignore_index=True)
-
-
-def coverage(
-    sessions: pd.DataFrame, campus: Campus, semester: str, table: pd.DataFrame
-) -> dict[str, float | int]:
+def coverage(sessions: pd.DataFrame, campus: Campus, semester: str) -> dict[str, float | int]:
+    """Share of the sessions with a room whose building maps to an official building."""
     s = sessions[(sessions["semester"] == semester) & (sessions["room"] != "")]
-    site = site_of(s["building"], campus, table)
-    prog = programme_of(s["number"], campus)
+    matched = address_of(s["building"], campus).notna()
     return {
         "sessions": int(len(sessions)),
         "with_room": int(len(s)),
-        "site_matched": round(float(site.notna().mean()), 3) if len(s) else 0.0,
-        "programme_matched": round(float(prog.notna().mean()), 3) if len(s) else 0.0,
+        "building_matched": round(float(matched.mean()), 3) if len(s) else 0.0,
     }
 
 
@@ -260,7 +251,7 @@ def sessions_of(paths: list[Path]) -> pd.DataFrame:
 def main(argv: list[str] | None = None) -> int:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     ap = argparse.ArgumentParser(prog="reach_pipeline.alma")
-    ap.add_argument("action", choices=["crawl", "shares"])
+    ap.add_argument("action", choices=["crawl", "sessions"])
     ap.add_argument("--config", default="config/config.yaml")
     ap.add_argument("--force", action="store_true", help="fetch again although pages exist")
     args = ap.parse_args(argv)
@@ -268,7 +259,7 @@ def main(argv: list[str] | None = None) -> int:
     if cfg.alma is None:
         log.error("config has no alma section")
         return 2
-    campus = load_campus(Path(args.config))
+    campus = load_campus(Path(args.config), generated=False)
     out_dir = cfg.data_dir / "raw" / "alma" / cfg.alma.semester_key
     try:
         paths = crawl(cfg.alma, out_dir, args.force) if args.action == "crawl" else None
@@ -277,14 +268,11 @@ def main(argv: list[str] | None = None) -> int:
             raise StageValidationError(f"alma: no pages under {out_dir}; run crawl first")
         sessions = sessions_of(paths)
         sessions.to_parquet(out_dir / "sessions.parquet", index=False)
-        buildings = uni_buildings.load(Path(args.config).parent / uni_buildings.OUT_NAME)
-        table = shares(sessions, campus, cfg.alma.semester, buildings)
-        table.to_csv(out_dir / "programme_sites.csv", index=False)
-        log.info("alma coverage: %s", coverage(sessions, campus, cfg.alma.semester, buildings))
-        unknown = sessions.loc[site_of(sessions["building"], campus, buildings).isna(), "building"]
+        log.info("alma coverage: %s", coverage(sessions, campus, cfg.alma.semester))
+        s = sessions[sessions["room"] != ""]
+        unknown = s.loc[address_of(s["building"], campus).isna(), "building"]
         top = unknown[unknown != ""].value_counts().head(15)
-        log.info("alma buildings without site (top): %s", top.to_dict())
-        print(table.to_string(index=False))
+        log.info("alma buildings without an official building (top): %s", top.to_dict())
     except (ExternalError, StageValidationError) as exc:
         log.error("%s", exc)
         return 1

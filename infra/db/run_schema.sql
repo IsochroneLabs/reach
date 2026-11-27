@@ -59,19 +59,25 @@ CREATE TABLE destination_labels (
     geom             geometry(Point, 25832) NOT NULL
 );
 
+-- teaching buildings (official buildings within cluster_radius_m merged, notes N31)
 CREATE TABLE campus_sites (
     site_id       text PRIMARY KEY,
     name          text NOT NULL,
+    address       text NOT NULL,
+    area          text NOT NULL,  -- campus area of config/campus.yaml (tal, morgenstelle, …)
     default_share real NOT NULL CHECK (default_share BETWEEN 0 AND 1),
     geom          geometry(Point, 25832) NOT NULL
 );
 
+-- Alma programmes (degree + subject as major) → buildings (notes N31)
 CREATE TABLE programmes (
     programme text PRIMARY KEY,
     label_en  text NOT NULL,
     label_de  text NOT NULL,
-    sites     text[] NOT NULL,
-    shares    double precision[]  -- per site (Alma, notes N24); NULL = equal weights
+    degree    text NOT NULL,      -- as Alma writes it (Bachelor, Master, Staatsexamen, …)
+    basis     text NOT NULL CHECK (basis IN ('compulsory', 'all', 'override')),
+    sites     text[] NOT NULL,    -- campus_sites.site_id
+    shares    double precision[]  -- per site (Alma session hours); NULL = equal weights
 );
 
 CREATE TABLE addresses (

@@ -536,3 +536,8 @@ alma:
   timeout_s: 120
   retries: 2
   backoff_s: 10
+  # one detail page per course of the reference week, tab "Module / Studiengänge" (modules and
+  # programmes a course belongs to; notes N31). Juju 27 Nov 2026: all courses with a room, 3 s
+  # apart, once per semester; pages kept under data/raw/alma/<semester>/courses/.
+  course_detail_path: /alma/pages/startFlow.xhtml?_flowId=detailView-flow&unitId={unit_id}&periodId={period_id}&navigationPosition=currentLecturesGeneric
+  course_rate_limit_s: 3

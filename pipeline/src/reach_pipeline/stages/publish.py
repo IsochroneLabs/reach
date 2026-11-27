@@ -127,28 +127,38 @@ def _reference_tables(ctx: RunContext, part1: dict[str, Any]) -> dict[str, pd.Da
     routed = gpd.read_parquet(_paths(ctx)["destinations"])
     sites = routed[routed["destination_type"] == "campus_site"].drop_duplicates("destination_id")
     site_ids = sites["destination_id"].str.removeprefix("campus_site:")
-    named = {x for prog in campus.programmes.values() for x in prog.sites} | set(campus.default_mix)
+    named = {x for prog in campus.programmes.values() for x in prog.buildings}
     missing = sorted(named - set(site_ids))
     if missing:
         raise StageValidationError(
-            f"publish: campus.yaml names sites the run did not route: {missing}; "
-            "run a full refresh (validate and travel_times) after adding a campus site"
+            f"publish: programmes name buildings the run did not route: {missing}; "
+            "run a full refresh (validate and travel_times) after `programmes build`"
         )
+    known = {k: b for k, b in campus.buildings.items() if k in set(site_ids)}
     campus_sites = pd.DataFrame(
         {
             "site_id": site_ids.to_numpy(),
             "name": sites["name"].to_numpy(),
-            "default_share": site_ids.map(campus.default_mix).fillna(0.0).to_numpy(),
+            "address": site_ids.map(lambda k: known[k].address if k in known else "").to_numpy(),
+            "area": site_ids.map(lambda k: known[k].area if k in known else "").to_numpy(),
+            "default_share": site_ids.map(campus.default_shares()).fillna(0.0).to_numpy(),
             "geom": db.ewkb(sites.geometry).to_numpy(),
         }
     )
+    degrees = campus.alma.degrees if campus.alma else {}
+
+    def label(p: campus_mod.Programme, lang: str) -> str:
+        return f"{p.subject} ({degrees.get(p.degree, {}).get(lang, p.degree)})"
+
     programmes = pd.DataFrame(
         [
             {
                 "programme": k,
-                "label_en": p.label.get("en", k),
-                "label_de": p.label.get("de", p.label.get("en", k)),
-                "sites": "{" + ",".join(p.sites) + "}",
+                "label_en": label(p, "en"),
+                "label_de": label(p, "de"),
+                "degree": p.degree,
+                "basis": p.basis,
+                "sites": "{" + ",".join(p.buildings) + "}",
                 "shares": None
                 if p.shares is None
                 else "{" + ",".join(f"{x:.4f}" for x in p.shares) + "}",

@@ -50,7 +50,7 @@ def _features() -> gpd.GeoDataFrame:
 
 
 def test_types_access_points_and_merging(cfg) -> None:
-    # wide enough for all four campus sites (Sand is ≈ 5.3 km east of X0)
+    # wide enough for every teaching building (Sand is ≈ 5.3 km east of X0)
     area = box(X0 - 6000, Y0 - 6000, X0 + 6000, Y0 + 6000)
     dest = destinations.build(_features(), campus.load_campus(REPO / "config" / "x"), cfg, area)
     per_type = dest.groupby("destination_type")["destination_id"].nunique().to_dict()
@@ -63,7 +63,8 @@ def test_types_access_points_and_merging(cfg) -> None:
     assert set(park["destination_id"]) == {"park:w5"}
     assert len(park) == 2 and park["point_id"].is_unique
     assert "pharmacy" not in per_type  # outside the routing area
-    assert per_type["campus_site"] == 6 and per_type["mensa"] >= 1
+    n_buildings = len(campus.load_campus(REPO / "config" / "x").buildings)
+    assert per_type["campus_site"] == n_buildings > 6 and per_type["mensa"] >= 1
     assert destinations.counts(dest, cfg)["library"] == 0
     assert "sport" not in destinations.counts(dest, cfg)  # containers have no own destinations
 
@@ -94,12 +95,30 @@ def test_campus_file_and_match(tmp_path: Path) -> None:
     with pytest.raises(ConfigError, match="not found"):
         campus.load_campus(tmp_path / "config.yaml")
     (tmp_path / "campus.yaml").write_text(
-        "match_radius_m: 1\nsites: {a: {name: A, point: [9, 48]}}\ndefault_mix: {b: 1}\n"
-        "programmes: {p: {label: {en: P}, sites: [a]}}\n",
+        "match_radius_m: 1\nareas: {a: {name: A, point: [9, 48]}}\ndefault_mix: {b: 1}\n",
         encoding="utf-8",
     )
-    with pytest.raises(ConfigError, match="unknown sites"):
+    with pytest.raises(ConfigError, match="unknown areas"):
         campus.load_campus(tmp_path / "config.yaml")
+    (tmp_path / "campus.yaml").write_text(
+        "match_radius_m: 1\nareas: {a: {name: A, point: [9, 48]}}\ndefault_mix: {a: 1}\n",
+        encoding="utf-8",
+    )
+    with pytest.raises(ConfigError, match="programmes build"):
+        campus.load_campus(tmp_path / "config.yaml")  # generated files missing
+    assert campus.load_campus(tmp_path / "config.yaml", generated=False).buildings == {}
+    (tmp_path / "campus_buildings.csv").write_text(
+        "building_id,name,address,area,lon,lat,hours\nx,X,X 1,a,9,48,3\ny,Y,Y 1,a,9.1,48,1\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "programmes.csv").write_text(
+        "programme,degree,subject,basis,courses,hours,buildings,shares\n"
+        "bachelor-p,Bachelor,P,compulsory,2,4,x|y,0.75|0.25\n",
+        encoding="utf-8",
+    )
+    c = campus.load_campus(tmp_path / "config.yaml")
+    assert c.programmes["bachelor-p"].shares == [0.75, 0.25]
+    assert c.default_shares() == {"x": 0.75, "y": 0.25}  # area a split by hours
 
 
 def test_address_cells_use_the_zensus_ids() -> None:

@@ -153,9 +153,9 @@ def locate(buildings: pd.DataFrame, addresses: gpd.GeoDataFrame, campus: Campus)
             how.append("missing")
     pts = gpd.GeoSeries(geoms, crs=addresses.crs)
     sites = gpd.GeoSeries.from_xy(
-        [p.point[0] for p in campus.sites.values()],
-        [p.point[1] for p in campus.sites.values()],
-        index=list(campus.sites),
+        [p.point[0] for p in campus.areas.values()],
+        [p.point[1] for p in campus.areas.values()],
+        index=list(campus.areas),
         crs=4326,
     ).to_crs(addresses.crs)
     out["located"] = how
@@ -235,7 +235,7 @@ def main(argv: list[str] | None = None) -> int:
                 runs = [cfg.data_dir / "runs" / args.run_id / "validate" / "addresses.parquet"]
             if not runs or not runs[-1].exists():
                 raise StageValidationError("uni_buildings: no validate/addresses.parquet")
-            campus = load_campus(Path(args.config))
+            campus = load_campus(Path(args.config), generated=False)
             table = locate(buildings, gpd.read_parquet(runs[-1]), campus)
             out = Path(args.config).parent / OUT_NAME
             table.to_csv(out, index=False)

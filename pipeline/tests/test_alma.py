@@ -1,4 +1,4 @@
-"""Alma day view: form replay, parsing and programme × site shares (synthetic page, no network)."""
+"""Alma day view: form replay, parsing and building matching (synthetic page, no network)."""
 
 from __future__ import annotations
 
@@ -31,25 +31,26 @@ def test_day_request_sets_date_rows_and_filter() -> None:
 
 def test_parse_day_keeps_no_people() -> None:
     s = alma.parse_day(PAGE, DAY)
-    assert len(s) == 4 and list(s.columns) == alma.SESSION_COLUMNS
+    assert len(s) == 5 and list(s.columns) == alma.SESSION_COLUMNS
     assert s.loc[0, "building"] == "Hörsaalzentrum Morgenstelle"
     assert s.loc[1, "building"] == "Informatik/Kriminologie"
     assert not s.astype(str).apply(lambda c: c.str.contains("Person")).any().any()
     with pytest.raises(StageValidationError, match="not the day view"):
         alma.parse_day(PAGE, date(2026, 12, 2))
     with pytest.raises(StageValidationError, match="paging"):
-        alma.parse_day(PAGE.replace("Suchergebnis: 4", "Suchergebnis: 1.153"), DAY)
+        alma.parse_day(PAGE.replace("Suchergebnis: 5", "Suchergebnis: 1.153"), DAY)
 
 
-def test_shares_per_programme_and_site() -> None:
-    campus = load_campus(REPO / "config" / "config.yaml")
+def test_parse_day_keeps_course_ids_and_groups() -> None:
     s = alma.parse_day(PAGE, DAY)
-    t = alma.shares(s, campus, SEMESTER, BUILDINGS).set_index(["programme", "site"])
-    assert t.loc[("computer_science", "sand"), "share"] == pytest.approx(0.5)
-    assert t.loc[("computer_science", "tal"), "hours"] == pytest.approx(2)
-    assert t.loc[("mathematics", "morgenstelle"), "share"] == 1
-    cov = alma.coverage(s, campus, SEMESTER, BUILDINGS)
-    assert cov["with_room"] == 3 and cov["site_matched"] == 1
+    assert s["unit_id"].tolist() == ["101", "102", "103", "103", "104"]
+    assert set(s["period_id"]) == {"237"} and s.loc[3, "group"] == "2. PG"
+
+
+def test_coverage_counts_sessions_with_an_official_building() -> None:
+    campus = load_campus(REPO / "config" / "config.yaml", generated=False)
+    cov = alma.coverage(alma.parse_day(PAGE, DAY), campus, SEMESTER)
+    assert cov == {"sessions": 5, "with_room": 4, "building_matched": 1.0}
 
 
 def test_building_of_takes_the_last_top_level_bracket() -> None:
@@ -65,14 +66,19 @@ def test_building_of_takes_the_last_top_level_bracket() -> None:
 
 
 def test_every_mapped_building_is_on_the_official_list_and_located() -> None:
-    campus = load_campus(REPO / "config" / "config.yaml")
+    campus = load_campus(REPO / "config" / "config.yaml", generated=False)
     titles = set(BUILDINGS["title"])
     assert set(campus.alma.building_addresses) <= titles
     assert set(campus.building_points) <= titles
-    assert BUILDINGS["site"].notna().all() and set(BUILDINGS["site"]) <= set(campus.sites)
-    sites = alma.site_of(
-        pd.Series(["Cyber Valley Campus, MVL6", "BURSE", "Neue Aula", "Alte Frauenklinik"]),
-        campus,
-        BUILDINGS,
-    )
-    assert sites.tolist() == ["cyber_valley", "altstadt", "tal", "tal"]
+    assert BUILDINGS["site"].notna().all() and set(BUILDINGS["site"]) <= set(campus.areas)
+    names = ["Cyber Valley Campus, MVL6", "BURSE", "Neue Aula", "WiWi Sem Mohl", "Kupferbau"]
+    official = alma.address_of(pd.Series(names), campus)
+    assert official.tolist() == [
+        "Maria-von-Linden-Straße 6",
+        "Bursagasse 1",
+        "Geschwister-Scholl-Platz",
+        "Mohlstraße 36",
+        "Hölderlinstraße 5 – Kupferbau",
+    ]
+    areas = official.map(BUILDINGS.set_index("title")["site"])
+    assert areas.tolist() == ["cyber_valley", "altstadt", "tal", "tal", "tal"]
