@@ -175,7 +175,7 @@ def db_url() -> Iterator[str]:
     url = psycopg.conninfo.make_conninfo(admin, dbname=name)
     try:
         with psycopg.connect(url, autocommit=True) as conn:
-            assert db.migrate(conn, SQL_DIR, {}) == ["0001_meta"]
+            assert db.migrate(conn, SQL_DIR, {}) == ["0001_meta", "0002_listings"]
             assert db.migrate(conn, SQL_DIR, {}) == []  # idempotent
         yield url
     finally:
