@@ -2,24 +2,28 @@ import { useId, useState } from 'react'
 
 import type { Importance, Mode } from '../api/types'
 import { useRefs, type Refs } from '../remote/refs'
+import { en, type TextKey } from '../i18n/en'
 import { useI18n } from '../i18n/i18n'
 import { choosableKeys, groceryLabels, isContainer, resolveKey, type DestinationKey } from '../state/labels'
 import { defaultProfile, normalise, type StudentProfile } from '../state/profile'
 import { useStore } from '../state/store'
 import { TripWindowText } from './Minutes'
+import { ProgrammePicker } from './ProgrammePicker'
 import { useToast } from './Toast'
 
 const IMPORTANCE: Importance[] = [0, 1, 2, 3]
 const FINE_MIN = 5
 const FINE_MAX = 60
 
-/** Names of the default campus sites, e.g. "Tal and Morgenstelle". */
+/** Names of the campus areas of the default mix, e.g. "Tal and Morgenstelle" (N31). */
 function useCampusMix(refs: Refs | null): string {
-  const { lang } = useI18n()
+  const { lang, t } = useI18n()
   if (!refs) return ''
-  const names = refs.sites
-    .filter((s) => (s.default_share ?? 0) > 0)
-    .map((s) => s.name.replace(/\s*\(.*\)$/, ''))
+  const areas = [...new Set(refs.sites.filter((s) => (s.default_share ?? 0) > 0).map((s) => s.area ?? s.site_id))]
+  const names = areas.map((a) => {
+    const key = `area.${a}`
+    return key in en ? t(key as TextKey) : a.charAt(0).toUpperCase() + a.slice(1).replace(/_/g, ' ')
+  })
   const and = lang === 'de' ? ' und ' : ' and '
   return names.length > 1 ? `${names.slice(0, -1).join(', ')}${and}${names[names.length - 1]}` : (names[0] ?? '')
 }
@@ -40,15 +44,14 @@ export function ProgrammeHint({ compact, onOpen }: { compact?: boolean; onOpen?:
 }
 
 function ProgrammeField({ refs }: { refs: Refs }) {
-  const { t, label } = useI18n()
+  const { t } = useI18n()
   const { state, dispatch } = useStore()
   const id = useId()
   const mix = useCampusMix(refs)
   const empty = !state.profile.programme
-  const programmes = [...refs.programmes].sort((a, b) => label(a.label).localeCompare(label(b.label)))
   return (
     <div className={`field programme${empty ? ' programme-empty' : ''}`}>
-      <label htmlFor={id} className="field-label">
+      <label htmlFor={`${id}-picker`} className="field-label" id={`${id}-label`}>
         {t('profile.programme')}
       </label>
       {empty && (
@@ -56,21 +59,14 @@ function ProgrammeField({ refs }: { refs: Refs }) {
           {t('profile.programme.hint')}
         </p>
       )}
-      <select
-        id={id}
-        value={state.profile.programme ?? ''}
-        aria-describedby={empty ? `${id}-hint` : undefined}
-        onChange={(e) =>
-          dispatch({ type: 'profile', profile: { ...state.profile, programme: e.target.value || null } })
-        }
-      >
-        <option value="">{t('profile.programme.none')}</option>
-        {programmes.map((p) => (
-          <option key={p.programme} value={p.programme}>
-            {label(p.label)}
-          </option>
-        ))}
-      </select>
+      <ProgrammePicker
+        inputId={`${id}-picker`}
+        programmes={refs.programmes}
+        sites={refs.sites}
+        value={state.profile.programme}
+        describedBy={empty ? `${id}-hint` : undefined}
+        onChange={(programme) => dispatch({ type: 'profile', profile: { ...state.profile, programme } })}
+      />
       {empty && mix && <p className="muted small">{t('profile.campusMix', { sites: mix })}</p>}
     </div>
   )

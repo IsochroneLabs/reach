@@ -40,9 +40,12 @@ export interface LabelDestination {
   point: LonLat
 }
 
+/** A teaching building (N31); `area` groups buildings (tal, morgenstelle, …). */
 export interface CampusSite {
   site_id: string
   name: string
+  address?: string
+  area?: string
   programmes: string[]
   point: LonLat
   /** PROPOSED (N17): share of this site in the default campus mix (campus.default_mix). */
@@ -50,10 +53,16 @@ export interface CampusSite {
 }
 
 /** PROPOSED (N17): GET /api/programmes. */
+/** An Alma programme (degree + subject); label "Informatik (Bachelor)" (N31). */
 export interface Programme {
   programme: string
   label: Label
+  /** as Alma writes it: Bachelor, Master, Staatsexamen, … */
+  degree?: string
+  /** what the shares are based on: compulsory courses, all courses, or set by hand */
+  basis?: 'compulsory' | 'all' | 'override'
   sites: string[]
+  shares?: number[]
 }
 
 /** The student profile as the body of POST /api/fit and POST /api/cell/{id}. */

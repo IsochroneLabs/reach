@@ -89,6 +89,8 @@ CONTRACT = {
     "campus_sites": [
         ("site_id", "text"),
         ("name", "text"),
+        ("address", "text"),
+        ("area", "text"),
         ("default_share", "real"),
         ("geom", POINT),
     ],
@@ -96,6 +98,8 @@ CONTRACT = {
         ("programme", "text"),
         ("label_en", "text"),
         ("label_de", "text"),
+        ("degree", "text"),
+        ("basis", "text"),
         ("sites", "text[]"),
         ("shares", "double precision[]"),
     ],
@@ -255,18 +259,22 @@ def run_tables(population_a: int = 10) -> dict[str, pd.DataFrame]:
         ),
         "campus_sites": pd.DataFrame(
             {
-                "site_id": ["tal"],
-                "name": ["Tal"],
+                "site_id": ["neue-aula"],
+                "name": ["Neue Aula"],
+                "address": ["Geschwister-Scholl-Platz"],
+                "area": ["tal"],
                 "default_share": [0.5],
                 "geom": _geo([shapely.Point(500_250, 5_400_050)]),
             }
         ),
         "programmes": pd.DataFrame(
             {
-                "programme": ["law"],
-                "label_en": ["Law"],
-                "label_de": ["Jura"],
-                "sites": ["{tal}"],
+                "programme": ["staatsexamen-rechtswissenschaft"],
+                "label_en": ["Rechtswissenschaft (State examination)"],
+                "label_de": ["Rechtswissenschaft (Staatsexamen)"],
+                "degree": ["Staatsexamen"],
+                "basis": ["compulsory"],
+                "sites": ["{neue-aula}"],
                 "shares": ["{1.0}"],
             }
         ),

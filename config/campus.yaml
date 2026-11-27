@@ -1,13 +1,14 @@
-# Campus sites, Mensa list, university sports and programme → site table (meth. §3, notes N8).
-# DRAFT (S0.3) from general knowledge: every name, programme assignment and coordinate is
-# [VERIFY] — the team checks it against the university's own information in S1.6, and the pipeline
-# matches each site to an OSM feature within match_radius_m and checks that it is routable (V3).
-# Coordinates: [lon, lat] in EPSG:4326 of the main lecture buildings, checked against OSM on
-# 27 Nov 2026 (notes N29); the pipeline routes to these points (meth. §3).
+# Campus areas, Mensa list, university sports and the Alma matching rules (meth. §3, §3.2, notes
+# N8, N30, N31). The routed campus destinations are teaching buildings, generated together with the
+# programmes by `uv run python -m reach_pipeline.programmes build` into campus_buildings.csv and
+# programmes.csv next to this file (reviewed and committed). Coordinates: [lon, lat] in EPSG:4326,
+# checked against OSM on 27 Nov 2026 (notes N29); the pipeline routes to these points (meth. §3).
 
 match_radius_m: 250
 
-sites:
+# Areas group the teaching buildings for display and the default mix; every official building
+# belongs to its nearest area (config/university_buildings.csv, notes N30).
+areas:
   tal:
     name: Tal (Neue Aula, Kupferbau, Brechtbau)
     point: [9.0600, 48.5258]   # Wilhelmstraße between Neue Aula, Kupferbau and Brechtbau (OSM)
@@ -46,47 +47,37 @@ university_sports:
     point: [9.0700, 48.5300]
 
 # Default campus mix while the student has chosen no programme (product v1.1, notes N16; decided
-# 24 Nov 2026): site → share of the campus time. Read by the API once `programme` is optional
-# (notes N17); the web app names these sites in the profile panel.
+# 24 Nov 2026): area → share of the campus time. Inside an area the share is split over its
+# teaching buildings by their weekly session hours (notes N31).
 default_mix:
   tal: 0.5
   morgenstelle: 0.5
 
-# Programme → sites the student travels to for lectures (several = mean time, meth. §6).
-# shares: weight of each site in the campus time, from the session hours of the Alma reference
-# week WS 2026/27 (`python -m reach_pipeline.alma shares`, notes N24; sites below 10 % dropped,
-# rest rounded). Since 27 Nov 2026 (N30) each Alma building is mapped to the university's official
-# address list and from there to its nearest site (config/university_buildings.csv). Programmes without shares keep the hand-made sites with equal weights; biology,
-# chemistry, mathematics, pharmacy, physics (Morgenstelle) and psychology (Tal) were confirmed.
-programmes:
-  computer_science: {label: {en: Computer science, de: Informatik}, sites: [morgenstelle, sand, cyber_valley, tal], shares: [0.56, 0.18, 0.13, 0.13]}
-  data_science_ml: {label: {en: Data science / machine learning, de: Data Science / Machine Learning}, sites: [cyber_valley, morgenstelle, tal], shares: [0.68, 0.18, 0.14]}
-  mathematics: {label: {en: Mathematics, de: Mathematik}, sites: [morgenstelle]}
-  physics: {label: {en: Physics, de: Physik}, sites: [morgenstelle]}
-  chemistry: {label: {en: Chemistry, de: Chemie}, sites: [morgenstelle]}
-  biology: {label: {en: Biology, de: Biologie}, sites: [morgenstelle]}
-  pharmacy: {label: {en: Pharmacy, de: Pharmazie}, sites: [morgenstelle]}
-  # Medicine is not in Alma's day view (its S-numbers were economics, N30): the faculty's teaching
-  # buildings from the address list (Elfriede-Aulhorn-Straße 8/10) and the Hörsaalzentrum.
-  medicine: {label: {en: Medicine, de: Medizin}, sites: [schnarrenberg, morgenstelle]}
-  economics: {label: {en: Economics and business, de: Wirtschaftswissenschaft}, sites: [tal, morgenstelle], shares: [0.9, 0.1]}
-  law: {label: {en: Law, de: Rechtswissenschaft}, sites: [tal]}
-  # Faculty estimate (N30): hours of sessions without a programme in the buildings of the faculty.
-  humanities: {label: {en: Humanities, de: Geisteswissenschaften}, sites: [tal, altstadt], shares: [0.85, 0.15]}
-  social_sciences: {label: {en: Social sciences, de: Sozialwissenschaften}, sites: [tal, altstadt], shares: [0.7, 0.3]}
-  psychology: {label: {en: Psychology, de: Psychologie}, sites: [tal]}
-  # Institut für Sportwissenschaft, Wilhelmstraße 124: nearest site Sand (650 m, N30).
-  sports_science: {label: {en: Sports science, de: Sportwissenschaft}, sites: [sand]}
+# Programmes Alma does not show with rooms in the reference week (basis "override"); they win over
+# Alma. Buildings are ids of campus_buildings.csv.
+programme_overrides: {}
 
-# Alma sessions → programme × site hours (F3.3, `python -m reach_pipeline.alma shares`).
-# building_sites: site → case-insensitive regexes on the building name Alma prints in brackets
-# after the room; first match wins. programme_numbers: programme → regexes on the start of the
-# module number; sessions without a number or with an unknown one do not count.
+# Alma courses → programme × building hours (`reach_pipeline.programmes build`, notes N31).
 alma:
   max_session_h: 6             # longer entries are all-day blocks or placeholders
+  # degrees offered in the profile (as Alma writes them) → label
+  degrees:
+    Bachelor: {en: Bachelor, de: Bachelor}
+    Master: {en: Master, de: Master}
+    Bachelor of Education: {en: Bachelor of Education, de: Bachelor of Education}
+    Master of Education: {en: Master of Education, de: Master of Education}
+    Staatsexamen: {en: State examination, de: Staatsexamen}
+    Magister / Magistra Theologiae: {en: Magister Theologiae, de: Magister Theologiae}
+  # a module whose name matches is elective; a course counts as compulsory for a programme if one
+  # of its modules for that programme does not match (case-insensitive regexes)
+  elective_modules: [Wahl, Elective, Freie, Profil, Ergänzung, Erweiterung, Vertiefung, Schwerpunkt,
+    "Speciali[sz]", "Focus Module", Studienbereich, Kontext, Interdisziplin, Interdisciplin, Optional,
+    "Studium Generale", Schlüsselqualifikation, Überfachlich, Fachübergreifend, Zusatz]
+  min_compulsory_h: 2          # fewer compulsory hours in the week → use all courses (basis "all")
+  cluster_radius_m: 60         # official buildings closer than this are one destination
+  min_share: 0.05              # buildings with less of a programme's hours are dropped
   # official building (title in config/university_buildings.csv, from the university's address
   # list) → case-insensitive regexes on the building Alma prints after the room; first match wins.
-  # The site of a building is its nearest campus site (`uni_buildings build`, notes N30).
   building_addresses:
     "Brechtbau – Neuphilologikum – Wilhelmstraße 50": [Neuphilologicum, Brechtbau]
     "Auf der Morgenstelle 16": [Hörsaalzentrum, "Verfügungsgeb\\. Morgenstelle"]
@@ -137,18 +128,6 @@ alma:
     "Schulberg 2": [PFLEGHOF, Musikwiss]
     "Hintere Grabenstr. 26": [Weltethos, "Hintere Grabenstraße"]
     "Doblerstraße 33": ["Forum Scientiarum"]
-  programme_numbers:
-    computer_science: ["INF(?!O)", "INFM", "MDZINF", "MEINF", "BIOINF", "KOG"]
-    data_science_ml: ["ML", "DS\\d", "DS-"]   # not QDS: the psychology master (N30)
-    mathematics: ["MAT"]
-    physics: ["PHY", "NANO"]
-    chemistry: ["CHE"]
-    biology: ["Bio(?!INF)", "BIO(?!INF)", "BCH", "GTCNEURO"]
-    pharmacy: ["PHA"]
-    psychology: ["PSY", "QDS"]
-    economics: ["WiWi", "WIWI", "WW", "ECO", "BWL", "VWL", "S\\d"]   # S100… are WiWi modules (N30)
-    law: ["JUR", "RW", "Jura"]
-    sports_science: ["SPO", "Spo"]
 
 # Official buildings missing from the OSM address index (no house number in OSM): [lon, lat] of the
 # OSM building (notes N30).

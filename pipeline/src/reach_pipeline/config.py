@@ -396,6 +396,8 @@ class Alma(_Model):
     timeout_s: float = Field(gt=0)
     retries: int = Field(ge=0)
     backoff_s: float = Field(ge=0)
+    course_detail_path: str = Field(default="", pattern=r"^(/.*\{unit_id\}.*)?$")
+    course_rate_limit_s: float = Field(default=3, ge=2)  # course pages, Juju 27 Nov 2026
 
     @property
     def semester_key(self) -> str:

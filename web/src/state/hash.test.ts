@@ -7,7 +7,7 @@ import { decodeHash, encodeHash } from './hash.ts'
 import type { Place, StudentProfile } from './profile.ts'
 
 const profile: StudentProfile = {
-  programme: 'biology',
+  programme: 'bachelor-biologie',
   modes: ['walk', 'transit'],
   destinations: {
     campus_site: { importance: 3, fine_time_min: 15 },
@@ -23,7 +23,7 @@ const places: Place[] = [
 
 test('profile and places survive a round trip', () => {
   const h = encodeHash(profile, places, false)
-  assert.match(h, /^#v=1&p=prog:biology;m:wt;d:campus_site\.3\.15,sport:climbing\.2\.25,mensa\.2;g:lidl\.organic&pl=/)
+  assert.match(h, /^#v=1&p=prog:bachelor-biologie;m:wt;d:campus_site\.3\.15,sport:climbing\.2\.25,mensa\.2;g:lidl\.organic&pl=/)
   const back = decodeHash(h, cellIdAt)
   assert.equal(back.bad, false)
   assert.deepEqual(back.profile, profile)

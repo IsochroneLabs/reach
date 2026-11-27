@@ -1,0 +1,103 @@
+programme,degree,subject,basis,courses,hours,buildings,shares
+bachelor-anglistik-amerikanistik,Bachelor,Anglistik / Amerikanistik,all,3,5.0,brechtbau-neuphilologikum-wilhelmstrasse-50,1.000
+bachelor-bioinformatik,Bachelor,Bioinformatik,compulsory,1,4.0,auf-der-morgenstelle-16,1.000
+bachelor-biologie,Bachelor,Biologie,compulsory,2,7.3,auf-der-morgenstelle-3|auf-der-morgenstelle-10|auf-der-morgenstelle-16,0.545|0.318|0.136
+bachelor-chemie,Bachelor,Chemie,compulsory,2,5.0,auf-der-morgenstelle-16,1.000
+bachelor-deutsch-als-zweitsprache-sprachdiagnostik-und-sprachfoerderung,Bachelor,Deutsch als Zweitsprache: Sprachdiagnostik und Sprachförderung,compulsory,1,2.0,brechtbau-neuphilologikum-wilhelmstrasse-50,1.000
+bachelor-economics-and-business-administration,Bachelor,Economics and Business Administration,all,3,8.7,auf-der-morgenstelle-10|hoelderlinstrasse-5-kupferbau|auf-der-morgenstelle-16|lothar-meyer-bau-wilhelmstrasse-56|ruemelinstrasse-19-23,0.308|0.288|0.231|0.115|0.058
+bachelor-english-and-american-studies,Bachelor,English and American Studies,compulsory,3,5.0,brechtbau-neuphilologikum-wilhelmstrasse-50,1.000
+bachelor-germanistik,Bachelor,Germanistik,all,3,6.2,brechtbau-neuphilologikum-wilhelmstrasse-50,1.000
+bachelor-gesundheitsfoerderung,Bachelor,Gesundheitsförderung,all,1,1.0,wilhelmstrasse-124,1.000
+bachelor-griechisch,Bachelor,Griechisch,compulsory,1,4.0,hegelbau-wilhelmstrasse-36|geschwister-scholl-platz|hoelderlinstrasse-12-eckgebaeude-mit-sigwartstrasse-10|lothar-meyer-bau-wilhelmstrasse-56,0.786|0.071|0.071|0.071
+bachelor-informatik,Bachelor,Informatik,all,5,28.0,sand-1|sand-13-und-14|auf-der-morgenstelle-16|maria-von-linden-strasse-1|schleichstrasse-4|auf-der-morgenstelle-3|sand-6-7,0.214|0.214|0.143|0.143|0.143|0.071|0.071
+bachelor-interdisciplinary-american-studies,Bachelor,Interdisciplinary American Studies,all,2,4.0,brechtbau-neuphilologikum-wilhelmstrasse-50|hoelderlinstrasse-5-kupferbau,0.500|0.500
+bachelor-interdisciplinary-american-studies-with-an-integrated-year-abroad,Bachelor,Interdisciplinary American Studies with an integrated year abroad,all,2,4.0,brechtbau-neuphilologikum-wilhelmstrasse-50|hoelderlinstrasse-5-kupferbau,0.500|0.500
+bachelor-interdisziplinaere-amerikastudien,Bachelor,Interdisziplinäre Amerikastudien,all,2,4.0,brechtbau-neuphilologikum-wilhelmstrasse-50|hoelderlinstrasse-5-kupferbau,0.500|0.500
+bachelor-interdisziplinaere-amerikastudien-mit-integriertem-auslandsjahr,Bachelor,Interdisziplinäre Amerikastudien mit integriertem Auslandsjahr,all,2,4.0,brechtbau-neuphilologikum-wilhelmstrasse-50|hoelderlinstrasse-5-kupferbau,0.500|0.500
+bachelor-international-business-administration,Bachelor,International Business Administration,all,3,8.7,auf-der-morgenstelle-10|hoelderlinstrasse-5-kupferbau|auf-der-morgenstelle-16|lothar-meyer-bau-wilhelmstrasse-56|ruemelinstrasse-19-23,0.308|0.288|0.231|0.115|0.058
+bachelor-international-economics,Bachelor,International Economics,compulsory,4,10.0,brechtbau-neuphilologikum-wilhelmstrasse-50|wilhelmstrasse-113|hoelderlinstrasse-5-kupferbau,0.400|0.400|0.200
+bachelor-internationale-literaturen,Bachelor,Internationale Literaturen,compulsory,1,2.0,brechtbau-neuphilologikum-wilhelmstrasse-50,1.000
+bachelor-judaistik,Bachelor,Judaistik,compulsory,2,9.0,liebermeisterstrasse-12-bis-16|wilhelmstrasse-113,0.556|0.444
+bachelor-katholische-theologie,Bachelor,Katholische Theologie,all,2,4.0,liebermeisterstrasse-12-bis-16,1.000
+bachelor-kognitionswissenschaft,Bachelor,Kognitionswissenschaft,compulsory,2,8.0,auf-der-morgenstelle-16|schleichstrasse-4,0.500|0.500
+bachelor-lateinamerikastudien,Bachelor,Lateinamerikastudien,compulsory,2,4.0,hoelderlinstrasse-5-kupferbau|lothar-meyer-bau-wilhelmstrasse-56|ruemelinstrasse-19-23,0.625|0.250|0.125
+bachelor-mathematik,Bachelor,Mathematik,all,3,10.7,auf-der-morgenstelle-16|auf-der-morgenstelle-10,0.562|0.437
+bachelor-medieninformatik,Bachelor,Medieninformatik,all,5,28.0,sand-1|sand-13-und-14|auf-der-morgenstelle-16|maria-von-linden-strasse-1|schleichstrasse-4|auf-der-morgenstelle-3|sand-6-7,0.214|0.214|0.143|0.143|0.143|0.071|0.071
+bachelor-medizininformatik,Bachelor,Medizininformatik,compulsory,1,4.0,auf-der-morgenstelle-16,1.000
+bachelor-nano-science,Bachelor,Nano-Science,all,2,7.0,auf-der-morgenstelle-3|auf-der-morgenstelle-16,0.571|0.429
+bachelor-of-education-biologie,Bachelor of Education,Biologie,compulsory,1,4.0,auf-der-morgenstelle-3,1.000
+bachelor-of-education-chinesisch,Bachelor of Education,Chinesisch,compulsory,1,8.0,keplerstrasse-2|alte-physik-gmelinstrasse-6|hoelderlinstrasse-5-kupferbau,0.500|0.250|0.250
+bachelor-of-education-deutsch,Bachelor of Education,Deutsch,compulsory,3,6.2,brechtbau-neuphilologikum-wilhelmstrasse-50,1.000
+bachelor-of-education-englisch,Bachelor of Education,Englisch,all,4,7.0,brechtbau-neuphilologikum-wilhelmstrasse-50,1.000
+bachelor-of-education-evangelische-theologie,Bachelor of Education,Evangelische Theologie,all,1,5.0,liebermeisterstrasse-12-bis-16,1.000
+bachelor-of-education-informatik,Bachelor of Education,Informatik,compulsory,1,4.0,auf-der-morgenstelle-16,1.000
+bachelor-of-education-katholische-theologie,Bachelor of Education,Katholische Theologie,compulsory,2,4.0,liebermeisterstrasse-12-bis-16,1.000
+bachelor-of-education-mathematik,Bachelor of Education,Mathematik,all,2,6.7,auf-der-morgenstelle-10|auf-der-morgenstelle-16,0.700|0.300
+bachelor-of-education-philosophie-ethik,Bachelor of Education,Philosophie/Ethik,all,1,2.0,liebermeisterstrasse-12-bis-16,1.000
+bachelor-of-education-sportwissenschaft,Bachelor of Education,Sportwissenschaft,all,1,1.0,wilhelmstrasse-124,1.000
+bachelor-of-education-wirtschaftswissenschaft,Bachelor of Education,Wirtschaftswissenschaft,compulsory,1,2.0,lothar-meyer-bau-wilhelmstrasse-56|hoelderlinstrasse-5-kupferbau|ruemelinstrasse-19-23,0.500|0.250|0.250
+bachelor-philosophie,Bachelor,Philosophie,compulsory,1,2.0,liebermeisterstrasse-12-bis-16,1.000
+bachelor-physik,Bachelor,Physik,compulsory,2,14.0,auf-der-morgenstelle-10,1.000
+bachelor-psychologie,Bachelor,Psychologie,compulsory,2,4.0,schleichstrasse-4,1.000
+bachelor-psychologie-polyvalent,Bachelor,Psychologie - polyvalent,compulsory,2,4.0,schleichstrasse-4,1.000
+bachelor-sinologie-chinese-studies,Bachelor,Sinologie/Chinese Studies,compulsory,1,8.0,keplerstrasse-2|alte-physik-gmelinstrasse-6|hoelderlinstrasse-5-kupferbau,0.500|0.250|0.250
+bachelor-sinologie-chinese-studies-mit-berufspraktischem-schwerpunkt,Bachelor,Sinologie/Chinese Studies mit berufspraktischem Schwerpunkt,all,1,8.0,keplerstrasse-2|alte-physik-gmelinstrasse-6|hoelderlinstrasse-5-kupferbau,0.500|0.250|0.250
+bachelor-sportmanagement,Bachelor,Sportmanagement,all,2,3.0,lothar-meyer-bau-wilhelmstrasse-56|wilhelmstrasse-124|hoelderlinstrasse-5-kupferbau|ruemelinstrasse-19-23,0.333|0.333|0.167|0.167
+bachelor-sportpublizistik,Bachelor,Sportpublizistik,all,1,1.0,wilhelmstrasse-124,1.000
+bachelor-sportwissenschaft-mit-dem-profil-coaching-im-sport,Bachelor,Sportwissenschaft mit dem Profil Coaching im Sport,all,1,1.0,wilhelmstrasse-124,1.000
+bachelor-sportwissenschaft-mit-dem-profil-medien-und-kommunikation,Bachelor,Sportwissenschaft mit dem Profil Medien und Kommunikation,all,1,1.0,wilhelmstrasse-124,1.000
+bachelor-sprachen-geschichte-und-kulturen-des-nahen-ostens,Bachelor,"Sprachen, Geschichte und Kulturen des Nahen Ostens",all,1,4.0,wilhelmstrasse-113,1.000
+magister-magistra-theologiae-katholische-theologie,Magister / Magistra Theologiae,Katholische Theologie,all,2,4.0,liebermeisterstrasse-12-bis-16,1.000
+master-accounting-and-finance,Master,Accounting and Finance,all,2,6.7,auf-der-morgenstelle-10|auf-der-morgenstelle-16|mohlstrasse-36,0.400|0.300|0.300
+master-advanced-biochemistry,Master,Advanced Biochemistry,compulsory,1,2.0,auf-der-morgenstelle-32-34,1.000
+master-american-studies,Master,American Studies,compulsory,1,2.0,brechtbau-neuphilologikum-wilhelmstrasse-50,1.000
+master-applied-environmental-geoscience-aeg,Master,Applied & Environmental Geoscience (AEG),compulsory,1,6.0,schnarrenbergstrasse-94-96,1.000
+master-archaeological-sciences-and-human-evolution,Master,Archaeological Sciences and Human Evolution,compulsory,1,2.0,hoelderlinstrasse-12-eckgebaeude-mit-sigwartstrasse-10,1.000
+master-biochemistry,Master,Biochemistry,all,1,2.0,auf-der-morgenstelle-32-34,1.000
+master-biodiversity-ecology-and-evolution,Master,"Biodiversity, Ecology and Evolution",compulsory,1,6.0,auf-der-morgenstelle-16,1.000
+master-bioinformatik-bioinformatics,Master,Bioinformatik/Bioinformatics,compulsory,3,20.0,sand-1|sand-13-und-14|maria-von-linden-strasse-1|auf-der-morgenstelle-3|sand-6-7,0.300|0.300|0.200|0.100|0.100
+master-cellular-and-immunological-biosciences-from-single-cells-to-plants-animals-and-humans,Master,"Cellular and Immunological Biosciences - From Single Cells to Plants, Animals, and Humans",all,1,6.0,auf-der-morgenstelle-16,1.000
+master-chemie,Master,Chemie,all,1,2.0,auf-der-morgenstelle-16,1.000
+master-comparative-middle-east-politics-and-society-cmeps,Master,Comparative & Middle East Politics and Society (CMEPS),compulsory,1,4.0,wilhelmstrasse-113,1.000
+master-data-science-in-business-and-economics,Master,Data Science in Business and Economics,all,2,6.7,auf-der-morgenstelle-10|auf-der-morgenstelle-16|mohlstrasse-36,0.400|0.300|0.300
+master-economics,Master,Economics,all,2,6.7,auf-der-morgenstelle-10|auf-der-morgenstelle-16|mohlstrasse-36,0.400|0.300|0.300
+master-economics-and-finance,Master,Economics and Finance,all,2,6.7,auf-der-morgenstelle-10|auf-der-morgenstelle-16|mohlstrasse-36,0.400|0.300|0.300
+master-english-linguistics,Master,English Linguistics,all,1,2.0,brechtbau-neuphilologikum-wilhelmstrasse-50,1.000
+master-english-literatures-and-cultures,Master,English Literatures and Cultures,compulsory,1,2.0,brechtbau-neuphilologikum-wilhelmstrasse-50,1.000
+master-european-economics,Master,European Economics,all,2,6.7,auf-der-morgenstelle-10|auf-der-morgenstelle-16|mohlstrasse-36,0.400|0.300|0.300
+master-european-management,Master,European Management,all,2,6.7,auf-der-morgenstelle-10|auf-der-morgenstelle-16|mohlstrasse-36,0.400|0.300|0.300
+master-general-management,Master,General Management,all,2,6.7,auf-der-morgenstelle-10|auf-der-morgenstelle-16|mohlstrasse-36,0.400|0.300|0.300
+master-geooekologie-geoecology,Master,Geoökologie / Geoecology,compulsory,1,6.0,schnarrenbergstrasse-94-96,1.000
+master-geowissenschaften-geosciences,Master,Geowissenschaften / Geosciences,all,1,6.0,schnarrenbergstrasse-94-96,1.000
+master-humangeographie-global-studies,Master,Humangeographie / Global Studies,compulsory,1,2.0,ruemelinstrasse-19-23,1.000
+master-informatik,Master,Informatik,all,3,20.0,sand-1|sand-13-und-14|maria-von-linden-strasse-1|auf-der-morgenstelle-3|sand-6-7,0.300|0.300|0.200|0.100|0.100
+master-informatik-computer-science,Master,Informatik / Computer Science,all,3,20.0,sand-1|sand-13-und-14|maria-von-linden-strasse-1|auf-der-morgenstelle-3|sand-6-7,0.300|0.300|0.200|0.100|0.100
+master-international-business,Master,International Business,all,2,6.7,auf-der-morgenstelle-10|auf-der-morgenstelle-16|mohlstrasse-36,0.400|0.300|0.300
+master-international-economics,Master,International Economics,compulsory,1,2.0,mohlstrasse-36,1.000
+master-islamwissenschaft-islamic-and-middle-eastern-studies,Master,Islamwissenschaft/Islamic and Middle Eastern Studies,compulsory,1,4.0,wilhelmstrasse-113,1.000
+master-judaistik,Master,Judaistik,all,2,9.0,liebermeisterstrasse-12-bis-16|wilhelmstrasse-113,0.556|0.444
+master-kognitionswissenschaft,Master,Kognitionswissenschaft,compulsory,1,4.0,sand-1,1.000
+master-machine-learning,Master,Machine Learning,all,3,20.0,sand-1|sand-13-und-14|maria-von-linden-strasse-1|auf-der-morgenstelle-3|sand-6-7,0.300|0.300|0.200|0.100|0.100
+master-management-and-economics,Master,Management and Economics,all,2,6.7,auf-der-morgenstelle-10|auf-der-morgenstelle-16|mohlstrasse-36,0.400|0.300|0.300
+master-medieninformatik,Master,Medieninformatik,compulsory,1,12.0,sand-13-und-14|auf-der-morgenstelle-3|sand-1|sand-6-7,0.500|0.167|0.167|0.167
+master-medieninformatik-media-informatics,Master,Medieninformatik / Media Informatics,all,3,20.0,sand-1|sand-13-und-14|maria-von-linden-strasse-1|auf-der-morgenstelle-3|sand-6-7,0.300|0.300|0.200|0.100|0.100
+master-medizininformatik-medical-informatics,Master,Medizininformatik/Medical Informatics,all,3,20.0,sand-1|sand-13-und-14|maria-von-linden-strasse-1|auf-der-morgenstelle-3|sand-6-7,0.300|0.300|0.200|0.100|0.100
+master-nano-science,Master,Nano-Science,compulsory,1,2.0,auf-der-morgenstelle-16,1.000
+master-naturwissenschaftliche-archaeologie,Master,Naturwissenschaftliche Archäologie,all,1,2.0,hoelderlinstrasse-12-eckgebaeude-mit-sigwartstrasse-10,1.000
+master-of-education-chemie,Master of Education,Chemie,compulsory,2,4.0,auf-der-morgenstelle-10|auf-der-morgenstelle-16,0.500|0.500
+master-of-education-englisch,Master of Education,Englisch,all,1,2.0,brechtbau-neuphilologikum-wilhelmstrasse-50,1.000
+master-of-education-informatik-quereinstieg-zweites-fach,Master of Education,Informatik Quereinstieg Zweites Fach,all,3,12.0,maria-von-linden-strasse-1|sand-1|schleichstrasse-4,0.333|0.333|0.333
+master-of-education-mathematik,Master of Education,Mathematik,compulsory,1,2.0,auf-der-morgenstelle-10,1.000
+master-of-education-mathematik-quereinstieg-zweites-fach,Master of Education,Mathematik Quereinstieg Zweites Fach,all,1,2.0,auf-der-morgenstelle-10,1.000
+master-of-education-philosophie-ethik,Master of Education,Philosophie/Ethik,all,1,2.0,liebermeisterstrasse-12-bis-16,1.000
+master-of-education-wirtschaftswissenschaft,Master of Education,Wirtschaftswissenschaft,all,1,2.0,lothar-meyer-bau-wilhelmstrasse-56|hoelderlinstrasse-5-kupferbau|ruemelinstrasse-19-23,0.500|0.250|0.250
+master-philosophie,Master,Philosophie,compulsory,1,2.0,liebermeisterstrasse-12-bis-16,1.000
+master-physische-geographie,Master,Physische Geographie,all,1,2.0,ruemelinstrasse-19-23,1.000
+master-psychologie,Master,Psychologie,compulsory,1,10.0,hoelderlinstrasse-12-eckgebaeude-mit-sigwartstrasse-10|geschwister-scholl-platz|nauklerstrasse-35|schleichstrasse-4,0.400|0.200|0.200|0.200
+master-psychologie-mit-schwerpunkt-klinische-psychologie-und-psychotherapie,Master,Psychologie mit Schwerpunkt Klinische Psychologie und Psychotherapie,compulsory,1,2.0,schleichstrasse-4,1.000
+master-quantitative-data-science-methods-psychometrics-econometrics-and-machine-learning,Master,"Quantitative Data Science Methods – Psychometrics, Econometrics and Machine Learning",compulsory,2,14.0,hoelderlinstrasse-12-eckgebaeude-mit-sigwartstrasse-10|keplerstrasse-2|geschwister-scholl-platz|nauklerstrasse-35|schleichstrasse-4,0.286|0.286|0.143|0.143|0.143
+master-schulpsychologie,Master,Schulpsychologie,all,1,10.0,hoelderlinstrasse-12-eckgebaeude-mit-sigwartstrasse-10|geschwister-scholl-platz|nauklerstrasse-35|schleichstrasse-4,0.400|0.200|0.200|0.200
+master-sportmanagement,Master,Sportmanagement,compulsory,2,3.0,mohlstrasse-36|wilhelmstrasse-124,0.667|0.333
+master-theologien-interreligioes-interfaith-studies,Master,Theologien interreligiös - Interfaith Studies,compulsory,1,2.0,liebermeisterstrasse-12-bis-16,1.000
+staatsexamen-pharmazie,Staatsexamen,Pharmazie,all,2,4.0,auf-der-morgenstelle-10|auf-der-morgenstelle-16,0.500|0.500
+staatsexamen-rechtswissenschaft,Staatsexamen,Rechtswissenschaft,all,2,4.0,geschwister-scholl-platz,1.000
