@@ -8,7 +8,7 @@ import { normalise, sanitize, type StudentProfile } from './profile.ts'
 
 const types: DestinationType[] = [
   {
-    destination_type: 'grocery', label: { en: 'Supermarket', de: 'Supermarkt' }, trip_window: 'evening', fine_time_min: 10, trips_per_week: 2,
+    destination_type: 'grocery', label: { en: 'Supermarket', de: 'Supermarkt' }, trip_window: 'evening', fine_time_min: 10,
     labels: [
       { label: 'lidl', kind: 'brand', name: { en: 'Lidl', de: 'Lidl' }, destinations: 2 },
       { label: 'organic', kind: 'group', name: { en: 'Organic', de: 'Bio' }, destinations: 1 },
@@ -16,7 +16,7 @@ const types: DestinationType[] = [
     ],
   },
   {
-    destination_type: 'sport', label: { en: 'Sport', de: 'Sport' }, trip_window: 'evening', fine_time_min: 20, trips_per_week: 0,
+    destination_type: 'sport', label: { en: 'Sport', de: 'Sport' }, trip_window: 'evening', fine_time_min: 20,
     labels: [{ label: 'tennis', kind: 'category', name: { en: 'Tennis', de: 'Tennis' }, destinations: 2 }],
   },
 ]
@@ -33,7 +33,7 @@ test('keys resolve to types and categories; containers are never a key', () => {
 test('normalise drops trips for categories and sorts favourites', () => {
   const p: StudentProfile = {
     programme: null, modes: ['walk'],
-    destinations: { 'sport:tennis': { importance: 2, fine_time_min: 20, trips_per_week: 3 } },
+    destinations: { 'sport:tennis': { importance: 2, fine_time_min: 20 } },
     labels: { grocery: ['organic', 'lidl', 'lidl'] },
   }
   assert.deepEqual(normalise(p, types), {

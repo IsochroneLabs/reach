@@ -59,7 +59,6 @@ CONTRACT = {
         ("source", "text"),
         ("trip_window", "text"),
         ("fine_time_min", "real"),
-        ("trips_per_week", "real"),
         ("nearest_k", "smallint"),
     ],
     "destinations": [
@@ -242,7 +241,6 @@ def run_tables(population_a: int = 10) -> dict[str, pd.DataFrame]:
                 "source": ["osm"],
                 "trip_window": ["evening"],
                 "fine_time_min": [10.0],
-                "trips_per_week": [2.0],
                 "nearest_k": [3],
             }
         ),

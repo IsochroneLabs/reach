@@ -1,6 +1,6 @@
 # Product — reach
 
-> **Status:** v1.2 draft (26 Nov 2026). Binding for who the product is for and what it does.
+> **Status:** v1.3 draft (27 Nov 2026). Binding for who the product is for and what it does.
 > Everything else (architecture, methodology, app) is designed from this page.
 > v1.2 adds current WG-Gesucht listings, favourite supermarkets, sport and hobby categories, the
 > programme from the course catalogue with degree and semester, an application text and the
@@ -76,7 +76,6 @@ There is no questionnaire and no question before the first result. The app opens
 | 3 | Destinations | Mensa, supermarket, main station, library, sport and hobby categories (tennis, climbing, swimming, fitness, choir, …), going out, culture, place of worship, doctor, … | Mensa, supermarket, main station |
 | 3a | Favourite supermarkets | brands (REWE, Lidl, ALDI SÜD, EDEKA, …), multi-select | any supermarket |
 | 4 | Importance per destination | not important / nice / important / very important | campus very important, others important |
-| 5 | Trips per week | per destination; **not** for sport and hobby categories, which count only the time to the place | per destination type (`config/config.yaml`) |
 | 6 | Fine time | slider per destination | per destination type (`config/config.yaml`) |
 | 7 | Times of day | from the destination type's trip window | from `config/config.yaml` |
 
@@ -85,8 +84,8 @@ Rent is not part of the profile; it comes from the listing or is entered per pla
 ## How results are shown
 
 - **Fit 0–100** large; below it the rank in the city ("better than 80 % of places for your
-  profile"); below that each destination with its travel time and its share of the fit; the
-  weekly travel time as the second, intuitive number.
+  profile"); below that each destination with its travel time and its share of the fit (there
+  is no weekly travel time: removed 27 Nov 2026, notes N30).
 - **Find** colours the 100 m cells and ranks areas (districts and Teilorte) with reasons.
 - **Check** compares up to three places; they are kept in the URL, so a comparison can be shared.
 - **Rent** from the listing or typed in by the student is shown and compared with travel time; it
@@ -122,6 +121,7 @@ are gone when the user clears them.
 
 | Version | Date | Change | Why |
 |---|---|---|---|
+| v1.3-draft | 2026-11-27 | No trips per week and no weekly travel time; side columns fold and the results column can be widened (three places side by side in *Check*); destinations of a listing are labelled on the map with opening hours on hover or click | Juju, 27 Nov 2026 (notes N29, N30) |
 | v1.2-draft | 2026-11-26 | Current WG-Gesucht listings in *Find* and *Check* (daily), favourite supermarkets, sport and hobby categories (time to the place only), programme from Alma with degree and semester, application text, design *Atelier*; non-goal "no scraping of listing sites" replaced by data limits; cut order extended | Decisions QF1–QF6 of 26 Nov 2026 (Juju), architecture O22–O27 |
 | v1.1-draft | 2026-11-24 | Two modes *Find* (was U1) and *Check* (was U2 + U3); map with defaults and a profile panel instead of the onboarding questionnaire; rent entered per listing in *Check*, never in the fit; English first; non-users named; cut order adapted | Team decisions E1–E5 of 24 Nov 2026 (Rico) |
 | v1.0-draft | 2026-11-21 | Product for the student rebuild: user, questions, U1–U3, non-goals, onboarding draft | Rebuild brief of 21 Nov 2026 |

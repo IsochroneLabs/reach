@@ -6,6 +6,7 @@ import { FindResults } from './components/FindResults'
 import { Header } from './components/Header'
 import { MapArea } from './components/MapArea'
 import { ProfilePanel, ProgrammeHint } from './components/ProfilePanel'
+import { PanelEdges, useSidePanels } from './components/SidePanels'
 import { StatusBanner } from './components/StatusBanner'
 import { ToastProvider, useToast } from './components/Toast'
 import { FitProvider } from './remote/fit'
@@ -56,6 +57,9 @@ function Shell() {
   useLoadChecks()
 
   const results = state.mode === 'find' ? <FindResults /> : <CheckResults />
+  const wide = state.mode === 'check' && state.places.length > 1
+  const hasLeft = bp === 'L'
+  const panels = useSidePanels(bp === 'M' ? 340 : wide ? 680 : state.mode === 'check' ? 440 : 360, hasLeft)
 
   // Check on mobile: show the place card at half height when a place is added (state adjusted
   // during render, https://react.dev/learn/you-might-not-need-an-effect).
@@ -86,9 +90,9 @@ function Shell() {
       </a>
       <Header onProfile={bp === 'M' ? () => setDrawer((d) => !d) : undefined} />
       <StatusBanner />
-      <div className="layout">
+      <div className="layout" style={bp === 'S' ? undefined : panels.style}>
         {bp === 'L' && (
-          <aside className="col-profile" aria-label="profile">
+          <aside className="col-profile" aria-label="profile" hidden={!panels.left}>
             <ProfilePanel />
           </aside>
         )}
@@ -101,10 +105,11 @@ function Shell() {
           <MapArea />
         </main>
         {bp !== 'S' && (
-          <section id="results" className={`col-results${state.mode === 'check' && state.places.length > 1 ? ' wide' : ''}`}>
+          <section id="results" className={`col-results${wide ? ' wide' : ''}`} hidden={!panels.right}>
             {results}
           </section>
         )}
+        {bp !== 'S' && <PanelEdges panels={panels} hasLeft={hasLeft} />}
       </div>
       {bp === 'S' && (
         <BottomSheet

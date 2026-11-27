@@ -1,9 +1,9 @@
-"""The fit, weekly travel time, areas and reasons (methodology §6, §7; data contract v1.1.0).
+"""The fit, areas and reasons (methodology §6, §7; data contract v1.1.0).
 
 Per term the best of the student's modes; s = 1 / (1 + (T / (a·t))^p); fit = 100 · Σ w·s / Σ w;
 campus = mean of the site times weighted by campus days, else the programme's sites, else the
 default mix; grocery with favourites = the nearest of the chosen labels; sport and hobby
-categories are their own terms and never count in the weekly time. Vectorised over all cells.
+categories are their own terms. Vectorised over all cells.
 """
 
 from __future__ import annotations
@@ -26,7 +26,6 @@ class TermResult:
     trip_window: str
     weight: float
     fine: float
-    trips: float
     minutes: np.ndarray  # (n_cells,) float, NaN = unreachable
     mode: np.ndarray  # (n_cells,) mode index, -1 = none
     destination: np.ndarray  # (n_cells,) object
@@ -110,7 +109,6 @@ def term_results(model: Model, profile: dict[str, Any]) -> list[TermResult]:
             continue
         info = model.key_info(key)
         fine = float(v.get("fine_time_min") or info["fine_time_min"])
-        trips = 0.0 if info["category"] else float(v.get("trips_per_week", info["trips_per_week"]))
         if key == CAMPUS:
             total, wsum = np.zeros(len(model.cell_ids)), np.zeros(len(model.cell_ids))
             parts = []
@@ -138,7 +136,6 @@ def term_results(model: Model, profile: dict[str, Any]) -> list[TermResult]:
                 info["trip_window"],
                 float(v["importance"]),
                 fine,
-                trips,
                 minutes,
                 mode,
                 dest,
@@ -150,16 +147,15 @@ def term_results(model: Model, profile: dict[str, Any]) -> list[TermResult]:
 
 def fit_arrays(
     results: list[TermResult], a: float, p: float
-) -> tuple[np.ndarray, np.ndarray, list[np.ndarray]]:
-    """Fit (0–100, NaN if no weight) and weekly minutes per cell, plus each term's score."""
+) -> tuple[np.ndarray, list[np.ndarray]]:
+    """Fit (0–100, NaN if no weight) per cell, plus each term's score."""
     n = len(results[0].minutes) if results else 0
     wsum = sum(r.weight for r in results)
     scores = [score(r.minutes, r.fine, a, p) for r in results]
     if not wsum:
-        return np.full(n, np.nan), np.full(n, np.nan), scores
+        return np.full(n, np.nan), scores
     points = sum(r.weight * s for r, s in zip(results, scores, strict=True))
-    weekly = sum(r.trips * 2 * np.nan_to_num(r.minutes) for r in results)
-    return 100 * points / wsum, np.asarray(weekly, dtype=float), scores
+    return 100 * points / wsum, scores
 
 
 def _mode(i: int) -> str | None:
@@ -230,14 +226,10 @@ def fit_response(model: Model, profile: dict[str, Any], a: float, p: float) -> d
     """Body of POST /api/fit."""
     validate(model, profile)
     results = term_results(model, profile)
-    fit, weekly, scores = fit_arrays(results, a, p)
+    fit, scores = fit_arrays(results, a, p)
     cells = {
-        cid: [
-            None if np.isnan(f) else int(round(f)),
-            None if np.isnan(w) else int(round(w)),
-            int(pop),
-        ]
-        for cid, f, w, pop in zip(model.cell_ids, fit, weekly, model.populated, strict=True)
+        cid: [None if np.isnan(f) else int(round(f)), int(pop)]
+        for cid, f, pop in zip(model.cell_ids, fit, model.populated, strict=True)
     }
     areas = []
     ok = model.populated & ~np.isnan(fit)
@@ -251,7 +243,6 @@ def fit_response(model: Model, profile: dict[str, Any], a: float, p: float) -> d
                 "fit": int(round(float(np.median(fit[idx])))),
                 "best_cell_id": str(model.cell_ids[best]),
                 "best_cell_fit": int(round(float(fit[best]))),
-                "weekly_min": int(round(float(np.median(weekly[idx])))),
                 "reasons": reasons(model, results, scores, int(best)),
             }
         )
@@ -262,14 +253,13 @@ def fit_response(model: Model, profile: dict[str, Any], a: float, p: float) -> d
 def cell_summary(
     model: Model, profile: dict[str, Any], cell_id: str, a: float, p: float
 ) -> dict[str, Any]:
-    """Fit, weekly time, reasons and parts of one cell (the trips come from the database)."""
+    """Fit, reasons and parts of one cell (the trips come from the database)."""
     validate(model, profile)
     ci = model.cell_index[cell_id]
     results = term_results(model, profile)
-    fit, weekly, scores = fit_arrays(results, a, p)
+    fit, scores = fit_arrays(results, a, p)
     return {
         "fit": None if np.isnan(fit[ci]) else int(round(float(fit[ci]))),
-        "weekly_min": None if np.isnan(weekly[ci]) else int(round(float(weekly[ci]))),
         "reasons": reasons(model, results, scores, ci),
         "fit_parts": fit_parts(results, scores, ci),
         "targets": targets(model, profile, results, ci),

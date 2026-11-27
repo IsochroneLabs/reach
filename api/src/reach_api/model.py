@@ -135,7 +135,6 @@ class Model:
             "category": category or None,
             "trip_window": row["trip_window"],
             "fine_time_min": float(row["fine_time_min"]),
-            "trips_per_week": 0.0 if category else float(row["trips_per_week"]),
         }
 
     def mode_columns(self, modes: list[str]) -> list[int]:

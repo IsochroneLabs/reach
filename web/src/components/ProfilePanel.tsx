@@ -12,7 +12,6 @@ import { useToast } from './Toast'
 const IMPORTANCE: Importance[] = [0, 1, 2, 3]
 const FINE_MIN = 5
 const FINE_MAX = 60
-const TRIPS_MAX = 14
 
 /** Names of the default campus sites, e.g. "Tal and Morgenstelle". */
 function useCampusMix(refs: Refs | null): string {
@@ -190,14 +189,13 @@ function useFavouritesText(refs: Refs, profile: StudentProfile): string {
 }
 
 function DestinationRow({ dest, profile, refs }: { dest: DestinationKey; profile: StudentProfile; refs: Refs }) {
-  const { t, label, num } = useI18n()
+  const { t, label } = useI18n()
   const { dispatch } = useStore()
   const [open, setOpen] = useState(false)
   const { key, type, category } = dest
   const v = profile.destinations[key]
   const name = label(dest.name)
   const fine = v.fine_time_min ?? type.fine_time_min
-  const trips = v.trips_per_week ?? type.trips_per_week
   const detailsId = useId()
   const isGrocery = key === 'grocery'
   const favourites = useFavouritesText(refs, profile)
@@ -245,24 +243,6 @@ function DestinationRow({ dest, profile, refs }: { dest: DestinationKey; profile
             onChange={(e) => set({ fine_time_min: Number(e.target.value) })}
           />
         </label>
-        {!category && (
-          <label className="inline-num">
-            <span>{t('profile.tripsPerWeek')}</span>
-            <input
-              type="number"
-              min={0}
-              max={TRIPS_MAX}
-              step={trips < 1 ? 0.1 : 1}
-              inputMode="decimal"
-              value={num(trips, 1).replace(',', '.')}
-              onChange={(e) => {
-                const x = Number(e.target.value)
-                if (Number.isFinite(x) && x >= 0 && x <= TRIPS_MAX) set({ trips_per_week: x })
-              }}
-            />
-          </label>
-        )}
-        {category && <p className="muted small">{t('profile.category.noTrips')}</p>}
         {isGrocery && <FavouriteSupermarkets refs={refs} profile={profile} />}
         <p className="muted small">
           {t('profile.when')}: <TripWindowText window={type.trip_window} />

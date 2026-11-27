@@ -93,7 +93,7 @@ calendar:
 # Destination types (meth. §3, docs/osm_tagging.md). DRAFT. Per type: labels, OSM tags (any pair
 # matches) or source "campus" (config/campus.yaml), optional require/exclude, location
 # ("point" or "access_points"), nearest_k stored by the pipeline (null = all), trip window, and the
-# profile defaults fine_time_min and trips_per_week (M2, checked in S2.0).
+# profile default fine_time_min (M2, checked in S2.0).
 destination_types:
   campus_site:
     label: {en: Campus, de: Campus}
@@ -101,14 +101,12 @@ destination_types:
     nearest_k: null
     trip_window: morning_lecture
     fine_time_min: 20
-    trips_per_week: 5
   mensa:
     label: {en: Mensa, de: Mensa}
     source: campus
     nearest_k: 3
     trip_window: midday
     fine_time_min: 15
-    trips_per_week: 3
   library:
     label: {en: Library, de: Bibliothek}
     tags: [{amenity: library}]
@@ -116,14 +114,12 @@ destination_types:
     nearest_k: 3
     trip_window: midday
     fine_time_min: 20
-    trips_per_week: 2
   university_sports:
     label: {en: University sports, de: Hochschulsport}
     source: campus
     nearest_k: null
     trip_window: evening
     fine_time_min: 20
-    trips_per_week: 1
   grocery:
     label: {en: Supermarket, de: Supermarkt}
     tags: [{shop: supermarket}]
@@ -131,7 +127,6 @@ destination_types:
     nearest_k: 3
     trip_window: evening
     fine_time_min: 10
-    trips_per_week: 2
   pharmacy:
     label: {en: Pharmacy, de: Apotheke}
     tags: [{amenity: pharmacy}]
@@ -139,7 +134,6 @@ destination_types:
     nearest_k: 3
     trip_window: midday
     fine_time_min: 15
-    trips_per_week: 0.1
   doctor:
     label: {en: Doctor, de: Arztpraxis}
     tags: [{amenity: doctors}]
@@ -147,7 +141,6 @@ destination_types:
     nearest_k: 3
     trip_window: midday
     fine_time_min: 15
-    trips_per_week: 0.1
   main_station:
     label: {en: Main station, de: Hauptbahnhof}
     tags: [{railway: station}]
@@ -157,7 +150,6 @@ destination_types:
     nearest_k: 1
     trip_window: weekend_station
     fine_time_min: 25
-    trips_per_week: 0.5
   park:
     label: {en: Park, de: Park}
     tags: [{leisure: park}]
@@ -166,22 +158,19 @@ destination_types:
     nearest_k: 3
     trip_window: evening
     fine_time_min: 10
-    trips_per_week: 1
   # Containers (meth. §3.1, QF4): never a term themselves; the student picks categories, each a
-  # term of its own ("sport:tennis") with the time to the amenity only (trips_per_week 0).
+  # term of its own ("sport:tennis") with the time to the amenity only.
   # Destinations come from destination_labels (nearest_k_label per category).
   sport:
     label: {en: Sport, de: Sport}
     source: labels
     trip_window: evening
     fine_time_min: 20
-    trips_per_week: 0
   hobby:
     label: {en: Hobbies, de: Hobbys}
     source: labels
     trip_window: evening
     fine_time_min: 20
-    trips_per_week: 0
   nightlife:
     label: {en: Going out, de: Ausgehen}
     tags: [{amenity: bar}, {amenity: pub}, {amenity: nightclub}, {amenity: biergarten}]
@@ -189,7 +178,6 @@ destination_types:
     nearest_k: 3
     trip_window: night_return
     fine_time_min: 20
-    trips_per_week: 1
   cinema_theatre:
     label: {en: Cinema and theatre, de: Kino und Theater}
     tags: [{amenity: cinema}, {amenity: theatre}]
@@ -197,7 +185,6 @@ destination_types:
     nearest_k: 3
     trip_window: evening
     fine_time_min: 25
-    trips_per_week: 0.5
   place_of_worship:
     label: {en: Place of worship, de: Gotteshaus}
     tags: [{amenity: place_of_worship}]
@@ -206,7 +193,6 @@ destination_types:
     nearest_k: 3
     trip_window: weekend_station
     fine_time_min: 20
-    trips_per_week: 1
 
 # Destination labels (meth. §3.1, arch. O22): brands and groups of supermarkets, sport and hobby
 # categories, religion. Taxonomy decided 26 Nov 2026 (extension plan F2.1), counts in
@@ -527,6 +513,17 @@ api:
 # `uv run python -m reach_pipeline.alma crawl` fetches the day view of each weekday of one
 # reference teaching week (2 requests per day, rate_limit_s apart) once per semester into
 # data/raw/alma/<semester>/; `shares` turns them into programme × site hours (campus.yaml alma).
+# Official address list of the university buildings (notes N30): one list page plus one page per
+# building, fetched once per semester (`python -m reach_pipeline.uni_buildings crawl`), raw pages
+# kept under data/raw/uni_buildings/. Maps Alma buildings to campus sites by address.
+uni_buildings:
+  list_url: https://uni-tuebingen.de/universitaet/standort-und-anfahrt/lageplaene/adressenliste/
+  user_agent: reach-student-project (University of Tuebingen course project DS500)
+  rate_limit_s: 3
+  timeout_s: 30
+  retries: 2
+  backoff_s: 10
+
 alma:
   base_url: https://alma.uni-tuebingen.de
   day_view_path: /alma/pages/cm/exa/timetable/currentLectures.xhtml?_flowId=showEventsAndExaminationsOnDate-flow&navigationPosition=studiesOffered%2CcurrentLecturesGeneric&recordRequest=true

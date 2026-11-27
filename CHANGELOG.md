@@ -4,6 +4,9 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+- Campus sites from the university's official address list (N30): Alma buildings map to official buildings and from there to the nearest site; new sites Altstadt and Cyber Valley; Medicine, Data Science/ML, Computer science, Economics, humanities and social sciences get corrected site shares (Medicine and Data Science were wrongly sent to the Tal)
+- Weekly travel time and trips per week removed from profile, results, comparison, API and data (methodology v1.5, data contract v1.4.0)
+- Profile and results columns fold away, the results column can be dragged wider (three places side by side); destinations on the map show opening hours and more on hover, pinned by a click and closed with ×
 - Campus and destinations on the map (N29): routes go to the student's own campus sites (with their share) instead of the nearest site of any programme; trip destinations are labelled on the map; opening hours, website and wheelchair access from OSM with "open then / closed then" for the trip window (`destination_details`, data contract v1.3.0); campus site points moved to the lecture buildings
 - Application text (F4.8, building block): drafts in German and English in three tones from the student's profile, the listing and up to five personal lines kept only in `localStorage`; gaps stay visible in [brackets]
 - *Find* opens on the best WGs for the profile: best fit first, the top six, the best one expanded below the list, no WG toggle; the map hides the grid while a WG is open and draws its routes, the areas are a secondary section

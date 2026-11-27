@@ -47,7 +47,6 @@ is not here is either plain English or needs an entry first.
 | **fit** | How well a place matches a student profile, 0–100, computed by the API at request time from stored travel times (`docs/methodology.md`, formula **[OPEN]**). |
 | **fine time** | The travel time a student says feels fine for a destination type; the fit decays smoothly around it (no hard cut-off). |
 | **importance** | How much a destination type matters to the student (weight in the fit). |
-| **weekly travel time** | Estimated minutes per week: trips per week × travel time per trip, summed over destination types that have trips per week (not sport and hobby categories). Second, intuitive measure next to the fit. |
 | **listing** | A room or flat offer from a listing source (WG-Gesucht), shown with its parameters, linked photos, travel times and fit; refreshed daily (architecture O24, methodology §8.1). |
 | **listings job** | `make listings`: daily crawl → validate → route → `publish_listings` into the `listings` views; separate from the refresh, same lock. |
 | **geocode precision** | How exactly a listing address is located: `house`, `street` (times labelled approximate) or `district` (no point routing). |

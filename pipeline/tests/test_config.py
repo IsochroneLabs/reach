@@ -92,7 +92,6 @@ def _set(data: dict[str, Any], dotted: str, value: Any) -> dict[str, Any]:
         ("destination_types.grocery.location", "polygon", "destination_types.grocery.location"),
         ("destination_types.grocery.nearest_k", 0, "destination_types.grocery.nearest_k"),
         ("destination_types.grocery.fine_time_min", 0, "destination_types.grocery.fine_time"),
-        ("destination_types.grocery.trips_per_week", -1, "destination_types.grocery.trips"),
         ("destination_types.mensa.tags", [{"amenity": "canteen"}], "source campus takes no"),
         ("destination_types.park.exclude", [{"access": "a", "x": "b"}], "non-empty key: value"),
         ("destination_types.library.require", [{"": "x"}], "non-empty key: value pair"),

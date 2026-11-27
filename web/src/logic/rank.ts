@@ -13,7 +13,7 @@ export function cityRank(cells: CellFits, fit: number | null): number | null {
   if (fit == null) return null
   let n = 0
   let below = 0
-  for (const [f, , populated] of Object.values(cells)) {
+  for (const [f, populated] of Object.values(cells)) {
     if (!populated || f == null) continue
     n++
     if (f < fit) below++

@@ -33,7 +33,6 @@ class _Body(BaseModel):
 class Preference(_Body):
     importance: int = Field(ge=0, le=3)
     fine_time_min: float | None = Field(default=None, gt=0, le=180)
-    trips_per_week: float | None = Field(default=None, ge=0, le=21)
 
 
 class FitRequest(_Body):
@@ -131,7 +130,6 @@ async def destination_types(d: D) -> list[dict[str, Any]]:
             "label": {"en": row["label_en"], "de": row["label_de"]},
             "trip_window": row["trip_window"],
             "fine_time_min": float(row["fine_time_min"]),
-            "trips_per_week": float(row["trips_per_week"]),
         }
         labs = m.labels[m.labels["destination_type"] == dtype] if len(m.labels) else m.labels
         if len(labs):
@@ -329,7 +327,6 @@ async def cell(cell_id: str, body: FitRequest, d: D) -> dict[str, Any]:
         "populated": bool(m.populated[ci]),
         "trips": trips,
         "fit": summary["fit"],
-        "weekly_min": summary["weekly_min"],
         "reasons": summary["reasons"],
         "fit_parts": summary["fit_parts"],
     }

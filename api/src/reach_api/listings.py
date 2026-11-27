@@ -55,7 +55,7 @@ async def listings(d: D) -> list[dict[str, Any]]:
 
 @router.post("/listings/fit", dependencies=[Depends(rate_limited)])
 async def listings_fit(body: FitRequest, d: D) -> list[dict[str, Any]]:
-    """Listings with the fit and weekly travel time of their cell, best first."""
+    """Listings with the fit of their cell, best first."""
     items = await rows(d)
     if not items:
         return []
@@ -66,7 +66,6 @@ async def listings_fit(body: FitRequest, d: D) -> list[dict[str, Any]]:
     except ProfileError as exc:
         raise HTTPException(422, str(exc)) from exc
     for item in items:
-        fit, weekly, _ = cells.get(item["cell_id"] or "", (None, None, 0))
-        item["fit"], item["weekly_min"] = fit, weekly
+        item["fit"] = cells.get(item["cell_id"] or "", (None, 0))[0]
     items.sort(key=lambda x: (x["fit"] is None, -(x["fit"] or 0), x["rent_total_eur"] or 1e9))
     return items

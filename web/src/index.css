@@ -242,14 +242,33 @@ dialog.about::backdrop { background: rgb(17 17 17 / 40%); }
 .minutes-value { font-family: var(--f-mono); font-weight: 600; font-variant-numeric: tabular-nums; }
 .minutes-window { color: var(--grey-1); font-size: var(--t-small); }
 
+/* fold buttons and the drag handle of the results column (N30) */
+.col-profile[hidden], .col-results[hidden] { display: none; }
+.panel-fold {
+  position: absolute; z-index: 15; top: 50%; transform: translateY(-50%); width: 22px; height: 56px;
+  display: grid; place-items: center; padding: 0; background: var(--paper); color: var(--ink);
+  border: 1px solid var(--ink); font-size: 1.1rem; line-height: 1; cursor: pointer;
+}
+.panel-fold:hover { background: var(--wash); }
+.panel-fold-left { left: var(--left-w, 0px); border-left: 0; }
+.panel-fold-right { right: var(--right-w, 0px); border-right: 0; }
+.panel-resize {
+  position: absolute; z-index: 16; top: 0; bottom: 0; right: calc(var(--right-w, 0px) - 4px); width: 8px;
+  cursor: col-resize; touch-action: none; background: transparent;
+}
+.panel-resize:hover, .panel-resize:focus-visible, .panel-resize.is-dragging { background: linear-gradient(90deg, transparent 3px, var(--ink) 3px, var(--ink) 5px, transparent 5px); outline: none; }
+.panel-resize.is-dragging ~ * , .layout:has(.panel-resize.is-dragging) { user-select: none; }
+
 /* M: drawer + map + results */
 @media (min-width: 768px) {
   .header-search { display: block; max-width: 420px; margin-left: 0.75rem; }
   .search-toggle { display: none; }
   .profile-toggle { display: inline-flex; }
-  .layout { grid-template-columns: 1fr 340px; }
+  .layout { grid-template-columns: 1fr var(--right-w, 340px); }
+  /* fixed columns: a folded (display: none) column must not let the others slide into its place */
+  .layout > .col-map { grid-column: 1; grid-row: 1; }
+  .layout > .col-results { grid-column: 2; grid-row: 1; }
   .col-results { border-left: 1px solid var(--line); }
-  .col-results.wide { grid-column: auto; }
   .drawer {
     position: absolute; z-index: 18; top: 0; bottom: 0; left: 0; width: 360px; overflow: auto;
     background: var(--surface);
@@ -258,9 +277,10 @@ dialog.about::backdrop { background: rgb(17 17 17 / 40%); }
 /* L: profile + map + results */
 @media (min-width: 1200px) {
   .profile-toggle { display: none; }
-  .layout { grid-template-columns: 360px 1fr 360px; }
-  .mode-check .layout { grid-template-columns: 340px 1fr 440px; }
-  .layout:has(.col-results.wide) { grid-template-columns: 340px 1fr 680px; }
+  .layout { grid-template-columns: var(--left-w, 360px) 1fr var(--right-w, 360px); }
+  .layout > .col-profile { grid-column: 1; grid-row: 1; }
+  .layout > .col-map { grid-column: 2; }
+  .layout > .col-results { grid-column: 3; }
   .col-profile { border-right: 1px solid var(--line); }
 }
 @media (max-width: 767px) {
@@ -423,7 +443,19 @@ dialog.about::backdrop { background: rgb(17 17 17 / 40%); }
   font-size: var(--t-micro); cursor: pointer;
 }
 /* destinations of the open listing (N29): dot at the place, label to the right */
-.poi-marker { display: flex; align-items: center; gap: var(--s-1); pointer-events: none; }
+.poi-marker { display: flex; align-items: center; gap: var(--s-1); padding: 0; border: 0; background: none; font: inherit; color: inherit; text-align: left; cursor: pointer; }
+.poi-marker:focus-visible .poi-label { outline: 2px solid var(--focus); outline-offset: 1px; }
+.poi-marker:hover .poi-label { background: var(--wash); }
+.poi-popup .maplibregl-popup-content { padding: var(--s-2) var(--s-3); border: 1px solid var(--ink); border-radius: 0; box-shadow: none; font-size: var(--t-small); }
+.poi-popup.is-pinned .maplibregl-popup-content { padding-right: var(--s-6); border-width: 2px; }
+.poi-popup .maplibregl-popup-tip { display: none; }
+.poi-popup .maplibregl-popup-close-button { width: 28px; height: 28px; font-size: 1.1rem; line-height: 1; top: 2px; right: 2px; }
+.poi-card p { margin: 0; }
+.poi-card-title { font-weight: 600; }
+.poi-card-detail { font-family: var(--f-mono); color: var(--grey-1); }
+.poi-card ul { list-style: none; margin: var(--s-1) 0 0; padding: 0; }
+.poi-card li { padding: 1px 0; border-top: 1px solid var(--rule); }
+.poi-card a { display: inline-block; margin-top: var(--s-1); color: var(--ink); }
 .poi-dot { width: 12px; height: 12px; flex: none; background: var(--paper); border: 2px solid var(--ink); border-radius: 50%; }
 .poi-marker.is-campus .poi-dot { width: 14px; height: 14px; background: var(--ink); border-radius: 0; }
 .poi-marker.is-closed .poi-dot { border-style: dashed; }
@@ -461,7 +493,6 @@ dialog.about::backdrop { background: rgb(17 17 17 / 40%); }
 .place-score p { margin: 0.1rem 0; }
 .place-fit-label { font-family: var(--f-mono); font-size: var(--t-micro); text-transform: uppercase; letter-spacing: var(--track); color: var(--grey-2); }
 .place-rank { font-weight: 600; }
-.place-weekly { font-size: 0.92rem; }
 .rent { margin: 0.8rem 0; }
 .rent label { font-weight: 600; font-size: 0.88rem; }
 .rent-input { display: flex; align-items: center; gap: 0.35rem; margin-top: 0.25rem; }

@@ -39,7 +39,7 @@ export function FitLegend() {
 
 /** The map of Find and Check: cell fits, rank markers, place pins, popups. */
 export function MapArea() {
-  const { t, duration } = useI18n()
+  const { t } = useI18n()
   const refs = useRefs()
   const fit = useFit()
   const { state, dispatch } = useStore()
@@ -172,7 +172,6 @@ export function MapArea() {
             <div className="cell-popup" data-testid="cell-popup">
               <p className="cell-popup-fit">
                 <strong>{t('find.cell.fit', { fit: popupData[0] ?? '–' })}</strong>
-                {popupData[1] != null && <span className="muted"> · {t('weekly.short', { time: duration(popupData[1]) })}</span>}
               </p>
               <button
                 type="button"
@@ -209,6 +208,7 @@ export function MapArea() {
             markers={markers}
             routes={routes}
             pois={listings.pois}
+            poiText={{ close: t('poi.close'), website: t('poi.website'), more: t('poi.more') }}
             universitySites={universitySites}
             focus={selectedListing?.point ?? state.focus}
             label={t('map.label')}

@@ -77,6 +77,7 @@ export function MapView({
   markers,
   routes,
   pois,
+  poiText,
   universitySites,
   focus,
   label,
@@ -94,6 +95,8 @@ export function MapView({
   routes: RouteLine[]
   /** destinations of the selected listing's trips, labelled (N29) */
   pois: Poi[]
+  /** words of the POI info card in the current language */
+  poiText: { close: string; website: string; more: string }
   /** campus sites of the profile's programme; their buildings get the stronger outline */
   universitySites: string[]
   focus: LonLat | null
@@ -108,6 +111,10 @@ export function MapView({
   const ml = useRef<typeof import('maplibre-gl') | null>(null)
   const markerObjs = useRef<Marker[]>([])
   const poiObjs = useRef<Marker[]>([])
+  const resizeObs = useRef<ResizeObserver | null>(null)
+  const poiPopup = useRef<Popup | null>(null)
+  const [poiHover, setPoiHover] = useState<string | null>(null)
+  const [poiPinned, setPoiPinned] = useState<string | null>(null)
   const popupObj = useRef<Popup | null>(null)
   const [popupEl] = useState(() => document.createElement('div'))
   const [ready, setReady] = useState(false)
@@ -238,6 +245,9 @@ export function MapView({
         m.on('mousemove', 'cells-fill', () => (m.getCanvas().style.cursor = 'pointer'))
         m.on('mouseleave', 'cells-fill', () => (m.getCanvas().style.cursor = ''))
         map.current = m
+        // the side columns fold and resize (N30): keep the canvas the size of its box
+        resizeObs.current = new ResizeObserver(() => m.resize())
+        resizeObs.current.observe(box.current)
       } catch (e) {
         console.error('map failed to load', e)
         onFail?.()
@@ -245,6 +255,7 @@ export function MapView({
     })()
     return () => {
       cancelled = true
+      resizeObs.current?.disconnect()
       map.current?.remove()
       map.current = null
     }
@@ -282,13 +293,15 @@ export function MapView({
   }, [ready, routes])
 
   // labelled destinations of the selected listing (N29): where each trip goes, how long, and
-  // whether the place is open at that time (OSM opening hours)
+  // whether the place is open at that time. Hover (or focus) shows an info card; a click pins it
+  // until its × is pressed (N30).
   useEffect(() => {
     const lib = ml.current
     if (!ready || !map.current || !lib) return
     poiObjs.current.forEach((m) => m.remove())
     poiObjs.current = pois.map((poi) => {
-      const el = document.createElement('div')
+      const el = document.createElement('button')
+      el.type = 'button'
       el.className = `poi-marker${poi.campus ? ' is-campus' : ''}${poi.open === false ? ' is-closed' : ''}`
       const dot = document.createElement('span')
       dot.className = 'poi-dot'
@@ -300,11 +313,80 @@ export function MapView({
       detail.textContent = poi.detail
       text.append(name, detail)
       el.append(dot, text)
-      el.setAttribute('role', 'img')
-      el.setAttribute('aria-label', `${poi.name}, ${poi.detail}`)
+      el.setAttribute('aria-label', poiText.more.replace('{name}', `${poi.name}, ${poi.detail}`))
+      el.addEventListener('mouseenter', () => setPoiHover(poi.key))
+      el.addEventListener('mouseleave', () => setPoiHover((k) => (k === poi.key ? null : k)))
+      el.addEventListener('focus', () => setPoiHover(poi.key))
+      el.addEventListener('blur', () => setPoiHover((k) => (k === poi.key ? null : k)))
+      el.addEventListener('click', (e) => {
+        e.stopPropagation()
+        setPoiPinned((k) => (k === poi.key ? null : poi.key))
+      })
       return new lib.Marker({ element: el, anchor: 'left', offset: [-6, 0] }).setLngLat(poi.point).addTo(map.current!)
     })
+    // poiText is static per language; the markers are rebuilt with the POIs
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, pois])
+
+  // the info card of the hovered or pinned destination
+  const activePoi = pois.find((p) => p.key === (poiPinned ?? poiHover)) ?? null
+  const pinned = !!activePoi && activePoi.key === poiPinned
+  useEffect(() => {
+    const lib = ml.current
+    // forget the old card before removing it, so its close event does not unpin the new one
+    const old = poiPopup.current
+    poiPopup.current = null
+    old?.remove()
+    if (!ready || !map.current || !lib || !activePoi) return
+    const box = document.createElement('div')
+    box.className = 'poi-card'
+    const title = document.createElement('p')
+    title.className = 'poi-card-title'
+    title.textContent = activePoi.name
+    const detail = document.createElement('p')
+    detail.className = 'poi-card-detail'
+    detail.textContent = activePoi.detail
+    box.append(title, detail)
+    if (activePoi.lines.length) {
+      const ul = document.createElement('ul')
+      for (const line of activePoi.lines) {
+        const li = document.createElement('li')
+        li.textContent = line
+        ul.append(li)
+      }
+      box.append(ul)
+    }
+    if (activePoi.website && /^https?:\/\//.test(activePoi.website)) {
+      const a = document.createElement('a')
+      a.href = activePoi.website
+      a.target = '_blank'
+      a.rel = 'noopener noreferrer'
+      a.textContent = `${poiText.website} ↗`
+      box.append(a)
+    }
+    const popup = new lib.Popup({
+      closeButton: pinned,
+      closeOnClick: false,
+      closeOnMove: false,
+      offset: [6, -14],
+      anchor: 'bottom-left',
+      maxWidth: '280px',
+      className: pinned ? 'poi-popup is-pinned' : 'poi-popup',
+    })
+      .setLngLat(activePoi.point)
+      .setDOMContent(box)
+      .addTo(map.current)
+    const btn = popup.getElement()?.querySelector('.maplibregl-popup-close-button')
+    btn?.setAttribute('aria-label', poiText.close)
+    btn?.setAttribute('title', poiText.close)
+    popup.on('close', () => {
+      if (poiPopup.current === popup) setPoiPinned(null)
+    })
+    poiPopup.current = popup
+    // poiText is static per language
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready, activePoi, pinned])
+
 
   // highlight the buildings of the programme's campus sites
   useEffect(() => {

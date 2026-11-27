@@ -21,12 +21,8 @@ function factText(f: Fact, t: ReturnType<typeof useI18n>['t'], duration: (m: num
       return t('compare.fitBetter', { a: f.a, fa: f.fa, fb: f.fb })
     case 'fitEqual':
       return t('compare.fitEqual', { a: f.a, b: f.b })
-    case 'rentVsTime':
-      return t('compare.rentVsTime', { a: f.a, eur: f.eur, time: duration(f.min) })
-    case 'rentAndTime':
-      return t('compare.rentAndTime', { a: f.a, eur: f.eur, time: duration(f.min) })
-    case 'timeOnly':
-      return t('compare.timeOnly', { a: f.a, time: duration(f.min) })
+    case 'cheaper':
+      return t('compare.cheaper', { a: f.a, eur: f.eur })
     case 'destDiff':
       return t('compare.destDiff', { a: f.a, dest: f.dest, time: duration(f.min) })
   }
@@ -52,7 +48,6 @@ export function CompareView({ places, cells }: { places: Place[]; cells: Record<
       id: p.id,
       name: short(p),
       fit: d?.fit ?? null,
-      weeklyMin: d?.weekly_min ?? null,
       rentEur: p.rentEur,
       minutes: Object.fromEntries((d?.fit_parts ?? []).map((x) => [typeLabel(x.destination_type), x.minutes])),
     }
@@ -71,9 +66,7 @@ export function CompareView({ places, cells }: { places: Place[]; cells: Record<
     return bi
   }
   const fits = places.map((p) => detail(p)?.fit ?? null)
-  const weeks = places.map((p) => detail(p)?.weekly_min ?? null)
   const bestFit = best(fits, (a, b) => a > b)
-  const bestWeek = best(weeks, (a, b) => a < b)
   const types = [...new Set(places.flatMap((p) => (detail(p)?.fit_parts ?? []).map((x) => x.destination_type)))]
 
   const row = (title: string, cellsOf: (p: Place, i: number) => ReactNode, key: string) => (
@@ -129,11 +122,6 @@ export function CompareView({ places, cells }: { places: Place[]; cells: Record<
               const r = fit.data && fits[i] != null ? cityRank(fit.data.cells, fits[i]) : null
               return r == null ? '–' : t('compare.rankTop', { pct: Math.max(1, 100 - r) })
             }, 'rank')}
-            {row(t('compare.row.weekly'), (_, i) => (
-              <>
-                {weeks[i] == null ? '–' : `≈ ${duration(weeks[i]!)}`} {i === bestWeek && star}
-              </>
-            ), 'weekly')}
             {row(t('compare.row.rent'), (p) => (p.rentEur == null ? t('rent.none') : t('rent.value', { eur: p.rentEur })), 'rent')}
             {types.map((ty) => {
               const parts = places.map((p) => detail(p)?.fit_parts?.find((x) => x.destination_type === ty) ?? null)

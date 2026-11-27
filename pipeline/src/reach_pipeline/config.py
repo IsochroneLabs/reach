@@ -163,7 +163,6 @@ class DestinationType(_Model):
     nearest_k: int | None = Field(default=None, ge=1)
     trip_window: str
     fine_time_min: float = Field(gt=0)
-    trips_per_week: float = Field(ge=0)
 
     @field_validator("tags", "require", "exclude")
     @classmethod
@@ -176,8 +175,8 @@ class DestinationType(_Model):
             raise ValueError("source osm needs tags and a location")
         if self.source != "osm" and (self.tags or self.location is not None):
             raise ValueError(f"source {self.source} takes no tags or location")
-        if self.source == "labels" and (self.nearest_k is not None or self.trips_per_week):
-            raise ValueError("source labels takes no nearest_k and no trips_per_week")
+        if self.source == "labels" and self.nearest_k is not None:
+            raise ValueError("source labels takes no nearest_k")
         return self
 
 
@@ -410,6 +409,18 @@ class Alma(_Model):
         return v
 
 
+class UniBuildings(_Model):
+    """Official address list of the university buildings (notes N30): building name, institutes,
+    address and map sheet, fetched once per semester to map Alma buildings to campus sites."""
+
+    list_url: str = Field(pattern=r"^https://")
+    user_agent: str = Field(min_length=1)
+    rate_limit_s: float = Field(ge=2)
+    timeout_s: float = Field(gt=0)
+    retries: int = Field(ge=0)
+    backoff_s: float = Field(ge=0)
+
+
 class Otp(_Model):
     """OpenTripPlanner (O17): URL from $OTP_URL; queried per pair with bounded concurrency."""
 
@@ -525,6 +536,7 @@ class Config(_Model):
     otp: Otp | None = None
     # Optional: the Alma crawl (`python -m reach_pipeline.alma`, F3.2); no stage depends on it.
     alma: Alma | None = None
+    uni_buildings: UniBuildings | None = None
     travel_times: TravelTimes
     validation: Validation
     database: Database

@@ -306,7 +306,6 @@ async def place_detail(
         "populated": bool(row["populated"]),
         "trips": await decorate(d.db, model, profile, trips(model, profile, chosen, out)),
         "fit": summary["fit"],
-        "weekly_min": summary["weekly_min"],
         "reasons": summary["reasons"],
         "fit_parts": summary["fit_parts"],
     }
