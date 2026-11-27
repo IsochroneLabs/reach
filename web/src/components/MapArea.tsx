@@ -9,10 +9,12 @@ import { useListings } from '../remote/listings'
 import { useRefs } from '../remote/refs'
 import { MAX_PLACES } from '../settings'
 import { useStore } from '../state/store'
+import { storage } from '../state/storage'
 import type { DrawCell, MapMarker } from './MapView'
 import { useToast } from './Toast'
 
 const MapView = lazy(() => import('./MapView').then((m) => ({ default: m.MapView })))
+const CELLS_KEY = 'reach.v1.cells'
 
 export function FitLegend() {
   const { t } = useI18n()
@@ -47,6 +49,13 @@ export function MapArea() {
   const [popupCell, setPopupCell] = useState<string | null>(null)
   const [failed, setFailed] = useState(false)
   const [loaded, setLoaded] = useState(false)
+  const [showCells, setShowCells] = useState(() => storage.get(CELLS_KEY) !== '0')
+
+  const toggleCells = () => {
+    const next = !showCells
+    setShowCells(next)
+    storage.set(CELLS_KEY, next ? '1' : '0')
+  }
 
   const extra = useExtraCells()
   const cells: DrawCell[] = useMemo(() => {
@@ -184,6 +193,7 @@ export function MapArea() {
           <MapView
             bounds={bounds}
             cells={cells}
+            showCells={showCells}
             markers={markers}
             focus={state.focus}
             label={t('map.label')}
@@ -205,7 +215,27 @@ export function MapArea() {
       {loaded && state.mode === 'check' && state.places.length < MAX_PLACES && (
         <p className="map-hint">{t('map.pinHint')}</p>
       )}
-      <FitLegend />
+      <div className="map-toggles" role="group" aria-label={t('map.toggles')}>
+        <button
+          type="button"
+          className="map-toggle"
+          aria-pressed={showCells}
+          title={t('map.toggle.cells.title')}
+          onClick={toggleCells}
+        >
+          {t('map.toggle.cells')}
+        </button>
+        <button
+          type="button"
+          className="map-toggle"
+          aria-pressed={listings.enabled}
+          title={t('map.toggle.listings.title')}
+          onClick={() => listings.setEnabled(!listings.enabled)}
+        >
+          {t('map.toggle.listings')}
+        </button>
+      </div>
+      {showCells && <FitLegend />}
       <p className="map-attrib">{t('map.attribution')}</p>
     </div>
   )

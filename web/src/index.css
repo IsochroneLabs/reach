@@ -347,7 +347,18 @@ dialog.about::backdrop { background: rgb(17 17 17 / 40%); }
 
 /* map extras */
 .map-wrap { position: absolute; inset: 0; }
-.map-hint { position: absolute; top: var(--s-3); left: var(--s-3); z-index: 5; background: var(--paper); border: 1px solid var(--ink); padding: 2px var(--s-2); font-size: var(--t-small); margin: 0; }
+.map-hint { position: absolute; top: 3.1rem; left: var(--s-3); z-index: 5; background: var(--paper); border: 1px solid var(--ink); padding: 2px var(--s-2); font-size: var(--t-small); margin: 0; }
+.map-toggles {
+  position: absolute; top: var(--s-3); left: var(--s-3); z-index: 6;
+  display: flex; border: 1px solid var(--ink); background: var(--paper);
+}
+.map-toggle {
+  border: 0; border-right: 1px solid var(--ink); background: transparent; color: var(--ink);
+  padding: 0 var(--s-2); min-height: 28px; font-family: var(--f-mono); font-size: var(--t-micro);
+  letter-spacing: var(--track); text-transform: uppercase; cursor: pointer;
+}
+.map-toggle:last-child { border-right: 0; }
+.map-toggle[aria-pressed='true'] { background: var(--ink); color: var(--paper); }
 .rank-marker { display: grid; place-items: center; width: 28px; height: 28px; background: var(--ink); color: var(--paper); font-family: var(--f-mono); font-weight: 600; border: 2px solid var(--paper); outline: 1px solid var(--ink); cursor: pointer; padding: 0; }
 .pin-wrap { padding: 0; border: 0; background: none; cursor: pointer; width: 30px; height: 36px; }
 .cell-popup p { margin: 0 0 0.4rem; }

@@ -44,3 +44,13 @@ test('WG-Gesucht listings: toggle, cards and detail', async ({ page, isMobile })
     /wg-gesucht\.de/,
   )
 })
+
+test('the map toggles hide the grid and show the WG listings', async ({ page, isMobile }) => {
+  test.skip(!!isMobile, 'the bottom sheet peek hides the listing list')
+  await page.goto('/')
+  await expect(page.locator('.legend')).toBeVisible()
+  await page.getByRole('button', { name: 'Grid', exact: true }).click()
+  await expect(page.locator('.legend')).toHaveCount(0)
+  await page.getByRole('button', { name: 'WGs', exact: true }).click()
+  await expect(page.locator('.listing-card').first()).toBeVisible()
+})

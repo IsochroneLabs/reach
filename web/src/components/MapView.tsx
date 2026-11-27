@@ -72,6 +72,7 @@ function toGeoJson(cells: DrawCell[]) {
 export function MapView({
   bounds,
   cells,
+  showCells,
   markers,
   focus,
   label,
@@ -82,6 +83,8 @@ export function MapView({
 }: {
   bounds: [LonLat, LonLat] | null
   cells: DrawCell[]
+  /** false = hide the 100 m grid and its legend (the map toggle) */
+  showCells: boolean
   markers: MapMarker[]
   focus: LonLat | null
   label: string
@@ -195,6 +198,15 @@ export function MapView({
     if (!ready || !map.current) return
     ;(map.current.getSource('cells') as GeoJSONSource).setData(toGeoJson(cells))
   }, [ready, cells])
+
+  // grid visibility (map toggle): the layers exist once the style has loaded
+  useEffect(() => {
+    if (!ready || !map.current) return
+    const visibility = showCells ? 'visible' : 'none'
+    for (const id of ['cells-fill', 'cells-nodata', 'cells-line', 'cells-outline']) {
+      map.current.setLayoutProperty(id, 'visibility', visibility)
+    }
+  }, [ready, showCells])
 
   // markers
   useEffect(() => {
