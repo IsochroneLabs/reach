@@ -385,3 +385,22 @@ time of the listing's **cell**, not of its point; F4.5 point routing is not buil
 Images stay links to the source; some WG-Gesucht images answer 403 and the card then shows the
 hatched placeholder. The SMP permission request (extension plan appendix A) is still not sent
 (N20); the crawl stays local to the demo until it is.
+
+## N27. Point routing (F4.5): warm latency, cold OTP, cell vs point
+
+**Status:** done 27 Nov 2026 (Juju's task) · **Related:** F4.5, architecture O25, V11, data contract
+`POST /api/place`
+
+`POST /api/place` routes one point to the nearest k per weighted type and label and all campus
+sites: walk and bike as one Valhalla matrix each, transit and bike + transit as one OTP query per
+target and window (concurrency 4), transit capped by walking. The fit is derived from those times
+with the same code as `/api/cell`; no cache (O25). The listing detail uses the point and falls back
+to the cell if the engines fail; the list's fit stays the cell fit.
+
+Measured on the local stack (27 Nov 2026, 11 targets, default profile): 0.22–0.26 s warm;
+3.5 s on the first call after OTP started (graph warm-up). V11 on the same point: median difference
+to the cell times 0 min, maximum 1 min; fit 99 vs 99, weekly 133 vs 137 min. Geocoding of listing
+addresses moved to `listings/geocode.py` (house → street → marker) and still runs in the crawl; the
+API takes the resulting point. The OTP client in `api/otp.py` is a small copy of
+`reach_pipeline.otp` (the API image should not pull in DuckDB/GeoPandas); keep the two in sync or
+extract a shared package later.

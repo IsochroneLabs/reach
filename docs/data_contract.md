@@ -123,6 +123,15 @@ Errors: `{"detail": …}` with 404, 422, 429 (`Retry-After`), 502/503/504. Coord
 | `POST /api/addresses/search` `{q}` | `[{label, cell_id, point}]`, at most `api.address_search.limit`, origin cells only |
 | `POST /api/fit` `FitRequest` | `{run_id, areas: [Area], cells: {cell_id: [fit, weekly_min, populated]}}` |
 | `POST /api/cell/{cell_id}` `FitRequest` | `{cell_id, district, point, populated, trips: [Trip], fit, weekly_min, reasons: [Reason], fit_parts: [FitPart]}` |
+| `POST /api/place` `{point: [lon, lat], profile: FitRequest}` | same shape as `/api/cell/{id}` with `point` = the given point (F4.5) |
+
+**Point routing (F4.5):** the nearest k destinations per chosen type and label and all campus
+sites, selected in `current` with `ORDER BY geom <-> point` in EPSG:25832; walk and bike as one
+Valhalla `sources_to_targets` matrix per mode, transit and bike + transit as one OpenTripPlanner
+query per target and trip window (bounded concurrency, transit capped by walking). The fit is
+derived from these times with the same code as `/api/cell`; nothing is cached (O25). 404 when the
+point is outside the published cells, 422 for an empty profile or no route, 503 when an engine is
+unavailable. `/api/cell/{id}` keeps the cell values (fast) for the map and the Check list.
 
 **FitRequest** (the student profile): `programme` (null = `default_mix`), `campus_days`
 (`site_id` → days per week, optional), `modes` (≥ 1), `destinations` (key = destination type or
@@ -336,6 +345,7 @@ geocoding, the point (`POST /api/place`). Nothing of it is stored on the server.
 
 | Version | Date | Change | Why |
 |---|---|---|---|
+| proposed (F4.5) | 2026-11-27 | `POST /api/place` (point → nearest targets, walk/bike matrix, transit per window, fit from point times, no cache) | F4.5, architecture O25, V11 |
 | proposed (F4.6) | 2026-11-27 | API of the current listings (`GET /api/listings`, `POST /api/listings/fit`, fit from the cell until F4.5) | F4.6 built on the F4.1 proposal |
 | proposed (F4.1) | 2026-11-27 | Listings: schema `lst_<id>` (`listings`, `listing_travel_times`, `listing_report`), views `listings.*`, retention, personal-data reductions, parser output, variant C, files | Extension plan F4.1, architecture O24/O25; version bump once the team confirms |
 | v1.1.0 draft | 2026-11-27 | S1.4: all run-schema tables (`cells.populated`, destinations, labels, campus sites, programmes, addresses, stop departures, trip windows, travel times with transit legs) and all API responses after `web/src/api/types.ts`; `validate/` files of S1.6, `transit/`, `travel_times/`, `validate_results/` | Phase 1 core built by Juju's session (decision of 27 Nov 2026: "nothing depends on Rico"); the web client already uses these shapes on fixtures |

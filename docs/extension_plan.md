@@ -541,7 +541,14 @@ publish_listings. Polite rate limit from config, stop and notify on captcha or u
 never bypass bot protection. Take the lock shared with make refresh. Recorded pages in tests.
 ```
 
-#### F4.5 Geocoding and routing of a listing point — target 8 Jan
+#### F4.5 Geocoding and routing of a listing point — target 8 Jan · done (27 Nov 2026)
+
+- **State:** `pipeline/src/reach_pipeline/listings/geocode.py` (house number → street → marker);
+  `POST /api/place` routes one point to the nearest k per weighted type and label and all campus
+  sites (Valhalla costmatrix for walk/bike, OTP per target and window, transit capped by walking),
+  derives the fit from those times and caches nothing (O25). The listing detail uses the point and
+  falls back to the cell. Measured 0.22–0.26 s warm and 3.5 s on the first call after OTP started
+  (graph warm-up); V11 median 0 min, max 1 min against the cell times (notes N27).
 
 - **Branch:** `feature/juju-point-routing`.
 - **Touches:** `pipeline/src/reach_pipeline/listings/geocode.py` (against `current.addresses`:

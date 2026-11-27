@@ -4,6 +4,8 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+- Point routing (F4.5): `POST /api/place` routes one point to the nearest k per type and label and all campus sites (Valhalla matrix for walk/bike, OpenTripPlanner per target and trip window, transit capped by walking), derives the fit from these times and caches nothing; the listing detail uses the exact point and falls back to the cell (notes N27)
+- Geocoding of listing addresses moved to `pipeline/src/reach_pipeline/listings/geocode.py` (house → street → marker); the crawl uses it unchanged
 - Map controls: "Kacheln" / "Grid" hides the 100 m fit grid and its legend, "WGs" shows the WG-Gesucht markers and the listing list; both choices stay in `localStorage`, so the map can show the streets and only the WG markers
 - Basemap (D5): a 4.5 MB simplified extract of the Tübingen OSM roads, water, green spaces and rail (21,017 features) plus a hand-written monochrome MapLibre style, served from our own origin; the map shows streets instead of a plain background, the cells stay on top (notes N18; the N18 vector-tile build remains the production target)
 - API image: `pandas` and `numpy` are declared dependencies (Juju's yes, 27 Nov 2026), so the container starts again; the DB contract test expects the listings migration
