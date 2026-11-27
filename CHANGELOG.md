@@ -4,6 +4,8 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+- Basemap (D5): a 4.5 MB simplified extract of the Tübingen OSM roads, water, green spaces and rail (21,017 features) plus a hand-written monochrome MapLibre style, served from our own origin; the map shows streets instead of a plain background, the cells stay on top (notes N18; the N18 vector-tile build remains the production target)
+- API image: `pandas` and `numpy` are declared dependencies (Juju's yes, 27 Nov 2026), so the container starts again; the DB contract test expects the listings migration
 - WG-Gesucht listings in *Find* (F4.7 building block): a text toggle loads the published snapshot, photo-first cards sorted by the fit of the listing's cell, square map markers, a detail with rent, size, rooms, availability, features, the cell's trips, a link to the ad and "check this address"; `GET /api/listings` and `POST /api/listings/fit` read only `listings.listings`; 60 real Tübingen ads crawled on 27 Nov 2026 and published (notes N20, N26; F4.5 point routing still open)
 - Publish robustness: empty text values (e.g. a missing postcode) stay empty strings instead of NULL, unnamed destinations get their type label, and `current` views are dropped and recreated when a run adds or reorders a column
 - Listings (F4.2): parser for WG-Gesucht ad and search pages with the field spec of the data contract (contact data stripped, partial results with warnings instead of errors) and five anonymised fixtures

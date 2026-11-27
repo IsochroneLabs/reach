@@ -19,7 +19,7 @@ export const API_BASE: string = (
 export const USE_FIXTURES: boolean = import.meta.env.VITE_API_FIXTURES === '1' || !API_BASE
 
 /**
- * Optional basemap style URL (D5). Empty = plain background without a basemap. Must point to our
- * own origin (no third-party tile hosts, A6).
+ * Optional basemap style URL (D5). Empty = the bundled self-hosted style at /basemap/style.json
+ * (public OSM data, no third-party tile host). Must point to our own origin (A6).
  */
 export const BASEMAP_STYLE: string = import.meta.env.VITE_BASEMAP_STYLE ?? ''

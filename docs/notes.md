@@ -225,8 +225,16 @@ with a real API.
 
 ## N18. Basemap (D5): self-hosted vector tiles — proposal for a new O-decision
 
-**Status:** proposal, waiting for Rico's yes before it goes into `architecture.md` ·
+**Status:** implemented for the demo on 27 Nov 2026 as a self-hosted GeoJSON; the O-number and
+Rico's yes for the vector-tile build are still open ·
 **Related:** D5, A6, `docs/app_screens.md` §5.1, decided in principle 24 Nov 2026
+
+**Demo implementation (27 Nov 2026, Juju's request):** `web/public/basemap/` ships a 4.5 MB
+simplified GeoJSON of roads, water, green spaces and rail (21,017 features) from the 27 Nov OSM
+extract, plus a hand-written monochrome MapLibre style; `MapView` loads `/basemap/style.json` when
+`VITE_BASEMAP_STYLE` is empty. No tile host, no glyphs, no new npm package; the file is public OSM
+data, not pipeline data. Limits: no buildings, footpaths or labels, one file for the city instead
+of tiles. The vector-tile build below stays the production target.
 
 **Proposal (O-number on acceptance):** The basemap is a vector-tile extract of public
 OpenStreetMap data for the routing area (z ≤ 15), built in CI from a public Protomaps build and
