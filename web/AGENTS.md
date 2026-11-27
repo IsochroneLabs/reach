@@ -54,6 +54,9 @@ typed API client. Until the API of S1.10 is deployed it runs in **fixture mode**
   "unreachable" when the API fails).
 - **Mobile first, German and English,** accessible contrast; Playwright runs a desktop and a mobile
   project.
+- **Look and feel follow [`docs/design.md`](../docs/design.md)** (direction *Atelier*, architecture
+  O27): colour, type and spacing only from its tokens; rules R1–R10 (no shadows, gradients, rounded
+  corners, emoji or icon packages, no accent colour). A PR that breaks a rule says why.
 - **Deploys only through the workflows** (`ci.yml` previews, `deploy.yml` production). Never run
   `wrangler deploy` or `wrangler preview` by hand.
 
