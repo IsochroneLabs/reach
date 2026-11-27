@@ -60,3 +60,28 @@ programmes:
   social_sciences: {label: {en: Social sciences, de: Sozialwissenschaften}, sites: [tal]}
   psychology: {label: {en: Psychology, de: Psychologie}, sites: [tal]}
   sports_science: {label: {en: Sports science, de: Sportwissenschaft}, sites: [tal]}
+
+# Alma sessions → programme × site hours (F3.3, `python -m reach_pipeline.alma shares`).
+# building_sites: site → case-insensitive regexes on the building name Alma prints in brackets
+# after the room; first match wins. programme_numbers: programme → regexes on the start of the
+# module number; sessions without a number or with an unknown one do not count.
+alma:
+  max_session_h: 6             # longer entries are all-day blocks or placeholders
+  building_sites:
+    morgenstelle: [Morgenstelle, "\\bAdM\\b", "^[A-E]-Bau", "^N-Bau", Geo- und Umweltforschungszentrum, "Maria-von-Linden", Kristallographie, "Mineralogie", "Hörsaalzentrum"]
+    sand: ["^Sand\\b", "Informatik", "Terrassenbau", "Wilhelm-Schickard"]
+    schnarrenberg: ["^(?!Alte).*Klinik", "CRONA", "Hoppe-Seyler", "Otfried-Müller", "Schnarrenberg", "Elfriede-Aulhorn", "Röntgenweg"]
+    tal: [Neuphilologicum, "Neue Aula", Kupferbau, Hegelbau, Brechtbau, "Alte Frauenklinik", Theologicum, Schloss, "Hölderlin", "Sigwart", "WiWi", "Mohl", "Kepler", "Alte Archäologie", "\\bIfE\\b", "Clubhaus", "Wilhelmstr", "Nauklerstr", "Keltern", "Doblerstr", "Gmelinstr", "Münzgasse", "Bursagasse", "Holzmarkt", "Pfleghof", "Alte Physiologie", "Alte Botanik", "Liebermeister", "Psychologisches Institut", "Schleichstr", "Melanchthonstr", "Corrensstr", "Ammerbau", "Prinz Karl", "Sportinstitut", "Mensa Wilhelm"]
+  programme_numbers:
+    computer_science: ["INF(?!O)", "INFM", "MDZINF", "MEINF", "BIOINF", "KOG"]
+    data_science_ml: ["ML", "DS\\d", "DS-", "QDS"]
+    mathematics: ["MAT"]
+    physics: ["PHY", "NANO"]
+    chemistry: ["CHE"]
+    biology: ["Bio(?!INF)", "BIO(?!INF)", "BCH", "GTCNEURO"]
+    pharmacy: ["PHA"]
+    medicine: ["S\\d", "MEDZ"]
+    psychology: ["PSY"]
+    economics: ["WiWi", "WIWI", "WW", "ECO", "BWL", "VWL"]
+    law: ["JUR", "RW", "Jura"]
+    sports_science: ["SPO", "Spo"]

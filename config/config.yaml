@@ -496,3 +496,20 @@ api:
     min_chars: 3
   # Seconds between checks whether `current` points at another run (then the model reloads).
   model_refresh_s: 60
+
+# Public Alma timetable (F3.2, notes N23a; team decision 27 Nov 2026 to crawl politely):
+# `uv run python -m reach_pipeline.alma crawl` fetches the day view of each weekday of one
+# reference teaching week (2 requests per day, rate_limit_s apart) once per semester into
+# data/raw/alma/<semester>/; `shares` turns them into programme × site hours (campus.yaml alma).
+alma:
+  base_url: https://alma.uni-tuebingen.de
+  day_view_path: /alma/pages/cm/exa/timetable/currentLectures.xhtml?_flowId=showEventsAndExaminationsOnDate-flow&navigationPosition=studiesOffered%2CcurrentLecturesGeneric&recordRequest=true
+  user_agent: reach-student-project (University of Tuebingen course project DS500)
+  semester: Wintersemester 2026/27
+  reference_week: 2026-11-30   # a regular lecture week, no holidays
+  weekdays: 5
+  rows_per_page: 2000          # one page holds a whole day (about 1 200 sessions)
+  rate_limit_s: 20
+  timeout_s: 120
+  retries: 2
+  backoff_s: 10

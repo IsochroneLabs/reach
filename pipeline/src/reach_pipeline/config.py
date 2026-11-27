@@ -383,6 +383,33 @@ class OtpVerify(_Model):
     max_minutes: float = Field(gt=0)
 
 
+class Alma(_Model):
+    """Public Alma timetable (F3.2, notes N23a): one reference teaching week, polite crawl."""
+
+    base_url: str = Field(pattern=r"^https://")
+    day_view_path: str = Field(min_length=1)
+    user_agent: str = Field(min_length=1)
+    semester: str = Field(min_length=1)  # as Alma writes it, e.g. "Wintersemester 2026/27"
+    reference_week: date  # a Monday of the lecture period
+    weekdays: int = Field(default=5, ge=1, le=7)
+    rows_per_page: int = Field(gt=0)
+    rate_limit_s: float = Field(ge=5)
+    timeout_s: float = Field(gt=0)
+    retries: int = Field(ge=0)
+    backoff_s: float = Field(ge=0)
+
+    @property
+    def semester_key(self) -> str:
+        return re.sub(r"[^a-z0-9]+", "_", self.semester.lower()).strip("_")
+
+    @field_validator("reference_week")
+    @classmethod
+    def _monday(cls, v: date) -> date:
+        if v.weekday() != 0:
+            raise ValueError("reference_week must be a Monday")
+        return v
+
+
 class Otp(_Model):
     """OpenTripPlanner (O17): URL from $OTP_URL; queried per pair with bounded concurrency."""
 
@@ -471,6 +498,8 @@ class Config(_Model):
     tiles: Tiles
     valhalla: Valhalla
     otp: Otp | None = None
+    # Optional: the Alma crawl (`python -m reach_pipeline.alma`, F3.2); no stage depends on it.
+    alma: Alma | None = None
     travel_times: TravelTimes
     validation: Validation
     database: Database

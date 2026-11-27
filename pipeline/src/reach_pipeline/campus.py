@@ -43,6 +43,14 @@ class Programme(_Model):
     sites: list[str] = Field(min_length=1)
 
 
+class AlmaMatch(_Model):
+    """Patterns that turn Alma sessions into programme × site hours (F3.3)."""
+
+    building_sites: dict[str, list[str]] = Field(min_length=1)  # site → building regexes
+    programme_numbers: dict[str, list[str]] = Field(min_length=1)  # programme → number regexes
+    max_session_h: float = Field(gt=0)
+
+
 class Campus(_Model):
     match_radius_m: float = Field(gt=0)
     sites: dict[str, Place] = Field(min_length=1)
@@ -50,6 +58,7 @@ class Campus(_Model):
     university_sports: dict[str, Place] = Field(default_factory=dict)
     default_mix: dict[str, float] = Field(min_length=1)
     programmes: dict[str, Programme] = Field(min_length=1)
+    alma: AlmaMatch | None = None
 
     @model_validator(mode="after")
     def _known_sites(self):
