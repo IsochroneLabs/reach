@@ -267,7 +267,13 @@ and polygons vs. points. Write the result to docs/osm_tagging.md and the config 
 only, commented). Keep the measurement script on the exp branch.
 ```
 
-#### F2.2 Labels in `validate` — target 11 Dec
+#### F2.2 Labels in `validate` — target 11 Dec · done (27 Nov 2026)
+
+- **State:** `reach_pipeline.labels` (vectorised tag matching, edge-to-edge clustering, sports
+  centres) runs as osm pass 3 of `validate` and writes `validate/destination_labels.parquet`, one
+  row per destination and label instead of a `labels` array (clustering is per label, methodology
+  v1.3-draft §3.1); V10 in report part 1. Linking to the `destinations` of S1.6 happens in S1.6
+  or F2.4. Test clip: 291 labelled destinations, 40 labels offered, 0.3 s.
 
 - **Branch:** `feature/juju-destination-labels`.
 - **Touches:** `pipeline/src/reach_pipeline/destinations.py` (from S1.6), `stages/validate.py`,

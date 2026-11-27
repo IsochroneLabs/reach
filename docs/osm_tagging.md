@@ -76,10 +76,12 @@ Validation reports the number of excluded features per type and value.
 
 Taxonomy in `config/config.yaml` → `destination_labels` (methodology §3.1, architecture O22),
 decided by Juju on 26 Nov 2026. Counted on the routing-area extract of the T1 spike (Geofabrik
-`tuebingen-regbez`, 21 Nov 2026, city + 4 km) with the exploration script on
-`exp/juju-label-counts`. *Features* are OSM objects after the access filter (§3); *destinations* are
-what remains after clustering (same label within 75 m or inside the same
-`leisure=sports_centre`). A node and a building outline of the same shop count as one destination.
+`tuebingen-regbez`, 21 Nov 2026, city + 4 km) with `reach_pipeline.labels` (F2.2; first explored on `exp/juju-label-counts`). *Features* are
+OSM objects after the access filter (§3), each counted once; *destinations* are what remains after
+clustering: same label closer than 75 m **edge to edge**, or inside the same
+`leisure=sports_centre`. Neighbouring pitches therefore merge even when their centres are further
+apart; a node and a building outline of the same shop count as one destination. The validation
+report part 1 (V10) lists these counts on every run.
 
 ### 5.1 Supermarkets: brand and group
 
@@ -98,24 +100,24 @@ Every `shop=supermarket` gets **a brand** (if it matches one) and **exactly one 
 
 | label | features | destinations | examples |
 |---|---|---|---|
-| edeka | 16 | 11 | E-Center Haid, EDEKA, EDEKA Schöck, Edeka |
-| aldi_sued | 11 | 8 | Aldi Süd |
-| penny | 8 | 6 | PENNY, Penny |
-| lidl | 8 | 5 | Lidl |
-| rewe | 6 | 5 | REWE, Rewe |
-| netto | 6 | 4 | Netto Marken-Discount |
-| kaufland | 4 | 3 | Kaufland |
+| edeka | 11 | 11 | E-Center Haid, EDEKA, EDEKA Schöck, Edeka |
+| aldi_sued | 8 | 8 | Aldi Süd |
+| penny | 6 | 6 | PENNY, Penny |
+| lidl | 5 | 5 | Lidl |
+| rewe | 5 | 5 | REWE, Rewe |
+| netto | 4 | 4 | Netto Marken-Discount |
+| kaufland | 3 | 3 | Kaufland |
 | alnatura | 2 | 2 | Alnatura Super Natur Markt |
 | denns | 2 | 2 | Denns BioMarkt |
-| norma | 4 | 2 | Norma |
+| norma | 3 | 2 | Norma |
 | mix_markt | 1 | 1 | Mix Markt |
 | nahkauf | 1 | 1 | Nahkauf Hummel |
 
 | label | features | destinations | examples |
 |---|---|---|---|
-| discount | 37 | 25 | Aldi Süd, Lidl, Netto Marken-Discount, Norma |
-| full_range | 27 | 20 | E-Center Haid, EDEKA, EDEKA Schöck, Edeka |
-| organic | 11 | 10 | Alnatura Super Natur Markt, Bioladen Reusten, Biomarkt West, Denns BioMarkt |
+| discount | 26 | 25 | Aldi Süd, Lidl, Netto Marken-Discount, Norma |
+| full_range | 20 | 20 | E-Center Haid, EDEKA, EDEKA Schöck, Edeka |
+| organic | 10 | 10 | Alnatura Super Natur Markt, Bioladen Reusten, Biomarkt West, Denns BioMarkt |
 | international | 4 | 4 | Früchtehaus Al Schami, Ikram Supermarkt, Loretto Markt Salam, Mix Markt |
 | other | 4 | 4 | Bonus, Emmiy, Schmackes |
 | local | 3 | 3 | Dorfladen Pfrondorf, Löwen-Laden, Schmackes Alte Zimmerei |
@@ -136,29 +138,29 @@ offered (decision "everything in"), without a remark on the count.
 
 | label | features | destinations | examples |
 |---|---|---|---|
-| football | 371 | 145 | Affenkäfig Feuerhägle, Alter Lustnauer Sportplatz, Bolzplatz, Bolzplatz Gartenstraße |
-| table_tennis | 94 | 55 |  |
-| basketball | 112 | 53 | Affenkäfig Feuerhägle, Basketballkorb, Freilufthalle Holderfeld, Panzerhalle |
-| tennis | 270 | 41 | TC Nehren, TC Unterjesingen, TSG Tübingen, Tennisclub Dettenhausen |
-| athletics | 86 | 34 | Finnenbahn, SV-Bahn, Turnhalle Feuerhägle |
-| volleyball | 75 | 34 | Beachvolleyballfeld Freibad Entringen, TSG Tübingen |
-| equestrian | 88 | 33 | Abreiteplatz und Geländestrecke Reit- und Fahrverein Lustnau e.V., Erlenhof, Immenhof, Kehrerhof |
-| shooting_archery | 49 | 19 | Ammerbucher Sportschützen, Bogenschießplatz, Bogenwelt Indoor Schießanlage, Castle Archers |
-| boules | 35 | 18 | Boule Platz, Hufeisenplatz SV Gniebel |
-| fitness | 19 | 15 | 3 in One Bewegungspark, Anytime Gym, Cabriolo, Clever fit |
-| skate | 26 | 13 | 3 in One Bewegungspark, Dirtpark Wurmlingen, Fun-Park "Madach-Hägle", Halfpipe |
-| swimming | 20 | 12 | Freibad, Freibad Entringen, Freibad Mössingen, Hallenbad |
-| motor_model | 14 | 8 | Flugmodellsport-Club Reutlingen e.V., Flugsportverein Ammerbuch e.V., MFC Kusterdingen e.V., Modellflugplatz |
-| cycling | 15 | 7 | 3 in One Bewegungspark, BMX-Bahn TSV Betzingen, Bikepark Gomaringen, Dirtpark Wurmlingen |
-| handball | 12 | 6 |  |
-| other_team | 12 | 6 | Multifunktionssportplatz für Hockey und Fußblall |
-| climbing | 11 | 5 | B12 – DAV Boulderzentrum Tübingen, Clip'n'Climb, DAV Kletteranlage, Jump Area |
-| dance | 7 | 5 | Danzon, Rainbow Dance Factory, Tanzschule Olaf S., Tanzschule Salsamara |
-| golf | 6 | 5 | Golfclub Schloss Kressbach, Golfclub Schönbuch, Kleiner Schlossplatz |
+| football | 188 | 121 | Affenkäfig Feuerhägle, Alter Lustnauer Sportplatz, Bolzplatz, Bolzplatz Gartenstraße |
+| table_tennis | 77 | 55 |  |
+| basketball | 62 | 53 | Affenkäfig Feuerhägle, Basketballkorb, Freilufthalle Holderfeld, Panzerhalle |
+| tennis | 135 | 40 | TC Nehren, TC Unterjesingen, TSG Tübingen, Tennisclub Dettenhausen |
+| athletics | 58 | 32 | Finnenbahn, SV-Bahn, Turnhalle Feuerhägle |
+| volleyball | 39 | 34 | Beachvolleyballfeld Freibad Entringen, TSG Tübingen |
+| equestrian | 47 | 30 | Abreiteplatz und Geländestrecke Reit- und Fahrverein Lustnau e.V., Erlenhof, Immenhof, Kehrerhof |
+| shooting_archery | 27 | 19 | Ammerbucher Sportschützen, Bogenschießplatz, Bogenwelt Indoor Schießanlage, Castle Archers |
+| boules | 19 | 18 | Boule Platz, Hufeisenplatz SV Gniebel |
+| fitness | 15 | 15 | 3 in One Bewegungspark, Anytime Gym, Cabriolo, Clever fit |
+| skate | 15 | 13 | 3 in One Bewegungspark, Dirtpark Wurmlingen, Fun-Park "Madach-Hägle", Halfpipe |
+| swimming | 12 | 11 | Freibad, Freibad Entringen, Freibad Mössingen, Hallenbad |
+| motor_model | 8 | 8 | Flugmodellsport-Club Reutlingen e.V., Flugsportverein Ammerbuch e.V., MFC Kusterdingen e.V., Modellflugplatz |
+| cycling | 8 | 6 | 3 in One Bewegungspark, BMX-Bahn TSV Betzingen, Bikepark Gomaringen, Dirtpark Wurmlingen |
+| handball | 6 | 6 |  |
+| other_team | 6 | 4 | Multifunktionssportplatz für Hockey und Fußblall |
+| climbing | 8 | 5 | B12 – DAV Boulderzentrum Tübingen, Clip'n'Climb, DAV Kletteranlage, Jump Area |
+| dance | 5 | 5 | Danzon, Rainbow Dance Factory, Tanzschule Olaf S., Tanzschule Salsamara |
+| golf | 3 | 2 | Golfclub Schloss Kressbach, Golfclub Schönbuch, Kleiner Schlossplatz |
 | martial_arts | 3 | 3 | JSV Tübingen e.V., Kampfkunstzentrum Rottenburg, Taekwondo Creti |
 | yoga | 3 | 3 | Der Yogasalon, Namasté, Yoga Circle Tübingen |
 | bowling | 2 | 2 | Bowlingcenter Rottenburg |
-| racket_indoor | 4 | 2 | Cabriolo, Squashinsel |
+| racket_indoor | 3 | 2 | Cabriolo, Squashinsel |
 | water_sports | 1 | 1 | Ruderverein Fidelia |
 
 Caveats: `table_tennis` and many `basketball` destinations are outdoor tables and hoops in parks
@@ -180,9 +182,9 @@ activity.
 
 | label | features | destinations | examples |
 |---|---|---|---|
-| music | 15 | 13 | Kla4schule im Französischen Viertel, Massimiliano d’Antonio, Musikinsel bei der Ölmühle, Musikschule Ammerbuch |
-| arts | 9 | 7 | Club Voltaire, Epplehaus, Kulturhalle, Kulturzentrum beim Klosterhof |
-| chess | 10 | 6 |  |
+| music | 13 | 13 | Kla4schule im Französischen Viertel, Massimiliano d’Antonio, Musikinsel bei der Ölmühle, Musikschule Ammerbuch |
+| arts | 7 | 7 | Club Voltaire, Epplehaus, Kulturhalle, Kulturzentrum beim Klosterhof |
+| chess | 7 | 6 |  |
 | makerspace | 3 | 3 | FabLab, KI-Makerspace, iconet Foundation |
 
 `chess` destinations are mostly outdoor chess boards without a name; clubs are rarely mapped.
@@ -191,10 +193,10 @@ activity.
 
 | label | features | destinations | examples |
 |---|---|---|---|
-| christian | 256 | 131 | .Heilig-Kreuz- und Wendelinskirche, Adventgemeinde, Albert-Schweitzer-Kirche, Altstadtkapelle |
+| christian | 136 | 129 | .Heilig-Kreuz- und Wendelinskirche, Adventgemeinde, Albert-Schweitzer-Kirche, Altstadtkapelle |
 | muslim | 3 | 3 | DITIB Moschee, Fatih Camii, IGMG Moschee Tübingen |
-| buddhist | 2 | 1 | Chùa Viên Quang Pagode |
-| unknown | 2 | 1 |  |
+| buddhist | 1 | 1 | Chùa Viên Quang Pagode |
+| unknown | 1 | 1 |  |
 
 ## Sources
 
