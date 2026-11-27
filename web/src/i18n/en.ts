@@ -8,6 +8,8 @@ export const en = {
   'search.placeholder': 'Search an address in Tübingen…',
   'search.label': 'Address search',
   'search.open': 'Search an address',
+  'search.short': 'Search',
+  'about.short': 'About',
   'search.tooShort': 'Type at least 3 characters',
   'search.noHit': 'No address found in Tübingen. Try the street only, or drop a pin on the map.',
   'search.loading': 'Searching…',

@@ -6,7 +6,7 @@ import { useI18n } from '../i18n/i18n'
 import { choosableKeys, groceryLabels, isContainer, resolveKey, type DestinationKey } from '../state/labels'
 import { defaultProfile, normalise, type StudentProfile } from '../state/profile'
 import { useStore } from '../state/store'
-import { ModeIcon, TripWindowText } from './Minutes'
+import { TripWindowText } from './Minutes'
 import { useToast } from './Toast'
 
 const IMPORTANCE: Importance[] = [0, 1, 2, 3]
@@ -102,7 +102,6 @@ function ModeToggles({ modes }: { modes: Mode[] }) {
                 dispatch({ type: 'profile', profile: { ...state.profile, modes: next } })
               }}
             >
-              <ModeIcon mode={m} title="" />
               {t(`mode.${m}`)}
             </button>
           )

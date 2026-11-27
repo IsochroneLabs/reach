@@ -10,6 +10,8 @@ export const de: Record<TextKey, string> = {
   'search.placeholder': 'Adresse in Tübingen suchen…',
   'search.label': 'Adresssuche',
   'search.open': 'Adresse suchen',
+  'search.short': 'Suche',
+  'about.short': 'Info',
   'search.tooShort': 'Mindestens 3 Zeichen eingeben',
   'search.noHit':
     'Keine Adresse in Tübingen gefunden. Versuch es nur mit der Straße oder setze eine Markierung auf der Karte.',
