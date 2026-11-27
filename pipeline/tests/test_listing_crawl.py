@@ -13,6 +13,8 @@ from shapely.geometry import Point
 from reach_pipeline.config import load_config
 from reach_pipeline.errors import ExternalError
 from reach_pipeline.listings import crawl
+from reach_pipeline.listings.geocode import geocode, split_address
+from reach_pipeline.zensus import cell_ids
 
 REPO = Path(__file__).resolve().parents[2]
 FIX = Path(__file__).parent / "fixtures" / "listings"
@@ -36,7 +38,7 @@ def _run_dir(tmp_path: Path) -> None:
         {"street": ["Spemannstraße", "Spemannstraße"], "housenumber": ["1", "3"]},
         geometry=pts,
     ).to_parquet(v / "addresses.parquet")
-    crawl.cell_ids(pts)[["cell_id"]].to_parquet(v / "cells.parquet")
+    cell_ids(pts)[["cell_id"]].to_parquet(v / "cells.parquet")
 
 
 def _transport(pages: dict[str, str], seen: list[str]) -> httpx.MockTransport:
@@ -94,10 +96,10 @@ def test_geocode_precision_order() -> None:
             "source_lon": [None, None, 9.05, None],
         }
     )
-    g = crawl.geocode(lst, addr)
+    g = geocode(lst, addr)
     assert g["geocode_precision"].tolist()[:3] == ["house", "street", "marker"]
     assert pd.isna(g["geocode_precision"].iloc[3]) and g.geometry.iloc[3] is None
-    assert crawl.split_address("Hölderlinstraße 10 a") == ("hölderlinstr", "10a")
+    assert split_address("Hölderlinstraße 10 a") == ("hölderlinstr", "10a")
 
 
 def test_block_page_stops(tmp_path) -> None:

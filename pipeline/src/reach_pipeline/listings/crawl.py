@@ -26,12 +26,11 @@ import pandas as pd
 
 from reach_pipeline.config import Config, Listings, load_config
 from reach_pipeline.errors import ExternalError, StageValidationError
+from reach_pipeline.listings.geocode import assign_cells, geocode
 from reach_pipeline.listings.parse import SearchHit, parse_ad, parse_search
-from reach_pipeline.zensus import cell_ids
 
 log = logging.getLogger(__name__)
 
-CRS = "EPSG:25832"
 SNAPSHOTS = "listings"
 _BLOCKED = re.compile(r"captcha|Sicherheitsabfrage|Zugriff verweigert|Access denied", re.I)
 # Markers of a real search or ad page; a block word on such a page (e.g. a login captcha
@@ -89,79 +88,6 @@ def search(fetcher: Fetcher, cfg: Listings, max_pages: int) -> list[SearchHit]:
             if not new:
                 break
     return list(hits.values())
-
-
-# --- geocoding (F4.5, against validate/addresses.parquet) ----------------------------------------
-
-_STREET_ABBR = (("straße", "str"), ("strasse", "str"), ("str.", "str"))
-
-
-def norm_street(text: str | None) -> str | None:
-    if not isinstance(text, str) or not text:
-        return None
-    t = text.lower().strip()
-    for a, b in _STREET_ABBR:
-        t = t.replace(a, b)
-    return re.sub(r"[^a-z0-9äöüß]+", "", t) or None
-
-
-def split_address(text: str | None) -> tuple[str | None, str | None]:
-    """`Wilhelmstraße 5a` → (`wilhelmstr`, `5a`); no number → (street, None)."""
-    if not isinstance(text, str) or not text:
-        return None, None
-    m = re.match(r"^\s*(.*?)\s+(\d+\s*[a-zA-Z]?)\s*$", text)
-    if not m:
-        return norm_street(text), None
-    return norm_street(m.group(1)), m.group(2).replace(" ", "").lower()
-
-
-def geocode(listings: pd.DataFrame, addresses: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
-    """Point and precision per listing: exact house number → `house`, street mean → `street`,
-    else the ad's own map marker → `marker` (approximate), else none."""
-    a = addresses.assign(
-        _s=addresses["street"].map(norm_street),
-        _h=addresses["housenumber"].astype(str).str.replace(" ", "").str.lower(),
-        _x=addresses.geometry.x,
-        _y=addresses.geometry.y,
-    )
-    house = a.groupby(["_s", "_h"])[["_x", "_y"]].mean()
-    street = a.groupby("_s")[["_x", "_y"]].mean()
-    parts = listings["address_text"].map(split_address)
-    s = parts.str[0]
-    h = parts.str[1]
-    xy = pd.DataFrame(index=listings.index, columns=["x", "y"], dtype=float)
-    precision = pd.Series(pd.NA, index=listings.index, dtype="object")
-    hk = pd.MultiIndex.from_arrays([s, h])
-    hit = hk.isin(house.index)
-    xy.loc[hit, ["x", "y"]] = house.loc[hk[hit]].to_numpy()
-    precision[hit] = "house"
-    st = ~hit & s.isin(street.index).to_numpy()
-    xy.loc[st, ["x", "y"]] = street.loc[s[st]].to_numpy()
-    precision[st] = "street"
-    marker = precision.isna() & listings["source_lat"].notna()
-    if marker.any():
-        pts = gpd.GeoSeries(
-            gpd.points_from_xy(
-                listings.loc[marker, "source_lon"], listings.loc[marker, "source_lat"]
-            ),
-            crs="EPSG:4326",
-        ).to_crs(CRS)
-        xy.loc[marker, "x"] = pts.x.to_numpy()
-        xy.loc[marker, "y"] = pts.y.to_numpy()
-        precision[marker] = "marker"
-    geom = gpd.points_from_xy(xy["x"], xy["y"])
-    out = gpd.GeoDataFrame(listings.assign(geocode_precision=precision), geometry=geom, crs=CRS)
-    out.loc[precision.isna(), "geometry"] = None
-    return out
-
-
-def assign_cells(listings: gpd.GeoDataFrame, cells: pd.DataFrame) -> pd.Series:
-    """Zensus cell of each point; points outside the run's cells get none."""
-    ok = listings.geometry.notna() & ~listings.geometry.is_empty
-    ids = pd.Series(pd.NA, index=listings.index, dtype="object")
-    if ok.any():
-        ids[ok] = cell_ids(listings.loc[ok].geometry)["cell_id"].to_numpy()
-    return ids.where(ids.isin(set(cells["cell_id"])))
 
 
 # --- snapshot -----------------------------------------------------------------------------------
