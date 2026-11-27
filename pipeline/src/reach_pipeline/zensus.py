@@ -47,6 +47,25 @@ def read_grid(csv: Path, bounds_3035: tuple[float, float, float, float]) -> pd.D
     return df.astype({"cell_id": str, "population": "int64"})
 
 
+def cell_ids(points: gpd.GeoSeries) -> pd.DataFrame:
+    """Zensus grid cell of each point: `cell_id` (lower-left corner, as in the Zensus files) and
+    the cell centre `x`, `y` in EPSG:3035."""
+    xy = np.column_stack([points.to_crs(GRID_CRS).x, points.to_crs(GRID_CRS).y])
+    ll = (np.floor(xy / CELL_SIZE_M) * CELL_SIZE_M).astype("int64")
+    ids = [f"CRS3035RES100mN{y}E{x}" for x, y in ll]
+    return pd.DataFrame(
+        {"cell_id": ids, "x": ll[:, 0] + CELL_SIZE_M / 2, "y": ll[:, 1] + CELL_SIZE_M / 2}
+    )
+
+
+def address_cells(grid: pd.DataFrame, points: gpd.GeoSeries) -> pd.DataFrame:
+    """Cells with a residential address but not in the population grid (arch. O13, A1), in the
+    shape of `read_grid` with population 0."""
+    cells = cell_ids(points).drop_duplicates("cell_id")
+    cells = cells[~cells["cell_id"].isin(grid["cell_id"])]
+    return cells.assign(population=0).astype({"population": "int64"}).reset_index(drop=True)
+
+
 def cell_geometries(grid: pd.DataFrame) -> gpd.GeoDataFrame:
     """100 m cell polygon (geometry) and cell-centre origin (`origin_geom`), both in EPSG:25832."""
     x, y = grid["x"].to_numpy(float), grid["y"].to_numpy(float)

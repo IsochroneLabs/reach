@@ -5,6 +5,7 @@ import type { GeoJSONSource, Map as MlMap, MapMouseEvent, Marker, Popup } from '
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url'
 
 import type { LonLat } from '../api/types'
+import type { RouteLine } from '../remote/listings'
 import { BASEMAP_STYLE } from '../config'
 import { cellRing } from '../geo/laea'
 
@@ -19,19 +20,32 @@ export interface MapMarker {
   key: string
   point: LonLat
   text: string
-  kind: 'rank' | 'pin' | 'label'
+  kind: 'rank' | 'pin' | 'label' | 'poi' | 'listing'
   title: string
   onClick?: () => void
 }
 
-const RAMP = ['#440154', '#443983', '#31688e', '#21918c', '#35b779', '#90d743', '#fde725']
-const NO_DATA = '#c3c8c4'
+// Monochrome fit ramp, low → high (docs/design.md §6; same values as --fit-0 … --fit-6 in index.css).
+const RAMP = ['#efefef', '#d2d2d2', '#b0b0b0', '#8c8c8c', '#686868', '#444444', '#1c1c1c']
+const WASH = '#f1f1ef'
+const HATCH_INK = '#666666'
 
-/** Plain background (D5 not built yet, notes N18): no third-party tiles, glyphs or sprites. */
-const PLAIN_STYLE = {
-  version: 8 as const,
-  sources: {},
-  layers: [{ id: 'bg', type: 'background' as const, paint: { 'background-color': '#e9ece8' } }],
+/** Self-hosted streets, water, rail and green spaces (D5); cells are drawn on top. */
+const DEFAULT_BASEMAP = '/basemap/style.json'
+
+/** 6 px tile with one 45° line: cells without a fit are hatched, not coloured. */
+function hatchImage(): ImageData {
+  const n = 6
+  const c = document.createElement('canvas')
+  c.width = c.height = n
+  const g = c.getContext('2d')!
+  g.strokeStyle = HATCH_INK
+  g.lineWidth = 1
+  g.beginPath()
+  g.moveTo(0, n)
+  g.lineTo(n, 0)
+  g.stroke()
+  return g.getImageData(0, 0, n, n)
 }
 
 function toGeoJson(cells: DrawCell[]) {
@@ -59,7 +73,10 @@ function toGeoJson(cells: DrawCell[]) {
 export function MapView({
   bounds,
   cells,
+  showCells,
   markers,
+  routes,
+  universitySites,
   focus,
   label,
   popup,
@@ -69,7 +86,13 @@ export function MapView({
 }: {
   bounds: [LonLat, LonLat] | null
   cells: DrawCell[]
+  /** false = hide the 100 m grid and its legend (the map toggle) */
+  showCells: boolean
   markers: MapMarker[]
+  /** live walk/bike routes of the selected listing (F4.5) */
+  routes: RouteLine[]
+  /** campus sites of the profile's programme; their buildings get the stronger outline */
+  universitySites: string[]
   focus: LonLat | null
   label: string
   popup: { point: LonLat; content: ReactNode; onClose: () => void } | null
@@ -104,7 +127,7 @@ export function MapView({
         lib.setWorkerUrl(workerUrl)
         const m = new lib.Map({
           container: box.current,
-          style: BASEMAP_STYLE || PLAIN_STYLE,
+          style: BASEMAP_STYLE || DEFAULT_BASEMAP,
           bounds: bounds ?? undefined,
           // phones: keep the cells above the bottom sheet (peek ≈ 32 % of the height)
           fitBoundsOptions: {
@@ -120,33 +143,86 @@ export function MapView({
         m.addControl(new lib.NavigationControl({ showCompass: false }), 'top-right')
         m.getCanvas().setAttribute('aria-label', label)
         m.on('load', () => {
+          // university buildings of the OSM extract, below the cells; the outlines go above
+          m.addSource('university', { type: 'geojson', data: '/basemap/university.geojson' })
+          m.addLayer({
+            id: 'university-fill',
+            type: 'fill',
+            source: 'university',
+            paint: { 'fill-color': '#111111', 'fill-opacity': 0.05 },
+          })
+          m.addLayer({
+            id: 'university-fill-active',
+            type: 'fill',
+            source: 'university',
+            filter: ['in', ['get', 'site'], ['literal', []]],
+            paint: { 'fill-color': '#111111', 'fill-opacity': 0.12 },
+          })
           m.addSource('cells', { type: 'geojson', data: toGeoJson([]) })
+          m.addImage('hatch', hatchImage())
           m.addLayer({
             id: 'cells-fill',
             type: 'fill',
             source: 'cells',
             paint: {
-              'fill-color': [
-                'case',
-                ['<', ['get', 'fit'], 0],
-                NO_DATA,
-                ['interpolate', ['linear'], ['get', 'fit'], 0, RAMP[0], 17, RAMP[1], 33, RAMP[2], 50, RAMP[3], 67, RAMP[4], 83, RAMP[5], 100, RAMP[6]],
-              ],
-              'fill-opacity': 0.72,
+              // seven steps, not a gradient: the legend shows the same squares
+              'fill-color': ['step', ['get', 'fit'], WASH, 0, RAMP[0], 15, RAMP[1], 29, RAMP[2], 43, RAMP[3], 58, RAMP[4], 72, RAMP[5], 86, RAMP[6]],
+              'fill-opacity': ['case', ['<', ['get', 'fit'], 0], 0, 0.85],
             },
+          })
+          m.addLayer({
+            id: 'cells-nodata',
+            type: 'fill',
+            source: 'cells',
+            filter: ['<', ['get', 'fit'], 0],
+            paint: { 'fill-pattern': 'hatch' },
           })
           m.addLayer({
             id: 'cells-line',
             type: 'line',
             source: 'cells',
-            paint: { 'line-color': '#ffffff', 'line-width': 0.4, 'line-opacity': 0.6 },
+            // hairline in --rule: keeps the lowest step visible on the wash (1.01 : 1 without it)
+            paint: { 'line-color': '#d4d4d2', 'line-width': 0.5 },
           })
           m.addLayer({
             id: 'cells-outline',
             type: 'line',
             source: 'cells',
             filter: ['==', ['get', 'outline'], 1],
-            paint: { 'line-color': '#111', 'line-width': 2 },
+            paint: { 'line-color': '#111111', 'line-width': 2.4 },
+          })
+          // university outlines above the cells: grey for all, ink for the programme's sites
+          m.addLayer({
+            id: 'university-line',
+            type: 'line',
+            source: 'university',
+            paint: { 'line-color': '#8f8f8b', 'line-width': 1 },
+          })
+          m.addLayer({
+            id: 'university-line-active',
+            type: 'line',
+            source: 'university',
+            filter: ['in', ['get', 'site'], ['literal', []]],
+            paint: { 'line-color': '#111111', 'line-width': 2.4 },
+          })
+          // live routes of the selected listing (F4.5), above the cells and outlines
+          m.addSource('routes', {
+            type: 'geojson',
+            data: { type: 'FeatureCollection', features: [] },
+          })
+          m.addLayer({
+            id: 'routes-casing',
+            type: 'line',
+            source: 'routes',
+            layout: { 'line-cap': 'round', 'line-join': 'round' },
+            paint: { 'line-color': '#ffffff', 'line-width': 5, 'line-opacity': 0.9 },
+          })
+          m.addLayer({
+            id: 'routes-line',
+            type: 'line',
+            source: 'routes',
+            layout: { 'line-cap': 'round', 'line-join': 'round' },
+            paint: { 'line-color': '#111111', 'line-width': 2.4 },
           })
           setReady(true)
           onReady?.()
@@ -178,12 +254,66 @@ export function MapView({
     ;(map.current.getSource('cells') as GeoJSONSource).setData(toGeoJson(cells))
   }, [ready, cells])
 
+  // grid visibility (map toggle): the layers exist once the style has loaded
+  useEffect(() => {
+    if (!ready || !map.current) return
+    const visibility = showCells ? 'visible' : 'none'
+    for (const id of ['cells-fill', 'cells-nodata', 'cells-line', 'cells-outline']) {
+      map.current.setLayoutProperty(id, 'visibility', visibility)
+    }
+  }, [ready, showCells])
+
+  // routes of the selected listing
+  useEffect(() => {
+    if (!ready || !map.current) return
+    const source = map.current.getSource('routes') as GeoJSONSource | undefined
+    source?.setData({
+      type: 'FeatureCollection',
+      features: routes.map((r) => ({
+        type: 'Feature' as const,
+        properties: { mode: r.mode },
+        geometry: { type: 'LineString' as const, coordinates: r.coordinates },
+      })),
+    })
+  }, [ready, routes])
+
+  // highlight the buildings of the programme's campus sites
+  useEffect(() => {
+    if (!ready || !map.current) return
+    const filter = ['in', ['get', 'site'], ['literal', universitySites]] as never
+    map.current.setFilter('university-line-active', filter)
+    map.current.setFilter('university-fill-active', filter)
+  }, [ready, universitySites])
+
   // markers
   useEffect(() => {
     const lib = ml.current
     if (!ready || !map.current || !lib) return
     markerObjs.current.forEach((m) => m.remove())
     markerObjs.current = markers.map((mk) => {
+      if (mk.kind === 'listing') {
+        // a current WG-Gesucht ad: square marker, click opens the detail in Find
+        const el = document.createElement('button')
+        el.type = 'button'
+        el.className = 'listing-marker'
+        el.title = mk.title
+        el.setAttribute('aria-label', mk.title)
+        el.textContent = mk.text
+        el.addEventListener('click', (ev) => {
+          ev.stopPropagation()
+          mk.onClick?.()
+        })
+        return new lib.Marker({ element: el, anchor: 'center' }).setLngLat(mk.point).addTo(map.current!)
+      }
+      if (mk.kind === 'poi') {
+        const el = document.createElement('span')
+        el.className = 'poi'
+        el.title = mk.title
+        el.setAttribute('aria-hidden', 'true')
+        el.innerHTML = '<span class="poi-dot"></span><span class="poi-text"></span>'
+        ;(el.lastChild as HTMLElement).textContent = mk.text
+        return new lib.Marker({ element: el, anchor: 'left', offset: [-4, 0] }).setLngLat(mk.point).addTo(map.current!)
+      }
       if (mk.kind === 'label') {
         // orientation only (no basemap yet); hidden from screen readers, the cards name the areas
         const el = document.createElement('span')

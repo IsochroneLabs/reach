@@ -19,6 +19,7 @@ class Env(BaseSettings):
 
     database_url_api: str | None = None
     valhalla_url: str | None = None
+    otp_url: str | None = None
     reach_config: Path = Path("config/config.yaml")
     # Commit SHA of the image, set at build time (infra/api.Dockerfile); "dev" locally.
     build_sha: str = "dev"
@@ -45,9 +46,49 @@ class LiveValhalla(_Model):
     backoff_s: float = Field(ge=0)
 
 
+class LiveOtp(BaseModel):
+    """The `otp` section of the pipeline config (extra keys such as the heaps are ignored)."""
+
+    model_config = ConfigDict(extra="ignore", frozen=True)
+
+    concurrency: int = Field(ge=1)
+    timeout_s: float = Field(gt=0)
+    retries: int = Field(ge=0)
+    backoff_s: float = Field(ge=0)
+    itineraries: int = Field(ge=1)
+
+
+class RoutingProfile(_Model):
+    engine: str
+    costing: str | None = None
+    speed_kmh: float = Field(gt=0)
+    costing_options: dict[str, Any] = Field(default_factory=dict)
+    access: str | None = None
+
+
+class DestinationLabels(BaseModel):
+    """Only the values the API needs; the taxonomy itself is large."""
+
+    model_config = ConfigDict(extra="ignore", frozen=True)
+
+    nearest_k_label: int = Field(ge=1)
+
+
 class DbPool(_Model):
     min_size: int = Field(ge=0)
     max_size: int = Field(ge=1)
+
+
+class Fit(_Model):
+    """Parameters of s = 1 / (1 + (T / (a·t))^p) (methodology §6, settled 27 Nov 2026)."""
+
+    a: float = Field(gt=0)
+    p: float = Field(gt=0)
+
+
+class AddressSearch(_Model):
+    limit: int = Field(ge=1, le=50)
+    min_chars: int = Field(ge=1)
 
 
 class Api(_Model):
@@ -58,14 +99,23 @@ class Api(_Model):
     resolve_interval_s: float = Field(ge=0)
     valhalla: LiveValhalla
     db_pool: DbPool
+    fit: Fit
+    address_search: AddressSearch
+    # Seconds between checks whether `current` moved to another run (then the model reloads).
+    model_refresh_s: float = Field(ge=0)
 
 
 class Config(BaseModel):
-    """The API view of a config file: only `api`; other sections are ignored here."""
+    """The API view of a config file: `api`, the engines and the few pipeline values the live
+    route needs (F4.5). Other sections are ignored here."""
 
     model_config = ConfigDict(extra="ignore", frozen=True)
 
     api: Api
+    otp: LiveOtp | None = None
+    routing_profiles: dict[str, RoutingProfile] = Field(default_factory=dict)
+    destination_labels: DestinationLabels | None = None
+    timezone: str = "Europe/Berlin"
 
 
 def _deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
@@ -88,3 +138,32 @@ def _read_yaml(path: Path) -> dict[str, Any]:
 def load_config(path: str | Path) -> Config:
     """Validated API view of a config file; raises on a missing or invalid `api` section."""
     return Config.model_validate(_read_yaml(Path(path)))
+
+
+def label_names(path: str | Path) -> dict[str, dict[str, str]]:
+    """Display names of brands, groups and categories (`grocery:edeka` → {en, de}) from the
+    `destination_labels` section; religions are named by their OSM value."""
+    cfg = _read_yaml(Path(path)).get("destination_labels") or {}
+
+    def both(label: Any, key: str) -> dict[str, str]:
+        if isinstance(label, dict):
+            return {"en": label.get("en", key), "de": label.get("de", label.get("en", key))}
+        return {"en": str(label or key), "de": str(label or key)}
+
+    out = {}
+    g = cfg.get("grocery") or {}
+    for section in ("brands", "groups"):
+        for key, v in (g.get(section) or {}).items():
+            out[f"grocery:{key}"] = both(v.get("label"), key)
+    for dtype in ("sport", "hobby"):
+        for key, v in ((cfg.get(dtype) or {}).get("categories") or {}).items():
+            out[f"{dtype}:{key}"] = both(v.get("label"), key)
+    return out
+
+
+def personas(path: str | Path) -> dict[str, Any]:
+    """`personas.yaml` next to the config file (raw)."""
+    file = Path(path).parent / "personas.yaml"
+    if not file.exists():
+        return {}
+    return yaml.safe_load(file.read_text(encoding="utf-8")) or {}

@@ -6,7 +6,7 @@
  * computes the fit on the server (architecture rule 5) and this file is never used with an API.
  * Also used by Playwright (tests/fixtures.ts) to answer /api/* requests.
  */
-import { cellCentre } from '../../geo/laea.ts'
+import { cellCentre, cellIdAt } from '../../geo/laea.ts'
 import {
   ApiError,
   type AddressHit,
@@ -16,6 +16,7 @@ import {
   type FitPart,
   type FitRequest,
   type FitResponse,
+  type Listing,
   type LonLat,
   type Mode,
   type Reason,
@@ -28,12 +29,19 @@ type TimeRow = number[] // [dest, walk_s, bike_s, transit_s, access_s, wait_s, r
 
 const D = data as unknown as {
   meta: unknown
-  destination_types: { destination_type: string; trip_window: string; fine_time_min: number; trips_per_week: number; label: { en: string } }[]
+  destination_types: {
+    destination_type: string
+    trip_window: string
+    fine_time_min: number
+    trips_per_week: number
+    label: { en: string }
+    labels?: { label: string; kind: string }[]
+  }[]
   campus_sites: { site_id: string; default_share: number }[]
   programmes: { programme: string; sites: string[] }[]
   personas: unknown[]
   areas: { area_id: string; name: string }[]
-  destinations: { id: string; type: string; name: string; point: LonLat }[]
+  destinations: { id: string; type: string; name: string; point: LonLat; labels: string[] }[]
   stops: string[]
   routes: string[]
   last_night: (string | null)[]
@@ -48,6 +56,23 @@ const cellIndex = new Map(D.cells.map((c, i) => [c[0], i]))
 const targetIndex = new Map(D.targets.map((t, i) => [t, i]))
 const typeInfo = new Map(D.destination_types.map((t) => [t.destination_type, t]))
 const areaName = new Map(D.areas.map((a) => [a.area_id, a.name]))
+const isContainer = (type: string) => !!typeInfo.get(type)?.labels?.some((l) => l.kind === 'category')
+
+/** A profile key (`grocery`, `sport:tennis`) → its type, category and term defaults. */
+function keyInfo(key: string) {
+  const [type, category = null] = key.split(':') as [string, string?]
+  const info = typeInfo.get(type)
+  if (!info) return null
+  if (category == null ? isContainer(type) : !targetIndex.has(key)) return null
+  return {
+    type,
+    category,
+    trip_window: info.trip_window,
+    fine_time_min: info.fine_time_min,
+    // categories never count in the weekly travel time (methodology §6, QF4)
+    trips_per_week: category == null ? info.trips_per_week : 0,
+  }
+}
 
 // Fit proposal (methodology §6): s = 1 / (1 + (T / (a·t))^p); 0.9 at the fine time, 0.1 at twice.
 const P = Math.log2(81)
@@ -68,8 +93,11 @@ interface TypeTime {
 function validate(p: FitRequest): void {
   if (!Array.isArray(p.modes) || p.modes.length === 0) throw new ApiError(422, 'modes: at least one mode')
   for (const [t, v] of Object.entries(p.destinations ?? {})) {
-    if (!typeInfo.has(t)) throw new ApiError(422, `destinations.${t}: unknown destination type`)
+    if (!keyInfo(t)) throw new ApiError(422, `destinations.${t}: unknown destination type or category`)
     if (![0, 1, 2, 3].includes(v.importance)) throw new ApiError(422, `destinations.${t}.importance: 0–3`)
+  }
+  for (const l of p.labels?.grocery ?? []) {
+    if (!targetIndex.has(`grocery:${l}`)) throw new ApiError(422, `labels.grocery: unknown supermarket ${l}`)
   }
   if (p.programme && !D.programmes.some((x) => x.programme === p.programme))
     throw new ApiError(422, `programme: unknown programme ${p.programme}`)
@@ -92,14 +120,20 @@ function bestMode(row: TimeRow, modes: Mode[]): [number | null, Mode | null] {
   return best
 }
 
+/** Targets of one key: grocery with favourites → the nearest of each chosen label (QF3). */
+function targetsOf(key: string, p: FitRequest): string[] {
+  if (key === 'grocery' && p.labels?.grocery?.length) return p.labels.grocery.map((l) => `grocery:${l}`)
+  return [key]
+}
+
 function typeTimes(ci: number, p: FitRequest): TypeTime[] {
   const rows = D.times[ci]
   const out: TypeTime[] = []
   for (const [type, v] of Object.entries(p.destinations)) {
     if (v.importance === 0) continue
-    const info = typeInfo.get(type)!
+    const info = keyInfo(type)!
     const fine = v.fine_time_min ?? info.fine_time_min
-    const trips = v.trips_per_week ?? info.trips_per_week
+    const trips = info.category == null ? (v.trips_per_week ?? info.trips_per_week) : 0
     if (type === 'campus_site') {
       // M7: weighted mean over the sites; mode chosen per site
       let sum = 0
@@ -115,9 +149,14 @@ function typeTimes(ci: number, p: FitRequest): TypeTime[] {
       }
       out.push({ type, weight: v.importance, fine, trips, minutes: wsum ? sum / wsum : null, mode: fastest?.mode ?? null, row: fastest?.row ?? null })
     } else {
-      const row = rows[targetIndex.get(type)!]
-      const [min, mode] = bestMode(row, p.modes)
-      out.push({ type, weight: v.importance, fine, trips, minutes: min, mode, row })
+      // the minimum over the targets (one, or the chosen supermarkets)
+      let best: { min: number | null; mode: Mode | null; row: TimeRow } | null = null
+      for (const target of targetsOf(type, p)) {
+        const row = rows[targetIndex.get(target)!]
+        const [min, mode] = bestMode(row, p.modes)
+        if (!best || (min != null && (best.min == null || min < best.min))) best = { min, mode, row }
+      }
+      out.push({ type, weight: v.importance, fine, trips, minutes: best?.min ?? null, mode: best?.mode ?? null, row: best?.row ?? null })
     }
   }
   return out
@@ -155,7 +194,7 @@ function reasonsOf(tt: TypeTime[]): Reason[] {
     name: t.type === 'campus_site' ? null : destName(t.row),
     minutes: t.minutes == null ? null : Math.round(t.minutes),
     mode: t.mode,
-    trip_window: typeInfo.get(t.type)!.trip_window,
+    trip_window: keyInfo(t.type)!.trip_window,
   })
   const strengths = scored
     .filter((x) => x.s >= 0.75)
@@ -229,10 +268,13 @@ function cell(id: string, p: FitRequest): CellDetail {
   const trips: Trip[] = []
   const types = Object.entries(p.destinations).filter(([, v]) => v.importance > 0).map(([t]) => t)
   for (const type of types) {
-    const w = typeInfo.get(type)!.trip_window
-    const targets = type === 'campus_site' ? campusWeights(p).map(([s]) => `campus_site/${s}`) : [type]
+    const w = keyInfo(type)!.trip_window
+    const targets = type === 'campus_site' ? campusWeights(p).map(([s]) => `campus_site/${s}`) : targetsOf(type, p)
+    const seen = new Set<number>()
     for (const target of targets) {
       const row = rows[targetIndex.get(target)!]
+      if (seen.has(row[0])) continue // two chosen labels, same supermarket
+      seen.add(row[0])
       const dest = D.destinations[row[0]]
       for (const mode of ['walk', 'bike', 'transit'] as Mode[]) {
         const s = row[MODE_COL[mode]]
@@ -279,6 +321,59 @@ function search(q: string): AddressHit[] {
   return D.addresses.filter((a) => words.every((w) => norm(a.label).includes(w))).slice(0, 10)
 }
 
+/** Four synthetic listings on fixture cells; images stay empty so tests never load a third party. */
+const FIXTURE_LISTINGS: Listing[] = (() => {
+  const seen = new Set<string>()
+  const picked: { id: string; area: string }[] = []
+  for (const [id, area, pop] of D.cells) {
+    if (pop !== 1 || seen.has(area)) continue
+    seen.add(area)
+    picked.push({ id, area })
+    if (picked.length === 4) break
+  }
+  const rents = [890, 650, 1200, 470]
+  const sizes = [24, 18, 38, 14]
+  const kinds: Listing['kind'][] = ['wg_room', 'wg_room', 'studio', 'wg_room']
+  const titles = ['Bright room in a shared flat', 'Quiet room near the old town', 'Small studio with a balcony', 'Room in a lively flat']
+  return picked.map((c, i) => ({
+    listing_id: `fixture-${i + 1}`,
+    source_url: 'https://www.wg-gesucht.de/',
+    kind: kinds[i],
+    title: titles[i],
+    rent_total_eur: rents[i],
+    rent_cold_eur: rents[i] - 120,
+    deposit_eur: rents[i] * 2,
+    size_m2: sizes[i],
+    flat_size_m2: i === 2 ? sizes[i] : 80 + i * 10,
+    rooms: i === 2 ? 1 : 3,
+    household_size: i === 2 ? null : 2 + i,
+    available_from: '2026-12-01',
+    available_to: null,
+    furnished: i === 2 ? 'furnished' : null,
+    features: i === 2 ? ['balcony', 'fitted kitchen'] : ['internet', 'washing machine'],
+    district: c.area,
+    postcode: '72070',
+    address_text: null,
+    geocode_precision: null,
+    cell_id: c.id,
+    image_urls: [],
+    description_excerpt: 'Sample data for the interface, not a real ad.',
+    first_seen: '2026-11-27T08:00:00+00:00',
+    last_seen: '2026-11-27T08:00:00+00:00',
+    point: cellCentre(c.id)!,
+    approximate: true,
+  }))
+})()
+
+/** POST /api/listings/fit: the fit and weekly time of each listing's cell, best first. */
+function listingsFit(p: FitRequest): Listing[] {
+  const cells = fit(p).cells
+  return FIXTURE_LISTINGS.map((l) => {
+    const [f, w] = cells[l.cell_id!] ?? [null, null, 0]
+    return { ...l, fit: f, weekly_min: w }
+  }).sort((a, b) => (b.fit ?? -1) - (a.fit ?? -1) || (a.rent_total_eur ?? 0) - (b.rent_total_eur ?? 0))
+}
+
 /** Latency of the sample API, so loading states are visible as with a real server. */
 const DELAY_MS = 120
 
@@ -292,11 +387,33 @@ export function handle(method: string, path: string, body?: unknown): unknown {
       case '/campus-sites': return D.campus_sites
       case '/programmes': return D.programmes
       case '/personas': return D.personas
+      case '/label-destinations':
+        return D.destinations
+          .filter((d) => d.labels.length)
+          .map((d) => ({ destination_id: d.id, destination_type: d.type, labels: d.labels, name: d.name, point: d.point }))
       case '/health': return { status: 'ok', version: '0.0.0', build_sha: 'fixtures' }
     }
   }
   if (method === 'POST') {
     if (path === '/fit') return fit(p)
+    if (path === '/listings/fit') return listingsFit(p)
+    if (path === '/place') {
+      const b = body as { point: LonLat; profile: FitRequest }
+      const id = cellIdAt(b.point)
+      if (!id) throw new ApiError(404, 'point outside the sample cells')
+      return { ...cell(id, b.profile), point: b.point }
+    }
+    if (path === '/route') {
+      const b = body as { origin: LonLat; destination_id: string; mode: 'walk' | 'bike' }
+      return {
+        type: 'Feature',
+        properties: { time_s: 600, length_m: 1200, mode: b.mode },
+        geometry: {
+          type: 'LineString',
+          coordinates: [b.origin, [b.origin[0] + 0.01, b.origin[1] + 0.005]],
+        },
+      }
+    }
     if (path === '/addresses/search') return search((body as { q: string }).q)
     const m = /^\/cell\/([^/]+)$/.exec(path)
     if (m) return cell(decodeURIComponent(m[1]), p)

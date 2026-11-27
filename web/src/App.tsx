@@ -9,6 +9,7 @@ import { ProfilePanel, ProgrammeHint } from './components/ProfilePanel'
 import { StatusBanner } from './components/StatusBanner'
 import { ToastProvider, useToast } from './components/Toast'
 import { FitProvider } from './remote/fit'
+import { ListingsProvider, useListings } from './remote/listings'
 import { RefsProvider, useRefs } from './remote/refs'
 import { useBreakpoint } from './hooks'
 import { I18nProvider, useI18n } from './i18n/i18n'
@@ -48,6 +49,7 @@ function Shell() {
   const bp = useBreakpoint()
   const { t } = useI18n()
   const { state } = useStore()
+  const listings = useListings()
   const [drawer, setDrawer] = useState(false)
   const [tab, setTab] = useState<SheetTab>('results')
   const [snap, setSnap] = useState<Snap>('peek')
@@ -61,6 +63,17 @@ function Shell() {
   if (seenPlaces !== state.places.length) {
     setSeenPlaces(state.places.length)
     if (bp === 'S' && state.places.length > seenPlaces) {
+      setTab('results')
+      if (snap === 'peek') setSnap('half')
+    }
+  }
+
+  // phones: opening a WG (the best one on load) shows the results sheet with its detail
+  const selectedId = listings.selected?.listing_id ?? null
+  const [seenSelected, setSeenSelected] = useState<string | null>(selectedId)
+  if (seenSelected !== selectedId) {
+    setSeenSelected(selectedId)
+    if (bp === 'S' && selectedId) {
       setTab('results')
       if (snap === 'peek') setSnap('half')
     }
@@ -116,7 +129,9 @@ export default function App() {
         <RefsProvider>
           <StoreProvider>
             <FitProvider>
-              <Shell />
+              <ListingsProvider>
+                <Shell />
+              </ListingsProvider>
             </FitProvider>
           </StoreProvider>
         </RefsProvider>

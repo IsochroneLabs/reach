@@ -25,10 +25,12 @@ import pandas as pd
 import psycopg
 import shapely
 
+from reach_pipeline import campus as campus_mod
 from reach_pipeline import db
 from reach_pipeline.config import Config, pipeline_sections, section_digest
 from reach_pipeline.context import RunContext
 from reach_pipeline.errors import ConfigError, ExternalError, StageValidationError
+from reach_pipeline.labels import COLUMNS as LABEL_COLUMNS
 from reach_pipeline.manifest import (
     FileOutput,
     Manifest,
@@ -40,15 +42,14 @@ from reach_pipeline.manifest import (
     write_manifest,
 )
 from reach_pipeline.metrics import measure
-from reach_pipeline.stages import acquire, tiles, validate
+from reach_pipeline.stages import acquire, travel_times, validate, validate_results
 
 STAGE = "publish"
 # Config sections this stage uses; only they are part of its inputs (see
 # manifest.config_input): all pipeline sections, because `meta.runs.config_hash` records their
 # digest (re-publishing takes ~1 s); `api` is not one of them.
 CONFIG_SECTIONS = pipeline_sections()
-# travel_times (S1.8) and validate_results (S1.9) will sit between tiles and publish.
-PREVIOUS = tiles.STAGE
+PREVIOUS = validate_results.STAGE
 URL_ENV, ADMIN_URL_ENV = db.URL_ENV, db.ADMIN_URL_ENV
 DATA_SOURCES = acquire.PROVENANCE
 MULTI_LAYERS = ("districts",)
@@ -62,7 +63,13 @@ def _paths(ctx: RunContext) -> dict[str, Path]:
         "cells": v / "cells.parquet",
         "districts": v / "districts.parquet",
         "stops": v / "stops.parquet",
+        "destinations": v / "destinations.parquet",
+        "destination_labels": v / "destination_labels.parquet",
+        "addresses": v / "addresses.parquet",
+        "stop_departures": v / "stop_departures.parquet",
+        "travel_times": ctx.stage_dir(travel_times.STAGE) / travel_times.OUT,
         "report_inputs": v / validate.REPORT_JSON,
+        "report_results": ctx.stage_dir(validate_results.STAGE) / validate_results.REPORT_JSON,
         "data_sources": ctx.stage_dir(acquire.STAGE) / DATA_SOURCES,
     }
 
@@ -88,20 +95,137 @@ def report_frame(*reports: dict[str, Any]) -> pd.DataFrame:
     return pd.DataFrame(rows, columns=["check", "stage", "status", "value", "message"])
 
 
+def with_names(dest: gpd.GeoDataFrame, types: pd.DataFrame) -> gpd.GeoDataFrame:
+    """The contract has `destinations.name` NOT NULL; unnamed OSM places get their type label."""
+    out = dest.copy()
+    blank = out["name"].fillna("").astype(str).str.strip() == ""
+    labels = types.set_index("destination_type")["label_en"]
+    out.loc[blank, "name"] = out.loc[blank, "destination_type"].map(labels).fillna("Destination")
+    return out
+
+
+def _reference_tables(ctx: RunContext, part1: dict[str, Any]) -> dict[str, pd.DataFrame]:
+    """Tables from the config and `campus.yaml`: types, campus sites, programmes, windows."""
+    cfg = ctx.config
+    types = pd.DataFrame(
+        [
+            {
+                "destination_type": k,
+                "label_en": t.label.en,
+                "label_de": t.label.de,
+                "source": t.source,
+                "trip_window": t.trip_window,
+                "fine_time_min": t.fine_time_min,
+                "trips_per_week": t.trips_per_week,
+                "nearest_k": t.nearest_k,
+            }
+            for k, t in cfg.destination_types.items()
+        ]
+    ).astype({"nearest_k": "Int16"})
+    campus = campus_mod.load_campus(ctx.config_path)
+    pts = campus_mod.destinations(campus)
+    sites = pts[pts["destination_type"] == "campus_site"]
+    site_ids = sites["destination_id"].str.removeprefix("campus_site:")
+    campus_sites = pd.DataFrame(
+        {
+            "site_id": site_ids.to_numpy(),
+            "name": sites["name"].to_numpy(),
+            "default_share": site_ids.map(campus.default_mix).fillna(0.0).to_numpy(),
+            "geom": db.ewkb(sites.geometry).to_numpy(),
+        }
+    )
+    programmes = pd.DataFrame(
+        [
+            {
+                "programme": k,
+                "label_en": p.label.get("en", k),
+                "label_de": p.label.get("de", p.label.get("en", k)),
+                "sites": "{" + ",".join(p.sites) + "}",
+                "shares": None
+                if p.shares is None
+                else "{" + ",".join(f"{x:.4f}" for x in p.shares) + "}",
+            }
+            for k, p in campus.programmes.items()
+        ]
+    )
+    refs = part1["summary"]["reference_dates"]
+    windows = pd.DataFrame(
+        [
+            {
+                "trip_window": k,
+                "weekday": w.weekday,
+                "time": w.time,
+                "kind": w.mode,
+                "direction": w.direction,
+                "reference_date": refs[k],
+            }
+            for k, w in cfg.trip_windows.items()
+        ]
+    )
+    return {
+        "destination_types": types,
+        "campus_sites": campus_sites,
+        "programmes": programmes,
+        "trip_windows": windows,
+    }
+
+
 def tables(ctx: RunContext) -> dict[str, pd.DataFrame]:
-    """All tables of the run schema, in load order."""
+    """All tables of the run schema, in load order (references before their users)."""
     p = _paths(ctx)
     cells = gpd.read_parquet(p["cells"])
     part1 = json.loads(p["report_inputs"].read_text(encoding="utf-8"))
-    return {
-        "cells": pd.DataFrame(cells[["cell_id", "population", "district_id"]]).assign(
+    part2 = json.loads(p["report_results"].read_text(encoding="utf-8"))
+    ref = _reference_tables(ctx, part1)
+    dest = gpd.read_parquet(p["destinations"]).drop_duplicates("destination_id")
+    dest = with_names(dest, ref["destination_types"])
+    addr = gpd.read_parquet(p["addresses"])
+    in_cell = gpd.sjoin(addr[["address_id", "geometry"]], cells[["cell_id", "geometry"]], "left")
+    addr["cell_id"] = (
+        in_cell.drop_duplicates("address_id")
+        .set_index("address_id")["cell_id"]
+        .reindex(addr["address_id"])
+        .to_numpy()
+    )
+    out = {
+        "cells": pd.DataFrame(cells[["cell_id", "population", "populated", "district_id"]]).assign(
             geom=db.ewkb(cells.geometry),
             origin_geom=db.ewkb(cells.set_geometry("origin_geom").geometry),
         ),
         "districts": _geo(p["districts"], ["district_id", "name", "admin_level"]),
+        "destination_types": ref["destination_types"],
+        "destinations": pd.DataFrame(
+            dest[["destination_id", "destination_type", "name", "osm_id"]]
+        ).assign(geom=db.ewkb(dest.geometry)),
+        "campus_sites": ref["campus_sites"],
+        "programmes": ref["programmes"],
+        "addresses": pd.DataFrame(
+            addr[
+                [
+                    "address_id",
+                    "label",
+                    "street",
+                    "housenumber",
+                    "postcode",
+                    "city",
+                    "residential",
+                    "cell_id",
+                ]
+            ]
+        ).assign(geom=db.ewkb(addr.geometry)),
         "stops": _geo(p["stops"], ["stop_id", "name"]),
-        "validation_report": report_frame(part1),
+        "trip_windows": ref["trip_windows"],
+        "stop_departures": pd.read_parquet(p["stop_departures"])[
+            ["stop_id", "trip_window", "departures"]
+        ],
+        "travel_times": pd.read_parquet(p["travel_times"]),
+        "validation_report": report_frame(part1, part2),
     }
+    if p["destination_labels"].exists():
+        lab = gpd.read_parquet(p["destination_labels"])
+        cols = [c for c in LABEL_COLUMNS if c != "geometry"]
+        out["destination_labels"] = pd.DataFrame(lab[cols]).assign(geom=db.ewkb(lab.geometry))
+    return out
 
 
 def run_row(ctx: RunContext) -> dict[str, Any]:
@@ -214,7 +338,7 @@ def run(ctx: RunContext) -> Manifest:
     sql_files = [sql_dir / db.ROLES_SQL, sql_dir / db.RUN_SCHEMA_SQL, *db.migrations(sql_dir)]
     inputs = [
         config_input(ctx.config, CONFIG_SECTIONS),
-        *file_inputs([*paths.values(), *sql_files]),
+        *file_inputs([*(p for p in paths.values() if p.exists()), *sql_files]),
     ]
     previous = read_manifest(stage_dir)
     if is_up_to_date(previous, inputs):

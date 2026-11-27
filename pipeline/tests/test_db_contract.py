@@ -36,11 +36,12 @@ DB_CFG = Database(sql_dir=SQL_DIR, connect_retries=0, backoff_s=0)
 RUN_A, RUN_B, RUN_C, RUN_D = (f"2026010{d}T000000Z" for d in range(1, 5))
 
 POLY, POINT, MULTI = (f"geometry({t},25832)" for t in ("Polygon", "Point", "MultiPolygon"))
-# docs/data_contract.md, "Schema run_<id> and views current.*" (subset ported in S0.4).
+# docs/data_contract.md, "Schema run_<id> and views current.*" (v1.1.0, S1.4).
 CONTRACT = {
     "cells": [
         ("cell_id", "text"),
         ("population", "integer"),
+        ("populated", "boolean"),
         ("district_id", "text"),
         ("geom", POLY),
         ("origin_geom", POINT),
@@ -51,7 +52,84 @@ CONTRACT = {
         ("admin_level", "smallint"),
         ("geom", MULTI),
     ],
+    "destination_types": [
+        ("destination_type", "text"),
+        ("label_en", "text"),
+        ("label_de", "text"),
+        ("source", "text"),
+        ("trip_window", "text"),
+        ("fine_time_min", "real"),
+        ("trips_per_week", "real"),
+        ("nearest_k", "smallint"),
+    ],
+    "destinations": [
+        ("destination_id", "text"),
+        ("destination_type", "text"),
+        ("name", "text"),
+        ("osm_id", "text"),
+        ("geom", POINT),
+    ],
+    "destination_labels": [
+        ("destination_id", "text"),
+        ("destination_type", "text"),
+        ("label_kind", "text"),
+        ("label", "text"),
+        ("name", "text"),
+        ("n_features", "integer"),
+        ("osm_ids", "text"),
+        ("offered", "boolean"),
+        ("geom", POINT),
+    ],
+    "campus_sites": [
+        ("site_id", "text"),
+        ("name", "text"),
+        ("default_share", "real"),
+        ("geom", POINT),
+    ],
+    "programmes": [
+        ("programme", "text"),
+        ("label_en", "text"),
+        ("label_de", "text"),
+        ("sites", "text[]"),
+        ("shares", "double precision[]"),
+    ],
+    "addresses": [
+        ("address_id", "integer"),
+        ("label", "text"),
+        ("street", "text"),
+        ("housenumber", "text"),
+        ("postcode", "text"),
+        ("city", "text"),
+        ("residential", "boolean"),
+        ("cell_id", "text"),
+        ("geom", POINT),
+    ],
     "stops": [("stop_id", "text"), ("name", "text"), ("geom", POINT)],
+    "trip_windows": [
+        ("trip_window", "text"),
+        ("weekday", "text"),
+        ("time", "text"),
+        ("kind", "text"),
+        ("direction", "text"),
+        ("reference_date", "date"),
+    ],
+    "stop_departures": [("stop_id", "text"), ("trip_window", "text"), ("departures", "integer")],
+    "travel_times": [
+        ("cell_id", "text"),
+        ("destination_id", "text"),
+        ("mode", "text"),
+        ("trip_window", "text"),
+        ("time_s", "integer"),
+        ("access_s", "integer"),
+        ("wait_s", "integer"),
+        ("in_vehicle_s", "integer"),
+        ("egress_s", "integer"),
+        ("transfers", "smallint"),
+        ("first_stop", "text"),
+        ("first_route", "text"),
+        ("departure", "text"),
+        ("walk_only", "boolean"),
+    ],
     "validation_report": [
         ("check", "text"),
         ("stage", "text"),
@@ -97,7 +175,7 @@ def db_url() -> Iterator[str]:
     url = psycopg.conninfo.make_conninfo(admin, dbname=name)
     try:
         with psycopg.connect(url, autocommit=True) as conn:
-            assert db.migrate(conn, SQL_DIR, {}) == ["0001_meta"]
+            assert db.migrate(conn, SQL_DIR, {}) == ["0001_meta", "0002_listings"]
             assert db.migrate(conn, SQL_DIR, {}) == []  # idempotent
         yield url
     finally:
@@ -130,6 +208,7 @@ def run_tables(population_a: int = 10) -> dict[str, pd.DataFrame]:
             {
                 "cell_id": ["a", "b", "c", "d"],
                 "population": [population_a, 20, 30, 40],
+                "populated": [population_a > 0, True, True, True],
                 "district_id": ["r1", "r1", "r2", None],
                 "geom": _geo(squares),
                 "origin_geom": _geo([s.centroid for s in squares]),
@@ -148,11 +227,108 @@ def run_tables(population_a: int = 10) -> dict[str, pd.DataFrame]:
                 ),
             }
         ),
+        "destination_types": pd.DataFrame(
+            {
+                "destination_type": ["grocery"],
+                "label_en": ["Supermarket"],
+                "label_de": ["Supermarkt"],
+                "source": ["osm"],
+                "trip_window": ["evening"],
+                "fine_time_min": [10.0],
+                "trips_per_week": [2.0],
+                "nearest_k": [3],
+            }
+        ),
+        "destinations": pd.DataFrame(
+            {
+                "destination_id": ["grocery:n1"],
+                "destination_type": ["grocery"],
+                "name": ["Markt"],
+                "osm_id": ["n1"],
+                "geom": _geo([shapely.Point(500_150, 5_400_050)]),
+            }
+        ),
+        "campus_sites": pd.DataFrame(
+            {
+                "site_id": ["tal"],
+                "name": ["Tal"],
+                "default_share": [0.5],
+                "geom": _geo([shapely.Point(500_250, 5_400_050)]),
+            }
+        ),
+        "programmes": pd.DataFrame(
+            {
+                "programme": ["law"],
+                "label_en": ["Law"],
+                "label_de": ["Jura"],
+                "sites": ["{tal}"],
+                "shares": ["{1.0}"],
+            }
+        ),
+        "addresses": pd.DataFrame(
+            {
+                "address_id": [1],
+                "label": ["Wilhelmstraße 5, 72074 Tübingen"],
+                "street": ["Wilhelmstraße"],
+                "housenumber": ["5"],
+                "postcode": ["72074"],
+                "city": ["Tübingen"],
+                "residential": [True],
+                "cell_id": ["a"],
+                "geom": _geo([shapely.Point(500_050, 5_400_050)]),
+            }
+        ),
         "stops": pd.DataFrame(
             {
                 "stop_id": ["s1"],
                 "name": ["Hauptbahnhof"],
                 "geom": _geo([shapely.Point(500_050, 5_400_050)]),
+            }
+        ),
+        "trip_windows": pd.DataFrame(
+            {
+                "trip_window": ["evening"],
+                "weekday": ["tuesday"],
+                "time": ["18:00"],
+                "kind": ["depart_at"],
+                "direction": ["to"],
+                "reference_date": ["2026-01-06"],
+            }
+        ),
+        "stop_departures": pd.DataFrame(
+            {"stop_id": ["s1"], "trip_window": ["evening"], "departures": [12]}
+        ),
+        "travel_times": pd.DataFrame(
+            {
+                "cell_id": ["a", "a"],
+                "destination_id": ["grocery:n1", "grocery:n1"],
+                "mode": ["walk", "transit"],
+                "trip_window": ["evening", "evening"],
+                "time_s": [120, 300],
+                "access_s": [None, 60],
+                "wait_s": [None, 60],
+                "in_vehicle_s": [None, 120],
+                "egress_s": [None, 60],
+                "transfers": [None, 0],
+                "first_stop": [None, "Hauptbahnhof"],
+                "first_route": [None, "5"],
+                "departure": [None, "18:02"],
+                "walk_only": [False, False],
+            }
+        )
+        .astype({c: "Int32" for c in ("access_s", "wait_s", "in_vehicle_s", "egress_s")})
+        .astype({"transfers": "Int16"}),
+        "destination_labels": pd.DataFrame(
+            {
+                "destination_id": ["grocery:edeka:n1"],
+                "destination_type": ["grocery"],
+                "label_kind": ["brand"],
+                "label": ["edeka"],
+                "name": ["Markt"],
+                "n_features": [1],
+                "osm_ids": ["n1"],
+                "offered": [True],
+                "geom": _geo([shapely.Point(500_150, 5_400_050)]),
             }
         ),
         "validation_report": pd.DataFrame(

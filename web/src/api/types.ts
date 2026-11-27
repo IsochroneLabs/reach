@@ -16,6 +16,29 @@ export interface DestinationType {
   trip_window: string
   fine_time_min: number
   trips_per_week: number
+  /**
+   * PROPOSED (F2.4, methodology §3.1): the offered labels of this type. Grocery: brands and groups
+   * (narrow the grocery term, QF3). Sport and hobby: categories, each a term of its own (QF4), sent
+   * as `destinations["sport:tennis"]`; such container types are never a term themselves.
+   */
+  labels?: DestinationLabel[]
+}
+
+/** PROPOSED (F2.4): one label of a destination type with the number of destinations. */
+export interface DestinationLabel {
+  label: string
+  kind: 'brand' | 'group' | 'category'
+  name: Label
+  destinations: number
+}
+
+/** PROPOSED (F2.4): GET /api/label-destinations, labelled destinations for the map. */
+export interface LabelDestination {
+  destination_id: string
+  destination_type: string
+  labels: string[]
+  name: string | null
+  point: LonLat
 }
 
 export interface CampusSite {
@@ -40,10 +63,16 @@ export interface FitRequest {
   programme?: string | null
   campus_days?: Record<string, number>
   modes: Mode[]
+  /**
+   * Keys: a destination type, or `<type>:<category>` for a sport or hobby category (PROPOSED,
+   * F2.4). Categories take importance and fine time only; they never count in the weekly time.
+   */
   destinations: Record<
     string,
     { importance: Importance; fine_time_min?: number; trips_per_week?: number }
   >
+  /** PROPOSED (F2.4): favourite supermarkets, brands and groups; empty or absent = any. */
+  labels?: { grocery?: string[] }
   area_level?: 'district' | 'teilort'
 }
 
@@ -127,6 +156,40 @@ export interface CellDetail {
   populated?: boolean
 }
 
+/** PROPOSED (F4.6): one current WG-Gesucht listing with the fit of its Zensus cell. */
+export interface Listing {
+  listing_id: string
+  source_url: string
+  kind: 'wg_room' | 'studio' | 'flat'
+  title: string | null
+  rent_total_eur: number | null
+  rent_cold_eur: number | null
+  deposit_eur: number | null
+  size_m2: number | null
+  flat_size_m2: number | null
+  rooms: number | null
+  household_size: number | null
+  available_from: string | null
+  available_to: string | null
+  furnished: string | null
+  features: string[] | null
+  district: string | null
+  postcode: string | null
+  address_text: string | null
+  geocode_precision: 'house' | 'street' | 'marker' | null
+  cell_id: string | null
+  image_urls: string[] | null
+  description_excerpt: string | null
+  first_seen: string
+  last_seen: string
+  point: LonLat | null
+  /** F4.5 point routing is not built yet; the address is the cell or the ad's own marker. */
+  approximate: boolean
+  /** from POST /api/listings/fit */
+  fit?: number | null
+  weekly_min?: number | null
+}
+
 export interface AddressHit {
   label: string
   cell_id: string
@@ -173,4 +236,11 @@ export class ApiError extends Error {
     this.status = status
     this.retryAfterS = retryAfterS
   }
+}
+
+/** F4.5: one live walk or bike route from a point to a published destination. */
+export interface RouteFeature {
+  type: 'Feature'
+  properties: { time_s: number; length_m: number; mode: 'walk' | 'bike' }
+  geometry: { type: 'LineString'; coordinates: LonLat[] }
 }

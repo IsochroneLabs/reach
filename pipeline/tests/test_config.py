@@ -30,12 +30,20 @@ def _write(tmp_path: Path, data: dict[str, Any], name: str = "config.yaml") -> P
 
 def test_repo_config_loads() -> None:
     cfg = load_config(CONFIG)
-    assert set(cfg.routing_profiles) == {"walk", "bike"}
+    assert set(cfg.routing_profiles) == {"walk", "bike", "transit", "bike_transit"}
+    assert cfg.routing_profiles["bike_transit"].access == "BICYCLE_PARKING"
+    assert cfg.destination_types["sport"].source == "labels"
     assert cfg.trip_windows["morning_lecture"].mode == "arrive_by"
     assert cfg.trip_windows["night_return"].direction == "back"
     assert cfg.destination_types["campus_site"].source == "campus"
     assert cfg.destination_types["grocery"].tags == [{"shop": "supermarket"}]
     assert cfg.sources.zensus_rent is not None
+    labels = cfg.destination_labels
+    assert labels is not None
+    assert labels.grocery.fallback == "other"
+    assert "organic" in labels.grocery.groups
+    assert labels.sport.categories["tennis"].sport == ["tennis"]
+    assert "chess" in labels.hobby.categories
 
 
 def test_test_clip_extends_repo_config() -> None:
@@ -65,7 +73,8 @@ def _set(data: dict[str, Any], dotted: str, value: Any) -> dict[str, Any]:
         ("routing_profiles.walk.speed_kmh", 0, "routing_profiles.walk.speed_kmh"),
         ("routing_profiles.bike.speed_kmh", -15, "routing_profiles.bike.speed_kmh"),
         ("routing_profiles.walk.costing", "auto", "routing_profiles.walk.costing"),
-        ("routing_profiles.walk.engine", "otp", "routing_profiles.walk.engine"),
+        ("routing_profiles.walk.engine", "r5", "routing_profiles.walk.engine"),
+        ("routing_profiles.walk.engine", "otp", "otp profiles need an access mode"),
         ("routing_profiles.walk.costing_options", {"walking_speed": 5}, "via speed_kmh"),
         (
             "routing_profiles",
@@ -86,7 +95,7 @@ def _set(data: dict[str, Any], dotted: str, value: Any) -> dict[str, Any]:
         ("destination_types.grocery.trips_per_week", -1, "destination_types.grocery.trips"),
         ("destination_types.mensa.tags", [{"amenity": "canteen"}], "source campus takes no"),
         ("destination_types.park.exclude", [{"access": "a", "x": "b"}], "non-empty key: value"),
-        ("destination_types.climbing.require", [{"": "x"}], "non-empty key: value pair"),
+        ("destination_types.library.require", [{"": "x"}], "non-empty key: value pair"),
         ("study_area.clip_bbox", [9.1, 48.5, 9.0, 48.6], "min_lon, min_lat"),
         ("study_area.unknown_key", 1, "study_area.unknown_key"),
         ("sources.osm.url", "http://example.org/x.pbf", "sources.osm.url"),
@@ -105,6 +114,23 @@ def _set(data: dict[str, Any], dotted: str, value: Any) -> dict[str, Any]:
         ("travel_times.block_size_m", 0, "travel_times.block_size_m"),
         ("tiles.verify.max_detour_factor", 0.9, "tiles.verify.max_detour_factor"),
         ("tiles.verify.costing", "auto", "tiles.verify.costing"),
+        ("destination_labels.cluster_radius_m", 0, "destination_labels.cluster_radius_m"),
+        ("destination_labels.grocery.fallback", "bio", "fallback group 'bio' is not a group"),
+        ("destination_labels.grocery.groups.discount.brands", ["spar"], "unknown brands"),
+        (
+            "destination_labels.grocery.groups.local.name_patterns",
+            ["(laden"],
+            "invalid name pattern",
+        ),
+        ("destination_labels.grocery.groups.other.tags", [{"shop": "x"}], "must have no rules"),
+        ("destination_labels.sport.categories.tennis.sport", ["soccer"], "in both football and"),
+        ("destination_labels.sport.categories.golf.leisure", ["golf_park"], "missing from sport"),
+        ("destination_labels.hobby.categories.chess.tags", [], "needs sport values, leisure"),
+        (
+            "destination_labels.hobby.categories",
+            {"Chess": {"label": {"en": "C", "de": "S"}, "tags": [{"sport": "chess"}]}},
+            "lower snake_case",
+        ),
     ],
 )
 def test_invalid_config_fails_clearly(
@@ -114,6 +140,12 @@ def test_invalid_config_fails_clearly(
     with pytest.raises(ConfigError, match="invalid config") as exc:
         load_config(path)
     assert expected in str(exc.value)
+
+
+def test_destination_labels_are_optional(tmp_path: Path, base: dict[str, Any]) -> None:
+    data = copy.deepcopy(base)
+    del data["destination_labels"]
+    assert load_config(_write(tmp_path, data)).destination_labels is None
 
 
 def test_missing_file(tmp_path: Path) -> None:
@@ -156,3 +188,11 @@ def test_holiday_lookup() -> None:
     assert cal.is_holiday(date(2026, 12, 25))  # public holiday
     assert cal.is_holiday(date(2026, 10, 27))  # Herbstferien
     assert not cal.is_holiday(date(2026, 11, 3))
+
+
+def test_listings_section_is_paged_and_polite():
+    """The listings job is on since Juju's decision of 27 Nov 2026 (notes N20), at a low rate."""
+    cfg = load_config(CONFIG)
+    assert cfg.listings is not None
+    assert all("{page}" in p for p in cfg.listings.search_paths.values())
+    assert cfg.listings.request_interval_s >= 10

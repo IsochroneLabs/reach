@@ -11,10 +11,11 @@ test.beforeEach(async ({ page }) => {
   }
 })
 
-test('the app opens on Find with sample data and the best areas', async ({ page }) => {
+test('the app opens on Find with the best WGs and the areas behind a summary', async ({ page }) => {
   await page.goto('/')
   await expect(page.getByRole('button', { name: 'Find', pressed: true })).toBeVisible()
   await expect(page.getByTestId('sample-badge')).toHaveText('Sample data')
+  await expect(page.locator('.listing-card').first()).toBeVisible()
   await expect(page.getByTestId('area').first()).toBeVisible()
 })
 
@@ -29,4 +30,29 @@ test('switching the language to German', async ({ page }) => {
   await page.getByRole('button', { name: 'Switch the language to German' }).click()
   await expect(page.getByRole('button', { name: 'Finden', pressed: true })).toBeVisible()
   await expect(page.locator('html')).toHaveAttribute('lang', 'de')
+})
+
+test('Find opens the best WG immediately and expands the others', async ({ page, isMobile }) => {
+  // On phones the list sits in the bottom sheet, so this flow is desktop-only.
+  test.skip(!!isMobile, 'bottom sheet peek hides the listing list')
+  await page.goto('/')
+  await expect(page.locator('.listing-card').first()).toBeVisible()
+  await expect(page.getByTestId('listing-detail')).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Open the ad on WG-Gesucht' })).toHaveAttribute(
+    'href',
+    /wg-gesucht\.de/,
+  )
+  await page.locator('.listing-card').first().click()
+  await expect(page.getByTestId('listing-detail')).toHaveCount(0)
+  await page.locator('.listing-card').nth(1).click()
+  await expect(page.getByTestId('listing-detail')).toBeVisible()
+})
+
+test('the grid toggle hides the fit cells but keeps the WGs', async ({ page, isMobile }) => {
+  test.skip(!!isMobile, 'the bottom sheet peek hides the listing list')
+  await page.goto('/')
+  await expect(page.locator('.legend')).toBeVisible()
+  await page.getByRole('button', { name: 'Grid', exact: true }).click()
+  await expect(page.locator('.legend')).toHaveCount(0)
+  await expect(page.locator('.listing-card').first()).toBeVisible()
 })

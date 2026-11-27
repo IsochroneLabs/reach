@@ -12,12 +12,25 @@ import logging
 from typing import Any
 
 import httpx
+import numpy as np
 
-from reach_api.settings import LiveValhalla
+from reach_api.settings import LiveValhalla, RoutingProfile
 
 log = logging.getLogger(__name__)
 
 LonLat = tuple[float, float]
+SPEED_OPTION = {"pedestrian": "walking_speed", "bicycle": "cycling_speed"}
+
+
+def costing_options(profile: RoutingProfile) -> dict[str, Any]:
+    """Raw costing options: the profile's options plus its speed (the caller wraps the costing)."""
+    if not profile.costing:
+        raise ValueError("routing profile has no Valhalla costing")
+    options = dict(profile.costing_options)
+    speed = SPEED_OPTION.get(profile.costing)
+    if speed:
+        options[speed] = profile.speed_kmh
+    return options
 
 
 class ValhallaError(Exception):
@@ -102,6 +115,41 @@ class ValhallaClient:
                 await asyncio.sleep(self.cfg.backoff_s * 2**attempt)
         error = ValhallaTimeout if timed_out else ValhallaError
         raise error(f"Valhalla {action} failed after {attempts} attempts: {problem}")
+
+    async def matrix(
+        self,
+        sources: list[LonLat],
+        targets: list[LonLat],
+        costing: str,
+        options: dict[str, Any],
+    ) -> np.ndarray:
+        """Travel times in seconds, shape (sources, targets); NaN = unreachable.
+
+        Compact matrix (`verbose: false`); the point route uses one source and a few targets, so
+        no chunking is needed here.
+        """
+        if not sources or not targets:
+            return np.full((len(sources), len(targets)), np.nan)
+        body = await self.post(
+            "sources_to_targets",
+            {
+                "sources": [_loc(p) for p in sources],
+                "targets": [_loc(p) for p in targets],
+                "costing": costing,
+                "costing_options": {costing: options},
+                "verbose": False,
+            },
+        )
+        try:
+            durations = body["sources_to_targets"]["durations"]
+        except (KeyError, TypeError) as exc:
+            raise ValhallaError(f"unexpected matrix response: {str(body)[:300]}") from exc
+        times = np.array(durations, dtype=float)  # None -> nan
+        if times.shape != (len(sources), len(targets)):
+            raise ValhallaError(
+                f"matrix response has shape {times.shape}, expected {(len(sources), len(targets))}"
+            )
+        return times
 
     async def route(
         self, origin: LonLat, target: LonLat, costing: str, options: dict[str, Any]

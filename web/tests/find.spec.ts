@@ -25,6 +25,9 @@ test('three best areas with 2–4 reasons, weekly time and the data date', async
 
 test('the map draws and shows the legend', async ({ page }) => {
   await expect(page.locator('.maplibregl-canvas')).toBeVisible()
+  // wait for the best WG to open (it hides the grid), then the toggle brings the legend back
+  await expect(page.getByTestId('listing-detail')).toBeVisible()
+  await page.getByRole('button', { name: 'Grid', exact: true }).click()
   await expect(page.getByText('Fit for you')).toBeVisible()
   await expect(page.getByText('Loading the map…')).toHaveCount(0)
 })

@@ -6,6 +6,8 @@
 
 # Local directory for raw downloads and per-run outputs (git-ignored).
 data_dir: data
+# Time zone of the trip windows (meth. §5).
+timezone: Europe/Berlin
 
 study_area:
   city_name: Tübingen
@@ -40,8 +42,16 @@ routing_profiles:
     speed_kmh: 15.0  # archive O15
     costing_options:
       bicycle_type: Hybrid
-  # transit and bike_transit: OpenTripPlanner (O17, BICYCLE_PARKING for bike_transit); keys are added
-  # in S1.7; access/egress walking at 5.0 km/h.
+  # OpenTripPlanner (O17): walk 5.0 km/h to and from the stops; bike + transit parks the bike at the
+  # first stop (BICYCLE_PARKING, M5). Speeds go to the OTP router config (S1.7).
+  transit:
+    engine: otp
+    speed_kmh: 5.0
+    access: WALK
+  bike_transit:
+    engine: otp
+    speed_kmh: 15.0
+    access: BICYCLE_PARKING
 
 # Trip windows (O15, A3, meth. §5). DRAFT values, checked with students in S2.0 (M2).
 # weekday: day of the reference date; time: HH:MM local time; direction: "to" (depart at / arrive
@@ -157,51 +167,21 @@ destination_types:
     trip_window: evening
     fine_time_min: 10
     trips_per_week: 1
-  gym:
-    label: {en: Gym, de: Fitnessstudio}
-    tags: [{leisure: fitness_centre}]
-    location: point
-    nearest_k: 3
+  # Containers (meth. §3.1, QF4): never a term themselves; the student picks categories, each a
+  # term of its own ("sport:tennis") with the time to the amenity only (trips_per_week 0).
+  # Destinations come from destination_labels (nearest_k_label per category).
+  sport:
+    label: {en: Sport, de: Sport}
+    source: labels
     trip_window: evening
     fine_time_min: 20
-    trips_per_week: 2
-  climbing:
-    label: {en: Climbing, de: Klettern}
-    tags: [{leisure: sports_centre}, {leisure: pitch}]
-    require: [{sport: climbing}]
-    exclude: [{access: private}, {access: "no"}, {access: customers}]
-    location: point
-    nearest_k: 3
+    trips_per_week: 0
+  hobby:
+    label: {en: Hobbies, de: Hobbys}
+    source: labels
     trip_window: evening
     fine_time_min: 20
-    trips_per_week: 2
-  swimming:
-    label: {en: Swimming, de: Schwimmen}
-    tags: [{leisure: sports_centre}, {leisure: water_park}, {leisure: swimming_pool}]
-    require: [{sport: swimming}, {access: "yes"}, {access: public}]
-    exclude: [{access: private}, {access: "no"}, {access: customers}]
-    location: point
-    nearest_k: 3
-    trip_window: evening
-    fine_time_min: 20
-    trips_per_week: 1
-  sports_club:
-    label: {en: Sports club, de: Sportverein}
-    tags: [{leisure: sports_centre}]
-    exclude: [{access: private}, {access: "no"}, {access: customers}]
-    location: point
-    nearest_k: 3
-    trip_window: evening
-    fine_time_min: 20
-    trips_per_week: 2
-  music:
-    label: {en: Music, de: Musik}
-    tags: [{amenity: music_school}, {amenity: music_venue}]
-    location: point
-    nearest_k: 3
-    trip_window: evening
-    fine_time_min: 20
-    trips_per_week: 1
+    trips_per_week: 0
   nightlife:
     label: {en: Going out, de: Ausgehen}
     tags: [{amenity: bar}, {amenity: pub}, {amenity: nightclub}, {amenity: biergarten}]
@@ -228,6 +208,131 @@ destination_types:
     fine_time_min: 20
     trips_per_week: 1
 
+# Destination labels (meth. §3.1, arch. O22): brands and groups of supermarkets, sport and hobby
+# categories, religion. Taxonomy decided 26 Nov 2026 (extension plan F2.1), counts in
+# docs/osm_tagging.md §5. The former types gym, climbing, swimming, sports_club and music are
+# replaced by the containers sport and hobby (S1.6, 27 Nov 2026).
+destination_labels:
+  # A label is offered in the profile panel when it has at least `min_destinations` destinations
+  # after clustering.
+  min_destinations: 1
+  # Travel times are stored for the nearest k_label destinations of every offered label, next to
+  # the nearest_k of the type (arch. §6.3, O22); 2 keeps a second choice when the straight-line
+  # nearest is not the nearest on the network.
+  nearest_k_label: 2
+  # Features of the same label closer than this, or inside the same leisure=sports_centre, form
+  # one destination (a tennis club with ten courts is one place, meth. §3.1).
+  cluster_radius_m: 75
+  # Sport, hobby and religion features with these access values never count (docs/osm_tagging.md
+  # §3). Not `customers`: paid gyms, climbing halls and clubs are open to anyone who pays.
+  # Supermarkets are never filtered by access.
+  exclude_access: [private, "no"]
+  grocery:
+    # Brands with fewer stores in the routing area are not offered on their own; their stores
+    # keep their group label.
+    brand_min_stores: 2
+    # Matched by brand:wikidata first, then by a case-insensitive substring of brand or name.
+    brands:
+      edeka: {label: EDEKA, wikidata: [Q701755], names: [edeka]}
+      aldi_sued: {label: ALDI SÜD, wikidata: [Q41171672], names: [aldi]}
+      lidl: {label: Lidl, wikidata: [Q151954], names: [lidl]}
+      penny: {label: PENNY, wikidata: [Q284688], names: [penny]}
+      netto: {label: Netto, wikidata: [Q879858], names: [netto]}
+      rewe: {label: REWE, wikidata: [Q16968817], names: [rewe]}
+      kaufland: {label: Kaufland, wikidata: [Q685967], names: [kaufland]}
+      norma: {label: Norma, wikidata: [Q450180], names: [norma]}
+      denns: {label: denn's Biomarkt, wikidata: [Q48883773], names: [denns, "denn's"]}
+      alnatura: {label: Alnatura, wikidata: [Q876811], names: [alnatura]}
+      mix_markt: {label: Mix Markt, wikidata: [Q327854], names: [mix markt]}
+      nahkauf: {label: Nahkauf, wikidata: [Q57515238], names: [nahkauf]}
+    # Every supermarket also gets exactly one group; groups are tried in this order and the first
+    # match wins. A group matches by tag, by brand key, or by a case-insensitive regular
+    # expression on name, alt_name or short_name. `fallback` takes the rest.
+    groups:
+      organic:
+        label: {en: Organic, de: Bio}
+        tags: [{organic: only}]
+        brands: [alnatura, denns]
+      zero_waste:
+        label: {en: Package-free, de: Unverpackt}
+        tags: [{zero_waste: only}, {bulk_purchase: only}]
+      international:
+        label: {en: International, de: International}
+        brands: [mix_markt]
+        name_patterns: [asia, "t(ü|ue)rk", orient, salam, schami, ikram, afro, polsk, russ, bazar]
+      discount:
+        label: {en: Discounter, de: Discounter}
+        brands: [aldi_sued, lidl, penny, netto, norma]
+      full_range:
+        label: {en: Full-range supermarket, de: Vollsortimenter}
+        brands: [edeka, rewe, kaufland, nahkauf]
+      local:
+        label: {en: Village and farm shop, de: Dorf- und Hofladen}
+        name_patterns: [dorfladen, hofladen, marktladen, "-laden$"]
+      other:
+        label: {en: Other supermarket, de: Sonstiger Supermarkt}
+    fallback: other
+  sport:
+    # Candidate features: these leisure values and club=sport. The category comes from sport=*
+    # (`;`-separated values); only if no sport value maps to a category, from the leisure values
+    # listed in a category (a fitness centre tagged sport=yoga is yoga, a track with sport=bmx is skate).
+    leisure: [sports_centre, pitch, fitness_centre, swimming_pool, track, sports_hall, water_park,
+              ice_rink, golf_course, horse_riding, dance]
+    # leisure=swimming_pool counts only with these access values (garden pools are untagged).
+    swimming_pool_access: ["yes", public]
+    # sport values that say nothing a student can choose by.
+    ignore_values: [multi, mixed, unknown]
+    categories:
+      football: {label: {en: Football, de: Fußball}, sport: [soccer, five-a-side, futsal]}
+      tennis: {label: {en: Tennis, de: Tennis}, sport: [tennis]}
+      basketball: {label: {en: Basketball, de: Basketball}, sport: [basketball]}
+      table_tennis: {label: {en: Table tennis, de: Tischtennis}, sport: [table_tennis]}
+      volleyball: {label: {en: Volleyball and beach volleyball, de: Volleyball und Beachvolleyball}, sport: [volleyball, beachvolleyball]}
+      handball: {label: {en: Handball, de: Handball}, sport: [handball]}
+      other_team: {label: {en: "Hockey, rugby, baseball and more", de: "Hockey, Rugby, Baseball und mehr"}, sport: [field_hockey, hockey, rugby_union, rugby_league, rugby, baseball, softball, american_football, ultimate, cricket]}
+      athletics: {label: {en: Athletics and running, de: Leichtathletik und Laufen}, sport: [athletics, running], leisure: [track]}
+      climbing: {label: {en: Climbing and bouldering, de: Klettern und Bouldern}, sport: [climbing, bouldering, climbing_adventure]}
+      swimming: {label: {en: Swimming, de: Schwimmen}, sport: [swimming], leisure: [water_park]}
+      fitness: {label: {en: Fitness, de: Fitness}, sport: [fitness, crossfit], leisure: [fitness_centre]}
+      yoga: {label: {en: Yoga and pilates, de: Yoga und Pilates}, sport: [yoga, pilates]}
+      dance: {label: {en: Dance, de: Tanzen}, sport: [dance], leisure: [dance]}
+      martial_arts: {label: {en: Martial arts and fencing, de: Kampfsport und Fechten}, sport: [martial_arts, judo, taekwondo, karate, aikido, boxing, kickboxing, wrestling, fencing]}
+      racket_indoor: {label: {en: "Squash, badminton and padel", de: "Squash, Badminton und Padel"}, sport: [squash, badminton, padel]}
+      water_sports: {label: {en: "Rowing, canoeing and sailing", de: "Rudern, Kanu und Segeln"}, sport: [rowing, canoe, sailing, stand_up_paddleboarding, surfing, diving]}
+      equestrian: {label: {en: Horse riding, de: Reiten}, sport: [equestrian], leisure: [horse_riding]}
+      shooting_archery: {label: {en: Shooting and archery, de: Schießen und Bogensport}, sport: [shooting, archery]}
+      boules: {label: {en: Boules and throwing games, de: Boule und Wurfspiele}, sport: [boules, petanque, horseshoes]}
+      skate: {label: {en: "Skate, BMX and parkour", de: "Skate, BMX und Parkour"}, sport: [skateboard, roller_skating, inline_skating, kick_scooter, bmx, parkour]}
+      cycling: {label: {en: Cycling and mountain biking, de: Radsport und Mountainbike}, sport: [cycling, mtb]}
+      golf: {label: {en: Golf and minigolf, de: Golf und Minigolf}, sport: [golf, minigolf], leisure: [golf_course]}
+      ice_sports: {label: {en: Ice skating and ice hockey, de: Eislaufen und Eishockey}, sport: [ice_skating, ice_hockey, curling], leisure: [ice_rink]}
+      bowling: {label: {en: "Bowling, billiards and table football", de: "Kegeln, Bowling, Billard und Kicker"}, sport: [9pin, 10pin, bowling, billiards, table_soccer]}
+      motor_model: {label: {en: "Motor, model and air sports", de: "Motor-, Modell- und Flugsport"}, sport: [motocross, trial, karting, motor, model_aerodrome, aviation, rc_car]}
+  hobby:
+    # A feature belongs to a category if it matches any of its tags (`;` values split).
+    categories:
+      music: {label: {en: Music, de: Musik}, tags: [{amenity: music_school}, {club: music}]}
+      arts: {label: {en: Arts and culture centres, de: Kunst und Kultur}, tags: [{amenity: arts_centre}]}
+      makerspace: {label: {en: Makerspace, de: Makerspace}, tags: [{leisure: hackerspace}]}
+      chess: {label: {en: Chess, de: Schach}, tags: [{sport: chess}, {club: chess}]}
+  # place_of_worship: one label per value of this OSM key.
+  religion_key: religion
+
+# Features of one destination type with the same name closer than this (m) are one destination
+# (e.g. a station mapped as node and as area; S1.6).
+destination_merge_m: 75
+
+# Address cells (arch. O13, A1): Zensus cells without residents that contain an OSM address of a
+# possible home. An addressed object counts unless it carries one of exclude_keys or its building
+# type is listed (S1.6).
+address_cells:
+  exclude_keys: [shop, amenity, office, craft, tourism, industrial, healthcare]
+  non_residential_buildings:
+    [industrial, commercial, retail, warehouse, garage, garages, shed, church, chapel, school,
+     university, college, kindergarten, hospital, public, civic, office, service, hut, roof,
+     carport, barn, stable, greenhouse, sports_hall, parking, train_station, supermarket,
+     transformer_tower, religious]
+
 # Access points for destination types with location "access_points" (archive, meth. §3).
 access_points:
   spacing_m: 50
@@ -246,11 +351,12 @@ sources:
     md5_url: https://download.geofabrik.de/europe/germany/baden-wuerttemberg/tuebingen-regbez/tuebingen-regbez-latest.osm.pbf.md5
     licence: ODbL 1.0
   gtfs:
-    # NVBW GTFS for the naldo network ("mit Liniennetz"). OpenTripPlanner (O17) needs more
-    # members (routes.txt, agency.txt, transfers.txt, shapes optional); added in S1.7.
+    # NVBW GTFS for the naldo network ("mit Liniennetz"). routes, agency and transfers for
+    # OpenTripPlanner (O17, S1.7); shapes.txt (581 MB) is not needed and stays in the zip.
     url: https://www.nvbw.de/fileadmin/user_upload/service/open_data/fahrplandaten_mit_liniennetz/naldo.zip
     licence: dl-de/by-2-0, ODbL
-    members: [stops.txt, stop_times.txt, trips.txt, calendar.txt, calendar_dates.txt, feed_info.txt]
+    members: [stops.txt, stop_times.txt, trips.txt, calendar.txt, calendar_dates.txt, feed_info.txt,
+              routes.txt, agency.txt, transfers.txt]
   zensus:
     # Zensus 2022 population, 100 m grid; columns GITTER_ID_100m;x_mp_100m;y_mp_100m;Einwohner.
     url: https://www.destatis.de/static/DE/zensus/gitterdaten/Zensus2022_Bevoelkerungszahl.zip
@@ -289,6 +395,23 @@ valhalla:
   # Must not exceed service_limits.<costing>.max_matrix_location_pairs in config/valhalla.json.
   max_matrix_pairs: 25000
 
+# OpenTripPlanner (O17, S1.7). URL from OTP_URL (.env / compose); null here on purpose. Values from
+# the T1 spike (PR #79): 4 threads ≈ 120 pairs/s, build 0.9 GB, serving 1.35 GB.
+otp:
+  url: null
+  concurrency: 4
+  timeout_s: 60
+  retries: 3
+  backoff_s: 2
+  itineraries: 3
+  build_heap: 3g
+  serve_heap: 2g
+  # `transit verify`: Hauptbahnhof → Morgenstelle in the morning window must use a bus.
+  verify:
+    route: [[9.0555, 48.5157], [9.0350, 48.5370]]
+    trip_window: morning_lecture
+    max_minutes: 40
+
 # Travel-time stage (S1.8, arch. §6.3). DRAFT.
 travel_times:
   # Cells grouped into square blocks; one matrix per block and Valhalla profile (archive: 500 m).
@@ -296,6 +419,19 @@ travel_times:
   # Straight-line prefilter cap for nearest-k searches (m); destinations beyond are only used if
   # fewer than nearest_k lie within it.
   search_radius_m: 6000
+  # Transit candidates per group = this × nearest_k (or nearest_k_label): the nearest by straight
+  # line is often not the nearest by bus (arch. §6.3, "the 2k nearest per type").
+  transit_candidate_factor: 2
+  # The same for label groups (k_label per label is already small; 25 sport categories × 2 × 2
+  # would double the OTP queries: 432k instead of 269k pairs for the city, S1.8).
+  transit_candidate_factor_label: 1
+  # Modes routed by the stage (routing_profiles keys); bike_transit is the first cut (M5).
+  modes: [walk, bike, transit, bike_transit]
+  # OTP pairs per batch: progress log and memory bound.
+  otp_batch: 5000
+  # Reliability (meth. §4): departures per stop counted from the window time over this many minutes
+  # (before it for arrive-by windows).
+  reliability_window_min: 60
 
 # Validation limits (arch. §7, meth. §10). DRAFT for the new checks.
 validation:
@@ -308,6 +444,12 @@ validation:
   min_destinations_per_type: 1
   # V2 plausibility: share of cell × destination pairs where bike ≤ walk; warn/fail below.
   bike_not_slower_than_walk: {warn_below: 0.95, fail_below: 0.90}
+  # Report part 2 (validate_results, S1.9): share of travel-time rows without a time per mode,
+  # and the straight-line speed no transit trip may exceed (regional trains reach ~60 km/h).
+  results:
+    unreachable_warn_above: 0.02
+    unreachable_fail_above: 0.10
+    max_transit_kmh: 70
 
 # PostGIS (archive). Connection strings and passwords come from .env.
 database:
@@ -318,6 +460,32 @@ database:
 # Published runs kept by cleanup (archive).
 cleanup:
   keep_published_runs: 3
+
+# Daily listings job (arch. O24, §7; data contract "Listings", PROPOSED in F4.1). Off until the
+# permission of SMP GmbH & Co. KG is recorded in notes N20; the app works without listings.
+listings:
+  # On since 27 Nov 2026 (Juju's decision, notes N20): `uv run python -m reach_pipeline.listings.crawl`.
+  enabled: true
+  source: wg_gesucht
+  base_url: https://www.wg-gesucht.de
+  # Search result pages for Tübingen (city id 127), 20 ads per page; {page} counts from 0.
+  # Checked by hand 27 Nov 2026 (one request per path).
+  search_paths:
+    wg_room: /wg-zimmer-in-Tuebingen.127.0.1.{page}.html
+    studio: /1-zimmer-wohnungen-in-Tuebingen.127.1.1.{page}.html
+    flat: /wohnungen-in-Tuebingen.127.2.1.{page}.html
+  max_search_pages: 10
+  # Polite crawling: one request at a time, at least request_interval_s apart; generic client name,
+  # no personal contact data (AGENTS.md).
+  request_interval_s: 20
+  timeout_s: 30
+  user_agent: "reach-student-project (University of Tuebingen course project)"
+  # Listings missing from the search pages are dropped after this many days (O24).
+  retention_days: 3
+  keep_snapshots: 3
+  # Free text kept per listing, after contact data is stripped.
+  description_max_chars: 400
+  title_max_chars: 120
 
 # API (arch. §9), read by reach_api.settings; the pipeline ignores this section. DRAFT.
 api:
@@ -344,3 +512,30 @@ api:
   db_pool:
     min_size: 1
     max_size: 4
+  # Fit parameters (methodology §6, M1 settled 27 Nov 2026): s = 1 / (1 + (T / (a·t))^p).
+  fit:
+    a: 1.25
+    p: 4
+  # POST /api/addresses/search: at most `limit` hits, queries shorter than min_chars are refused.
+  address_search:
+    limit: 10
+    min_chars: 3
+  # Seconds between checks whether `current` points at another run (then the model reloads).
+  model_refresh_s: 60
+
+# Public Alma timetable (F3.2, notes N23a; team decision 27 Nov 2026 to crawl politely):
+# `uv run python -m reach_pipeline.alma crawl` fetches the day view of each weekday of one
+# reference teaching week (2 requests per day, rate_limit_s apart) once per semester into
+# data/raw/alma/<semester>/; `shares` turns them into programme × site hours (campus.yaml alma).
+alma:
+  base_url: https://alma.uni-tuebingen.de
+  day_view_path: /alma/pages/cm/exa/timetable/currentLectures.xhtml?_flowId=showEventsAndExaminationsOnDate-flow&navigationPosition=studiesOffered%2CcurrentLecturesGeneric&recordRequest=true
+  user_agent: reach-student-project (University of Tuebingen course project DS500)
+  semester: Wintersemester 2026/27
+  reference_week: 2026-11-30   # a regular lecture week, no holidays
+  weekdays: 5
+  rows_per_page: 2000          # one page holds a whole day (about 1 200 sessions)
+  rate_limit_s: 20
+  timeout_s: 120
+  retries: 2
+  backoff_s: 10

@@ -2,9 +2,13 @@
 
 OSM without the full PBF in Python: 1. `tags-filter` admin boundaries from the regional PBF;
 2. city, districts and routing area; 3. `extract -p` the routing area → `routing.osm.pbf` (input
-of the tile build). Then Zensus origin cells, GTFS stops and one reference date per trip window.
+of the tile build); 4. `tags-filter` the label candidates from it and build the labelled
+destinations (`labels`, meth. §3.1); 5. `tags-filter` the destination types, walkable ways and
+addressed objects → destinations per type (with campus sites from `config/campus.yaml`) and the
+address index. Then Zensus origin cells, GTFS stops, one reference date per trip window and the
+departures per stop in each window (reliability, meth. §4).
 Writes validation report part 1 (`report_inputs.json` + `.md`); any failed check fails the stage
-after the report is written. Destinations, campus sites and addresses follow in S1.6.
+after the report is written.
 """
 
 from __future__ import annotations
@@ -14,14 +18,17 @@ import logging
 from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import asdict, dataclass
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from typing import Any, Literal
 
 import geopandas as gpd
+import pandas as pd
 import shapely
 
-from reach_pipeline import boundary, gtfs, osm, zensus
+from reach_pipeline import boundary, destinations, gtfs, labels, osm, transit, zensus
+from reach_pipeline import campus as campus_mod
+from reach_pipeline.config import DestinationLabels
 from reach_pipeline.context import RUN_ID_FORMAT, RunContext
 from reach_pipeline.errors import StageValidationError
 from reach_pipeline.manifest import (
@@ -41,10 +48,16 @@ STAGE = "validate"
 # Config sections this stage uses; only they are part of its inputs (see
 # manifest.config_input): boundaries, Zensus, GTFS reference dates and the input checks.
 CONFIG_SECTIONS = (
+    "access_points",
+    "address_cells",
     "calendar",
+    "destination_labels",
+    "destination_merge_m",
+    "destination_types",
     "districts",
     "sources",
     "study_area",
+    "travel_times",
     "trip_windows",
     "validation",
 )
@@ -52,6 +65,15 @@ PREVIOUS = acquire.STAGE
 METRIC_CRS = "EPSG:25832"
 ROUTING_PBF = "routing.osm.pbf"
 REPORT_JSON, REPORT_MD = "report_inputs.json", "report_inputs.md"
+# Summary entries shown as their own tables in the Markdown report.
+_TABLES = (
+    "excluded_by_district",
+    "reference_dates",
+    "active_services",
+    "destination_labels",
+    "destinations",
+    "campus_match_m",
+)
 
 log = logging.getLogger(__name__)
 
@@ -110,15 +132,17 @@ def _sql_list(values: list[str]) -> str:
 
 def reference_dates(
     ctx: RunContext, gtfs_dir: Path
-) -> tuple[date, date, dict[str, date | None], dict[str, int]]:
+) -> tuple[date, date, dict[str, date | None], dict[str, int], pd.DataFrame]:
     """Feed validity, the reference date of every trip window (None if the feed has none) and
-    the active services per reference date."""
+    the active services per reference date, plus the departures per stop in each window."""
     cfg = ctx.config
     cal, dates = gtfs.read_calendar(gtfs_dir)
     valid_from, valid_to = gtfs.feed_validity(gtfs_dir, cal, dates)
     run_day = datetime.strptime(ctx.run_id, RUN_ID_FORMAT).date()
     refs: dict[str, date | None] = {}
     services: dict[str, int] = {}
+    deps: list[pd.DataFrame] = []
+    span = cfg.travel_times.reliability_window_min * 60
     for name, window in cfg.trip_windows.items():
         try:
             day = gtfs.reference_date(
@@ -129,8 +153,20 @@ def reference_dates(
             refs[name] = None
             continue
         refs[name] = day
-        services[str(day)] = len(gtfs.active_service_ids(cal, dates, day))
-    return valid_from, valid_to, refs, services
+        today = gtfs.active_service_ids(cal, dates, day)
+        before = gtfs.active_service_ids(cal, dates, day - timedelta(days=1))
+        services[str(day)] = len(today)
+        hh, mm = (int(x) for x in window.time.split(":"))
+        t = hh * 3600 + mm * 60
+        start, end = (t - span, t) if window.mode == "arrive_by" else (t, t + span)
+        d = transit.departures_in_window(gtfs_dir, today, before, start, end)
+        deps.append(d.assign(trip_window=name))
+    departures = (
+        pd.concat(deps, ignore_index=True)
+        if deps
+        else pd.DataFrame(columns=["stop_id", "departures", "trip_window"])
+    )
+    return valid_from, valid_to, refs, services, departures
 
 
 def build_layers(ctx: RunContext, inp: Inputs, stage_dir: Path, step: _Steps) -> dict[str, Any]:
@@ -161,6 +197,33 @@ def build_layers(ctx: RunContext, inp: Inputs, stage_dir: Path, step: _Steps) ->
         osm.extract_polygon(inp.pbf, stage_dir / ROUTING_PBF, polygon)
         snapshot = osm.replication_timestamp(inp.pbf)
 
+    label_layer = None
+    if cfg.destination_labels is not None:
+        with step("osm pass 3: destination labels"):
+            label_layer = build_labels(stage_dir / ROUTING_PBF, work, cfg.destination_labels)
+
+    with step("osm pass 4: destinations and addresses"):
+        area = routing.geometry.iloc[0]
+        campus = campus_mod.load_campus(ctx.config_path)
+        sel = osm.tags_filter(
+            stage_dir / ROUTING_PBF,
+            work / "destinations.osm.pbf",
+            [*destinations.osm_expressions(cfg), *campus_mod.OSM_EXPRESSIONS],
+        )
+        exp = osm.export(sel, work / "destinations.geojsonseq", ["point", "linestring", "polygon"])
+        features = labels.unique_features(osm.read_export(exp))
+        dest = destinations.build(features, campus, cfg, area)
+        addr = destinations.addresses(features, area, cfg)
+        uni = features[campus_mod.university_mask(features)]
+        is_campus = dest["osm_id"].str.startswith("campus:")
+        campus_match = dict(
+            zip(
+                dest.loc[is_campus, "destination_id"],
+                campus_mod.match_osm(dest[is_campus], uni).round(0),
+                strict=True,
+            )
+        )
+
     with step("zensus cells"):
         grid = zensus.read_grid(
             inp.zensus_csv, _bbox(study.buffer(zensus.CELL_SIZE_M), "EPSG:3035")
@@ -169,28 +232,39 @@ def build_layers(ctx: RunContext, inp: Inputs, stage_dir: Path, step: _Steps) ->
         origins, excluded_by_district, residents_touching = boundary.scoring_scope(
             cells, study, districts
         )
+        homes = addr[addr["residential"] & addr.within(study)]
+        extra = zensus.cell_geometries(zensus.address_cells(grid, homes.geometry))
+        extra = extra[extra.set_geometry("origin_geom").within(study)]
+        origins = gpd.GeoDataFrame(pd.concat([origins, extra], ignore_index=True), crs=METRIC_CRS)
+        origins.insert(2, "populated", origins["population"] > 0)
         joined = gpd.sjoin(
             origins.set_geometry("origin_geom")[["cell_id", "origin_geom"]],
             districts[["district_id", "geometry"]],
             predicate="within",
             how="left",
         ).drop_duplicates("cell_id")
-        origins.insert(2, "district_id", joined["district_id"].to_numpy())
+        origins.insert(3, "district_id", joined["district_id"].to_numpy())
 
-    with step("gtfs stops and reference dates"):
-        area = routing.geometry.iloc[0]
+    with step("gtfs stops, reference dates, departures"):
         stops = gtfs.read_stops(inp.gtfs_dir / "stops.txt")
         stops = stops[stops.within(area)].reset_index(drop=True)
-        valid_from, valid_to, refs, services = reference_dates(ctx, inp.gtfs_dir)
+        valid_from, valid_to, refs, services, departures = reference_dates(ctx, inp.gtfs_dir)
+        departures = departures[departures["stop_id"].isin(stops["stop_id"])]
 
     residents = int(origins["population"].sum())
+    layers = {
+        "cells": origins,
+        "stops": stops,
+        "districts": districts,
+        "routing_area": routing,
+        "destinations": dest,
+        "addresses": addr,
+        "stop_departures": departures.reset_index(drop=True),
+    }
+    if label_layer is not None:
+        layers["destination_labels"] = label_layer
     return {
-        "layers": {
-            "cells": origins,
-            "stops": stops,
-            "districts": districts,
-            "routing_area": routing,
-        },
+        "layers": layers,
         "scope": study,
         "city_area_km2": city.area / 1e6,
         "district_gap": gap,
@@ -204,7 +278,47 @@ def build_layers(ctx: RunContext, inp: Inputs, stage_dir: Path, step: _Steps) ->
         "gtfs_valid_to": valid_to,
         "reference_dates": refs,
         "active_services": services,
+        "campus": campus,
+        "campus_match_m": campus_match,
+        "destination_counts": destinations.counts(dest, cfg),
     }
+
+
+def build_labels(pbf: Path, work: Path, cfg: DestinationLabels) -> gpd.GeoDataFrame:
+    """Labelled destinations from the routing-area PBF (one row per destination and label)."""
+    sel = osm.tags_filter(pbf, work / "labels.osm.pbf", labels.osm_expressions(cfg))
+    exp = osm.export(sel, work / "labels.geojsonseq", ["point", "linestring", "polygon"])
+    features = labels.unique_features(osm.read_export(exp))
+    return labels.cluster(labels.label_features(features, cfg), features, cfg)
+
+
+def label_check(dest: gpd.GeoDataFrame, cfg: DestinationLabels) -> Check:
+    """V10 (meth. §10): supermarkets must carry a group; configured labels without enough
+    destinations are not offered and reported."""
+    groups = dest[dest["label_kind"] == "group"]
+    offered = dest.loc[dest["offered"], labels.LABEL_KEYS].drop_duplicates()
+    missing = labels.missing_categories(dest, cfg)
+    small_brands = sorted(
+        set(dest.loc[(dest["label_kind"] == "brand") & ~dest["offered"], "label"])
+    )
+    absent_brands = sorted(
+        set(cfg.grocery.brands) - set(dest.loc[dest["label_kind"] == "brand", "label"])
+    )
+    not_offered = {
+        k: v
+        for k, v in {
+            **missing,
+            "brand below min stores": small_brands,
+            "brand absent": absent_brands,
+        }.items()
+        if v
+    }
+    if groups.empty:
+        return Check("destination_labels", "fail", 0, "no supermarket in the routing area")
+    message = f"{len(offered)} labels offered, {len(dest)} labelled destinations; " + (
+        f"not offered: {not_offered}" if not_offered else "every configured label offered"
+    )
+    return Check("destination_labels", "warn" if not_offered else "ok", len(offered), message)
 
 
 def checks(ctx: RunContext, r: dict[str, Any]) -> list[Check]:
@@ -348,6 +462,68 @@ def checks(ctx: RunContext, r: dict[str, Any]) -> list[Check]:
                 f"holiday lists cover {covered.start}..{covered.end}",
             )
         )
+    if "destination_labels" in layers:
+        out.append(label_check(layers["destination_labels"], cfg.destination_labels))
+    out += destination_checks(r)
+    return out
+
+
+def destination_checks(r: dict[str, Any]) -> list[Check]:
+    """V3 (meth. §10): every destination type has destinations, campus points lie near a
+    university feature, the address index and the departures per window are not empty."""
+    layers = r["layers"]
+    cfg_counts = r["destination_counts"]
+    none = sorted(t for t, n in cfg_counts.items() if n == 0)
+    out = [
+        Check(
+            "destinations",
+            "fail" if none else "ok",
+            sum(cfg_counts.values()),
+            (f"no destinations for {none}" if none else "every destination type has destinations")
+            + f"; {len(layers['destinations'])} points",
+        )
+    ]
+    radius = r["campus"].match_radius_m
+    far = {k: v for k, v in r["campus_match_m"].items() if v > radius}
+    out.append(
+        Check(
+            "campus_match",
+            "warn" if far else "ok",
+            len(far),
+            (
+                f"campus points farther than {radius:.0f} m from a university feature: {far}"
+                if far
+                else f"every campus point within {radius:.0f} m of a university feature"
+            ),
+        )
+    )
+    n_addr = len(layers["addresses"])
+    out.append(
+        Check(
+            "addresses",
+            "ok" if n_addr else "fail",
+            n_addr,
+            f"{n_addr} addresses (street + house number) in the routing area",
+        )
+    )
+    dep = layers["stop_departures"]
+    windows = set(r["reference_dates"]) - {n for n, d in r["reference_dates"].items() if d is None}
+    empty = sorted(windows - set(dep["trip_window"]))
+    out.append(
+        Check(
+            "stop_departures",
+            "fail" if empty else "ok",
+            int(dep["departures"].sum()) if len(dep) else 0,
+            (
+                f"no departures in the windows {empty}"
+                if empty
+                else "departures per window: "
+                + ", ".join(
+                    f"{w} {n}" for w, n in dep.groupby("trip_window")["departures"].sum().items()
+                )
+            ),
+        )
+    )
     return out
 
 
@@ -360,6 +536,7 @@ def _summary(ctx: RunContext, r: dict[str, Any]) -> dict[str, Any]:
         "routing_area_km2": round(layers["routing_area"].area.sum() / 1e6, 2),
         "districts": len(layers["districts"]),
         "origin_cells": len(layers["cells"]),
+        "address_cells": int((~layers["cells"]["populated"]).sum()),
         "residents_touching_city": r["residents_touching"],
         "residents_scored": r["residents_scored"],
         "residents_excluded": r["residents_excluded"],
@@ -370,6 +547,14 @@ def _summary(ctx: RunContext, r: dict[str, Any]) -> dict[str, Any]:
         "gtfs_valid_to": str(r["gtfs_valid_to"]),
         "reference_dates": {n: (str(d) if d else None) for n, d in r["reference_dates"].items()},
         "active_services": r["active_services"],
+        "destination_labels": (
+            labels.counts(layers["destination_labels"]).to_dict("records")
+            if "destination_labels" in layers
+            else []
+        ),
+        "addresses": len(layers["addresses"]),
+        "destinations": r["destination_counts"],
+        "campus_match_m": r["campus_match_m"],
     }
 
 
@@ -386,7 +571,7 @@ def _markdown(report: dict[str, Any]) -> str:
         "|---|---|",
     ]
     for key, value in s.items():
-        if key not in ("excluded_by_district", "reference_dates", "active_services"):
+        if key not in _TABLES:
             lines.append(f"| {key} | {value} |")
     lines += ["", "| Trip window | Reference date | Active services |", "|---|---|---|"]
     lines += [
@@ -399,6 +584,21 @@ def _markdown(report: dict[str, Any]) -> str:
         "|---|---|",
     ]
     lines += [f"| {d} | {n} |" for d, n in s["excluded_by_district"].items()] or ["| none | 0 |"]
+    if s.get("destination_labels"):
+        lines += [
+            "",
+            "| Type | Kind | Label (V10) | Destinations | Features | Offered |",
+            "|---|---|---|---|---|---|",
+        ]
+        lines += [
+            f"| {x['destination_type']} | {x['label_kind']} | {x['label']} | {x['destinations']} "
+            f"| {x['features']} | {'yes' if x['offered'] else 'no'} |"
+            for x in s["destination_labels"]
+        ]
+    lines += ["", "| Destination type (V3) | Destinations |", "|---|---|"]
+    lines += [f"| {t} | {n} |" for t, n in s.get("destinations", {}).items()]
+    lines += ["", "| Campus point | Distance to a university feature (m) |", "|---|---|"]
+    lines += [f"| {k} | {v} |" for k, v in s.get("campus_match_m", {}).items()]
     lines += ["", "## Checks", "", "| Check | Status | Value | Message |", "|---|---|---|---|"]
     lines += [
         f"| {c['check']} | {c['status']} | {'' if c['value'] is None else c['value']} "

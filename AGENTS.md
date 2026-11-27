@@ -57,9 +57,9 @@ is named.
 | Install / update Python env | `uv sync` |
 | Lint + format check | `uv run ruff check . && uv run ruff format --check .` |
 | Tests | `uv run pytest` · DB contract: `REACH_TEST_DATABASE_URL=<superuser URL> uv run pytest -m db` |
-| Local stack | `make up` (PostGIS, API, Valhalla once tiles exist) |
+| Local stack | `make up` (PostGIS, API, Valhalla and OpenTripPlanner once their graphs exist) |
 | Full refresh | `make refresh` · test clip: `make refresh REACH_CONFIG=config/test_clip.yaml` (transit from S1.7) |
-| One pipeline stage | `make pipeline STAGE=<stage>` (stages: acquire, validate, tiles, publish, cleanup) |
+| One pipeline stage | `make pipeline STAGE=<stage>` (stages: acquire, validate, tiles, transit, publish, cleanup) |
 | DB roles + migrations | `make migrate` (also run by `publish` when `DATABASE_URL_ADMIN` is set) |
 | Frontend | `cd web && npm ci && npm run dev` · checks: `npm run lint && npm run build && npm run test:e2e` |
 | Add Python dependency | `uv add --package pipeline <pkg>` / `--package api` / `--dev` (ask first) |
@@ -118,8 +118,9 @@ the Never list or the Ask-first list.
 4. **No hard-coded values:** speeds, tags, trip windows, limits, URLs and paths come from
    `config/` or `.env`.
 5. **Store raw travel times;** the fit, rankings and reasons are derived at read time by the API.
-6. **Only `publish` writes results to PostGIS;** `cleanup` only drops old run schemas. The API
-   reads only `current`.
+6. **Only `publish` and `publish_listings` write results to PostGIS;** `cleanup` only drops old
+   run and listing snapshot schemas. The API reads only `current` and `listings` (architecture
+   O7, O24).
 7. **Stages are idempotent** and write a manifest; each stage checks the previous one.
 8. **No public data APIs at runtime** (Overpass, Nominatim, journey planners). OSM data comes
    from the clipped Geofabrik extract; addresses are searched in PostGIS.

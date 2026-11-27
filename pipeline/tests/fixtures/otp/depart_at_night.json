@@ -1,0 +1,165 @@
+{
+ "variables": {
+  "o": {
+   "latitude": 48.5204,
+   "longitude": 9.0568
+  },
+  "d": {
+   "latitude": 48.525,
+   "longitude": 9.088
+  },
+  "dt": {
+   "earliestDeparture": "2026-11-28T00:30:00+01:00"
+  },
+  "access": [
+   "WALK"
+  ],
+  "first": 3
+ },
+ "response": {
+  "data": {
+   "planConnection": {
+    "edges": [
+     {
+      "node": {
+       "start": "2026-11-28T00:30:00+01:00",
+       "end": "2026-11-28T01:02:17+01:00",
+       "duration": 1937,
+       "waitingTime": 0,
+       "walkTime": 1937,
+       "numberOfTransfers": 0,
+       "legs": [
+        {
+         "mode": "WALK",
+         "duration": 1937.0,
+         "start": {
+          "scheduledTime": "2026-11-28T00:30:00+01:00"
+         },
+         "end": {
+          "scheduledTime": "2026-11-28T01:02:17+01:00"
+         },
+         "from": {
+          "name": "Origin"
+         },
+         "route": null
+        }
+       ]
+      }
+     },
+     {
+      "node": {
+       "start": "2026-11-28T00:35:22+01:00",
+       "end": "2026-11-28T00:51:17+01:00",
+       "duration": 955,
+       "waitingTime": 0,
+       "walkTime": 619,
+       "numberOfTransfers": 0,
+       "legs": [
+        {
+         "mode": "WALK",
+         "duration": 170.0,
+         "start": {
+          "scheduledTime": "2026-11-28T00:35:22+01:00"
+         },
+         "end": {
+          "scheduledTime": "2026-11-28T00:38:12+01:00"
+         },
+         "from": {
+          "name": "Origin"
+         },
+         "route": null
+        },
+        {
+         "mode": "BUS",
+         "duration": 336.0,
+         "start": {
+          "scheduledTime": "2026-11-28T00:38:12+01:00"
+         },
+         "end": {
+          "scheduledTime": "2026-11-28T00:43:48+01:00"
+         },
+         "from": {
+          "name": "Tübingen Neckarbrücke"
+         },
+         "route": {
+          "shortName": "N96"
+         }
+        },
+        {
+         "mode": "WALK",
+         "duration": 449.0,
+         "start": {
+          "scheduledTime": "2026-11-28T00:43:48+01:00"
+         },
+         "end": {
+          "scheduledTime": "2026-11-28T00:51:17+01:00"
+         },
+         "from": {
+          "name": "Tübingen Aeulestraße"
+         },
+         "route": null
+        }
+       ]
+      }
+     },
+     {
+      "node": {
+       "start": "2026-11-28T00:58:22+01:00",
+       "end": "2026-11-28T01:22:14+01:00",
+       "duration": 1432,
+       "waitingTime": 0,
+       "walkTime": 934,
+       "numberOfTransfers": 0,
+       "legs": [
+        {
+         "mode": "WALK",
+         "duration": 170.0,
+         "start": {
+          "scheduledTime": "2026-11-28T00:58:22+01:00"
+         },
+         "end": {
+          "scheduledTime": "2026-11-28T01:01:12+01:00"
+         },
+         "from": {
+          "name": "Origin"
+         },
+         "route": null
+        },
+        {
+         "mode": "BUS",
+         "duration": 498.0,
+         "start": {
+          "scheduledTime": "2026-11-28T01:01:12+01:00"
+         },
+         "end": {
+          "scheduledTime": "2026-11-28T01:09:30+01:00"
+         },
+         "from": {
+          "name": "Tübingen Neckarbrücke"
+         },
+         "route": {
+          "shortName": "N91"
+         }
+        },
+        {
+         "mode": "WALK",
+         "duration": 764.0,
+         "start": {
+          "scheduledTime": "2026-11-28T01:09:30+01:00"
+         },
+         "end": {
+          "scheduledTime": "2026-11-28T01:22:14+01:00"
+         },
+         "from": {
+          "name": "Tübingen Steige"
+         },
+         "route": null
+        }
+       ]
+      }
+     }
+    ]
+   }
+  }
+ }
+}

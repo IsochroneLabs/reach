@@ -5,20 +5,27 @@ import { nearbyCells } from '../logic/nearby'
 import { cellCentre, cellIdAt } from '../geo/laea'
 import { useI18n } from '../i18n/i18n'
 import { useFit } from '../remote/fit'
+import { useListings } from '../remote/listings'
 import { useRefs } from '../remote/refs'
 import { MAX_PLACES } from '../settings'
 import { useStore } from '../state/store'
+import { storage } from '../state/storage'
 import type { DrawCell, MapMarker } from './MapView'
 import { useToast } from './Toast'
 
 const MapView = lazy(() => import('./MapView').then((m) => ({ default: m.MapView })))
+const CELLS_KEY = 'reach.v1.cells'
 
 export function FitLegend() {
   const { t } = useI18n()
   return (
     <div className="legend" aria-hidden="true">
       <strong>{t('fit.legend')}</strong>
-      <div className="legend-ramp" />
+      <div className="legend-ramp">
+        {[0, 1, 2, 3, 4, 5, 6].map((i) => (
+          <i key={i} className={`legend-step step-${i}`} />
+        ))}
+      </div>
       <div className="legend-scale">
         <span>0 · {t('fit.legend.low')}</span>
         <span>{t('fit.legend.high')} · 100</span>
@@ -37,9 +44,35 @@ export function MapArea() {
   const fit = useFit()
   const { state, dispatch } = useStore()
   const toast = useToast()
+  const listings = useListings()
+  const { data: listingsData, select: selectListing, selected: selectedListing, routes } = listings
   const [popupCell, setPopupCell] = useState<string | null>(null)
   const [failed, setFailed] = useState(false)
   const [loaded, setLoaded] = useState(false)
+  const [showCells, setShowCells] = useState(() => storage.get(CELLS_KEY) !== '0')
+
+  const toggleCells = () => {
+    const next = !showCells
+    setShowCells(next)
+    storage.set(CELLS_KEY, next ? '1' : '0')
+  }
+
+  // opening a WG hides the fit cells so the streets, outlines and routes are readable; closing
+  // restores the student's grid preference. Turning the grid back on while the WG is open sticks
+  // (state adjusted during render, https://react.dev/learn/you-might-not-need-an-effect).
+  const selectedId = listings.selected?.listing_id ?? null
+  const [gridSeenFor, setGridSeenFor] = useState<string | null>(selectedId)
+  const [gridBefore, setGridBefore] = useState<boolean | null>(null)
+  if (gridSeenFor !== selectedId) {
+    setGridSeenFor(selectedId)
+    if (selectedId && showCells) {
+      setGridBefore(true)
+      setShowCells(false)
+    } else if (!selectedId && gridBefore) {
+      setShowCells(gridBefore)
+      setGridBefore(null)
+    }
+  }
 
   const extra = useExtraCells()
   const cells: DrawCell[] = useMemo(() => {
@@ -55,6 +88,56 @@ export function MapArea() {
     dispatch({ type: 'addPlace', place: { point, cellId, label } })
   }
 
+  // chosen destinations: favourite supermarkets and sport/hobby categories (F2.5)
+  const pois: MapMarker[] = useMemo(() => {
+    if (refs.kind !== 'ok') return []
+    const keys = Object.entries(state.profile.destinations).filter(([, v]) => v.importance > 0).map(([k]) => k)
+    const favourites = 'grocery' in state.profile.destinations ? (state.profile.labels?.grocery ?? []) : []
+    return refs.refs.labelDestinations
+      .filter((d) =>
+        d.destination_type === 'grocery'
+          ? d.labels.some((l) => favourites.includes(l))
+          : d.labels.some((l) => keys.includes(`${d.destination_type}:${l}`)),
+      )
+      .map((d) => ({
+        key: `poi-${d.destination_id}`,
+        point: d.point,
+        text: d.name ?? '',
+        kind: 'poi' as const,
+        title: `${t('map.chosenPlaces')}: ${d.name ?? ''}`,
+      }))
+  }, [refs, state.profile, t])
+
+  // buildings of the programme's campus sites get the stronger outline (F3.4/F4.5)
+  const universitySites = useMemo(() => {
+    if (refs.kind !== 'ok') return []
+    if (state.profile.programme) {
+      return refs.refs.programmes.find((p) => p.programme === state.profile.programme)?.sites ?? []
+    }
+    return refs.refs.sites.filter((s) => (s.default_share ?? 0) > 0).map((s) => s.site_id)
+  }, [refs, state.profile.programme])
+
+  // open WG-Gesucht ads in Find (F4.7): one square per listing with a point
+  const listingPins: MapMarker[] = useMemo(() => {
+    if (!listingsData) return []
+    const chosen = selectedListing ? [selectedListing] : listingsData.slice(0, 10)
+    return chosen
+      .filter((l) => l.point)
+      .map((l) => {
+        const eur = l.rent_total_eur ?? l.rent_cold_eur
+        return {
+          key: `listing-${l.listing_id}`,
+          point: l.point!,
+          text: t('listings.marker'),
+          kind: 'listing' as const,
+          title: [l.title ?? t('listings.untitled'), eur != null ? t('listings.eur', { eur }) : null]
+            .filter(Boolean)
+            .join(' · '),
+          onClick: () => selectListing(l.listing_id),
+        }
+      })
+  }, [listingsData, selectListing, selectedListing, t])
+
   const markers: MapMarker[] = useMemo(() => {
     const pins: MapMarker[] = state.places
       .filter((p) => state.mode === 'check' || p.id === state.nearbyOf)
@@ -65,33 +148,19 @@ export function MapArea() {
         kind: 'pin' as const,
         title: `${t('check.place', { id: p.id })}: ${p.label ?? t('check.pin')}`,
       }))
-    if (state.mode === 'check') {
-      return state.places.map((p) => ({
-        key: p.id,
-        point: p.point,
-        text: p.id,
-        kind: 'pin' as const,
-        title: `${t('check.place', { id: p.id })}: ${p.label ?? t('check.pin')}`,
-      }))
-    }
     const labels: MapMarker[] = (fit.data?.areas ?? []).flatMap((a) => {
       const c = cellCentre(a.best_cell_id)
       return c ? [{ key: `label-${a.area_id}`, point: c, text: a.name, kind: 'label' as const, title: a.name }] : []
     })
-    return labels.concat(pins, (fit.data?.areas ?? []).slice(0, 3).flatMap((a, i) => {
-      const c = cellCentre(a.best_cell_id)
-      return c
-        ? [{
-            key: a.area_id,
-            point: c,
-            text: String(i + 1),
-            kind: 'rank' as const,
-            title: `${i + 1}. ${a.name}`,
-            onClick: () => setPopupCell(a.best_cell_id),
-          }]
-        : []
-    }))
-  }, [state.mode, state.places, state.nearbyOf, fit.data, t])
+    if (state.mode === 'find') return pois.concat(listingPins, labels, pins)
+    return pois.concat(state.places.map((p) => ({
+      key: p.id,
+      point: p.point,
+      text: p.id,
+      kind: 'pin' as const,
+      title: `${t('check.place', { id: p.id })}: ${p.label ?? t('check.pin')}`,
+    })))
+  }, [state.mode, state.places, state.nearbyOf, fit.data, t, pois, listingPins])
 
   const popupData = popupCell && fit.data?.cells[popupCell]
   const popup =
@@ -136,8 +205,11 @@ export function MapArea() {
           <MapView
             bounds={bounds}
             cells={cells}
+            showCells={showCells}
             markers={markers}
-            focus={state.focus}
+            routes={routes}
+            universitySites={universitySites}
+            focus={selectedListing?.point ?? state.focus}
             label={t('map.label')}
             popup={popup}
             onMapClick={onMapClick}
@@ -157,7 +229,18 @@ export function MapArea() {
       {loaded && state.mode === 'check' && state.places.length < MAX_PLACES && (
         <p className="map-hint">{t('map.pinHint')}</p>
       )}
-      <FitLegend />
+      <div className="map-toggles" role="group" aria-label={t('map.toggles')}>
+        <button
+          type="button"
+          className="map-toggle"
+          aria-pressed={showCells}
+          title={t('map.toggle.cells.title')}
+          onClick={toggleCells}
+        >
+          {t('map.toggle.cells')}
+        </button>
+      </div>
+      {showCells && <FitLegend />}
       <p className="map-attrib">{t('map.attribution')}</p>
     </div>
   )

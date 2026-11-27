@@ -7,9 +7,13 @@ import {
   type DestinationType,
   type FitRequest,
   type FitResponse,
+  type LabelDestination,
+  type Listing,
+  type LonLat,
   type Meta,
   type Persona,
   type Programme,
+  type RouteFeature,
 } from './types'
 
 /** Everything the app asks the API. Profiles go only in POST bodies (root rule 9). */
@@ -19,9 +23,16 @@ export interface Api {
   campusSites(signal?: AbortSignal): Promise<CampusSite[]>
   programmes(signal?: AbortSignal): Promise<Programme[]>
   personas(signal?: AbortSignal): Promise<Persona[]>
+  labelDestinations(signal?: AbortSignal): Promise<LabelDestination[]>
   searchAddresses(q: string, signal?: AbortSignal): Promise<AddressHit[]>
   fit(profile: FitRequest, signal?: AbortSignal): Promise<FitResponse>
   cell(cellId: string, profile: FitRequest, signal?: AbortSignal): Promise<CellDetail>
+  /** F4.5: exact times from one point (listing address or pin), no cache. */
+  place(point: LonLat, profile: FitRequest, signal?: AbortSignal): Promise<CellDetail>
+  /** F4.5: geometry of one walk or bike route to a published destination. */
+  route(origin: LonLat, destinationId: string, mode: 'walk' | 'bike', signal?: AbortSignal): Promise<RouteFeature>
+  /** PROPOSED (F4.6): current listings with the fit of their cell, best first. */
+  listings(profile: FitRequest, signal?: AbortSignal): Promise<Listing[]>
 }
 
 /** One request: method, path below the API base, optional JSON body. */
@@ -60,10 +71,15 @@ export function makeApi(t: Transport): Api {
     campusSites: (s) => t('GET', '/campus-sites', undefined, s) as Promise<CampusSite[]>,
     programmes: (s) => t('GET', '/programmes', undefined, s) as Promise<Programme[]>,
     personas: (s) => t('GET', '/personas', undefined, s) as Promise<Persona[]>,
+    labelDestinations: (s) => t('GET', '/label-destinations', undefined, s) as Promise<LabelDestination[]>,
     // PROPOSED (N17): POST, so the typed address never lands in an access log.
     searchAddresses: (q, s) => t('POST', '/addresses/search', { q }, s) as Promise<AddressHit[]>,
     fit: (p, s) => t('POST', '/fit', p, s) as Promise<FitResponse>,
     cell: (id, p, s) => t('POST', `/cell/${encodeURIComponent(id)}`, p, s) as Promise<CellDetail>,
+    place: (point, p, s) => t('POST', '/place', { point, profile: p }, s) as Promise<CellDetail>,
+    route: (origin, id, mode, s) =>
+      t('POST', '/route', { origin, destination_id: id, mode }, s) as Promise<RouteFeature>,
+    listings: (p, s) => t('POST', '/listings/fit', p, s) as Promise<Listing[]>,
   }
 }
 
