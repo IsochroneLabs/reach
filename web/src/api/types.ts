@@ -15,7 +15,6 @@ export interface DestinationType {
   label: Label
   trip_window: string
   fine_time_min: number
-  trips_per_week: number
   /**
    * PROPOSED (F2.4, methodology §3.1): the offered labels of this type. Grocery: brands and groups
    * (narrow the grocery term, QF3). Sport and hobby: categories, each a term of its own (QF4), sent
@@ -65,12 +64,9 @@ export interface FitRequest {
   modes: Mode[]
   /**
    * Keys: a destination type, or `<type>:<category>` for a sport or hobby category (PROPOSED,
-   * F2.4). Categories take importance and fine time only; they never count in the weekly time.
+   * F2.4). Each key takes an importance and an optional fine time.
    */
-  destinations: Record<
-    string,
-    { importance: Importance; fine_time_min?: number; trips_per_week?: number }
-  >
+  destinations: Record<string, { importance: Importance; fine_time_min?: number }>
   /** PROPOSED (F2.4): favourite supermarkets, brands and groups; empty or absent = any. */
   labels?: { grocery?: string[] }
   area_level?: 'district' | 'teilort'
@@ -93,12 +89,11 @@ export interface Area {
   fit: number
   best_cell_id: string
   best_cell_fit: number
-  weekly_min: number
   reasons: Reason[]
 }
 
-/** cell_id → [fit, weekly_min, populated]; the third element is PROPOSED (N17), 1 = populated. */
-export type CellFits = Record<string, [number | null, number | null, 0 | 1]>
+/** cell_id → [fit, populated]; 1 = populated (N17). */
+export type CellFits = Record<string, [number | null, 0 | 1]>
 
 export interface FitResponse {
   run_id: string
@@ -159,8 +154,6 @@ export interface CellDetail {
   fit?: number | null
   reasons?: Reason[]
   /** PROPOSED (N17) */
-  weekly_min?: number | null
-  /** PROPOSED (N17) */
   fit_parts?: FitPart[]
   /** PROPOSED (N17): false = address cell (no residents) */
   populated?: boolean
@@ -197,7 +190,6 @@ export interface Listing {
   approximate: boolean
   /** from POST /api/listings/fit */
   fit?: number | null
-  weekly_min?: number | null
 }
 
 export interface AddressHit {

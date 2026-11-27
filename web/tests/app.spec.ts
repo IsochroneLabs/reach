@@ -56,3 +56,25 @@ test('the grid toggle hides the fit cells but keeps the WGs', async ({ page, isM
   await expect(page.locator('.legend')).toHaveCount(0)
   await expect(page.locator('.listing-card').first()).toBeVisible()
 })
+
+test('the trips of a WG are labelled on the map; hover shows details, a click pins them', async ({
+  page,
+  isMobile,
+}) => {
+  test.skip(!!isMobile, 'bottom sheet covers the map; covered on desktop')
+  await page.goto('/')
+  await expect(page.getByTestId('listing-detail')).toBeVisible()
+  const pois = page.locator('.poi-marker')
+  await expect(pois.first()).toBeVisible()
+  const grocery = pois.filter({ hasText: 'Supermarket' }).first()
+  await grocery.hover()
+  const card = page.locator('.poi-popup')
+  await expect(card).toContainText('Opening hours (OSM): Mo-Sa 07:00-22:00')
+  await expect(card).toContainText('Open at that time')
+  await expect(card.getByRole('button', { name: 'Close' })).toHaveCount(0)
+  await grocery.click()
+  await page.mouse.move(5, 5)
+  await expect(card).toBeVisible() // pinned
+  await card.getByRole('button', { name: 'Close' }).click()
+  await expect(card).toHaveCount(0)
+})

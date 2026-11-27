@@ -35,7 +35,7 @@ test('search suggests addresses after 3 characters and says when nothing is foun
   await expect(page.locator('.search-status')).toHaveText(/No address found in Tübingen/)
 })
 
-test('an address opens Check with fit, rank, weekly time, trips and data date', async ({ page }) => {
+test('an address opens Check with fit, rank, trips and data date', async ({ page }) => {
   await page.goto('/')
   await search(page, 'hechinger', 'Hechinger Straße 12, Tübingen')
   await expect(page).toHaveURL(/\/check#.*&pl=/)
@@ -43,7 +43,7 @@ test('an address opens Check with fit, rank, weekly time, trips and data date', 
   const card = page.getByTestId('place')
   await expect(card).toContainText('Hechinger Straße 12, Tübingen')
   await expect(card.getByTestId('rank')).toContainText(/Better than \d+ % of places in Tübingen|Among the best 5 %/)
-  await expect(card.getByTestId('weekly')).toContainText('per week on the way')
+  await expect(card.getByTestId('weekly')).toHaveCount(0)
   await expect(card.getByTestId('trip-row').first()).toContainText(/Tue, arrive by 8:10/)
   await expect(card.getByTestId('data-note')).toContainText('Sample data')
 })

@@ -15,7 +15,7 @@ import { useToast } from './Toast'
 export { FitBadge } from './FitBadge'
 
 function AreaCard({ area, rank }: { area: Area; rank: number }) {
-  const { t, duration } = useI18n()
+  const { t } = useI18n()
   const { state, dispatch } = useStore()
   const toast = useToast()
   const check = () => {
@@ -42,7 +42,7 @@ function AreaCard({ area, rank }: { area: Area; rank: number }) {
       </div>
       <Reasons reasons={area.reasons} />
       <div className="area-foot">
-        <span className="muted small">{t('weekly.short', { time: duration(area.weekly_min) })}</span>
+        <span />
         <button type="button" className="btn btn-small" onClick={check} aria-label={t('find.area.checkLabel', { name: area.name })}>
           {t('find.area.check')} →
         </button>

@@ -11,14 +11,13 @@ test.beforeEach(async ({ page }) => {
   await page.goto('/')
 })
 
-test('three best areas with 2–4 reasons, weekly time and the data date', async ({ page }) => {
+test('three best areas with 2–4 reasons and the data date', async ({ page }) => {
   const areas = page.getByTestId('area')
   await expect(areas).toHaveCount(3)
   for (const a of await areas.all()) {
     const n = await a.locator('.reason').count()
     expect(n).toBeGreaterThanOrEqual(2)
     expect(n).toBeLessThanOrEqual(4)
-    await expect(a).toContainText('/week')
   }
   await expect(page.getByTestId('data-note').first()).toContainText('Sample data')
 })

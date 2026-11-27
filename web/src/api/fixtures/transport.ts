@@ -33,7 +33,6 @@ const D = data as unknown as {
     destination_type: string
     trip_window: string
     fine_time_min: number
-    trips_per_week: number
     label: { en: string }
     labels?: { label: string; kind: string }[]
   }[]
@@ -69,8 +68,6 @@ function keyInfo(key: string) {
     category,
     trip_window: info.trip_window,
     fine_time_min: info.fine_time_min,
-    // categories never count in the weekly travel time (methodology §6, QF4)
-    trips_per_week: category == null ? info.trips_per_week : 0,
   }
 }
 
@@ -83,7 +80,6 @@ interface TypeTime {
   type: string
   weight: number
   fine: number
-  trips: number
   minutes: number | null
   mode: Mode | null
   /** target row used (for reasons): the fastest campus site, or the nearest destination */
@@ -133,7 +129,6 @@ function typeTimes(ci: number, p: FitRequest): TypeTime[] {
     if (v.importance === 0) continue
     const info = keyInfo(type)!
     const fine = v.fine_time_min ?? info.fine_time_min
-    const trips = info.category == null ? (v.trips_per_week ?? info.trips_per_week) : 0
     if (type === 'campus_site') {
       // M7: weighted mean over the sites; mode chosen per site
       let sum = 0
@@ -147,7 +142,7 @@ function typeTimes(ci: number, p: FitRequest): TypeTime[] {
         wsum += w
         if (!fastest || min < fastest.min) fastest = { min, mode, row }
       }
-      out.push({ type, weight: v.importance, fine, trips, minutes: wsum ? sum / wsum : null, mode: fastest?.mode ?? null, row: fastest?.row ?? null })
+      out.push({ type, weight: v.importance, fine, minutes: wsum ? sum / wsum : null, mode: fastest?.mode ?? null, row: fastest?.row ?? null })
     } else {
       // the minimum over the targets (one, or the chosen supermarkets)
       let best: { min: number | null; mode: Mode | null; row: TimeRow } | null = null
@@ -156,21 +151,19 @@ function typeTimes(ci: number, p: FitRequest): TypeTime[] {
         const [min, mode] = bestMode(row, p.modes)
         if (!best || (min != null && (best.min == null || min < best.min))) best = { min, mode, row }
       }
-      out.push({ type, weight: v.importance, fine, trips, minutes: best?.min ?? null, mode: best?.mode ?? null, row: best?.row ?? null })
+      out.push({ type, weight: v.importance, fine, minutes: best?.min ?? null, mode: best?.mode ?? null, row: best?.row ?? null })
     }
   }
   return out
 }
 
-function fitOf(tt: TypeTime[]): { fit: number | null; weekly: number | null; parts: FitPart[] } {
+function fitOf(tt: TypeTime[]): { fit: number | null; parts: FitPart[] } {
   const wsum = tt.reduce((s, t) => s + t.weight, 0)
-  if (!wsum) return { fit: null, weekly: null, parts: [] }
+  if (!wsum) return { fit: null, parts: [] }
   const scored = tt.map((t) => ({ t, s: score(t.minutes, t.fine) }))
   const points = scored.reduce((s, x) => s + x.t.weight * x.s, 0)
-  const weekly = tt.reduce((s, t) => s + (t.minutes == null ? 0 : t.trips * 2 * t.minutes), 0)
   return {
     fit: Math.round((100 * points) / wsum),
-    weekly: Math.round(weekly),
     parts: scored.map(({ t, s }) => ({
       destination_type: t.type,
       minutes: t.minutes == null ? null : Math.round(t.minutes),
@@ -227,16 +220,15 @@ function median(xs: number[]): number {
 function fit(p: FitRequest): FitResponse {
   validate(p)
   const cells: CellFits = {}
-  const byArea = new Map<string, { ids: string[]; fits: number[]; weekly: number[] }>()
+  const byArea = new Map<string, { ids: string[]; fits: number[] }>()
   const perCell = D.cells.map(([id, area, pop], ci) => {
     const tt = typeTimes(ci, p)
     const r = fitOf(tt)
-    cells[id] = [r.fit, r.weekly, pop]
+    cells[id] = [r.fit, pop]
     if (pop && r.fit != null) {
-      const a = byArea.get(area) ?? { ids: [], fits: [], weekly: [] }
+      const a = byArea.get(area) ?? { ids: [], fits: [] }
       a.ids.push(id)
       a.fits.push(r.fit)
-      a.weekly.push(r.weekly ?? 0)
       byArea.set(area, a)
     }
     return tt
@@ -251,7 +243,6 @@ function fit(p: FitRequest): FitResponse {
       fit: Math.round(median(a.fits)),
       best_cell_id: best,
       best_cell_fit: a.fits[bi],
-      weekly_min: Math.round(median(a.weekly)),
       reasons: reasonsOf(perCell[cellIndex.get(best)!]),
     }
   })
@@ -267,6 +258,8 @@ function cell(id: string, p: FitRequest): CellDetail {
   const rows = D.times[ci]
   const trips: Trip[] = []
   const types = Object.entries(p.destinations).filter(([, v]) => v.importance > 0).map(([t]) => t)
+  const weights = campusWeights(p)
+  const wsum = weights.reduce((a, [, w]) => a + w, 0)
   for (const type of types) {
     const w = keyInfo(type)!.trip_window
     const targets = type === 'campus_site' ? campusWeights(p).map(([s]) => `campus_site/${s}`) : targetsOf(type, p)
@@ -278,7 +271,18 @@ function cell(id: string, p: FitRequest): CellDetail {
       const dest = D.destinations[row[0]]
       for (const mode of ['walk', 'bike', 'transit'] as Mode[]) {
         const s = row[MODE_COL[mode]]
-        const t: Trip = { destination_type: type, destination_id: dest.id, name: dest.name, mode, trip_window: w, minutes: s >= 0 ? Math.round(s / 60) : null }
+        const t: Trip = { destination_type: type, destination_id: dest.id, name: dest.name, mode, trip_window: w, minutes: s >= 0 ? Math.round(s / 60) : null, point: dest.point }
+        if (type === 'campus_site') {
+          const site = target.split('/')[1]
+          const share = weights.find(([x]) => x === site)?.[1] ?? 0
+          t.share = Math.round((1000 * share) / (wsum || 1)) / 1000
+        }
+        if (type === 'grocery') {
+          // sample opening hours, as OSM tags them (N29)
+          t.opening_hours = 'Mo-Sa 07:00-22:00'
+          t.open_in_window = true
+          t.wheelchair = 'yes'
+        }
         if (mode === 'transit') {
           const walkOnly = row[9] < 0
           t.legs = {
@@ -306,7 +310,6 @@ function cell(id: string, p: FitRequest): CellDetail {
     trips,
     fit: r.fit,
     reasons: reasonsOf(tt),
-    weekly_min: r.weekly,
     fit_parts: r.parts,
     populated: pop === 1,
   }
@@ -365,12 +368,12 @@ const FIXTURE_LISTINGS: Listing[] = (() => {
   }))
 })()
 
-/** POST /api/listings/fit: the fit and weekly time of each listing's cell, best first. */
+/** POST /api/listings/fit: the fit of each listing's cell, best first. */
 function listingsFit(p: FitRequest): Listing[] {
   const cells = fit(p).cells
   return FIXTURE_LISTINGS.map((l) => {
-    const [f, w] = cells[l.cell_id!] ?? [null, null, 0]
-    return { ...l, fit: f, weekly_min: w }
+    const [f] = cells[l.cell_id!] ?? [null, 0]
+    return { ...l, fit: f }
   }).sort((a, b) => (b.fit ?? -1) - (a.fit ?? -1) || (a.rent_total_eur ?? 0) - (b.rent_total_eur ?? 0))
 }
 

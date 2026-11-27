@@ -30,23 +30,23 @@ const TRIP_WINDOWS = [
   { trip_window: 'weekend_station', weekday: 'saturday', time: '10:00', kind: 'depart_at', direction: 'to', reference_date: '2026-11-21' },
 ] as const
 
-const TYPES: [string, string, string, string, number, number][] = [
-  // key, en, de, trip window, fine_time_min, trips_per_week
-  ['campus_site', 'Campus', 'Campus', 'morning_lecture', 20, 5],
-  ['mensa', 'Mensa', 'Mensa', 'midday', 15, 3],
-  ['library', 'Library', 'Bibliothek', 'midday', 20, 2],
-  ['university_sports', 'University sports', 'Hochschulsport', 'evening', 20, 1],
-  ['grocery', 'Supermarket', 'Supermarkt', 'evening', 10, 2],
-  ['pharmacy', 'Pharmacy', 'Apotheke', 'midday', 15, 0.1],
-  ['doctor', 'Doctor', 'Arztpraxis', 'midday', 15, 0.1],
-  ['main_station', 'Main station', 'Hauptbahnhof', 'weekend_station', 25, 0.5],
-  ['park', 'Park', 'Park', 'evening', 10, 1],
-  // sport and hobby: containers of categories, every category is its own term without trips
-  ['sport', 'Sport', 'Sport', 'evening', 20, 0],
-  ['hobby', 'Hobby', 'Hobby', 'evening', 20, 0],
-  ['nightlife', 'Going out', 'Ausgehen', 'night_return', 20, 1],
-  ['cinema_theatre', 'Cinema and theatre', 'Kino und Theater', 'evening', 25, 0.5],
-  ['place_of_worship', 'Place of worship', 'Gotteshaus', 'weekend_station', 20, 1],
+const TYPES: [string, string, string, string, number][] = [
+  // key, en, de, trip window, fine_time_min
+  ['campus_site', 'Campus', 'Campus', 'morning_lecture', 20],
+  ['mensa', 'Mensa', 'Mensa', 'midday', 15],
+  ['library', 'Library', 'Bibliothek', 'midday', 20],
+  ['university_sports', 'University sports', 'Hochschulsport', 'evening', 20],
+  ['grocery', 'Supermarket', 'Supermarkt', 'evening', 10],
+  ['pharmacy', 'Pharmacy', 'Apotheke', 'midday', 15],
+  ['doctor', 'Doctor', 'Arztpraxis', 'midday', 15],
+  ['main_station', 'Main station', 'Hauptbahnhof', 'weekend_station', 25],
+  ['park', 'Park', 'Park', 'evening', 10],
+  // sport and hobby: containers of categories, every category is its own term
+  ['sport', 'Sport', 'Sport', 'evening', 20],
+  ['hobby', 'Hobby', 'Hobby', 'evening', 20],
+  ['nightlife', 'Going out', 'Ausgehen', 'night_return', 20],
+  ['cinema_theatre', 'Cinema and theatre', 'Kino und Theater', 'evening', 25],
+  ['place_of_worship', 'Place of worship', 'Gotteshaus', 'weekend_station', 20],
 ]
 
 // Destination labels: [type, kind, key, en, de]. Grocery brands and groups narrow the grocery term
@@ -101,17 +101,17 @@ const PROGRAMMES: [string, string, string, string[]][] = [
   ['sports_science', 'Sports science', 'Sportwissenschaft', ['tal']],
 ]
 
-type PersonaDest = Record<string, number | { importance: number; trips_per_week?: number; fine_time_min?: number }>
+type PersonaDest = Record<string, number | { importance: number; fine_time_min?: number }>
 // last element: chosen grocery labels (favourite supermarkets)
 const PERSONAS: [string, string, string, string, string[], PersonaDest, string[]][] = [
   ['lena', 'Lena, first semester biology', 'Lena, Biologie im ersten Semester', 'biology', ['walk', 'transit'],
     { campus_site: 3, mensa: 2, grocery: 2, 'sport:climbing': 2, main_station: 1 }, ['alnatura', 'organic']],
   ['arjun', "Arjun, exchange master's in computer science", 'Arjun, Austausch-Master Informatik', 'computer_science', ['walk', 'bike', 'transit'],
-    { campus_site: 3, 'sport:fitness': 2, nightlife: { importance: 2, trips_per_week: 1 }, grocery: 2, library: 1 }, ['international']],
+    { campus_site: 3, 'sport:fitness': 2, nightlife: 2, grocery: 2, library: 1 }, ['international']],
   ['marie', 'Marie, medicine with early hospital days', 'Marie, Medizin mit frühen Klinikdiensten', 'medicine', ['bike', 'transit'],
     { campus_site: { importance: 3, fine_time_min: 15 }, 'sport:swimming': 2, grocery: 1, main_station: 2 }, []],
   ['tom', 'Tom, economics, goes out a lot', 'Tom, Wirtschaft, oft unterwegs', 'economics', ['walk', 'bike'],
-    { campus_site: 2, nightlife: { importance: 3, trips_per_week: 2 }, 'sport:football': 1, mensa: 2 }, ['discount']],
+    { campus_site: 2, nightlife: 3, 'sport:football': 1, mensa: 2 }, ['discount']],
 ]
 
 // --- places (approximate; names of real places, but sample data) -----------------------------
@@ -403,11 +403,11 @@ const data = {
     bounds: [[r5(Math.min(...lons) - 0.01), r5(Math.min(...lats) - 0.006)], [r5(Math.max(...lons) + 0.01), r5(Math.max(...lats) + 0.006)]],
     modes: ['walk', 'bike', 'transit'],
   },
-  destination_types: TYPES.map(([k, e, de, w, fine, trips]) => {
+  destination_types: TYPES.map(([k, e, de, w, fine]) => {
     const labels = LABELS.filter((l) => l[0] === k).map(([, kind, key, le, ld]) => ({
       label: key, kind, name: { en: le, de: ld }, destinations: destinations.filter((d) => d.type === k && d.labels.includes(key)).length,
     }))
-    return { destination_type: k, label: { en: e, de }, trip_window: w, fine_time_min: fine, trips_per_week: trips, ...(labels.length ? { labels } : {}) }
+    return { destination_type: k, label: { en: e, de }, trip_window: w, fine_time_min: fine, ...(labels.length ? { labels } : {}) }
   }),
   campus_sites: SITES.map(([id, name, point]) => ({
     site_id: id, name, point,

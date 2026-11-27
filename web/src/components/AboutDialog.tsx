@@ -59,7 +59,6 @@ export function AboutDialog({ open, onClose }: { open: boolean; onClose: () => v
       </div>
       {USE_FIXTURES && <p className="note note-sample">{t('data.demo.explain')}</p>}
       <p>{t('about.fit')}</p>
-      <p>{t('about.weekly')}</p>
       <h3>{t('about.windows')}</h3>
       <ul className="plain">
         {meta?.trip_windows.map((w) => (

@@ -10,6 +10,7 @@ import { chooseTrips } from '../logic/trips'
 import { normalise } from '../state/profile'
 import { useStore } from '../state/store'
 import { FitBadge } from './FitBadge'
+import { useWindowText } from './Minutes'
 
 const KIND_KEY = {
   wg_room: 'listings.kind.wg_room',
@@ -64,7 +65,7 @@ function rent(listing: Listing): number | null {
 }
 
 function Card({ listing }: { listing: Listing }) {
-  const { t, duration } = useI18n()
+  const { t } = useI18n()
   const { select, selected } = useListings()
   const eur = rent(listing)
   const open = selected?.listing_id === listing.listing_id
@@ -89,7 +90,6 @@ function Card({ listing }: { listing: Listing }) {
         </span>
         <span className="listing-foot">
           <FitBadge fit={listing.fit ?? null} size="s" />
-          {listing.weekly_min != null && <span className="muted small">{t('weekly.short', { time: duration(listing.weekly_min) })}</span>}
         </span>
       </span>
     </button>
@@ -194,10 +194,20 @@ function Detail({ listing }: { listing: Listing }) {
   const { t, duration, date } = useI18n()
   const { select, setRoutes, setPois } = useListings()
   const destName = useDestName()
+  const windowText = useWindowText()
+  const poiLines = (tr: Trip): string[] => {
+    const out = [windowText(tr.trip_window)]
+    if (tr.share != null) out.push(t('poi.share', { pct: Math.round(tr.share * 100) }))
+    if (tr.open_in_window != null) out.push(t(tr.open_in_window ? 'poi.openThen' : 'poi.closedThen'))
+    if (tr.opening_hours) out.push(t('poi.hours', { hours: tr.opening_hours }))
+    if (tr.wheelchair && ['yes', 'limited', 'no'].includes(tr.wheelchair)) {
+      out.push(t(`poi.wheelchair.${tr.wheelchair}` as 'poi.wheelchair.yes'))
+    }
+    return out
+  }
   const { dispatch } = useStore()
   const { rows, detail, failed } = useListingPlace(listing)
   const fit = detail?.fit ?? listing.fit ?? null
-  const weekly = detail?.weekly_min ?? listing.weekly_min
   const eur = rent(listing)
 
   // label the destinations of the shown trips and draw the walk/bike routes to them (F4.5, N29):
@@ -214,6 +224,8 @@ function Detail({ listing }: { listing: Listing }) {
           detail: `${tr.minutes != null ? duration(tr.minutes) : '–'} ${t(`mode.${tr.mode}.by`)}`,
           campus: key === 'campus_site',
           open: tr.open_in_window,
+          lines: poiLines(tr),
+          website: tr.website,
         })),
     )
     const wanted = rows.map(([, tr]) => tr).filter((tr) => tr.mode === 'walk' || tr.mode === 'bike')
@@ -271,7 +283,6 @@ function Detail({ listing }: { listing: Listing }) {
       <Photo listing={listing} big />
       <div className="listing-figure">
         <FitBadge fit={fit} />
-        {weekly != null && <span className="muted small">{t('weekly.short', { time: duration(weekly) })}</span>}
       </div>
       <dl className="listing-params">
         <dt>{t('listings.rent')}</dt>

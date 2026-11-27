@@ -28,7 +28,7 @@ const num = (s: string) => (s === '' ? undefined : Number(s))
 export function encodeHash(profile: StudentProfile, places: Place[], withRents: boolean): string {
   const d = Object.entries(profile.destinations)
     .map(([k, v]) => {
-      const parts = [k, String(v.importance), v.fine_time_min ?? '', v.trips_per_week ?? '']
+      const parts = [k, String(v.importance), v.fine_time_min ?? '']
       while (parts.length > 2 && parts[parts.length - 1] === '') parts.pop()
       return parts.join('.')
     })
@@ -76,7 +76,8 @@ export function decodeHash(hash: string, cellIdAt: (p: [number, number]) => stri
         }
       } else if (key === 'd') {
         for (const item of value.split(',').filter(Boolean)) {
-          const [type, imp, fine = '', trips = ''] = item.split('.')
+          // older links carry a fourth part (trips per week, removed N30): ignored
+          const [type, imp, fine = ''] = item.split('.')
           const importance = Number(imp)
           if (!type || ![0, 1, 2, 3].includes(importance)) {
             out.bad = true
@@ -84,11 +85,8 @@ export function decodeHash(hash: string, cellIdAt: (p: [number, number]) => stri
           }
           const v: StudentProfile['destinations'][string] = { importance: importance as Importance }
           const f = num(fine)
-          const t = num(trips)
           if (f !== undefined && Number.isFinite(f)) v.fine_time_min = f
           else if (f !== undefined) out.bad = true
-          if (t !== undefined && Number.isFinite(t)) v.trips_per_week = t
-          else if (t !== undefined) out.bad = true
           profile.destinations[type] = v
         }
       } else if (key === 'g') {

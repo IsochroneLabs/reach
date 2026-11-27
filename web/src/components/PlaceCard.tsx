@@ -196,7 +196,7 @@ function TripsTable({ detail, modes }: { detail: CellDetail; modes: Mode[] }) {
 
 /** Check for one place (docs/app_screens.md §1.3). */
 export function PlaceCard({ place, cell }: { place: Place; cell: CellState }) {
-  const { t, duration } = useI18n()
+  const { t } = useI18n()
   const refs = useRefs()
   const { dispatch } = useStore()
   const [renaming, setRenaming] = useState(false)
@@ -253,11 +253,6 @@ export function PlaceCard({ place, cell }: { place: Place; cell: CellState }) {
               <p className="place-rank" data-testid="rank">
                 <RankText rank={rank} />
               </p>
-              {detail.weekly_min != null && (
-                <p className="place-weekly" data-testid="weekly">
-                  {t('weekly.label', { time: duration(detail.weekly_min) })}
-                </p>
-              )}
             </div>
           </div>
           {rank != null && <p className="muted small">{t('rank.note')}</p>}

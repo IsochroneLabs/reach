@@ -24,6 +24,9 @@ export interface Poi {
   campus: boolean
   /** open at the time of the trip window; undefined = unknown */
   open?: boolean
+  /** more facts for the info card on hover or click (opening hours, access, …), worded */
+  lines: string[]
+  website?: string
 }
 
 export interface ListingsState {

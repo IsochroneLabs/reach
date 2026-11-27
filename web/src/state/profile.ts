@@ -45,7 +45,6 @@ export function normalise(p: StudentProfile, types: DestinationType[]): StudentP
     const t = r?.type
     const out: StudentProfile['destinations'][string] = { importance: v.importance }
     if (v.fine_time_min != null && v.fine_time_min !== t?.fine_time_min) out.fine_time_min = v.fine_time_min
-    if (!r?.category && v.trips_per_week != null && v.trips_per_week !== t?.trips_per_week) out.trips_per_week = v.trips_per_week
     destinations[k] = out
   }
   const modes = ALL_MODES.filter((m) => p.modes.includes(m))
@@ -85,8 +84,6 @@ export function sanitize(
     const out: StudentProfile['destinations'][string] = { importance: v.importance }
     if (typeof v.fine_time_min === 'number' && v.fine_time_min > 0 && v.fine_time_min <= 120) out.fine_time_min = v.fine_time_min
     else if (v.fine_time_min != null) dropped = true
-    if (typeof v.trips_per_week === 'number' && v.trips_per_week >= 0 && v.trips_per_week <= 21) out.trips_per_week = v.trips_per_week
-    else if (v.trips_per_week != null) dropped = true
     destinations[k] = out
   }
   let programme = p.programme ?? null
