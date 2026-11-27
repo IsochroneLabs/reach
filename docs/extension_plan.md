@@ -237,7 +237,12 @@ sheet. Built on fixtures inside F4.7; no separate branch.
 
 ### Phase F2 — Labelled destinations (supermarkets, sports, hobbies)
 
-#### F2.1 Taxonomy, measured on the extract — target 4 Dec
+#### F2.1 Taxonomy, measured on the extract — target 4 Dec · done (26 Nov 2026)
+
+- **State:** taxonomy decided by Juju (brands + groups clustered in the pipeline, all 25 sport
+  categories, 75 m clustering, four hobby categories); `config/config.yaml` → `destination_labels`
+  with a typed, validated model; counts in `docs/osm_tagging.md` §5; methodology v1.3-draft,
+  architecture v1.4-draft; notes N23.
 
 - **Branch:** `docs/juju-destination-labels` (+ `exp/juju-label-counts` for the measurement, not
   merged).
@@ -262,7 +267,13 @@ and polygons vs. points. Write the result to docs/osm_tagging.md and the config 
 only, commented). Keep the measurement script on the exp branch.
 ```
 
-#### F2.2 Labels in `validate` — target 11 Dec
+#### F2.2 Labels in `validate` — target 11 Dec · done (27 Nov 2026)
+
+- **State:** `reach_pipeline.labels` (vectorised tag matching, edge-to-edge clustering, sports
+  centres) runs as osm pass 3 of `validate` and writes `validate/destination_labels.parquet`, one
+  row per destination and label instead of a `labels` array (clustering is per label, methodology
+  v1.3-draft §3.1); V10 in report part 1. Linking to the `destinations` of S1.6 happens in S1.6
+  or F2.4. Test clip: 291 labelled destinations, 40 labels offered, 0.3 s.
 
 - **Branch:** `feature/juju-destination-labels`.
 - **Touches:** `pipeline/src/reach_pipeline/destinations.py` (from S1.6), `stages/validate.py`,
@@ -279,7 +290,17 @@ fail if a label that the config marks as offered has 0 destinations, warn below 
 limit. Unit tests on a small OSM fixture with tagged and untagged examples; run the test clip.
 ```
 
-#### F2.3 Travel times per label — target 15 Dec
+#### F2.3 Travel times per label — target 15 Dec · building block done (27 Nov 2026)
+
+- **State:** S1.8 does not exist yet, so F2.3 ships as `reach_pipeline.targets` (Juju, 27 Nov
+  2026: "building blocks"): exact nearest k per type and per offered label by straight line,
+  union deduplicated per cell × destination, transit with `transit_candidate_factor` × k. Config
+  `destination_labels.nearest_k_label` (2) and `travel_times.transit_candidate_factor` (2).
+  Measured (labels only): test clip 5,904 walk/bike and 9,676 transit pairs; city (1,699 cells,
+  49 offered labels) 159,706 walk/bike and 282,034 transit pairs, < 1.5 s, < 350 MB. Transit at
+  the spike's rate (193,897 pairs in 25 min) adds about 36 min per refresh, each label only in its
+  type's trip window; `nearest_k_label: 1` halves it. S1.8 calls `targets.pairs` and routes the
+  result; the check "label time ≥ type time" moves to `validate_results` (S1.9).
 
 - **Branch:** `feature/juju-label-travel-times`.
 - **Touches:** `stages/travel_times.py` (from S1.8), config `nearest_k_per_label`.

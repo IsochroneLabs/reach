@@ -1,0 +1,193 @@
+{
+ "variables": {
+  "o": {
+   "latitude": 48.53,
+   "longitude": 9.088
+  },
+  "d": {
+   "latitude": 48.537,
+   "longitude": 9.035
+  },
+  "dt": {
+   "earliestDeparture": "2026-12-01T18:00:00+01:00"
+  },
+  "access": [
+   "BICYCLE_PARKING"
+  ],
+  "first": 3
+ },
+ "response": {
+  "data": {
+   "planConnection": {
+    "edges": [
+     {
+      "node": {
+       "start": "2026-12-01T18:00:00+01:00",
+       "end": "2026-12-01T19:08:12+01:00",
+       "duration": 4092,
+       "waitingTime": 0,
+       "walkTime": 4092,
+       "numberOfTransfers": 0,
+       "legs": [
+        {
+         "mode": "WALK",
+         "duration": 4092.0,
+         "start": {
+          "scheduledTime": "2026-12-01T18:00:00+01:00"
+         },
+         "end": {
+          "scheduledTime": "2026-12-01T19:08:12+01:00"
+         },
+         "from": {
+          "name": "Origin"
+         },
+         "route": null
+        }
+       ]
+      }
+     },
+     {
+      "node": {
+       "start": "2026-12-01T18:02:14+01:00",
+       "end": "2026-12-01T18:31:34+01:00",
+       "duration": 1760,
+       "waitingTime": 0,
+       "walkTime": 385,
+       "numberOfTransfers": 0,
+       "legs": [
+        {
+         "mode": "BICYCLE",
+         "duration": 925.0,
+         "start": {
+          "scheduledTime": "2026-12-01T18:02:14+01:00"
+         },
+         "end": {
+          "scheduledTime": "2026-12-01T18:17:39+01:00"
+         },
+         "from": {
+          "name": "Origin"
+         },
+         "route": null
+        },
+        {
+         "mode": "WALK",
+         "duration": 75.0,
+         "start": {
+          "scheduledTime": "2026-12-01T18:17:39+01:00"
+         },
+         "end": {
+          "scheduledTime": "2026-12-01T18:18:54+01:00"
+         },
+         "from": {
+          "name": "Bicycle parking"
+         },
+         "route": null
+        },
+        {
+         "mode": "BUS",
+         "duration": 450.0,
+         "start": {
+          "scheduledTime": "2026-12-01T18:18:54+01:00"
+         },
+         "end": {
+          "scheduledTime": "2026-12-01T18:26:24+01:00"
+         },
+         "from": {
+          "name": "Tübingen Gmelinstraße"
+         },
+         "route": {
+          "shortName": "13"
+         }
+        },
+        {
+         "mode": "WALK",
+         "duration": 310.0,
+         "start": {
+          "scheduledTime": "2026-12-01T18:26:24+01:00"
+         },
+         "end": {
+          "scheduledTime": "2026-12-01T18:31:34+01:00"
+         },
+         "from": {
+          "name": "Tübingen BG Unfallklinik"
+         },
+         "route": null
+        }
+       ]
+      }
+     },
+     {
+      "node": {
+       "start": "2026-12-01T18:03:36+01:00",
+       "end": "2026-12-01T18:33:10+01:00",
+       "duration": 1774,
+       "waitingTime": 0,
+       "walkTime": 437,
+       "numberOfTransfers": 0,
+       "legs": [
+        {
+         "mode": "BICYCLE",
+         "duration": 1169.0,
+         "start": {
+          "scheduledTime": "2026-12-01T18:03:36+01:00"
+         },
+         "end": {
+          "scheduledTime": "2026-12-01T18:23:05+01:00"
+         },
+         "from": {
+          "name": "Origin"
+         },
+         "route": null
+        },
+        {
+         "mode": "WALK",
+         "duration": 127.0,
+         "start": {
+          "scheduledTime": "2026-12-01T18:23:05+01:00"
+         },
+         "end": {
+          "scheduledTime": "2026-12-01T18:25:12+01:00"
+         },
+         "from": {
+          "name": "Bicycle parking"
+         },
+         "route": null
+        },
+        {
+         "mode": "BUS",
+         "duration": 168.0,
+         "start": {
+          "scheduledTime": "2026-12-01T18:25:12+01:00"
+         },
+         "end": {
+          "scheduledTime": "2026-12-01T18:28:00+01:00"
+         },
+         "from": {
+          "name": "Tübingen Calwerstraße"
+         },
+         "route": {
+          "shortName": "14"
+         }
+        },
+        {
+         "mode": "WALK",
+         "duration": 310.0,
+         "start": {
+          "scheduledTime": "2026-12-01T18:28:00+01:00"
+         },
+         "end": {
+          "scheduledTime": "2026-12-01T18:33:10+01:00"
+         },
+         "from": {
+          "name": "Tübingen BG Unfallklinik"
+         },
+         "route": null
+        }
+       ]
+      }
+     }
+    ]
+   }
+  }
+ }
+}

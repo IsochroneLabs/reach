@@ -5,6 +5,8 @@ All notable changes to this project are documented in this file.
 ## [Unreleased]
 
 - Listings (F4.2): parser for WG-Gesucht ad and search pages with the field spec of the data contract (contact data stripped, partial results with warnings instead of errors) and five anonymised fixtures
+- Routing targets per cell (F2.3 building block): nearest k per destination type and per offered label, deduplicated, wider candidate set for transit; config `nearest_k_label` and `transit_candidate_factor`
+- Destination labels in `validate` (F2.2): supermarket brands and groups, 25 sport and 4 hobby categories and religions from OSM, same-label features within 75 m or one sports centre merged; `validate/destination_labels.parquet` and label counts with check V10 in report part 1
 - *Check* compare (S2.6): two or three places side by side with the differences in plain language (fit, weekly travel time against rent, largest per-destination gaps), shareable link with rents only on request
 - *Check* for one place (S2.5): address search or pin, fit, rank in the city, weekly travel time, trips by mode and trip window with bus details, optional listing rent kept in the browser, "better places nearby" in *Find*
 - *Find* (S2.4): MapLibre map with the cell fits, legend, rank markers and a cell popup; the three best areas with reasons, weekly travel time and data date; "Check here" opens *Check*

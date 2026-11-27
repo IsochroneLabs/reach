@@ -30,8 +30,8 @@ is not here is either plain English or needs an entry first.
 | **origin kind** | Why a cell is routed: `populated` (residents in the Zensus grid) or `address` (no residents, but an OSM residential address); rankings use populated cells only. |
 | **destination** | A place the student travels to (a campus site, a Mensa, a supermarket, a climbing gym, …). |
 | **destination type** | Group of destinations with one meaning for the student: `campus_site`, `mensa`, `grocery`, `sport`, `hobby`, … (`config/config.yaml`, `docs/osm_tagging.md`). |
-| **destination label** | Subgroup inside a destination type that the student chooses between: the brand for `grocery`, the category for `sport` and `hobby` (tennis, climbing, choir, …), the religion for `place_of_worship` (architecture O22, methodology §3.1). A destination can carry several labels. |
-| **favourite supermarkets** | The brands a student picks; the grocery term then uses only these brands (methodology §6). |
+| **destination label** | Subgroup inside a destination type that the student chooses between: the brand and the group (organic, international, discounter, …) for `grocery`, the category for `sport` and `hobby` (tennis, climbing, choir, …), the religion for `place_of_worship` (architecture O22, methodology §3.1). A destination can carry several labels. |
+| **favourite supermarkets** | The brands and groups a student picks; the grocery term then uses only these supermarkets (methodology §6). |
 | **sport category / hobby category** | Label of the types `sport` and `hobby`; every chosen category is its own fit term, scored on the time to the nearest amenity only (no trips per week). |
 | **campus site** | University location: a cluster of buildings derived from Alma and the sites of `config/campus.yaml` (manual overrides win); a programme maps to one or more sites. |
 | **Alma** | The university's course catalogue (HISinOne); the pipeline reads its public part once per semester for programmes, compulsory courses, rooms and buildings (architecture O23). |

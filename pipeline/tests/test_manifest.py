@@ -24,20 +24,39 @@ from reach_pipeline.manifest import (
     write_manifest,
 )
 from reach_pipeline.metrics import measure
-from reach_pipeline.stages import acquire, cleanup, publish, tiles, validate
+from reach_pipeline.stages import (
+    acquire,
+    cleanup,
+    publish,
+    tiles,
+    transit,
+    travel_times,
+    validate,
+    validate_results,
+)
 
 REPO = Path(__file__).resolve().parents[2]
 PIPELINE_ORDER = [
     "acquire",
     "validate",
     "tiles",
+    "transit",
     "travel_times",
     "validate_results",
     "publish",
     "cleanup",
 ]
 # Modules of the implemented stages (grows as stages are ported).
-STAGE_MODULES: tuple = (acquire, validate, tiles, publish, cleanup)
+STAGE_MODULES: tuple = (
+    acquire,
+    validate,
+    tiles,
+    transit,
+    travel_times,
+    validate_results,
+    publish,
+    cleanup,
+)
 
 
 @pytest.fixture
@@ -273,7 +292,7 @@ def test_migrate_needs_admin_url(
 
 def test_action_only_for_tiles(config_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     assert cli.main(["acquire", "check", "--config", str(config_path)]) == 2
-    assert "'check' is only valid for the tiles stage" in capsys.readouterr().err
+    assert "'check' is not a subcommand of stage" in capsys.readouterr().err
 
 
 def test_tiles_check_runs_without_manifest(

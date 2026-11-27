@@ -1,0 +1,165 @@
+{
+ "variables": {
+  "o": {
+   "latitude": 48.5157,
+   "longitude": 9.0555
+  },
+  "d": {
+   "latitude": 48.537,
+   "longitude": 9.035
+  },
+  "dt": {
+   "latestArrival": "2026-12-01T08:10:00+01:00"
+  },
+  "access": [
+   "WALK"
+  ],
+  "first": 3
+ },
+ "response": {
+  "data": {
+   "planConnection": {
+    "edges": [
+     {
+      "node": {
+       "start": "2026-12-01T07:23:15+01:00",
+       "end": "2026-12-01T08:10:00+01:00",
+       "duration": 2805,
+       "waitingTime": 0,
+       "walkTime": 2805,
+       "numberOfTransfers": 0,
+       "legs": [
+        {
+         "mode": "WALK",
+         "duration": 2805.0,
+         "start": {
+          "scheduledTime": "2026-12-01T07:23:15+01:00"
+         },
+         "end": {
+          "scheduledTime": "2026-12-01T08:10:00+01:00"
+         },
+         "from": {
+          "name": "Origin"
+         },
+         "route": null
+        }
+       ]
+      }
+     },
+     {
+      "node": {
+       "start": "2026-12-01T07:48:39+01:00",
+       "end": "2026-12-01T08:09:11+01:00",
+       "duration": 1232,
+       "waitingTime": 0,
+       "walkTime": 392,
+       "numberOfTransfers": 0,
+       "legs": [
+        {
+         "mode": "WALK",
+         "duration": 141.0,
+         "start": {
+          "scheduledTime": "2026-12-01T07:48:39+01:00"
+         },
+         "end": {
+          "scheduledTime": "2026-12-01T07:51:00+01:00"
+         },
+         "from": {
+          "name": "Origin"
+         },
+         "route": null
+        },
+        {
+         "mode": "BUS",
+         "duration": 840.0,
+         "start": {
+          "scheduledTime": "2026-12-01T07:51:00+01:00"
+         },
+         "end": {
+          "scheduledTime": "2026-12-01T08:05:00+01:00"
+         },
+         "from": {
+          "name": "Tübingen Hauptbahnhof Bstg B"
+         },
+         "route": {
+          "shortName": "18"
+         }
+        },
+        {
+         "mode": "WALK",
+         "duration": 251.0,
+         "start": {
+          "scheduledTime": "2026-12-01T08:05:00+01:00"
+         },
+         "end": {
+          "scheduledTime": "2026-12-01T08:09:11+01:00"
+         },
+         "from": {
+          "name": "Tübingen Auf der Morgenstelle"
+         },
+         "route": null
+        }
+       ]
+      }
+     },
+     {
+      "node": {
+       "start": "2026-12-01T07:46:39+01:00",
+       "end": "2026-12-01T08:05:10+01:00",
+       "duration": 1111,
+       "waitingTime": 0,
+       "walkTime": 451,
+       "numberOfTransfers": 0,
+       "legs": [
+        {
+         "mode": "WALK",
+         "duration": 141.0,
+         "start": {
+          "scheduledTime": "2026-12-01T07:46:39+01:00"
+         },
+         "end": {
+          "scheduledTime": "2026-12-01T07:49:00+01:00"
+         },
+         "from": {
+          "name": "Origin"
+         },
+         "route": null
+        },
+        {
+         "mode": "BUS",
+         "duration": 660.0,
+         "start": {
+          "scheduledTime": "2026-12-01T07:49:00+01:00"
+         },
+         "end": {
+          "scheduledTime": "2026-12-01T08:00:00+01:00"
+         },
+         "from": {
+          "name": "Tübingen Hauptbahnhof Bstg B"
+         },
+         "route": {
+          "shortName": "X15"
+         }
+        },
+        {
+         "mode": "WALK",
+         "duration": 310.0,
+         "start": {
+          "scheduledTime": "2026-12-01T08:00:00+01:00"
+         },
+         "end": {
+          "scheduledTime": "2026-12-01T08:05:10+01:00"
+         },
+         "from": {
+          "name": "Tübingen BG Unfallklinik"
+         },
+         "route": null
+        }
+       ]
+      }
+     }
+    ]
+   }
+  }
+ }
+}
