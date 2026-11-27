@@ -21,6 +21,7 @@ from psycopg_pool import PoolTimeout
 from reach_api import __version__
 from reach_api.db import PostgresDatabase
 from reach_api.deps import Deps
+from reach_api.listings import router as listings_router
 from reach_api.routes import router
 from reach_api.settings import Config, Env, label_names, load_config, personas
 from reach_api.store import NotPublished
@@ -84,6 +85,7 @@ def create_app(deps: Deps | None = None) -> FastAPI:
         return {"status": "ok", "version": __version__, "build_sha": build_sha}
 
     app.include_router(router)
+    app.include_router(listings_router)
 
     @app.exception_handler(NotPublished)
     async def _not_published(request: Request, exc: NotPublished) -> JSONResponse:
