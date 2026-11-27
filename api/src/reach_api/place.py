@@ -21,6 +21,7 @@ from reach_api.deps import Deps
 from reach_api.fit import ProfileError, cell_summary
 from reach_api.model import CAMPUS, MODES, Model, Term
 from reach_api.otp import OtpError, OtpTrip
+from reach_api.pois import campus_shares, decorate
 from reach_api.valhalla import costing_options
 
 LonLat = tuple[float, float]
@@ -83,9 +84,14 @@ async def targets(d: Deps, model: Model, profile: dict[str, Any], point: LonLat)
         if info is None:
             raise ProfileError(f"destinations.{key}: unknown destination type or category")
         if key == CAMPUS:
+            # only the student's campus sites (programme, campus days or default mix), never the
+            # nearest site of another programme (notes N29)
+            mine = campus_shares(model, profile)
             rows = await d.db.fetch(q.Q_SITES)
             for r in rows:
                 destination_id = f"campus_site:{r['site_id']}"
+                if destination_id not in mine:
+                    continue
                 out[(destination_id, key)] = Target(
                     destination_id=destination_id,
                     destination_type=CAMPUS,
@@ -298,7 +304,7 @@ async def place_detail(
         "district": model.district_names.get(district) if district else None,
         "point": [round(point[0], 6), round(point[1], 6)],
         "populated": bool(row["populated"]),
-        "trips": trips(model, profile, chosen, out),
+        "trips": await decorate(d.db, model, profile, trips(model, profile, chosen, out)),
         "fit": summary["fit"],
         "weekly_min": summary["weekly_min"],
         "reasons": summary["reasons"],

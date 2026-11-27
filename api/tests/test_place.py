@@ -215,3 +215,21 @@ def test_route_returns_the_geometry_and_mode() -> None:
         json={"origin": [9.05, 48.52], "destination_id": "mensa:m1", "mode": "transit"},
     )
     assert bad.status_code == 422
+
+
+def test_place_routes_only_the_students_campus_sites() -> None:
+    client, _, _, _ = _client()
+    # biology → Morgenstelle only; Tal is in the fake database but not the student's campus
+    r = client.post("/api/place", json={"point": [9.05, 48.52], "profile": PROFILE})
+    campus = {
+        t["destination_id"] for t in r.json()["trips"] if t["destination_type"] == "campus_site"
+    }
+    assert campus == {"campus_site:morgenstelle"}
+    days = dict(PROFILE, campus_days={"tal": 2, "morgenstelle": 1})
+    r = client.post("/api/place", json={"point": [9.05, 48.52], "profile": days})
+    shares = {
+        t["destination_id"]: t.get("share")
+        for t in r.json()["trips"]
+        if t["destination_type"] == "campus_site"
+    }
+    assert shares == {"campus_site:tal": 0.667, "campus_site:morgenstelle": 0.333}
