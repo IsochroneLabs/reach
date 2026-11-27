@@ -265,6 +265,9 @@ dialog.about::backdrop { background: rgb(17 17 17 / 40%); }
   .search-toggle { display: none; }
   .profile-toggle { display: inline-flex; }
   .layout { grid-template-columns: 1fr var(--right-w, 340px); }
+  /* fixed columns: a folded (display: none) column must not let the others slide into its place */
+  .layout > .col-map { grid-column: 1; grid-row: 1; }
+  .layout > .col-results { grid-column: 2; grid-row: 1; }
   .col-results { border-left: 1px solid var(--line); }
   .drawer {
     position: absolute; z-index: 18; top: 0; bottom: 0; left: 0; width: 360px; overflow: auto;
@@ -275,6 +278,9 @@ dialog.about::backdrop { background: rgb(17 17 17 / 40%); }
 @media (min-width: 1200px) {
   .profile-toggle { display: none; }
   .layout { grid-template-columns: var(--left-w, 360px) 1fr var(--right-w, 360px); }
+  .layout > .col-profile { grid-column: 1; grid-row: 1; }
+  .layout > .col-map { grid-column: 2; }
+  .layout > .col-results { grid-column: 3; }
   .col-profile { border-right: 1px solid var(--line); }
 }
 @media (max-width: 767px) {

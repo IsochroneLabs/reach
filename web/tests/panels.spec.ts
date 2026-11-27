@@ -42,3 +42,22 @@ test('the results column can be made wider', async ({ page }) => {
   await page.keyboard.press('Home') // default width again
   await expect.poll(async () => Math.round((await results.boundingBox())!.width)).toBeLessThan(before + 5)
 })
+
+test('the map fills the space of every folded column, each column unfolds on its own', async ({ page }) => {
+  const map = page.locator('.col-map')
+  const width = async () => Math.round((await map.boundingBox())!.width)
+  const results = page.locator('#results')
+  const rw = async () => Math.round((await results.boundingBox())!.width)
+  const full = 1400
+  await page.getByRole('button', { name: 'Hide profile' }).click()
+  await expect.poll(width).toBeGreaterThan(full - (await rw()) - 5) // left folded: map takes its place
+  const box = (await map.boundingBox())!
+  expect(Math.round(box.x)).toBe(0)
+  await page.getByRole('button', { name: 'Hide results' }).click()
+  await expect.poll(width).toBe(full) // both folded: only the map
+  await page.getByRole('button', { name: 'Show profile' }).click() // left alone comes back
+  await expect(page.getByTestId('profile-panel')).toBeVisible()
+  await expect(results).toBeHidden()
+  await expect.poll(width).toBe(full - 360)
+  expect(Math.round((await map.boundingBox())!.x)).toBe(360)
+})
