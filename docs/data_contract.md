@@ -1,6 +1,6 @@
 # Data contract — reach
 
-> **Status:** v1.3.0 draft (27 Nov 2026). Binding for the tables, files and API responses exchanged
+> **Status:** v1.4.0 draft (27 Nov 2026). Binding for the tables, files and API responses exchanged
 > between pipeline and API once a step implements them; every change needs confirmation
 > (AGENTS.md) and a data-contract test. Parts carried over from the archive are marked *(ported,
 > S0.4)*; result tables and API responses are fixed in S1.4 (pre-approved by Juju on 27 Nov 2026, review
@@ -73,11 +73,11 @@ of them in one transaction. Raw values only: the fit, rankings and reasons are d
 |---|---|
 | `cells` | `cell_id` PK `text` (Zensus id), `population` `integer` ≥ 0, `populated` `boolean` (false = address cell, arch. O13: routed, never ranked), `district_id` `text` (null = no district), `geom` `Polygon`, `origin_geom` `Point` |
 | `districts` | `district_id` PK `text` (OSM id, e.g. `r2830772`), `name` `text`, `admin_level` `smallint`, `geom` `MultiPolygon` |
-| `destination_types` | `destination_type` PK `text`, `label_en`, `label_de` `text`, `source` `text` (`osm`/`campus`/`labels`), `trip_window` `text`, `fine_time_min` `real`, `trips_per_week` `real`, `nearest_k` `smallint` (null = all) |
+| `destination_types` | `destination_type` PK `text`, `label_en`, `label_de` `text`, `source` `text` (`osm`/`campus`/`labels`), `trip_window` `text`, `fine_time_min` `real`, `nearest_k` `smallint` (null = all) |
 | `destinations` | `destination_id` PK `text` (`<type>:<osm_id>`, campus `<type>:<key>`), `destination_type` `text`, `name` `text` (`''` if unnamed), `osm_id` `text`, `geom` `Point` (first routing point; parks are routed from all their access points and keep the shortest time) |
 | `destination_details` | `destination_id` PK `text` (of `destinations` or `destination_labels`), `opening_hours`, `website`, `wheelchair` `text` NULL (OSM tags as tagged), `open_in_window` `boolean` NULL (open at the type's trip window time; NULL = unknown) — notes N29 |
 | `destination_labels` | as `validate/destination_labels.parquet` below; `destination_id` PK, `osm_ids` `text`, `n_features` `integer`, `offered` `boolean`, `geom` `Point` |
-| `campus_sites` | `site_id` PK `text` (key in `config/campus.yaml`), `name` `text`, `default_share` `real` (0 if not in `default_mix`), `geom` `Point`; destination id `campus_site:<site_id>` |
+| `campus_sites` | `site_id` PK `text` (key in `config/campus.yaml`), `name` `text`, `default_share` `real` (0 if not in `default_mix`), `geom` `Point` (the point the run routed to; `publish` fails if `campus.yaml` names a site the run did not route, N30); destination id `campus_site:<site_id>` |
 | `programmes` | `programme` PK `text`, `label_en`, `label_de` `text`, `sites` `text[]`, `shares` `double precision[]` NULL (per site, from Alma, N24; NULL = equal weights) |
 | `addresses` | `address_id` PK `integer`, `label` `text` (`Street 5, 72074 Tübingen`), `street`, `housenumber`, `postcode`, `city` `text`, `residential` `boolean`, `cell_id` `text` (origin cell containing the point, null outside), `geom` `Point` |
 | `stops` | `stop_id` PK `text`, `name` `text`, `geom` `Point` |
@@ -116,14 +116,14 @@ Errors: `{"detail": …}` with 404, 422, 429 (`Retry-After`), 502/503/504. Coord
 |---|---|
 | `GET /api/health` | `{status, version, build_sha}` |
 | `GET /api/meta` | `{run_id, sources: [{source, date, valid_to?}], trip_windows: [TripWindow], bounds: [[w, s], [e, n]], modes}` |
-| `GET /api/destination-types` | `[{destination_type, label: {en, de}, trip_window, fine_time_min, trips_per_week, labels?: [{label, kind, name: {en, de}, destinations}]}]`; `labels` lists offered labels (grocery brands and groups, sport and hobby categories) |
+| `GET /api/destination-types` | `[{destination_type, label: {en, de}, trip_window, fine_time_min, labels?: [{label, kind, name: {en, de}, destinations}]}]`; `labels` lists offered labels (grocery brands and groups, sport and hobby categories) |
 | `GET /api/label-destinations` | `[{destination_id, destination_type, labels: [label], name, point}]` |
 | `GET /api/campus-sites` | `[{site_id, name, programmes: [programme], point, default_share}]` |
 | `GET /api/programmes` | `[{programme, label: {en, de}, sites, shares?}]` (`shares` per site when Alma gave them) |
 | `GET /api/personas` | `[{persona, label: {en, de}, profile: FitRequest}]` from `config/personas.yaml` |
 | `POST /api/addresses/search` `{q}` | `[{label, cell_id, point}]`, at most `api.address_search.limit`, origin cells only |
-| `POST /api/fit` `FitRequest` | `{run_id, areas: [Area], cells: {cell_id: [fit, weekly_min, populated]}}` |
-| `POST /api/cell/{cell_id}` `FitRequest` | `{cell_id, district, point, populated, trips: [Trip], fit, weekly_min, reasons: [Reason], fit_parts: [FitPart]}` |
+| `POST /api/fit` `FitRequest` | `{run_id, areas: [Area], cells: {cell_id: [fit, populated]}}` |
+| `POST /api/cell/{cell_id}` `FitRequest` | `{cell_id, district, point, populated, trips: [Trip], fit, reasons: [Reason], fit_parts: [FitPart]}` |
 | `POST /api/place` `{point: [lon, lat], profile: FitRequest}` | same shape as `/api/cell/{id}` with `point` = the given point (F4.5) |
 | `POST /api/route` `{origin: [lon, lat], destination_id, mode: walk\|bike}` | GeoJSON Feature `{properties: {time_s, length_m, mode}, geometry: {type: LineString, coordinates}}`; 404 unknown destination, 422 no route, 503 engine |
 
@@ -139,16 +139,16 @@ routes have no geometry in the API yet, so the map draws the fastest walk/bike t
 
 **FitRequest** (the student profile): `programme` (null = `default_mix`), `campus_days`
 (`site_id` → days per week, optional), `modes` (≥ 1), `destinations` (key = destination type or
-`sport:<category>` / `hobby:<category>` → `{importance 0–3, fine_time_min?, trips_per_week?}`),
+`sport:<category>` / `hobby:<category>` → `{importance 0–3, fine_time_min?}`),
 `labels.grocery` (favourite brands/groups, empty = any), `area_level` (`district`).
 
 **Fit** (meth. §6): per term the best mode the student selected; *s* = 1 / (1 + (T / (a·t))^p)
 with `api.fit.a`, `api.fit.p`; fit = 100 · Σ w·s / Σ w (null if Σ w = 0); campus term = mean of
 the site times weighted by `campus_days`, else equally over the programme's sites, else
 `default_mix`; grocery with favourites = the nearest of those labels; categories = their label
-destinations; weekly time = Σ trips_per_week · 2 · T over the non-category terms. **Area**:
-`{area_id, name, fit (median of populated cells), best_cell_id, best_cell_fit, weekly_min
-(median), reasons}`, sorted by fit. **Reason**: `{kind (strength/weakness/reliability),
+destinations. **Area**:
+`{area_id, name, fit (median of populated cells), best_cell_id, best_cell_fit, reasons}`, sorted
+by fit. **Reason**: `{kind (strength/weakness/reliability),
 destination_type, name, minutes, mode, trip_window, value?}`: up to 2 strengths with *s* ≥ 0.75,
 1 weakness with *s* < 0.6, for night windows by transit the departure home; 2–4 reasons.
 **Trip**: `{destination_type, destination_id, name, mode, trip_window, minutes, legs?:
@@ -315,7 +315,7 @@ geocode precision shares, distance `geom` ↔ `source_point`, freshness.
 
 `GET /api/listings` → array of the current snapshot: the contract columns except the internal ones,
 plus `point` (EPSG:4326) and `approximate` (true until F4.5 point routing). `POST /api/listings/fit`
-takes the profile body of `/api/fit` and returns the same array plus `fit` and `weekly_min` of the
+takes the profile body of `/api/fit` and returns the same array plus `fit` of the
 listing's cell, best fit first. Both read `listings.listings` only; image URLs are returned as
 links, never proxied.
 
@@ -352,6 +352,7 @@ geocoding, the point (`POST /api/place`). Nothing of it is stored on the server.
 
 | Version | Date | Change | Why |
 |---|---|---|---|
+| v1.4.0 draft | 2026-11-27 | Weekly time removed: no `trips_per_week` (column, type list, profile), no `weekly_min` (Area, cell detail, place, listings), `cells` tuple `[fit, populated]`; publish checks that every campus site in `campus.yaml` was routed | Juju, 27 Nov 2026 (methodology v1.5, notes N30) |
 | v1.3.0 draft | 2026-11-27 | `destination_details` (OSM opening hours, website, wheelchair, open at the trip window); Trip `point`, `share`, OSM fields; campus trips only of the student's sites; `campus_sites.geom` = the routed point of the run | Wrong campus in routes and unlabelled destinations on the map (Juju, 27 Nov 2026; notes N29) |
 | proposed (F4.5) | 2026-11-27 | `POST /api/place` (point → nearest targets, walk/bike matrix, transit per window, fit from point times, no cache) and `POST /api/route` (walk/bike geometry) | F4.5, architecture O25, V11 |
 | proposed (F4.6) | 2026-11-27 | API of the current listings (`GET /api/listings`, `POST /api/listings/fit`, fit from the cell until F4.5) | F4.6 built on the F4.1 proposal |

@@ -453,3 +453,51 @@ extracting content, the data would be Google's, not ours to publish, and AGENTS.
 the app on OSM. If the team needs more (popular times, ratings), the paid Places API would be the
 legal route (ask first: paid product, new service).
 
+## N30. Campus by the official address list, no weekly time, foldable columns, POI cards
+
+**Status:** done 27 Nov 2026 (Juju: "Wege pro Woche und Stunden pro Woche komplett entfernen";
+"gefühlt müssen alle ins Tal"; POI details on hover and click; both side columns foldable, the
+right one wider) · **Related:** N24, N29, methodology v1.5, data contract v1.4.0
+
+**How the campus was validated before, and why it was wrong.** Alma buildings were matched to
+sites by hand-written name patterns (`alma.building_sites`) that were never checked against an
+official source, and programmes by module-number prefixes. Two errors made "everyone goes to the
+Tal": (1) `S\d` counted for Medicine, but the S-modules (S100 "Explorative Datenanalyse", S110,
+S420, …) are economics, so Medicine got 90 % Tal; (2) `QDS` (the psychology master Quantitative
+Data Science) counted for Data Science/ML, so that got 78 % Tal. Cyber Valley (Maria-von-Linden-
+Straße) was folded into Morgenstelle although it is 1.2 km from it, and the Altstadt buildings
+(Schloss, Alte Aula, Burse, Pfleghof) into the Tal although they are 750–1 000 m from it. Nested
+room brackets ("Hörsaal A1 (A-206) (Cyber Valley Campus, MVL1 (EG))") lost the building name.
+
+**Now.** `reach_pipeline.uni_buildings` fetches the university's address list (116 buildings, each
+with its map sheet A–D, address and institutes; 3 s between requests, raw pages kept in
+`data/raw/uni_buildings/`), locates each address in our OSM address index (3 addresses OSM lacks
+are placed at the OSM building via `building_points` in `campus.yaml`) and assigns the nearest
+campus site → `config/university_buildings.csv` (reviewed, committed, < 25 kB). Alma buildings map
+to an official building (`alma.building_addresses`), never directly to a site; 99.6 % of the
+sessions with a room match (unmatched: "Metropol", "Villa Köstlin", 17 h). Two sites were added
+where many hours are far from every site: **Altstadt** and **Cyber Valley**. Shares from the Alma
+week (sites < 10 % dropped): Computer science Morgenstelle 56 / Sand 18 / Cyber Valley 13 / Tal 13;
+Data Science/ML Cyber Valley 68 / Morgenstelle 18 / Tal 14; Economics Tal 90 / Morgenstelle 10.
+Medicine is not in Alma's day view: Schnarrenberg + Morgenstelle from the faculty's teaching
+buildings on the list (Elfriede-Aulhorn-Straße 8/10, Hörsaalzentrum). Humanities (Tal 85 /
+Altstadt 15) and social sciences (Tal 70 / Altstadt 30) are faculty estimates from sessions
+without a programme in the faculty's buildings; sports science → Sand (Institut für
+Sportwissenschaft, Wilhelmstraße 124, 650 m). The new sites need new travel times: `publish` now
+fails if `campus.yaml` names a site the run did not route.
+
+**Open.** Programmes are still 14 coarse groups; a student of e.g. Geosciences (GUZ, Morgenstelle)
+or Bioinformatics (Sand) has no own entry. Medicine shares from the medical faculty's timetable
+(not in Alma) would replace the equal weights. Default mix without programme unchanged (Tal 50 /
+Morgenstelle 50, team decision of 24 Nov 2026).
+
+**Weekly time removed.** Trips per week were guesses the student had to make; the weekly sum added
+nothing the per-trip times do not show. Removed from config, run schema, API, app, fixtures and
+docs; old links with a fourth destination part still load (ignored).
+
+**App.** Both side columns fold (buttons at their inner edge, remembered in localStorage) and the
+results column can be dragged wider (or with the arrow keys; double-click/Home = default), so the
+comparison shows three places side by side. Hovering or focusing a labelled destination shows a
+card with trip window, campus share, open/closed at that time, OSM opening hours, wheelchair access
+and website; a click pins it until its × is pressed.
+

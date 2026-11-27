@@ -1,6 +1,6 @@
 # Methodology — reach
 
-> **Status:** v1.4-draft (27 Nov 2026). Binding definition of **what** is computed: origins,
+> **Status:** v1.5-draft (27 Nov 2026). Binding definition of **what** is computed: origins,
 > destinations, modes, trip windows, travel times, the fit, explanations and validation.
 > [`architecture.md`](architecture.md) describes **how**. Every change bumps the version and adds
 > a line to the [Change log](#change-log). **[OPEN]** items are decided before the related code;
@@ -30,20 +30,20 @@ A destination *j* belongs to one destination type *d*. Types, their sources and 
 (defaults are prefilled in the profile panel and can be changed by the student; values marked
 [VERIFY] are checked with students in S2.0):
 
-| Type | Source | Nearest k stored | Default fine time | Default trips/week | Trip window |
-|---|---|---|---|---|---|
-| `campus_site` | Alma programme sites (§3.2), overrides and fallback in `config/campus.yaml` | all sites used by a programme | 20 min [VERIFY] | 5 | weekday morning arrival |
-| `mensa` | OSM + list in `config/campus.yaml` | 3 | 15 min [VERIFY] | 3 | weekday midday |
-| `library` | OSM `amenity=library` (university and public) | 3 | 20 min | 2 | weekday midday |
-| `university_sports` | `config/campus.yaml` | all sites | 20 min | 1 | weekday evening |
-| `grocery` | OSM `shop=supermarket`; label = brand (§3.1) | 3, plus 2 per brand | 10 min | 2 | weekday evening |
-| `pharmacy`, `doctor` | OSM `amenity=pharmacy`, `amenity=doctors` (GP where tagged) | 3 | 15 min | 0.1 | weekday midday |
-| `main_station` | GTFS/OSM Tübingen Hbf | 1 | 25 min | 0.5 | Saturday to the station |
-| `park` | OSM `leisure=park`, public only, access points | 3 | 10 min | 1 | weekday evening |
-| `sport` | OSM sport places; label = sport category (§3.1), replaces `gym`, `climbing`, `swimming`, `sports_club` | 2 per category | 20 min | – (no trips per week, §6) | weekday evening |
-| `hobby` | OSM hobby places; label = hobby category (§3.1), replaces `music` | 2 per category | 20 min | – (no trips per week, §6) | weekday evening |
-| `nightlife`, `cinema_theatre` | OSM tags in `config/config.yaml`, `docs/osm_tagging.md` | 3 | 20 min | per type | `nightlife`: night return; otherwise evening |
-| `place_of_worship` | OSM `amenity=place_of_worship`; label = religion | 3, plus 2 per religion | 20 min | 1 | Saturday to the station window |
+| Type | Source | Nearest k stored | Default fine time | Trip window |
+|---|---|---|---|---|
+| `campus_site` | Alma programme sites (§3.2), overrides and fallback in `config/campus.yaml` | all sites used by a programme | 20 min [VERIFY] | weekday morning arrival |
+| `mensa` | OSM + list in `config/campus.yaml` | 3 | 15 min [VERIFY] | weekday midday |
+| `library` | OSM `amenity=library` (university and public) | 3 | 20 min | weekday midday |
+| `university_sports` | `config/campus.yaml` | all sites | 20 min | weekday evening |
+| `grocery` | OSM `shop=supermarket`; label = brand (§3.1) | 3, plus 2 per brand | 10 min | weekday evening |
+| `pharmacy`, `doctor` | OSM `amenity=pharmacy`, `amenity=doctors` (GP where tagged) | 3 | 15 min | weekday midday |
+| `main_station` | GTFS/OSM Tübingen Hbf | 1 | 25 min | Saturday to the station |
+| `park` | OSM `leisure=park`, public only, access points | 3 | 10 min | weekday evening |
+| `sport` | OSM sport places; label = sport category (§3.1), replaces `gym`, `climbing`, `swimming`, `sports_club` | 2 per category | 20 min | weekday evening |
+| `hobby` | OSM hobby places; label = hobby category (§3.1), replaces `music` | 2 per category | 20 min | weekday evening |
+| `nightlife`, `cinema_theatre` | OSM tags in `config/config.yaml`, `docs/osm_tagging.md` | 3 | 20 min | `nightlife`: night return; otherwise evening |
+| `place_of_worship` | OSM `amenity=place_of_worship`; label = religion | 3, plus 2 per religion | 20 min | Saturday to the station window |
 
 Only facilities the public can use count (OSM `access` rule, `docs/osm_tagging.md`). Polygons are
 represented by one point inside; parks by their access points (a park counts once, with the
@@ -82,9 +82,14 @@ The programme a student studies decides where they have lectures (architecture O
    For each programme *p* (name and degree: bachelor, master, state examination, …) the
    **compulsory** modules with their recommended semester *σ*, their courses and the course sessions
    (weekday, start, end, room, building).
-2. **Buildings → sites:** each building is matched to an OSM address or building of the clipped
-   extract; buildings are assigned to the campus sites of `config/campus.yaml`, and buildings far
-   from every site form new sites (distance from config).
+2. **Buildings → sites:** each building Alma names is matched to an entry of the university's
+   official address list of its buildings (`config/university_buildings.csv`, built by
+   `reach_pipeline.uni_buildings` from the list and one page per building); the address is located
+   in the OSM address index of the clipped extract (or, for the few addresses OSM lacks, at the
+   OSM building given in `config/campus.yaml`), and the building belongs to its **nearest campus
+   site**. Buildings with many hours that are far from every site form new sites: Altstadt and
+   Cyber Valley were added this way on 27 Nov 2026 (notes N30); 99.6 % of the sessions with a
+   room are matched.
 3. **Weekly hours per site:** *h(p, σ, s)* = weekly hours of compulsory sessions of programme *p*
    in semester *σ* held at site *s*; the **site share** *π(p, σ, s) = h(p, σ, s) / Σ_s' h(p, σ, s')*.
 4. **Profile:** the student picks the degree (bachelor or master), the programme and the semester
@@ -151,7 +156,7 @@ Confirmed by Juju on 27 Nov 2026 (S1.3, M1). The parameters *a* = 1.25 and *p* =
 live in `config/config.yaml` (`api.fit`), so V4 can vary them without a code change.
 
 For a student profile with allowed modes *M*, destination types *D* (from programme and hobbies),
-importance *w_d* ∈ {0, 1, 2, 3}, fine time *t_d* (minutes) and trips per week *f_d*:
+importance *w_d* ∈ {0, 1, 2, 3} and fine time *t_d* (minutes):
 
 1. **Best time per type:** *T_d(i)* = minimum over the allowed modes of the travel time to the
    nearest destination of type *d* in the type's trip window. Which destinations count follows
@@ -162,8 +167,7 @@ importance *w_d* ∈ {0, 1, 2, 3}, fine time *t_d* (minutes) and trips per week 
      only (minimum over their destinations); no brand chosen → every supermarket.
    - **`sport` and `hobby`:** every chosen category *c* is its own term *d = (type, c)* with its own
      importance and fine time; *T_d(i)* is the time to the nearest destination of that category.
-     These terms use **only the time to the amenity**: they have no trips per week and do not
-     enter the weekly travel time (step 4).
+     These terms use **only the time to the amenity**.
    - **`place_of_worship`:** the nearest destination of the chosen religion.
 2. **Smooth decay around the fine time** (no cut-off):
 
@@ -173,11 +177,9 @@ importance *w_d* ∈ {0, 1, 2, 3}, fine time *t_d* (minutes) and trips per week 
    exactly the fine time scores 0.71: "fine" is the time from which it starts to hurt.
    An unreachable destination scores 0.
 3. **Fit:** *fit(i) = 100 · Σ_d w_d · s_d(i) / Σ_d w_d* (0–100).
-4. **Weekly travel time:** *W(i) = Σ_d f_d · (T_d,to(i) + T_d,back(i))* in minutes per week over
-   the types that have trips per week (campus, Mensa, grocery, …; **not** the sport and hobby
-   categories); the back trip uses the return window where one is defined, otherwise the same
-   window. Shown next to the fit as the intuitive measure ("about 3 h 40 min per week on the
-   way"), labelled as excluding sport and hobbies.
+
+There is no weekly travel time (removed 27 Nov 2026, Juju: trips per week were guesses the student
+had to make, and the sum added nothing the per-trip times do not show).
 
 **Worked example** (persona: Biology, walk + bike + bus; tennis chosen; times are the best mode
 in each type's window):
@@ -190,7 +192,6 @@ in each type's window):
 | tennis (category) | 14 | 20 | 1 | 0.91 | 8 | 0.99 |
 | going out | 25 | 20 | 1 | 0.50 | 35 | 0.21 |
 | **fit** | | | | **90** | | **51** |
-| **weekly time** (5·campus, 3·Mensa, 2·supermarket, 1·going out, there and back; tennis not counted) | | | | **4 h 02 min** | | **8 h 38 min** |
 
 Sensitivity of the ranking to ±25 % of *t_d*, the exponent and the weights is V4.
 
@@ -223,10 +224,10 @@ travel times to the student's own destinations per mode and trip window, and its
 - **Geocode precision** decides the travel times: *house* → the listing point is routed (§4);
   *street* → a point on the street near its midpoint is routed and every time is labelled
   "approximate"; *district only* → no point routing, the app shows the area's values and says so.
-- **Fit and weekly travel time** of a listing use the same formula as a cell (§6), with
+- **Fit** of a listing uses the same formula as a cell (§6), with
   *T_d(l)* from the listing's own times.
-- **Rent** of a listing is shown and compared in *Check* ("Listing 2 costs €80 more per month but
-  saves 25 min on the bus per week"); it never enters the fit (M4).
+- **Rent** of a listing is shown and compared in *Check* ("Listing 2 costs €80 less per month");
+  it never enters the fit (M4).
 - **Freshness:** a listing shows its "online since" date and the time of the last check; listings
   gone from the source disappear with the next snapshot.
 
@@ -276,7 +277,7 @@ Validation is graded. Results per release in `docs/validation.md` (*planned, S1.
 
 | ID | Question | Proposal |
 |---|---|---|
-| M2 | Default fine times, trips per week and trip window per destination type | §3 drafts; check in user-test round 1 (S2.0) |
+| M2 | Default fine times and trip window per destination type | §3 drafts; check in user-test round 1 (S2.0) |
 | M3 | Area value from cell fits | median fit of the populated cells plus the best cell, with the share of cells above the city median |
 | M4 | Rent in the fit or as a filter | filter/label only |
 | M8 | Defaults for sport and hobby categories (fine time, importance) | 20 min, "important"; check in user-test round 1 (S2.0) |
@@ -286,7 +287,7 @@ Settled:
 
 | ID | Question | Decision |
 |---|---|---|
-| M1 | Fit formula | §6 as proposed: logistic decay with *a* = 1.25, *p* = 4 (0.71 at the fine time, not the 0.9 calibration discussed earlier), importance-weighted mean, weekly time without categories; parameters in config (Juju, 27 Nov 2026) |
+| M1 | Fit formula | §6 as proposed: logistic decay with *a* = 1.25, *p* = 4 (0.71 at the fine time, not the 0.9 calibration discussed earlier), importance-weighted mean; parameters in config (Juju, 27 Nov 2026) |
 | M5 | Bike + transit | OTP `BICYCLE_PARKING` (bike to a stop, park, ride); still the first cut if time runs short (§4, 23 Nov 2026) |
 | M6 | Transit time inside a window | the wait at home counts: arrival − window time for depart-at, required arrival − latest departure for arrive-by (§4, 23 Nov 2026) |
 | M7 | Several campus sites per programme | weighted by the weekly hours of compulsory sessions per site from Alma, for the programme, degree and semester the student picks (§3.2, §6 step 1; 26 Nov 2026) |
@@ -295,6 +296,7 @@ Settled:
 
 | Version | Date | Change | Why |
 |---|---|---|---|
+| v1.5-draft | 2026-11-27 | Weekly travel time and trips per week removed (§3 table, §6 step 4, worked example, §8.1); §3.2 step 2: Alma buildings are mapped to the university's official address list and from there to the nearest campus site; new sites Altstadt and Cyber Valley | Juju, 27 Nov 2026: the weekly time was "a pointless feature"; students were sent to the Tal although Medicine, Data Science and parts of Computer Science teach elsewhere (notes N30) |
 | v1.4-draft | 2026-11-27 | §6 settled (M1): formula as proposed with *a* = 1.25, *p* = 4 from config, unreachable = 0, worked example with two cells | Juju confirmed the proposal on 27 Nov 2026 so that the fit API (S1.10) can be built |
 | v1.3-draft | 2026-11-26 | §3.1: supermarkets get a group next to the brand (organic, package-free, international, discounter, full-range, village and farm shop, other); all 25 sport categories offered; clustering of same-label features within 75 m or one sports centre; offer rule (≥ 1 destination, no remark on the count) | F2.1 taxonomy measured on the extract; Juju's decisions of 26 Nov 2026 (groups clustered in the pipeline, "everything in") |
 | v1.2-draft | 2026-11-26 | §3.1 destination labels (favourite supermarkets by brand, sport and hobby categories replacing `gym`, `climbing`, `swimming`, `sports_club`, `music`; religion); §3.2 programmes and campus sites from Alma with degree and semester; §6: grocery uses the chosen brands, each sport/hobby category is its own term with the time to the amenity only (no trips per week, not in the weekly travel time), campus weighted by site shares (M7 settled); §8.1 listings, §8.2 application text; V9–V12; M8, M9; "onboarding" → "profile panel", "U2" → *Check* where touched | Team decisions QF1–QF6 after the interim presentation (Juju, `docs/extension_plan.md`) |
