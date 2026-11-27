@@ -14,13 +14,15 @@ export function Reasons({ reasons }: { reasons: Reason[] }) {
         if (r.kind === 'reliability') {
           return (
             <li key={i} className="reason reason-reliability">
-              <span className="reason-mark" aria-hidden="true">◷</span>
+              <span className="reason-index" aria-hidden="true">{String(i + 1).padStart(2, '0')}</span>
+              <span className="reason-mark" aria-hidden="true">·</span>
               <span>{t('reason.reliability.last', { time: String(r.value ?? '–') })}</span>
             </li>
           )
         }
         return (
           <li key={i} className={`reason reason-${r.kind}`}>
+            <span className="reason-index" aria-hidden="true">{String(i + 1).padStart(2, '0')}</span>
             <span className="reason-mark" aria-hidden="true">{r.kind === 'strength' ? '+' : '−'}</span>
             <span>
               <span className="visually-hidden">{r.kind === 'strength' ? 'Strength: ' : 'Weakness: '}</span>

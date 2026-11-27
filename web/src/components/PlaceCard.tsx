@@ -9,7 +9,7 @@ import type { Place } from '../state/profile'
 import { useStore } from '../state/store'
 import { DataNote } from './DataNote'
 import { FitBadge } from './FindResults'
-import { ModeIcon, TripWindowText } from './Minutes'
+import { TripWindowText } from './Minutes'
 import { Reasons } from './Reasons'
 
 export function RankText({ rank }: { rank: number | null }) {
@@ -102,8 +102,7 @@ function TripsTable({ detail, modes }: { detail: CellDetail; modes: Mode[] }) {
             <th scope="col">{t('trips.destination')}</th>
             {modes.map((m) => (
               <th key={m} scope="col" className={chosen.includes(m) ? '' : 'off'}>
-                <ModeIcon mode={m} title="" />
-                <span className="th-mode">{t(`mode.${m}`)}</span>
+                {t(`mode.${m}`)}
               </th>
             ))}
           </tr>

@@ -24,14 +24,31 @@ export interface MapMarker {
   onClick?: () => void
 }
 
-const RAMP = ['#440154', '#443983', '#31688e', '#21918c', '#35b779', '#90d743', '#fde725']
-const NO_DATA = '#c3c8c4'
+// Monochrome fit ramp, low → high (docs/design.md §6; same values as --fit-0 … --fit-6 in index.css).
+const RAMP = ['#efefef', '#d2d2d2', '#b0b0b0', '#8c8c8c', '#686868', '#444444', '#1c1c1c']
+const WASH = '#f1f1ef'
+const HATCH_INK = '#666666'
+
+/** 6 px tile with one 45° line: cells without a fit are hatched, not coloured. */
+function hatchImage(): ImageData {
+  const n = 6
+  const c = document.createElement('canvas')
+  c.width = c.height = n
+  const g = c.getContext('2d')!
+  g.strokeStyle = HATCH_INK
+  g.lineWidth = 1
+  g.beginPath()
+  g.moveTo(0, n)
+  g.lineTo(n, 0)
+  g.stroke()
+  return g.getImageData(0, 0, n, n)
+}
 
 /** Plain background (D5 not built yet, notes N18): no third-party tiles, glyphs or sprites. */
 const PLAIN_STYLE = {
   version: 8 as const,
   sources: {},
-  layers: [{ id: 'bg', type: 'background' as const, paint: { 'background-color': '#e9ece8' } }],
+  layers: [{ id: 'bg', type: 'background' as const, paint: { 'background-color': WASH } }],
 }
 
 function toGeoJson(cells: DrawCell[]) {
@@ -121,32 +138,37 @@ export function MapView({
         m.getCanvas().setAttribute('aria-label', label)
         m.on('load', () => {
           m.addSource('cells', { type: 'geojson', data: toGeoJson([]) })
+          m.addImage('hatch', hatchImage())
           m.addLayer({
             id: 'cells-fill',
             type: 'fill',
             source: 'cells',
             paint: {
-              'fill-color': [
-                'case',
-                ['<', ['get', 'fit'], 0],
-                NO_DATA,
-                ['interpolate', ['linear'], ['get', 'fit'], 0, RAMP[0], 17, RAMP[1], 33, RAMP[2], 50, RAMP[3], 67, RAMP[4], 83, RAMP[5], 100, RAMP[6]],
-              ],
-              'fill-opacity': 0.72,
+              // seven steps, not a gradient: the legend shows the same squares
+              'fill-color': ['step', ['get', 'fit'], WASH, 0, RAMP[0], 15, RAMP[1], 29, RAMP[2], 43, RAMP[3], 58, RAMP[4], 72, RAMP[5], 86, RAMP[6]],
+              'fill-opacity': ['case', ['<', ['get', 'fit'], 0], 0, 0.85],
             },
+          })
+          m.addLayer({
+            id: 'cells-nodata',
+            type: 'fill',
+            source: 'cells',
+            filter: ['<', ['get', 'fit'], 0],
+            paint: { 'fill-pattern': 'hatch' },
           })
           m.addLayer({
             id: 'cells-line',
             type: 'line',
             source: 'cells',
-            paint: { 'line-color': '#ffffff', 'line-width': 0.4, 'line-opacity': 0.6 },
+            // hairline in --rule: keeps the lowest step visible on the wash (1.01 : 1 without it)
+            paint: { 'line-color': '#d4d4d2', 'line-width': 0.5 },
           })
           m.addLayer({
             id: 'cells-outline',
             type: 'line',
             source: 'cells',
             filter: ['==', ['get', 'outline'], 1],
-            paint: { 'line-color': '#111', 'line-width': 2 },
+            paint: { 'line-color': '#111111', 'line-width': 2 },
           })
           setReady(true)
           onReady?.()

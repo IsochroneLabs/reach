@@ -9,13 +9,9 @@ import { DataNote } from './DataNote'
 import { Reasons } from './Reasons'
 import { useToast } from './Toast'
 
+/** The fit as a number in mono, tabular (docs/design.md §6 "big number"); never a coloured badge. */
 export function FitBadge({ fit, size = 'm' }: { fit: number | null; size?: 's' | 'm' | 'l' }) {
-  const bucket = fit == null ? 'none' : Math.min(6, Math.floor(fit / 16.7))
-  return (
-    <span className={`fit-badge fit-${size}`} data-bucket={bucket}>
-      {fit ?? '–'}
-    </span>
-  )
+  return <span className={`fit-num fit-${size}`}>{fit ?? '–'}</span>
 }
 
 function AreaCard({ area, rank }: { area: Area; rank: number }) {
@@ -34,7 +30,7 @@ function AreaCard({ area, rank }: { area: Area; rank: number }) {
   return (
     <li className="card area-card" data-testid="area">
       <div className="area-head">
-        <span className="area-rank" aria-hidden="true">{rank}</span>
+        <span className="area-rank" aria-hidden="true">{String(rank).padStart(2, '0')}</span>
         <h3 className="area-name">
           <span className="visually-hidden">{rank}. </span>
           {area.name}
