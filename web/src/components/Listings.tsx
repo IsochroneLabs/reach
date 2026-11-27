@@ -75,7 +75,7 @@ function Card({ listing }: { listing: Listing }) {
 function useListingTrips(listing: Listing): { rows: [string, Trip][]; detail: CellDetail | null } {
   const refs = useRefs()
   const { state } = useStore()
-  const [detail, setDetail] = useState<CellDetail | null>(null)
+  const [answer, setAnswer] = useState<{ cellId: string; detail: CellDetail } | null>(null)
   const cellId = listing.cell_id
 
   useEffect(() => {
@@ -84,12 +84,15 @@ function useListingTrips(listing: Listing): { rows: [string, Trip][]; detail: Ce
     const body = normalise(state.profile, refs.refs.types)
     getApi()
       .then((api) => api.cell(cellId, body, ctrl.signal))
-      .then((d) => setDetail(d))
-      .catch(() => setDetail(null))
+      .then((d) => setAnswer({ cellId, detail: d }))
+      .catch(() => setAnswer(null))
     return () => ctrl.abort()
     // the profile is re-read when it changes; the listing's cell is the key
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cellId, refs.kind, JSON.stringify(state.profile)])
+
+  // an answer for another cell (or for the previous profile) is not shown as this listing's
+  const detail = answer?.cellId === cellId ? answer.detail : null
 
   const best = new Map<string, Trip>()
   for (const tr of detail?.trips ?? []) {
