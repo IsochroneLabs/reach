@@ -451,7 +451,7 @@ class Cleanup(_Model):
 
 
 class Listings(_Model):
-    """Daily listings job (arch. O24); off until the permission of the source is recorded."""
+    """Daily listings job (arch. O24, notes N20); `enabled` switches the crawl on or off."""
 
     enabled: bool
     source: Literal["wg_gesucht"]

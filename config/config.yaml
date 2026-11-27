@@ -464,7 +464,8 @@ cleanup:
 # Daily listings job (arch. O24, §7; data contract "Listings", PROPOSED in F4.1). Off until the
 # permission of SMP GmbH & Co. KG is recorded in notes N20; the app works without listings.
 listings:
-  enabled: false
+  # On since 27 Nov 2026 (Juju's decision, notes N20): `uv run python -m reach_pipeline.listings.crawl`.
+  enabled: true
   source: wg_gesucht
   base_url: https://www.wg-gesucht.de
   # Search result pages for Tübingen (city id 127), 20 ads per page; {page} counts from 0.

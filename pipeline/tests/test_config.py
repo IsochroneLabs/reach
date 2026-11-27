@@ -190,10 +190,9 @@ def test_holiday_lookup() -> None:
     assert not cal.is_holiday(date(2026, 11, 3))
 
 
-def test_listings_section_is_off_and_paged():
-    """The listings job stays off until the permission is recorded (notes N20)."""
+def test_listings_section_is_paged_and_polite():
+    """The listings job is on since Juju's decision of 27 Nov 2026 (notes N20), at a low rate."""
     cfg = load_config(CONFIG)
     assert cfg.listings is not None
-    assert cfg.listings.enabled is False
     assert all("{page}" in p for p in cfg.listings.search_paths.values())
     assert cfg.listings.request_interval_s >= 10
