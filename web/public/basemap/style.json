@@ -1,0 +1,119 @@
+{
+  "version": 8,
+  "name": "reach basemap",
+  "metadata": {
+    "attribution": "© OpenStreetMap contributors"
+  },
+  "sources": {
+    "base": {
+      "type": "geojson",
+      "data": "/basemap/tuebingen.geojson"
+    }
+  },
+  "layers": [
+    {
+      "id": "background",
+      "type": "background",
+      "paint": { "background-color": "#f1f1ef" }
+    },
+    {
+      "id": "green",
+      "type": "fill",
+      "source": "base",
+      "filter": ["==", ["get", "kind"], "green"],
+      "paint": { "fill-color": "#e8e8e3" }
+    },
+    {
+      "id": "forest",
+      "type": "fill",
+      "source": "base",
+      "filter": ["==", ["get", "kind"], "forest"],
+      "paint": { "fill-color": "#e3e3de" }
+    },
+    {
+      "id": "water",
+      "type": "fill",
+      "source": "base",
+      "filter": ["==", ["get", "kind"], "water"],
+      "paint": { "fill-color": "#d9d9d5" }
+    },
+    {
+      "id": "waterway",
+      "type": "line",
+      "source": "base",
+      "filter": ["==", ["get", "kind"], "waterway"],
+      "layout": { "line-cap": "round", "line-join": "round" },
+      "paint": {
+        "line-color": "#c6c6c2",
+        "line-width": ["interpolate", ["linear"], ["zoom"], 11, 0.4, 16, 1.6]
+      }
+    },
+    {
+      "id": "rail",
+      "type": "line",
+      "source": "base",
+      "filter": ["==", ["get", "kind"], "rail"],
+      "paint": {
+        "line-color": "#b4b4b0",
+        "line-width": ["interpolate", ["linear"], ["zoom"], 11, 0.8, 16, 2],
+        "line-dasharray": [4, 3]
+      }
+    },
+    {
+      "id": "road-casing-minor",
+      "type": "line",
+      "source": "base",
+      "filter": ["all", ["==", ["get", "kind"], "road"], ["==", ["get", "class"], "minor"]],
+      "layout": { "line-cap": "round", "line-join": "round" },
+      "paint": {
+        "line-color": "#d0d0cc",
+        "line-width": [
+          "interpolate", ["linear"], ["zoom"],
+          11, 0.8, 13, 1.6, 15, 4, 17, 8
+        ]
+      }
+    },
+    {
+      "id": "road-casing-major",
+      "type": "line",
+      "source": "base",
+      "filter": ["all", ["==", ["get", "kind"], "road"], ["==", ["get", "class"], "major"]],
+      "layout": { "line-cap": "round", "line-join": "round" },
+      "paint": {
+        "line-color": "#c9c9c5",
+        "line-width": [
+          "interpolate", ["linear"], ["zoom"],
+          11, 1.5, 13, 3, 15, 7, 17, 14
+        ]
+      }
+    },
+    {
+      "id": "road-fill-minor",
+      "type": "line",
+      "source": "base",
+      "filter": ["all", ["==", ["get", "kind"], "road"], ["==", ["get", "class"], "minor"]],
+      "layout": { "line-cap": "round", "line-join": "round" },
+      "paint": {
+        "line-color": "#fbfbf9",
+        "line-width": [
+          "interpolate", ["linear"], ["zoom"],
+          11, 0.5, 13, 1.2, 15, 3.2, 17, 6.5
+        ]
+      }
+    },
+    {
+      "id": "road-fill-major",
+      "type": "line",
+      "source": "base",
+      "filter": ["all", ["==", ["get", "kind"], "road"], ["==", ["get", "class"], "major"]],
+      "layout": { "line-cap": "round", "line-join": "round" },
+      "paint": {
+        "line-color": "#ffffff",
+        "line-width": [
+          "interpolate", ["linear"], ["zoom"],
+          11, 1, 13, 2.4, 15, 6, 17, 12
+        ]
+      }
+    }
+  ]
+}

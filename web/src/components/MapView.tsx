@@ -29,6 +29,9 @@ const RAMP = ['#efefef', '#d2d2d2', '#b0b0b0', '#8c8c8c', '#686868', '#444444', 
 const WASH = '#f1f1ef'
 const HATCH_INK = '#666666'
 
+/** Self-hosted streets, water, rail and green spaces (D5); cells are drawn on top. */
+const DEFAULT_BASEMAP = '/basemap/style.json'
+
 /** 6 px tile with one 45° line: cells without a fit are hatched, not coloured. */
 function hatchImage(): ImageData {
   const n = 6
@@ -42,13 +45,6 @@ function hatchImage(): ImageData {
   g.lineTo(n, 0)
   g.stroke()
   return g.getImageData(0, 0, n, n)
-}
-
-/** Plain background (D5 not built yet, notes N18): no third-party tiles, glyphs or sprites. */
-const PLAIN_STYLE = {
-  version: 8 as const,
-  sources: {},
-  layers: [{ id: 'bg', type: 'background' as const, paint: { 'background-color': WASH } }],
 }
 
 function toGeoJson(cells: DrawCell[]) {
@@ -121,7 +117,7 @@ export function MapView({
         lib.setWorkerUrl(workerUrl)
         const m = new lib.Map({
           container: box.current,
-          style: BASEMAP_STYLE || PLAIN_STYLE,
+          style: BASEMAP_STYLE || DEFAULT_BASEMAP,
           bounds: bounds ?? undefined,
           // phones: keep the cells above the bottom sheet (peek ≈ 32 % of the height)
           fitBoundsOptions: {
