@@ -18,7 +18,11 @@ export function FitLegend() {
   return (
     <div className="legend" aria-hidden="true">
       <strong>{t('fit.legend')}</strong>
-      <div className="legend-ramp" />
+      <div className="legend-ramp">
+        {[0, 1, 2, 3, 4, 5, 6].map((i) => (
+          <i key={i} className={`legend-step step-${i}`} />
+        ))}
+      </div>
       <div className="legend-scale">
         <span>0 · {t('fit.legend.low')}</span>
         <span>{t('fit.legend.high')} · 100</span>
