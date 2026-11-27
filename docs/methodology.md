@@ -71,8 +71,8 @@ Clustering is per label, so a sports centre with climbing and fitness is one des
 category.
 
 **Offered labels.** Every label with at least `min_destinations` (1) destination after clustering
-is offered in the profile panel; with fewer than `few_note_below` (3) the app says "few places
-mapped in OSM". Counts of 26 Nov 2026 and known gaps: `docs/osm_tagging.md` §5, notes N23.
+is offered in the profile panel, without a remark on how many there are. Counts of 26 Nov 2026
+and known gaps: `docs/osm_tagging.md` §5, notes N23.
 
 ### 3.2 Programmes and campus sites (Alma)
 
@@ -281,7 +281,7 @@ Settled:
 
 | Version | Date | Change | Why |
 |---|---|---|---|
-| v1.3-draft | 2026-11-26 | §3.1: supermarkets get a group next to the brand (organic, package-free, international, discounter, full-range, village and farm shop, other); all 25 sport categories offered; clustering of same-label features within 75 m or one sports centre; offer rule (≥ 1 destination, note below 3) | F2.1 taxonomy measured on the extract; Juju's decisions of 26 Nov 2026 (groups clustered in the pipeline, "everything in") |
+| v1.3-draft | 2026-11-26 | §3.1: supermarkets get a group next to the brand (organic, package-free, international, discounter, full-range, village and farm shop, other); all 25 sport categories offered; clustering of same-label features within 75 m or one sports centre; offer rule (≥ 1 destination, no remark on the count) | F2.1 taxonomy measured on the extract; Juju's decisions of 26 Nov 2026 (groups clustered in the pipeline, "everything in") |
 | v1.2-draft | 2026-11-26 | §3.1 destination labels (favourite supermarkets by brand, sport and hobby categories replacing `gym`, `climbing`, `swimming`, `sports_club`, `music`; religion); §3.2 programmes and campus sites from Alma with degree and semester; §6: grocery uses the chosen brands, each sport/hobby category is its own term with the time to the amenity only (no trips per week, not in the weekly travel time), campus weighted by site shares (M7 settled); §8.1 listings, §8.2 application text; V9–V12; M8, M9; "onboarding" → "profile panel", "U2" → *Check* where touched | Team decisions QF1–QF6 after the interim presentation (Juju, `docs/extension_plan.md`) |
 | v1.1-draft | 2026-11-23 | §4: transit and bike + transit with OpenTripPlanner (O17); M6 decided (the wait at home counts: arrival − window time, or required arrival − latest departure); M5 decided (bike parked, `BICYCLE_PARKING`, still first cut) | T1 decided 23 Nov 2026 (spike PR #79); M6 so that rare buses show in the time students feel |
 | v1.0-draft | 2026-11-21 | New methodology for the student rebuild: origins and areas, destination types, modes, trip windows, fit proposal [OPEN], weekly travel time, explanations, rent, relation to classic measures, validation V1–V8 | Rebuild brief of 21 Nov 2026; plan S0.2 |

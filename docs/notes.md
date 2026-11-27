@@ -294,9 +294,9 @@ after the team's yes.
 
 Measured 26 Nov 2026 on the routing-area extract (F2.1):
 
-- **Under-mapped indoor sports:** yoga 3, martial arts 3, squash/badminton 2, bowling 1, rowing 1
+- **Under-mapped indoor sports:** yoga 3, martial arts 3, squash/badminton 2, rowing 1
   destination(s); clubs that train in school halls are rarely mapped. These categories are offered
-  ("everything in") with the "few places mapped" note.
+  ("everything in") without a remark in the app (Juju, 27 Nov 2026: "it is as it is").
 - **Outdoor equipment counts as a place:** most `table_tennis` (55) and many `basketball` (53)
   and `chess` (6) destinations are tables, hoops and boards in parks and school yards, not clubs.
 - **School pitches** usually carry no `access` tag and count as public.
