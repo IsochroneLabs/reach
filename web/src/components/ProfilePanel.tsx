@@ -1,8 +1,9 @@
 import { useId, useState } from 'react'
 
-import type { DestinationType, Importance, Mode } from '../api/types'
+import type { Importance, Mode } from '../api/types'
 import { useRefs, type Refs } from '../remote/refs'
 import { useI18n } from '../i18n/i18n'
+import { choosableKeys, groceryLabels, isContainer, resolveKey, type DestinationKey } from '../state/labels'
 import { defaultProfile, normalise, type StudentProfile } from '../state/profile'
 import { useStore } from '../state/store'
 import { ModeIcon, TripWindowText } from './Minutes'
@@ -136,27 +137,85 @@ function ImportancePicker({ name, value, onChange }: { name: string; value: Impo
   )
 }
 
-function DestinationRow({ type, profile }: { type: DestinationType; profile: StudentProfile }) {
+/** Favourite supermarkets (QF3): brands and groups as text toggles; none chosen = any. */
+function FavouriteSupermarkets({ refs, profile }: { refs: Refs; profile: StudentProfile }) {
+  const { t, label } = useI18n()
+  const { dispatch } = useStore()
+  const all = groceryLabels(refs.types)
+  const chosen = profile.labels?.grocery ?? []
+  if (!all.length) return null
+  const toggle = (key: string) => {
+    const next = chosen.includes(key) ? chosen.filter((x) => x !== key) : [...chosen, key]
+    const rest: StudentProfile = { ...profile }
+    if (next.length) rest.labels = { ...profile.labels, grocery: next }
+    else delete rest.labels
+    dispatch({ type: 'profile', profile: rest })
+  }
+  const group = (kind: 'brand' | 'group') => (
+    <div className="chips" role="group" aria-label={t(`profile.supermarkets.${kind}`)}>
+      {all
+        .filter((l) => l.kind === kind)
+        .map((l) => (
+          <button
+            key={l.label}
+            type="button"
+            className="chip chip-text"
+            aria-pressed={chosen.includes(l.label)}
+            title={t('profile.supermarkets.count', { n: l.destinations })}
+            onClick={() => toggle(l.label)}
+          >
+            {label(l.name)}
+          </button>
+        ))}
+    </div>
+  )
+  return (
+    <fieldset className="favourites" data-testid="favourite-supermarkets">
+      <legend className="small">{t('profile.supermarkets')}</legend>
+      <p className="muted small">{t('profile.supermarkets.hint')}</p>
+      <p className="small field-sub">{t('profile.supermarkets.brand')}</p>
+      {group('brand')}
+      <p className="small field-sub">{t('profile.supermarkets.group')}</p>
+      {group('group')}
+    </fieldset>
+  )
+}
+
+/** Chosen supermarkets in one line ("Lidl, Organic"), or "any supermarket". */
+function useFavouritesText(refs: Refs, profile: StudentProfile): string {
+  const { t, label } = useI18n()
+  const chosen = profile.labels?.grocery ?? []
+  if (!chosen.length) return t('profile.supermarkets.any')
+  const names = new Map(groceryLabels(refs.types).map((l) => [l.label, label(l.name)]))
+  return chosen.map((k) => names.get(k) ?? k).join(', ')
+}
+
+function DestinationRow({ dest, profile, refs }: { dest: DestinationKey; profile: StudentProfile; refs: Refs }) {
   const { t, label, num } = useI18n()
   const { dispatch } = useStore()
   const [open, setOpen] = useState(false)
-  const v = profile.destinations[type.destination_type]
-  const name = label(type.label)
+  const { key, type, category } = dest
+  const v = profile.destinations[key]
+  const name = label(dest.name)
   const fine = v.fine_time_min ?? type.fine_time_min
   const trips = v.trips_per_week ?? type.trips_per_week
   const detailsId = useId()
+  const isGrocery = key === 'grocery'
+  const favourites = useFavouritesText(refs, profile)
   const set = (patch: Partial<typeof v>) =>
     dispatch({
       type: 'profile',
-      profile: { ...profile, destinations: { ...profile.destinations, [type.destination_type]: { ...v, ...patch } } },
+      profile: { ...profile, destinations: { ...profile.destinations, [key]: { ...v, ...patch } } },
     })
   const remove = () => {
     const rest = { ...profile.destinations }
-    delete rest[type.destination_type]
-    dispatch({ type: 'profile', profile: { ...profile, destinations: rest } })
+    delete rest[key]
+    const next: StudentProfile = { ...profile, destinations: rest }
+    if (isGrocery) delete next.labels
+    dispatch({ type: 'profile', profile: next })
   }
   return (
-    <li className="dest" data-testid={`dest-${type.destination_type}`}>
+    <li className="dest" data-testid={`dest-${key}`}>
       <div className="dest-main">
         <button
           type="button"
@@ -171,6 +230,8 @@ function DestinationRow({ type, profile }: { type: DestinationType; profile: Stu
         </button>
         <ImportancePicker name={name} value={v.importance} onChange={(importance) => set({ importance })} />
       </div>
+      {isGrocery && <p className="muted small dest-sub">{favourites}</p>}
+      {category && <p className="muted small dest-sub">{label(type.label)}</p>}
       <div id={detailsId} className="dest-details" hidden={!open}>
         <label className="slider">
           <span>
@@ -185,21 +246,25 @@ function DestinationRow({ type, profile }: { type: DestinationType; profile: Stu
             onChange={(e) => set({ fine_time_min: Number(e.target.value) })}
           />
         </label>
-        <label className="inline-num">
-          <span>{t('profile.tripsPerWeek')}</span>
-          <input
-            type="number"
-            min={0}
-            max={TRIPS_MAX}
-            step={trips < 1 ? 0.1 : 1}
-            inputMode="decimal"
-            value={num(trips, 1).replace(',', '.')}
-            onChange={(e) => {
-              const x = Number(e.target.value)
-              if (Number.isFinite(x) && x >= 0 && x <= TRIPS_MAX) set({ trips_per_week: x })
-            }}
-          />
-        </label>
+        {!category && (
+          <label className="inline-num">
+            <span>{t('profile.tripsPerWeek')}</span>
+            <input
+              type="number"
+              min={0}
+              max={TRIPS_MAX}
+              step={trips < 1 ? 0.1 : 1}
+              inputMode="decimal"
+              value={num(trips, 1).replace(',', '.')}
+              onChange={(e) => {
+                const x = Number(e.target.value)
+                if (Number.isFinite(x) && x >= 0 && x <= TRIPS_MAX) set({ trips_per_week: x })
+              }}
+            />
+          </label>
+        )}
+        {category && <p className="muted small">{t('profile.category.noTrips')}</p>}
+        {isGrocery && <FavouriteSupermarkets refs={refs} profile={profile} />}
         <p className="muted small">
           {t('profile.when')}: <TripWindowText window={type.trip_window} />
         </p>
@@ -215,8 +280,10 @@ function AddDestination({ refs }: { refs: Refs }) {
   const { t, label } = useI18n()
   const { state, dispatch } = useStore()
   const id = useId()
-  const missing = refs.types.filter((x) => !(x.destination_type in state.profile.destinations))
+  const missing = choosableKeys(refs.types).filter((x) => !(x.key in state.profile.destinations))
   if (!missing.length) return <p className="muted small">{t('profile.destinations.addNone')}</p>
+  const plain = missing.filter((x) => !x.category)
+  const containers = refs.types.filter(isContainer)
   return (
     <div className="add-dest">
       <label htmlFor={id} className="visually-hidden">
@@ -235,11 +302,25 @@ function AddDestination({ refs }: { refs: Refs }) {
         }}
       >
         <option value="">+ {t('profile.destinations.add')}</option>
-        {missing.map((x) => (
-          <option key={x.destination_type} value={x.destination_type}>
-            {label(x.label)}
+        {plain.map((x) => (
+          <option key={x.key} value={x.key}>
+            {label(x.name)}
           </option>
         ))}
+        {containers.map((c) => {
+          const cats = missing
+            .filter((x) => x.type.destination_type === c.destination_type)
+            .sort((a, b) => label(a.name).localeCompare(label(b.name)))
+          return cats.length ? (
+            <optgroup key={c.destination_type} label={label(c.label)}>
+              {cats.map((x) => (
+                <option key={x.key} value={x.key}>
+                  {label(x.name)}
+                </option>
+              ))}
+            </optgroup>
+          ) : null
+        })}
       </select>
     </div>
   )
@@ -294,14 +375,14 @@ export function ProfilePanel({ onClose }: { onClose?: () => void }) {
   const { state } = useStore()
   const refs = refsState.kind === 'ok' ? refsState.refs : null
   const chosen = refs
-    ? refs.types
-        .filter((x) => x.destination_type in state.profile.destinations)
+    ? Object.keys(state.profile.destinations)
+        .flatMap((k) => resolveKey(k, refs.types) ?? [])
         .sort((a, b) =>
-          a.destination_type === 'campus_site'
+          a.key === 'campus_site'
             ? -1
-            : b.destination_type === 'campus_site'
+            : b.key === 'campus_site'
               ? 1
-              : label(a.label).localeCompare(label(b.label)),
+              : Number(!!a.category) - Number(!!b.category) || label(a.name).localeCompare(label(b.name)),
         )
     : []
 
@@ -324,7 +405,7 @@ export function ProfilePanel({ onClose }: { onClose?: () => void }) {
             <h3 className="field-label">{t('profile.destinations')}</h3>
             <ul className="plain dests">
               {chosen.map((x) => (
-                <DestinationRow key={x.destination_type} type={x} profile={state.profile} />
+                <DestinationRow key={x.key} dest={x} profile={state.profile} refs={refs} />
               ))}
             </ul>
             <AddDestination refs={refs} />

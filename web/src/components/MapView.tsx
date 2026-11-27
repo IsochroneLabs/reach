@@ -19,7 +19,7 @@ export interface MapMarker {
   key: string
   point: LonLat
   text: string
-  kind: 'rank' | 'pin' | 'label'
+  kind: 'rank' | 'pin' | 'label' | 'poi'
   title: string
   onClick?: () => void
 }
@@ -184,6 +184,16 @@ export function MapView({
     if (!ready || !map.current || !lib) return
     markerObjs.current.forEach((m) => m.remove())
     markerObjs.current = markers.map((mk) => {
+      if (mk.kind === 'poi') {
+        // a chosen destination (favourite supermarket, sport or hobby place): dot + short name
+        const el = document.createElement('span')
+        el.className = 'poi'
+        el.title = mk.title
+        el.setAttribute('aria-hidden', 'true')
+        el.innerHTML = '<span class="poi-dot"></span><span class="poi-text"></span>'
+        ;(el.lastChild as HTMLElement).textContent = mk.text
+        return new lib.Marker({ element: el, anchor: 'left', offset: [-4, 0] }).setLngLat(mk.point).addTo(map.current!)
+      }
       if (mk.kind === 'label') {
         // orientation only (no basemap yet); hidden from screen readers, the cards name the areas
         const el = document.createElement('span')

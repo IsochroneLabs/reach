@@ -28,12 +28,19 @@ type TimeRow = number[] // [dest, walk_s, bike_s, transit_s, access_s, wait_s, r
 
 const D = data as unknown as {
   meta: unknown
-  destination_types: { destination_type: string; trip_window: string; fine_time_min: number; trips_per_week: number; label: { en: string } }[]
+  destination_types: {
+    destination_type: string
+    trip_window: string
+    fine_time_min: number
+    trips_per_week: number
+    label: { en: string }
+    labels?: { label: string; kind: string }[]
+  }[]
   campus_sites: { site_id: string; default_share: number }[]
   programmes: { programme: string; sites: string[] }[]
   personas: unknown[]
   areas: { area_id: string; name: string }[]
-  destinations: { id: string; type: string; name: string; point: LonLat }[]
+  destinations: { id: string; type: string; name: string; point: LonLat; labels: string[] }[]
   stops: string[]
   routes: string[]
   last_night: (string | null)[]
@@ -48,6 +55,23 @@ const cellIndex = new Map(D.cells.map((c, i) => [c[0], i]))
 const targetIndex = new Map(D.targets.map((t, i) => [t, i]))
 const typeInfo = new Map(D.destination_types.map((t) => [t.destination_type, t]))
 const areaName = new Map(D.areas.map((a) => [a.area_id, a.name]))
+const isContainer = (type: string) => !!typeInfo.get(type)?.labels?.some((l) => l.kind === 'category')
+
+/** A profile key (`grocery`, `sport:tennis`) → its type, category and term defaults. */
+function keyInfo(key: string) {
+  const [type, category = null] = key.split(':') as [string, string?]
+  const info = typeInfo.get(type)
+  if (!info) return null
+  if (category == null ? isContainer(type) : !targetIndex.has(key)) return null
+  return {
+    type,
+    category,
+    trip_window: info.trip_window,
+    fine_time_min: info.fine_time_min,
+    // categories never count in the weekly travel time (methodology §6, QF4)
+    trips_per_week: category == null ? info.trips_per_week : 0,
+  }
+}
 
 // Fit proposal (methodology §6): s = 1 / (1 + (T / (a·t))^p); 0.9 at the fine time, 0.1 at twice.
 const P = Math.log2(81)
@@ -68,8 +92,11 @@ interface TypeTime {
 function validate(p: FitRequest): void {
   if (!Array.isArray(p.modes) || p.modes.length === 0) throw new ApiError(422, 'modes: at least one mode')
   for (const [t, v] of Object.entries(p.destinations ?? {})) {
-    if (!typeInfo.has(t)) throw new ApiError(422, `destinations.${t}: unknown destination type`)
+    if (!keyInfo(t)) throw new ApiError(422, `destinations.${t}: unknown destination type or category`)
     if (![0, 1, 2, 3].includes(v.importance)) throw new ApiError(422, `destinations.${t}.importance: 0–3`)
+  }
+  for (const l of p.labels?.grocery ?? []) {
+    if (!targetIndex.has(`grocery:${l}`)) throw new ApiError(422, `labels.grocery: unknown supermarket ${l}`)
   }
   if (p.programme && !D.programmes.some((x) => x.programme === p.programme))
     throw new ApiError(422, `programme: unknown programme ${p.programme}`)
@@ -92,14 +119,20 @@ function bestMode(row: TimeRow, modes: Mode[]): [number | null, Mode | null] {
   return best
 }
 
+/** Targets of one key: grocery with favourites → the nearest of each chosen label (QF3). */
+function targetsOf(key: string, p: FitRequest): string[] {
+  if (key === 'grocery' && p.labels?.grocery?.length) return p.labels.grocery.map((l) => `grocery:${l}`)
+  return [key]
+}
+
 function typeTimes(ci: number, p: FitRequest): TypeTime[] {
   const rows = D.times[ci]
   const out: TypeTime[] = []
   for (const [type, v] of Object.entries(p.destinations)) {
     if (v.importance === 0) continue
-    const info = typeInfo.get(type)!
+    const info = keyInfo(type)!
     const fine = v.fine_time_min ?? info.fine_time_min
-    const trips = v.trips_per_week ?? info.trips_per_week
+    const trips = info.category == null ? (v.trips_per_week ?? info.trips_per_week) : 0
     if (type === 'campus_site') {
       // M7: weighted mean over the sites; mode chosen per site
       let sum = 0
@@ -115,9 +148,14 @@ function typeTimes(ci: number, p: FitRequest): TypeTime[] {
       }
       out.push({ type, weight: v.importance, fine, trips, minutes: wsum ? sum / wsum : null, mode: fastest?.mode ?? null, row: fastest?.row ?? null })
     } else {
-      const row = rows[targetIndex.get(type)!]
-      const [min, mode] = bestMode(row, p.modes)
-      out.push({ type, weight: v.importance, fine, trips, minutes: min, mode, row })
+      // the minimum over the targets (one, or the chosen supermarkets)
+      let best: { min: number | null; mode: Mode | null; row: TimeRow } | null = null
+      for (const target of targetsOf(type, p)) {
+        const row = rows[targetIndex.get(target)!]
+        const [min, mode] = bestMode(row, p.modes)
+        if (!best || (min != null && (best.min == null || min < best.min))) best = { min, mode, row }
+      }
+      out.push({ type, weight: v.importance, fine, trips, minutes: best?.min ?? null, mode: best?.mode ?? null, row: best?.row ?? null })
     }
   }
   return out
@@ -155,7 +193,7 @@ function reasonsOf(tt: TypeTime[]): Reason[] {
     name: t.type === 'campus_site' ? null : destName(t.row),
     minutes: t.minutes == null ? null : Math.round(t.minutes),
     mode: t.mode,
-    trip_window: typeInfo.get(t.type)!.trip_window,
+    trip_window: keyInfo(t.type)!.trip_window,
   })
   const strengths = scored
     .filter((x) => x.s >= 0.75)
@@ -229,10 +267,13 @@ function cell(id: string, p: FitRequest): CellDetail {
   const trips: Trip[] = []
   const types = Object.entries(p.destinations).filter(([, v]) => v.importance > 0).map(([t]) => t)
   for (const type of types) {
-    const w = typeInfo.get(type)!.trip_window
-    const targets = type === 'campus_site' ? campusWeights(p).map(([s]) => `campus_site/${s}`) : [type]
+    const w = keyInfo(type)!.trip_window
+    const targets = type === 'campus_site' ? campusWeights(p).map(([s]) => `campus_site/${s}`) : targetsOf(type, p)
+    const seen = new Set<number>()
     for (const target of targets) {
       const row = rows[targetIndex.get(target)!]
+      if (seen.has(row[0])) continue // two chosen labels, same supermarket
+      seen.add(row[0])
       const dest = D.destinations[row[0]]
       for (const mode of ['walk', 'bike', 'transit'] as Mode[]) {
         const s = row[MODE_COL[mode]]
@@ -292,6 +333,10 @@ export function handle(method: string, path: string, body?: unknown): unknown {
       case '/campus-sites': return D.campus_sites
       case '/programmes': return D.programmes
       case '/personas': return D.personas
+      case '/label-destinations':
+        return D.destinations
+          .filter((d) => d.labels.length)
+          .map((d) => ({ destination_id: d.id, destination_type: d.type, labels: d.labels, name: d.name, point: d.point }))
       case '/health': return { status: 'ok', version: '0.0.0', build_sha: 'fixtures' }
     }
   }
