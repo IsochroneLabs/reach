@@ -28,12 +28,29 @@ test('opens with the default profile and the programme hint', async ({ page }) =
 
 test('choosing a programme removes the hint and keeps it in the link', async ({ page }) => {
   await openProfile(page)
-  await page.getByLabel('Programme').selectOption('biology')
+  const box = page.getByRole('combobox', { name: 'Programme' })
+  await box.fill('biol')
+  await page.getByRole('option', { name: 'Biologie (Bachelor)' }).click()
   await expect(page.getByTestId('programme-hint-panel')).toHaveCount(0)
-  await expect(page).toHaveURL(/#v=1&p=prog:biology;/)
+  await expect(page).toHaveURL(/#v=1&p=prog:bachelor-biologie;/)
+  await expect(page.getByTestId('programme-buildings')).toContainText('Hörsaalzentrum Morgenstelle 100 %')
   await page.reload()
   await openProfile(page)
-  await expect(page.getByLabel('Programme')).toHaveValue('biology')
+  await expect(box).toHaveValue('Biologie (Bachelor)')
+})
+
+test('the programme search ignores case and accents and works with the keyboard', async ({ page }) => {
+  await openProfile(page)
+  const box = page.getByRole('combobox', { name: 'Programme' })
+  await box.fill('ECONOMICS bach')
+  await expect(page.getByRole('listbox', { name: 'Programme' }).getByRole('option')).toHaveCount(1)
+  await box.press('Enter')
+  await expect(box).toHaveValue('Economics and Business Administration (Bachelor)')
+  await expect(page.getByTestId('programme-buildings')).toContainText('Compulsory courses in Alma')
+  await page.getByRole('button', { name: 'Clear programme' }).click()
+  await expect(page.getByTestId('programme-hint-panel')).toBeVisible()
+  await box.fill('zzz')
+  await expect(page.getByText('No programme found')).toBeVisible()
 })
 
 test('an example profile replaces the profile and can be undone', async ({ page }) => {

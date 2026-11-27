@@ -2,7 +2,7 @@
  * Profile and places in the URL hash (docs/app_screens.md §3.2). The part after "#" never reaches
  * a server, so a shared link does not put the profile into access logs.
  *
- *   #v=1&p=prog:biology;m:wbt;d:campus_site.3,mensa.2..2&pl=9.05650,48.51080,Hechinger%20Str.%2012|…&r=450,
+ *   #v=1&p=prog:bachelor-biologie;m:wbt;d:campus_site.3,mensa.2..2&pl=9.05650,48.51080,Hechinger%20Str.%2012|…&r=450,
  *
  * Destinations: key.importance.fine.trips (empty part = type default; key = a type or a sport or
  * hobby category such as `sport:tennis`). Favourite supermarkets: `g:lidl.organic`. Modes: w walk,

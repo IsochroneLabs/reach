@@ -75,42 +75,38 @@ const LABELS: [string, 'brand' | 'group' | 'category', string, string, string][]
   ['hobby', 'category', 'chess', 'Chess', 'Schach'],
 ]
 
-const SITES: [string, string, LonLat][] = [
-  ['tal', 'Tal (Wilhelmstraße, Neue Aula, Kupferbau)', [9.062, 48.525]],
-  ['morgenstelle', 'Morgenstelle', [9.035, 48.537]],
-  ['sand', 'Sand', [9.067, 48.534]],
-  ['schnarrenberg', 'Schnarrenberg (University Hospital)', [9.04, 48.532]],
+// Teaching buildings (N31: campus_buildings.csv); id, name, point, area. Sample subset.
+const SITES: [string, string, LonLat, string][] = [
+  ['tal', 'Neue Aula (Geschwister-Scholl-Platz)', [9.062, 48.525], 'tal'],
+  ['morgenstelle', 'Hörsaalzentrum Morgenstelle (Auf der Morgenstelle 16)', [9.035, 48.537], 'morgenstelle'],
+  ['sand', 'Informatik/Astronomie (Sand 1)', [9.067, 48.534], 'sand'],
+  ['schnarrenberg', 'CRONA Hörsaal (Schnarrenberg)', [9.04, 48.532], 'schnarrenberg'],
 ]
-// campus.default_mix (decided 24 Nov 2026): Tal + Morgenstelle, equal.
+// campus.default_mix (decided 24 Nov 2026): Tal + Morgenstelle, equal (one building each here).
 const DEFAULT_MIX: Record<string, number> = { tal: 0.5, morgenstelle: 0.5 }
 
-const PROGRAMMES: [string, string, string, string[]][] = [
-  ['computer_science', 'Computer science', 'Informatik', ['sand', 'morgenstelle']],
-  ['data_science_ml', 'Data science / machine learning', 'Data Science / Machine Learning', ['sand']],
-  ['mathematics', 'Mathematics', 'Mathematik', ['morgenstelle']],
-  ['physics', 'Physics', 'Physik', ['morgenstelle']],
-  ['chemistry', 'Chemistry', 'Chemie', ['morgenstelle']],
-  ['biology', 'Biology', 'Biologie', ['morgenstelle']],
-  ['pharmacy', 'Pharmacy', 'Pharmazie', ['morgenstelle']],
-  ['medicine', 'Medicine', 'Medizin', ['morgenstelle', 'schnarrenberg']],
-  ['economics', 'Economics and business', 'Wirtschaftswissenschaft', ['tal']],
-  ['law', 'Law', 'Rechtswissenschaft', ['tal']],
-  ['humanities', 'Humanities', 'Geisteswissenschaften', ['tal']],
-  ['social_sciences', 'Social sciences', 'Sozialwissenschaften', ['tal']],
-  ['psychology', 'Psychology', 'Psychologie', ['tal']],
-  ['sports_science', 'Sports science', 'Sportwissenschaft', ['tal']],
+// Alma programmes (N31: programmes.csv): id, subject, degree (en, de), basis, buildings, shares.
+const PROGRAMMES: [string, string, [string, string], string, string[], number[]][] = [
+  ['bachelor-informatik', 'Informatik', ['Bachelor', 'Bachelor'], 'compulsory', ['morgenstelle', 'sand'], [0.6, 0.4]],
+  ['master-machine-learning', 'Machine Learning', ['Master', 'Master'], 'all', ['sand', 'morgenstelle'], [0.7, 0.3]],
+  ['bachelor-mathematik', 'Mathematik', ['Bachelor', 'Bachelor'], 'compulsory', ['morgenstelle'], [1]],
+  ['bachelor-biologie', 'Biologie', ['Bachelor', 'Bachelor'], 'compulsory', ['morgenstelle'], [1]],
+  ['staatsexamen-humanmedizin', 'Humanmedizin', ['State examination', 'Staatsexamen'], 'override', ['schnarrenberg', 'morgenstelle'], [0.5, 0.5]],
+  ['bachelor-economics-and-business-administration', 'Economics and Business Administration', ['Bachelor', 'Bachelor'], 'compulsory', ['tal'], [1]],
+  ['staatsexamen-rechtswissenschaft', 'Rechtswissenschaft', ['State examination', 'Staatsexamen'], 'compulsory', ['tal'], [1]],
+  ['bachelor-psychologie', 'Psychologie', ['Bachelor', 'Bachelor'], 'compulsory', ['tal'], [1]],
 ]
 
 type PersonaDest = Record<string, number | { importance: number; fine_time_min?: number }>
 // last element: chosen grocery labels (favourite supermarkets)
 const PERSONAS: [string, string, string, string, string[], PersonaDest, string[]][] = [
-  ['lena', 'Lena, first semester biology', 'Lena, Biologie im ersten Semester', 'biology', ['walk', 'transit'],
+  ['lena', 'Lena, first semester biology', 'Lena, Biologie im ersten Semester', 'bachelor-biologie', ['walk', 'transit'],
     { campus_site: 3, mensa: 2, grocery: 2, 'sport:climbing': 2, main_station: 1 }, ['alnatura', 'organic']],
-  ['arjun', "Arjun, exchange master's in computer science", 'Arjun, Austausch-Master Informatik', 'computer_science', ['walk', 'bike', 'transit'],
+  ['arjun', "Arjun, exchange master's in computer science", 'Arjun, Austausch-Master Informatik', 'master-machine-learning', ['walk', 'bike', 'transit'],
     { campus_site: 3, 'sport:fitness': 2, nightlife: 2, grocery: 2, library: 1 }, ['international']],
-  ['marie', 'Marie, medicine with early hospital days', 'Marie, Medizin mit frühen Klinikdiensten', 'medicine', ['bike', 'transit'],
+  ['marie', 'Marie, medicine with early hospital days', 'Marie, Medizin mit frühen Klinikdiensten', 'staatsexamen-humanmedizin', ['bike', 'transit'],
     { campus_site: { importance: 3, fine_time_min: 15 }, 'sport:swimming': 2, grocery: 1, main_station: 2 }, []],
-  ['tom', 'Tom, economics, goes out a lot', 'Tom, Wirtschaft, oft unterwegs', 'economics', ['walk', 'bike'],
+  ['tom', 'Tom, economics, goes out a lot', 'Tom, Wirtschaft, oft unterwegs', 'bachelor-economics-and-business-administration', ['walk', 'bike'],
     { campus_site: 2, nightlife: 3, 'sport:football': 1, mensa: 2 }, ['discount']],
 ]
 
@@ -409,12 +405,15 @@ const data = {
     }))
     return { destination_type: k, label: { en: e, de }, trip_window: w, fine_time_min: fine, ...(labels.length ? { labels } : {}) }
   }),
-  campus_sites: SITES.map(([id, name, point]) => ({
-    site_id: id, name, point,
-    programmes: PROGRAMMES.filter((p) => p[3].includes(id)).map((p) => p[0]),
+  campus_sites: SITES.map(([id, name, point, area]) => ({
+    site_id: id, name, point, area,
+    programmes: PROGRAMMES.filter((p) => p[4].includes(id)).map((p) => p[0]),
     default_share: DEFAULT_MIX[id] ?? 0,
   })),
-  programmes: PROGRAMMES.map(([k, e, de, sites]) => ({ programme: k, label: { en: e, de }, sites })),
+  programmes: PROGRAMMES.map(([k, subject, [den, dde], basis, sites, shares]) => ({
+    programme: k, label: { en: `${subject} (${den})`, de: `${subject} (${dde})` },
+    degree: dde, basis, sites, shares,
+  })),
   personas: PERSONAS.map(([k, e, de, programme, modes, dests, grocery]) => ({
     persona: k, label: { en: e, de },
     profile: {

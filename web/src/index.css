@@ -302,6 +302,24 @@ dialog.about::backdrop { background: rgb(17 17 17 / 40%); }
 }
 .programme { padding: var(--s-3) 0; border-top: 1px solid var(--ink); }
 .programme-empty { border-top: 2px solid var(--ink); }
+.programme-picker { position: relative; }
+.programme-input { display: flex; align-items: stretch; border-bottom: 1px solid var(--ink); }
+.programme-input input {
+  flex: 1; min-width: 0; min-height: 40px; padding: 0 var(--s-1); border: 0; background: var(--paper); color: var(--ink);
+  font: inherit;
+}
+.programme-input input:focus-visible { outline: 2px solid var(--ink); outline-offset: -2px; }
+.programme-clear {
+  width: 36px; border: 0; background: var(--paper); color: var(--ink); font-size: 20px; line-height: 1; cursor: pointer;
+}
+.programme-list {
+  position: absolute; z-index: 20; left: 0; right: 0; max-height: 280px; overflow-y: auto; margin: 0; padding: 0;
+  list-style: none; background: var(--paper); border: 1px solid var(--ink); border-top: 0;
+}
+.programme-list li { padding: var(--s-2) var(--s-1); cursor: pointer; font-size: var(--t-small); }
+.programme-list li.is-active { background: var(--ink); color: var(--paper); }
+.programme-list li.programme-none { cursor: default; }
+.programme-buildings { margin: var(--s-2) 0 0; }
 .hint-text { color: var(--ink); font-weight: 600; margin: 0 0 var(--s-2); font-size: var(--t-small); }
 .hint {
   display: flex; align-items: center; gap: var(--s-2); width: calc(100% - 2 * var(--s-5)); margin: var(--s-2) var(--s-5) 0;
