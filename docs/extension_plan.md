@@ -290,7 +290,17 @@ fail if a label that the config marks as offered has 0 destinations, warn below 
 limit. Unit tests on a small OSM fixture with tagged and untagged examples; run the test clip.
 ```
 
-#### F2.3 Travel times per label — target 15 Dec
+#### F2.3 Travel times per label — target 15 Dec · building block done (27 Nov 2026)
+
+- **State:** S1.8 does not exist yet, so F2.3 ships as `reach_pipeline.targets` (Juju, 27 Nov
+  2026: "building blocks"): exact nearest k per type and per offered label by straight line,
+  union deduplicated per cell × destination, transit with `transit_candidate_factor` × k. Config
+  `destination_labels.nearest_k_label` (2) and `travel_times.transit_candidate_factor` (2).
+  Measured (labels only): test clip 5,904 walk/bike and 9,676 transit pairs; city (1,699 cells,
+  49 offered labels) 159,706 walk/bike and 282,034 transit pairs, < 1.5 s, < 350 MB. Transit at
+  the spike's rate (193,897 pairs in 25 min) adds about 36 min per refresh, each label only in its
+  type's trip window; `nearest_k_label: 1` halves it. S1.8 calls `targets.pairs` and routes the
+  result; the check "label time ≥ type time" moves to `validate_results` (S1.9).
 
 - **Branch:** `feature/juju-label-travel-times`.
 - **Touches:** `stages/travel_times.py` (from S1.8), config `nearest_k_per_label`.
