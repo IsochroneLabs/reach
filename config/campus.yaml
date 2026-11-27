@@ -2,23 +2,24 @@
 # DRAFT (S0.3) from general knowledge: every name, programme assignment and coordinate is
 # [VERIFY] — the team checks it against the university's own information in S1.6, and the pipeline
 # matches each site to an OSM feature within match_radius_m and checks that it is routable (V3).
-# Coordinates: approximate [lon, lat] in EPSG:4326, only used to find the OSM feature.
+# Coordinates: [lon, lat] in EPSG:4326 of the main lecture buildings, checked against OSM on
+# 27 Nov 2026 (notes N29); the pipeline routes to these points (meth. §3).
 
 match_radius_m: 250
 
 sites:
   tal:
-    name: Tal (Wilhelmstraße, Neue Aula, Kupferbau)
-    point: [9.0620, 48.5250]
+    name: Tal (Neue Aula, Kupferbau, Brechtbau)
+    point: [9.0600, 48.5258]   # Wilhelmstraße between Neue Aula, Kupferbau and Brechtbau (OSM)
   morgenstelle:
     name: Morgenstelle
-    point: [9.0350, 48.5370]
+    point: [9.0352, 48.5371]   # Hörsaalzentrum Morgenstelle (OSM)
   sand:
-    name: Sand
-    point: [9.0670, 48.5340]
+    name: Sand (Computer science)
+    point: [9.0712, 48.5348]   # Sand 1–14 (OSM addresses)
   schnarrenberg:
     name: Schnarrenberg (University Hospital)
-    point: [9.0400, 48.5320]
+    point: [9.0381, 48.5302]   # CRONA-Kliniken (OSM)
 
 mensas:
   mensa_wilhelmstrasse:

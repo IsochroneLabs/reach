@@ -172,6 +172,8 @@ export const en = {
   'rent.value': '€{eur}',
   'rent.none': '–',
   'trips.title': 'Trips',
+  'trips.openThen': 'open then',
+  'trips.closedThen': 'closed then',
   'trips.destination': 'Destination',
   'trips.when': 'When',
   'trips.share': 'Share of the fit',

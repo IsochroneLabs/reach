@@ -39,6 +39,15 @@ CREATE TABLE destinations (
     geom             geometry(Point, 25832) NOT NULL
 );
 
+-- OSM details of destinations and labelled destinations, shown by the app (notes N29).
+CREATE TABLE destination_details (
+    destination_id text PRIMARY KEY,
+    opening_hours  text,
+    website        text,
+    wheelchair     text,
+    open_in_window boolean  -- open at the time of the type's trip window; NULL = unknown
+);
+
 CREATE TABLE destination_labels (
     destination_id   text PRIMARY KEY,
     destination_type text NOT NULL REFERENCES destination_types,

@@ -19,6 +19,7 @@ from reach_api.fit import ProfileError, cell_summary, fit_response
 from reach_api.model import MODES, Model
 from reach_api.otp import OtpError
 from reach_api.place import place_detail
+from reach_api.pois import decorate
 from reach_api.valhalla import NoRouteError, ValhallaError, costing_options
 
 router = APIRouter(prefix="/api")
@@ -318,6 +319,7 @@ async def cell(cell_id: str, body: FitRequest, d: D) -> dict[str, Any]:
             MODES.index(t["mode"]),
         )
     )
+    await decorate(d.db, m, body.profile(), trips)
     ci = m.cell_index[cell_id]
     district = m.district[ci]
     return {

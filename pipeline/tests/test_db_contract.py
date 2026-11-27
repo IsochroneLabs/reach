@@ -69,6 +69,13 @@ CONTRACT = {
         ("osm_id", "text"),
         ("geom", POINT),
     ],
+    "destination_details": [
+        ("destination_id", "text"),
+        ("opening_hours", "text"),
+        ("website", "text"),
+        ("wheelchair", "text"),
+        ("open_in_window", "boolean"),
+    ],
     "destination_labels": [
         ("destination_id", "text"),
         ("destination_type", "text"),
@@ -318,6 +325,15 @@ def run_tables(population_a: int = 10) -> dict[str, pd.DataFrame]:
         )
         .astype({c: "Int32" for c in ("access_s", "wait_s", "in_vehicle_s", "egress_s")})
         .astype({"transfers": "Int16"}),
+        "destination_details": pd.DataFrame(
+            {
+                "destination_id": ["grocery:n1"],
+                "opening_hours": ["Mo-Sa 07:00-22:00"],
+                "website": [None],
+                "wheelchair": ["yes"],
+                "open_in_window": [True],
+            }
+        ),
         "destination_labels": pd.DataFrame(
             {
                 "destination_id": ["grocery:edeka:n1"],

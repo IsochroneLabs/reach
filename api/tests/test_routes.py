@@ -8,6 +8,7 @@ from typing import Any
 from fastapi.testclient import TestClient
 
 from reach_api import db as q
+from reach_api import pois
 from reach_api.main import create_app
 from reach_api.routes import _words, persona_profile
 
@@ -79,8 +80,37 @@ def test_cell_detail_with_legs() -> None:
     transit = next(t for t in d["trips"] if t["mode"] == "transit")
     assert transit["legs"]["last_departure"] == "00:47" and transit["legs"]["in_vehicle_min"] == 15
     assert "legs" not in next(t for t in d["trips"] if t["mode"] == "walk")
-    assert db.params[-1][0] == "A" and "nightlife:n9" in db.params[-1][1]
-    assert client.post("/api/cell/ZZZ", json=body).status_code == 404
+    trip_params = next(p for p in db.params if isinstance(p, list) and p and p[0] == "A")
+    assert "nightlife:n9" in trip_params[1]
+
+
+def test_cell_trips_carry_points_shares_and_opening_hours() -> None:
+    rows = {
+        q.Q_CELL_TRIPS: [
+            dict(TRIP, destination_id="campus_site:morgenstelle", mode="walk", time_s=720),
+            dict(TRIP, destination_id="nightlife:n9", mode="walk", time_s=1500, first_stop=None),
+        ],
+        pois.Q_DETAILS_EXIST: [{"ok": True}],
+        pois.Q_POINTS_DETAILS: [
+            {"destination_id": "campus_site:morgenstelle", "lon": 9.0352, "lat": 48.5371},
+            {
+                "destination_id": "nightlife:n9",
+                "lon": 9.0571,
+                "lat": 48.5203,
+                "opening_hours": "Th-Sa 21:00-03:00",
+                "website": None,
+                "wheelchair": "no",
+            },
+        ],
+    }
+    client, _ = _client(rows)
+    trips = client.post("/api/cell/A", json=PROFILE).json()["trips"]
+    campus = next(t for t in trips if t["destination_id"] == "campus_site:morgenstelle")
+    bar = next(t for t in trips if t["destination_id"] == "nightlife:n9")
+    assert campus["share"] == 1 and campus["point"] == [9.0352, 48.5371]
+    assert bar["opening_hours"] == "Th-Sa 21:00-03:00" and "website" not in bar
+    assert "share" not in bar
+    assert client.post("/api/cell/ZZZ", json=PROFILE).status_code == 404
 
 
 def test_reference_routes_and_search() -> None:
