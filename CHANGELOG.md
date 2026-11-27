@@ -4,6 +4,7 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+- Map routes and university outlines (F4.5/F4.7): a listing's fastest walk/bike trips are drawn as live Valhalla lines on the map, the map zooms to the listing and hides the other WG markers; university buildings from OSM are outlined, with the selected programme's campus sites in ink (notes N28)
 - Point routing (F4.5): `POST /api/place` routes one point to the nearest k per type and label and all campus sites (Valhalla matrix for walk/bike, OpenTripPlanner per target and trip window, transit capped by walking), derives the fit from these times and caches nothing; the listing detail uses the exact point and falls back to the cell (notes N27)
 - Geocoding of listing addresses moved to `pipeline/src/reach_pipeline/listings/geocode.py` (house → street → marker); the crawl uses it unchanged
 - Map controls: "Kacheln" / "Grid" hides the 100 m fit grid and its legend, "WGs" shows the WG-Gesucht markers and the listing list; both choices stay in `localStorage`, so the map can show the streets and only the WG markers

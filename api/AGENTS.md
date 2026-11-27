@@ -5,7 +5,7 @@ this file wins where it is more specific.
 
 - **Status:** S0.4 skeleton — `GET /api/health` (status, version, build SHA; never touches the
   database), CORS allowlist, error mapping. Reference data, address search, fit, cell detail and
-  point routing (F4.5, `POST /api/place`) built; responses are fixed in `docs/data_contract.md`.
+  point routing (F4.5, `POST /api/place` and `/api/route`) built; responses are fixed in `docs/data_contract.md`.
 - **Layout:** `main.py` (`create_app(deps)`; the lifespan builds pool, Valhalla and OTP clients from
   the environment; error mapping), `settings.py` (environment + `api` and the few engine values of
   the config), `db.py` (all SQL, `Database` protocol), `valhalla.py` (async client for routes and

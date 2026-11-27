@@ -404,3 +404,16 @@ addresses moved to `listings/geocode.py` (house → street → marker) and still
 API takes the resulting point. The OTP client in `api/otp.py` is a small copy of
 `reach_pipeline.otp` (the API image should not pull in DuckDB/GeoPandas); keep the two in sync or
 extract a shared package later.
+
+## N28. Routes and university outlines on the map
+
+**Status:** demo 27 Nov 2026 · **Related:** F4.5, F4.7, F3.4, D5/N18
+
+The listing detail asks `POST /api/route` for the fastest walk or bike trip of each destination
+(four at most) and draws the Valhalla lines above the cells; transit trips have no geometry in the
+API and stay in the table. Opening a listing flies the map to its point at zoom 14.5 and hides the
+other WG markers. `university.geojson` (214 OSM footprints, 64 KB) outlines university buildings;
+the selected programme's campus sites (default mix Tal + Morgenstelle) get the ink outline and a
+stronger fill, the other sites a grey hairline. It is OSM data, not Alma: the Alma pipeline only
+has site shares, no building geometry. The filter is `amenity=university`, `building=university`,
+operator Universität Tübingen/Universitätsklinikum, or a campus name within 2.5 km of a site.
