@@ -15,3 +15,7 @@ export const MAX_PLACES = 3
 export const NEARBY_RADIUS_M = 1500
 /** Fit difference below which two places count as "about equal". */
 export const FIT_EQUAL_DELTA = 3
+/** Application text (F4.8): longer drafts are flagged; WG-Gesucht first messages are short. */
+export const APPLICATION_MAX_CHARS = 1200
+/** Hobbies named in an application text at most. */
+export const APPLICATION_MAX_HOBBIES = 3
