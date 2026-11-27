@@ -73,7 +73,7 @@ def main(geojsonseq: str, config_path: str) -> None:
     for line in lines:
         f = json.loads(line.lstrip("\x1e"))
         p = f["properties"]
-        if p.get("access") in cfg.exclude_access:
+        if p.get("shop") != "supermarket" and p.get("access") in cfg.exclude_access:
             continue
         labels: list[tuple[str, str]] = []
         if p.get("shop") == "supermarket":
