@@ -14,6 +14,18 @@ export interface RouteLine {
   mode: Mode
 }
 
+/** One destination of the selected listing's trips, labelled on the map (N29). */
+export interface Poi {
+  key: string
+  point: LonLat
+  name: string
+  /** e.g. "12 min by bike" */
+  detail: string
+  campus: boolean
+  /** open at the time of the trip window; undefined = unknown */
+  open?: boolean
+}
+
 export interface ListingsState {
   /** current listings with the fit of their cell, best first; null while loading */
   data: Listing[] | null
@@ -25,6 +37,9 @@ export interface ListingsState {
   /** routes of the selected listing's fastest trips, drawn by the map */
   routes: RouteLine[]
   setRoutes: (lines: RouteLine[]) => void
+  /** destinations of those trips, drawn as labelled markers */
+  pois: Poi[]
+  setPois: (pois: Poi[]) => void
 }
 
 const Ctx = createContext<ListingsState | null>(null)
@@ -42,6 +57,7 @@ export function ListingsProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string | null>(null)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [routes, setRoutesState] = useState<RouteLine[]>([])
+  const [pois, setPoisState] = useState<Poi[]>([])
   const [attempt, setAttempt] = useState(0)
   const cache = useRef(new Map<string, Listing[]>())
   const seq = useRef(0)
@@ -89,8 +105,10 @@ export function ListingsProvider({ children }: { children: ReactNode }) {
   const select = useCallback((id: string | null) => {
     setSelectedId(id)
     setRoutesState([])
+    setPoisState([])
   }, [])
   const setRoutes = useCallback((lines: RouteLine[]) => setRoutesState(lines), [])
+  const setPois = useCallback((items: Poi[]) => setPoisState(items), [])
   const retry = useCallback(() => setAttempt((n) => n + 1), [])
 
   // do not show a listing from a previous answer after the profile changed
@@ -106,6 +124,8 @@ export function ListingsProvider({ children }: { children: ReactNode }) {
     retry,
     routes,
     setRoutes,
+    pois,
+    setPois,
   }
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>
 }

@@ -128,6 +128,16 @@ export interface Trip {
   /** null = not reachable; never 0 for "unknown". */
   minutes: number | null
   legs?: TransitLegs
+  /** where the destination is (N29); missing for older runs */
+  point?: LonLat
+  /** campus sites only: share of the student's campus time, 0–1 (N29) */
+  share?: number
+  /** OSM tags of the destination, as tagged (N29) */
+  opening_hours?: string
+  website?: string
+  wheelchair?: string
+  /** open at the time of the trip window; missing = unknown (N29) */
+  open_in_window?: boolean
 }
 
 /** PROPOSED (N17): per destination type, what it adds to the fit. */

@@ -208,6 +208,7 @@ export function MapArea() {
             showCells={showCells}
             markers={markers}
             routes={routes}
+            pois={listings.pois}
             universitySites={universitySites}
             focus={selectedListing?.point ?? state.focus}
             label={t('map.label')}

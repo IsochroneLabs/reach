@@ -176,6 +176,8 @@ export const de: Record<TextKey, string> = {
   'rent.value': '{eur} €',
   'rent.none': '–',
   'trips.title': 'Wege',
+  'trips.openThen': 'dann geöffnet',
+  'trips.closedThen': 'dann geschlossen',
   'trips.destination': 'Ziel',
   'trips.when': 'Wann',
   'trips.share': 'Anteil am Fit',

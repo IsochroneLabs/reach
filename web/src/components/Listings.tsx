@@ -6,6 +6,7 @@ import { cellIdAt } from '../geo/laea'
 import { useI18n } from '../i18n/i18n'
 import { useDestName, useRefs } from '../remote/refs'
 import { useListings, type RouteLine } from '../remote/listings'
+import { chooseTrips } from '../logic/trips'
 import { normalise } from '../state/profile'
 import { useStore } from '../state/store'
 import { FitBadge } from './FitBadge'
@@ -35,6 +36,26 @@ function Photo({ listing, big }: { listing: Listing; big?: boolean }) {
       referrerPolicy="no-referrer"
       onError={() => setFailed(true)}
     />
+  )
+}
+
+/** Rows in the trips table and labelled places on the map (N29). */
+const MAX_TRIPS = 6
+
+/** "Supermarket: Rewe", "Campus: Morgenstelle"; the type alone when the place has no name. */
+function tripLabel(typeName: string, tr: Trip): string {
+  return tr.name ? `${typeName}: ${tr.name}` : typeName
+}
+
+/** Open or closed at the trip window from the OSM opening hours; nothing when unknown. */
+function OpenNote({ trip }: { trip: Trip }) {
+  const { t } = useI18n()
+  if (trip.open_in_window == null) return null
+  return (
+    <span className={`open-note ${trip.open_in_window ? 'is-open' : 'is-closed'}`} title={trip.opening_hours}>
+      {' '}
+      · {t(trip.open_in_window ? 'trips.openThen' : 'trips.closedThen')}
+    </span>
   )
 }
 
@@ -120,20 +141,14 @@ function useListingPlace(listing: Listing): {
   const detail = answer?.key === key ? answer.detail : null
   const failed = answer?.key === key && !!answer.failed
 
-  const best = new Map<string, Trip>()
-  for (const tr of detail?.trips ?? []) {
-    if (tr.minutes == null || !state.profile.modes.includes(tr.mode)) continue
-    const cur = best.get(tr.destination_type)
-    if (!cur || (cur.minutes ?? Infinity) > tr.minutes) best.set(tr.destination_type, tr)
-  }
-  const order = Object.entries(state.profile.destinations)
+  const keys = Object.entries(state.profile.destinations)
     .filter(([, v]) => v.importance > 0)
     .sort((a, b) => b[1].importance - a[1].importance)
-  const rows = order
-    .map(([k]) => [k, best.get(k.split(':')[0])] as const)
-    .filter((r): r is readonly [string, Trip] => !!r[1])
-    .slice(0, 4)
-  return { rows: rows as [string, Trip][], detail, failed }
+    .map(([k]) => k)
+  const rows = chooseTrips(detail?.trips ?? [], state.profile.modes, keys)
+    .slice(0, MAX_TRIPS)
+    .map((c) => [c.key, c.trip] as [string, Trip])
+  return { rows, detail, failed }
 }
 
 function Trips({
@@ -159,8 +174,12 @@ function Trips({
       <table className="listing-trips">
         <tbody>
         {rows.map(([key, tr]) => (
-          <tr key={key}>
-            <th scope="row">{name(key)}</th>
+          <tr key={`${key}|${tr.destination_id}`}>
+            <th scope="row">
+              {tripLabel(name(key), tr)}
+              {tr.share != null && <span className="muted small"> · {Math.round(tr.share * 100)} %</span>}
+              <OpenNote trip={tr} />
+            </th>
             <td className="num">{tr.minutes != null ? duration(tr.minutes) : '–'}</td>
             <td className="muted small">{tr.mode ? t(`mode.${tr.mode}.by`) : ''}</td>
           </tr>
@@ -173,23 +192,31 @@ function Trips({
 
 function Detail({ listing }: { listing: Listing }) {
   const { t, duration, date } = useI18n()
-  const { select, setRoutes } = useListings()
-  const { state, dispatch } = useStore()
+  const { select, setRoutes, setPois } = useListings()
+  const destName = useDestName()
+  const { dispatch } = useStore()
   const { rows, detail, failed } = useListingPlace(listing)
   const fit = detail?.fit ?? listing.fit ?? null
   const weekly = detail?.weekly_min ?? listing.weekly_min
   const eur = rent(listing)
 
-  // draw the fastest walk/bike trips of the point on the map (F4.5); transit has no geometry
+  // label the destinations of the shown trips and draw the walk/bike routes to them (F4.5, N29):
+  // the student's own campus sites, never the nearest site of another programme
   useEffect(() => {
     if (!detail || !listing.point) return
-    const best = new Map<string, Trip>()
-    for (const tr of detail.trips) {
-      if (tr.minutes == null || !state.profile.modes.includes(tr.mode)) continue
-      const cur = best.get(tr.destination_type)
-      if (!cur || (cur.minutes ?? Infinity) > tr.minutes) best.set(tr.destination_type, tr)
-    }
-    const wanted = [...best.values()].filter((tr) => tr.mode === 'walk' || tr.mode === 'bike').slice(0, 4)
+    setPois(
+      rows
+        .filter(([, tr]) => tr.point)
+        .map(([key, tr]) => ({
+          key: `${key}|${tr.destination_id}`,
+          point: tr.point!,
+          name: tripLabel(destName(key), tr),
+          detail: `${tr.minutes != null ? duration(tr.minutes) : '–'} ${t(`mode.${tr.mode}.by`)}`,
+          campus: key === 'campus_site',
+          open: tr.open_in_window,
+        })),
+    )
+    const wanted = rows.map(([, tr]) => tr).filter((tr) => tr.mode === 'walk' || tr.mode === 'bike')
     let cancelled = false
     ;(async () => {
       const api = await getApi()
@@ -214,6 +241,7 @@ function Detail({ listing }: { listing: Listing }) {
     return () => {
       cancelled = true
       setRoutes([])
+      setPois([])
     }
     // detail changes with the profile; state.profile.modes is part of the hook's key
     // eslint-disable-next-line react-hooks/exhaustive-deps

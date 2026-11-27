@@ -5,7 +5,7 @@ import type { GeoJSONSource, Map as MlMap, MapMouseEvent, Marker, Popup } from '
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url'
 
 import type { LonLat } from '../api/types'
-import type { RouteLine } from '../remote/listings'
+import type { Poi, RouteLine } from '../remote/listings'
 import { BASEMAP_STYLE } from '../config'
 import { cellRing } from '../geo/laea'
 
@@ -76,6 +76,7 @@ export function MapView({
   showCells,
   markers,
   routes,
+  pois,
   universitySites,
   focus,
   label,
@@ -91,6 +92,8 @@ export function MapView({
   markers: MapMarker[]
   /** live walk/bike routes of the selected listing (F4.5) */
   routes: RouteLine[]
+  /** destinations of the selected listing's trips, labelled (N29) */
+  pois: Poi[]
   /** campus sites of the profile's programme; their buildings get the stronger outline */
   universitySites: string[]
   focus: LonLat | null
@@ -104,6 +107,7 @@ export function MapView({
   const map = useRef<MlMap | null>(null)
   const ml = useRef<typeof import('maplibre-gl') | null>(null)
   const markerObjs = useRef<Marker[]>([])
+  const poiObjs = useRef<Marker[]>([])
   const popupObj = useRef<Popup | null>(null)
   const [popupEl] = useState(() => document.createElement('div'))
   const [ready, setReady] = useState(false)
@@ -276,6 +280,31 @@ export function MapView({
       })),
     })
   }, [ready, routes])
+
+  // labelled destinations of the selected listing (N29): where each trip goes, how long, and
+  // whether the place is open at that time (OSM opening hours)
+  useEffect(() => {
+    const lib = ml.current
+    if (!ready || !map.current || !lib) return
+    poiObjs.current.forEach((m) => m.remove())
+    poiObjs.current = pois.map((poi) => {
+      const el = document.createElement('div')
+      el.className = `poi-marker${poi.campus ? ' is-campus' : ''}${poi.open === false ? ' is-closed' : ''}`
+      const dot = document.createElement('span')
+      dot.className = 'poi-dot'
+      const text = document.createElement('span')
+      text.className = 'poi-label'
+      const name = document.createElement('strong')
+      name.textContent = poi.name
+      const detail = document.createElement('span')
+      detail.textContent = poi.detail
+      text.append(name, detail)
+      el.append(dot, text)
+      el.setAttribute('role', 'img')
+      el.setAttribute('aria-label', `${poi.name}, ${poi.detail}`)
+      return new lib.Marker({ element: el, anchor: 'left', offset: [-6, 0] }).setLngLat(poi.point).addTo(map.current!)
+    })
+  }, [ready, pois])
 
   // highlight the buildings of the programme's campus sites
   useEffect(() => {
