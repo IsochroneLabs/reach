@@ -14,11 +14,23 @@ from typing import Any
 import httpx
 import numpy as np
 
-from reach_api.settings import LiveValhalla
+from reach_api.settings import LiveValhalla, RoutingProfile
 
 log = logging.getLogger(__name__)
 
 LonLat = tuple[float, float]
+SPEED_OPTION = {"pedestrian": "walking_speed", "bicycle": "cycling_speed"}
+
+
+def costing_options(profile: RoutingProfile) -> dict[str, Any]:
+    """Raw costing options: the profile's options plus its speed (the caller wraps the costing)."""
+    if not profile.costing:
+        raise ValueError("routing profile has no Valhalla costing")
+    options = dict(profile.costing_options)
+    speed = SPEED_OPTION.get(profile.costing)
+    if speed:
+        options[speed] = profile.speed_kmh
+    return options
 
 
 class ValhallaError(Exception):

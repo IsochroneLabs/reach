@@ -21,8 +21,8 @@ from reach_api.deps import Deps
 from reach_api.fit import ProfileError, cell_summary
 from reach_api.model import CAMPUS, MODES, Model, Term
 from reach_api.otp import OtpError, OtpTrip
+from reach_api.valhalla import costing_options
 
-SPEED_OPTION = {"pedestrian": "walking_speed", "bicycle": "cycling_speed"}
 LonLat = tuple[float, float]
 
 
@@ -45,16 +45,6 @@ class Routed:
     bike_s: float | None = None
     transit: OtpTrip | None = None
     bike_transit: OtpTrip | None = None
-
-
-def _options(profile: Any) -> dict[str, Any]:
-    if not profile.costing:
-        raise ValueError("routing profile has no Valhalla costing")
-    options = dict(profile.costing_options)
-    speed = SPEED_OPTION.get(profile.costing)
-    if speed:
-        options[speed] = profile.speed_kmh
-    return options
 
 
 def _window_time(row: dict[str, Any], tz: str) -> tuple[datetime, bool]:
@@ -135,7 +125,7 @@ async def route(d: Deps, profile: dict[str, Any], targets: list[Target], point: 
 
     walk_profile = d.config.routing_profiles["walk"]
     walk = await d.valhalla.matrix(
-        source, points, walk_profile.costing or "", _options(walk_profile)
+        source, points, walk_profile.costing or "", costing_options(walk_profile)
     )
     for t in targets:
         out[(t.destination_id, t.key, "walk")] = _at(walk, index, t.point)
@@ -143,7 +133,7 @@ async def route(d: Deps, profile: dict[str, Any], targets: list[Target], point: 
     if "bike" in modes:
         bike_profile = d.config.routing_profiles["bike"]
         bike = await d.valhalla.matrix(
-            source, points, bike_profile.costing or "", _options(bike_profile)
+            source, points, bike_profile.costing or "", costing_options(bike_profile)
         )
         for t in targets:
             out[(t.destination_id, t.key, "bike")] = _at(bike, index, t.point)

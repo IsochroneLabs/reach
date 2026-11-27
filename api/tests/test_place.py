@@ -96,6 +96,8 @@ class PlaceDatabase(FakeDatabase):
                     "lat": 48.524,
                 }
             ]
+        if query == q.Q_DESTINATION_POINT:
+            return [{"lon": 9.06, "lat": 48.53}]
         return []
 
 
@@ -107,6 +109,13 @@ class FakeValhalla:
     async def matrix(self, sources, targets, costing, options) -> np.ndarray:
         self.calls.append((costing, len(targets)))
         return np.full((len(sources), len(targets)), self.seconds)
+
+    async def route(self, origin, target, costing, options):
+        return {
+            "type": "Feature",
+            "properties": {"time_s": 300, "length_m": 1200},
+            "geometry": {"type": "LineString", "coordinates": [list(origin), list(target)]},
+        }
 
 
 class FakeOtp:
@@ -189,3 +198,20 @@ def test_terms_keep_the_minimum_per_term_and_mode() -> None:
     out = {("mensa:m1", "mensa", "walk"): 600.0, ("mensa:m2", "mensa", "walk"): 300.0}
     terms, modes = _terms(model, targets, out)
     assert terms["mensa"].minutes[0, 0] == 5 and modes == ["walk"]
+
+
+def test_route_returns_the_geometry_and_mode() -> None:
+    client, _, valhalla, _ = _client()
+    r = client.post(
+        "/api/route",
+        json={"origin": [9.05, 48.52], "destination_id": "mensa:m1", "mode": "bike"},
+    )
+    assert r.status_code == 200, r.text
+    d = r.json()
+    assert d["properties"]["mode"] == "bike" and d["properties"]["time_s"] == 300
+    assert d["geometry"]["coordinates"][-1] == [9.06, 48.53]
+    bad = client.post(
+        "/api/route",
+        json={"origin": [9.05, 48.52], "destination_id": "mensa:m1", "mode": "transit"},
+    )
+    assert bad.status_code == 422

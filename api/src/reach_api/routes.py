@@ -19,7 +19,7 @@ from reach_api.fit import ProfileError, cell_summary, fit_response
 from reach_api.model import MODES, Model
 from reach_api.otp import OtpError
 from reach_api.place import place_detail
-from reach_api.valhalla import NoRouteError, ValhallaError
+from reach_api.valhalla import NoRouteError, ValhallaError, costing_options
 
 router = APIRouter(prefix="/api")
 D = Annotated[Deps, Depends(deps)]
@@ -63,6 +63,22 @@ class PlaceRequest(_Body):
         lon, lat = value
         if not (-180 <= lon <= 180 and -90 <= lat <= 90):
             raise ValueError("point must be [lon, lat] in EPSG:4326")
+        return value
+
+
+class RouteRequest(_Body):
+    """F4.5: one walk or bike route from a point to a published destination."""
+
+    origin: tuple[float, float]
+    destination_id: str = Field(max_length=100)
+    mode: Literal["walk", "bike"]
+
+    @field_validator("origin")
+    @classmethod
+    def _origin(cls, value: tuple[float, float]) -> tuple[float, float]:
+        lon, lat = value
+        if not (-180 <= lon <= 180 and -90 <= lat <= 90):
+            raise ValueError("origin must be [lon, lat] in EPSG:4326")
         return value
 
 
@@ -332,3 +348,27 @@ async def place(body: PlaceRequest, d: D) -> dict[str, Any]:
         raise HTTPException(422, str(exc)) from exc
     except (ValhallaError, OtpError) as exc:
         raise HTTPException(503, str(exc)) from exc
+
+
+@router.post("/route", dependencies=[Depends(rate_limited)])
+async def route(body: RouteRequest, d: D) -> dict[str, Any]:
+    """Geometry of one walk or bike route (F4.5); transit has no geometry in the API yet."""
+    rows = await d.db.fetch(
+        q.Q_DESTINATION_POINT, [body.destination_id, body.destination_id, body.destination_id]
+    )
+    if not rows:
+        raise HTTPException(404, f"destination {body.destination_id} not found")
+    profile = d.config.routing_profiles[body.mode]
+    try:
+        feature = await d.valhalla.route(
+            body.origin,
+            (float(rows[0]["lon"]), float(rows[0]["lat"])),
+            profile.costing or "",
+            costing_options(profile),
+        )
+    except NoRouteError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    except ValhallaError as exc:
+        raise HTTPException(503, str(exc)) from exc
+    feature["properties"]["mode"] = body.mode
+    return feature

@@ -97,6 +97,17 @@ WHERE d.offered AND d.destination_type = %s AND d.label = %s
 ORDER BY d.geom <-> p.g
 LIMIT %s
 """
+Q_DESTINATION_POINT = """
+SELECT ST_X(ST_Transform(geom, 4326)) AS lon, ST_Y(ST_Transform(geom, 4326)) AS lat
+FROM current.destinations WHERE destination_id = %s
+UNION ALL
+SELECT ST_X(ST_Transform(geom, 4326)), ST_Y(ST_Transform(geom, 4326))
+FROM current.destination_labels WHERE destination_id = %s
+UNION ALL
+SELECT ST_X(ST_Transform(geom, 4326)), ST_Y(ST_Transform(geom, 4326))
+FROM current.campus_sites WHERE 'campus_site:' || site_id = %s
+LIMIT 1
+"""
 Q_CELL_AT = """
 SELECT cell_id, district_id, populated
 FROM current.cells
