@@ -2,7 +2,9 @@
 
 OSM without the full PBF in Python: 1. `tags-filter` admin boundaries from the regional PBF;
 2. city, districts and routing area; 3. `extract -p` the routing area → `routing.osm.pbf` (input
-of the tile build). Then Zensus origin cells, GTFS stops and one reference date per trip window.
+of the tile build); 4. `tags-filter` the label candidates from it and build the labelled
+destinations (`labels`, meth. §3.1). Then Zensus origin cells, GTFS stops and one reference date
+per trip window.
 Writes validation report part 1 (`report_inputs.json` + `.md`); any failed check fails the stage
 after the report is written. Destinations, campus sites and addresses follow in S1.6.
 """
@@ -21,7 +23,8 @@ from typing import Any, Literal
 import geopandas as gpd
 import shapely
 
-from reach_pipeline import boundary, gtfs, osm, zensus
+from reach_pipeline import boundary, gtfs, labels, osm, zensus
+from reach_pipeline.config import DestinationLabels
 from reach_pipeline.context import RUN_ID_FORMAT, RunContext
 from reach_pipeline.errors import StageValidationError
 from reach_pipeline.manifest import (
@@ -42,6 +45,7 @@ STAGE = "validate"
 # manifest.config_input): boundaries, Zensus, GTFS reference dates and the input checks.
 CONFIG_SECTIONS = (
     "calendar",
+    "destination_labels",
     "districts",
     "sources",
     "study_area",
@@ -52,6 +56,8 @@ PREVIOUS = acquire.STAGE
 METRIC_CRS = "EPSG:25832"
 ROUTING_PBF = "routing.osm.pbf"
 REPORT_JSON, REPORT_MD = "report_inputs.json", "report_inputs.md"
+# Summary entries shown as their own tables in the Markdown report.
+_TABLES = ("excluded_by_district", "reference_dates", "active_services", "destination_labels")
 
 log = logging.getLogger(__name__)
 
@@ -161,6 +167,11 @@ def build_layers(ctx: RunContext, inp: Inputs, stage_dir: Path, step: _Steps) ->
         osm.extract_polygon(inp.pbf, stage_dir / ROUTING_PBF, polygon)
         snapshot = osm.replication_timestamp(inp.pbf)
 
+    label_layer = None
+    if cfg.destination_labels is not None:
+        with step("osm pass 3: destination labels"):
+            label_layer = build_labels(stage_dir / ROUTING_PBF, work, cfg.destination_labels)
+
     with step("zensus cells"):
         grid = zensus.read_grid(
             inp.zensus_csv, _bbox(study.buffer(zensus.CELL_SIZE_M), "EPSG:3035")
@@ -184,13 +195,11 @@ def build_layers(ctx: RunContext, inp: Inputs, stage_dir: Path, step: _Steps) ->
         valid_from, valid_to, refs, services = reference_dates(ctx, inp.gtfs_dir)
 
     residents = int(origins["population"].sum())
+    layers = {"cells": origins, "stops": stops, "districts": districts, "routing_area": routing}
+    if label_layer is not None:
+        layers["destination_labels"] = label_layer
     return {
-        "layers": {
-            "cells": origins,
-            "stops": stops,
-            "districts": districts,
-            "routing_area": routing,
-        },
+        "layers": layers,
         "scope": study,
         "city_area_km2": city.area / 1e6,
         "district_gap": gap,
@@ -205,6 +214,43 @@ def build_layers(ctx: RunContext, inp: Inputs, stage_dir: Path, step: _Steps) ->
         "reference_dates": refs,
         "active_services": services,
     }
+
+
+def build_labels(pbf: Path, work: Path, cfg: DestinationLabels) -> gpd.GeoDataFrame:
+    """Labelled destinations from the routing-area PBF (one row per destination and label)."""
+    sel = osm.tags_filter(pbf, work / "labels.osm.pbf", labels.osm_expressions(cfg))
+    exp = osm.export(sel, work / "labels.geojsonseq", ["point", "linestring", "polygon"])
+    features = labels.unique_features(osm.read_export(exp))
+    return labels.cluster(labels.label_features(features, cfg), features, cfg)
+
+
+def label_check(dest: gpd.GeoDataFrame, cfg: DestinationLabels) -> Check:
+    """V10 (meth. §10): supermarkets must carry a group; configured labels without enough
+    destinations are not offered and reported."""
+    groups = dest[dest["label_kind"] == "group"]
+    offered = dest.loc[dest["offered"], labels.LABEL_KEYS].drop_duplicates()
+    missing = labels.missing_categories(dest, cfg)
+    small_brands = sorted(
+        set(dest.loc[(dest["label_kind"] == "brand") & ~dest["offered"], "label"])
+    )
+    absent_brands = sorted(
+        set(cfg.grocery.brands) - set(dest.loc[dest["label_kind"] == "brand", "label"])
+    )
+    not_offered = {
+        k: v
+        for k, v in {
+            **missing,
+            "brand below min stores": small_brands,
+            "brand absent": absent_brands,
+        }.items()
+        if v
+    }
+    if groups.empty:
+        return Check("destination_labels", "fail", 0, "no supermarket in the routing area")
+    message = f"{len(offered)} labels offered, {len(dest)} labelled destinations; " + (
+        f"not offered: {not_offered}" if not_offered else "every configured label offered"
+    )
+    return Check("destination_labels", "warn" if not_offered else "ok", len(offered), message)
 
 
 def checks(ctx: RunContext, r: dict[str, Any]) -> list[Check]:
@@ -348,6 +394,8 @@ def checks(ctx: RunContext, r: dict[str, Any]) -> list[Check]:
                 f"holiday lists cover {covered.start}..{covered.end}",
             )
         )
+    if "destination_labels" in layers:
+        out.append(label_check(layers["destination_labels"], cfg.destination_labels))
     return out
 
 
@@ -370,6 +418,11 @@ def _summary(ctx: RunContext, r: dict[str, Any]) -> dict[str, Any]:
         "gtfs_valid_to": str(r["gtfs_valid_to"]),
         "reference_dates": {n: (str(d) if d else None) for n, d in r["reference_dates"].items()},
         "active_services": r["active_services"],
+        "destination_labels": (
+            labels.counts(layers["destination_labels"]).to_dict("records")
+            if "destination_labels" in layers
+            else []
+        ),
     }
 
 
@@ -386,7 +439,7 @@ def _markdown(report: dict[str, Any]) -> str:
         "|---|---|",
     ]
     for key, value in s.items():
-        if key not in ("excluded_by_district", "reference_dates", "active_services"):
+        if key not in _TABLES:
             lines.append(f"| {key} | {value} |")
     lines += ["", "| Trip window | Reference date | Active services |", "|---|---|---|"]
     lines += [
@@ -399,6 +452,17 @@ def _markdown(report: dict[str, Any]) -> str:
         "|---|---|",
     ]
     lines += [f"| {d} | {n} |" for d, n in s["excluded_by_district"].items()] or ["| none | 0 |"]
+    if s.get("destination_labels"):
+        lines += [
+            "",
+            "| Type | Kind | Label (V10) | Destinations | Features | Offered |",
+            "|---|---|---|---|---|---|",
+        ]
+        lines += [
+            f"| {x['destination_type']} | {x['label_kind']} | {x['label']} | {x['destinations']} "
+            f"| {x['features']} | {'yes' if x['offered'] else 'no'} |"
+            for x in s["destination_labels"]
+        ]
     lines += ["", "## Checks", "", "| Check | Status | Value | Message |", "|---|---|---|---|"]
     lines += [
         f"| {c['check']} | {c['status']} | {'' if c['value'] is None else c['value']} "
