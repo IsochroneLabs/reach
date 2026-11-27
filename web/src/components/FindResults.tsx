@@ -75,43 +75,37 @@ export function FindResults() {
   const { t } = useI18n()
   const fit = useFit()
   const listings = useListings()
-  const on = listings.enabled
   return (
-    <section className="results" aria-labelledby="find-title" aria-busy={on ? listings.updating : fit.updating}>
+    <section
+      className="results"
+      aria-labelledby="find-title"
+      aria-busy={listings.updating || fit.updating}
+    >
       <div className="results-head">
-        <h2 id="find-title">{on ? t('listings.title') : t('find.results')}</h2>
-        <button
-          type="button"
-          className="toggle-link"
-          aria-pressed={on}
-          onClick={() => listings.setEnabled(!on)}
-        >
-          {on ? t('listings.showAreas') : t('listings.show')}
-        </button>
+        <h2 id="find-title">{t('find.listings')}</h2>
+        <span className="muted small">{t('listings.best')}</span>
       </div>
-      {on ? (
-        <Listings />
-      ) : (
-        <>
-          <NearbyNote />
-          {fit.noWeight && <p className="note note-sample">{t('find.noneImportant')}</p>}
-          {!fit.noWeight && !fit.data && !fit.error && (
-            <ol className="plain">
-              {[1, 2, 3].map((i) => (
-                <li key={i} className="card skeleton" aria-hidden="true" />
-              ))}
-              <li className="visually-hidden">{t('status.loading')}</li>
-            </ol>
-          )}
-          {!fit.noWeight && fit.data && (
-            <ol className={`plain areas${fit.updating ? ' dim' : ''}`}>
-              {fit.data.areas.slice(0, 3).map((a, i) => (
-                <AreaCard key={a.area_id} area={a} rank={i + 1} />
-              ))}
-            </ol>
-          )}
-        </>
-      )}
+      <Listings />
+      <details className="areas-secondary" open>
+        <summary>{t('find.results')}</summary>
+        <NearbyNote />
+        {fit.noWeight && <p className="note note-sample">{t('find.noneImportant')}</p>}
+        {!fit.noWeight && !fit.data && !fit.error && (
+          <ol className="plain">
+            {[1, 2, 3].map((i) => (
+              <li key={i} className="card skeleton" aria-hidden="true" />
+            ))}
+            <li className="visually-hidden">{t('status.loading')}</li>
+          </ol>
+        )}
+        {!fit.noWeight && fit.data && (
+          <ol className={`plain areas${fit.updating ? ' dim' : ''}`}>
+            {fit.data.areas.slice(0, 3).map((a, i) => (
+              <AreaCard key={a.area_id} area={a} rank={i + 1} />
+            ))}
+          </ol>
+        )}
+      </details>
       <DataNote />
     </section>
   )

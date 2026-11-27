@@ -15,9 +15,6 @@ export interface RouteLine {
 }
 
 export interface ListingsState {
-  /** "WG-Gesucht listings" toggle of Find; off by default. */
-  enabled: boolean
-  setEnabled: (on: boolean) => void
   /** current listings with the fit of their cell, best first; null while loading */
   data: Listing[] | null
   updating: boolean
@@ -33,14 +30,13 @@ export interface ListingsState {
 const Ctx = createContext<ListingsState | null>(null)
 
 /**
- * Current WG-Gesucht listings (F4.6/F4.7): the toggle loads them once per profile, debounced like
- * the fit request. A listing's numbers are the values of its 100 m cell until point routing (F4.5)
- * exists; the API marks them approximate.
+ * Current WG-Gesucht listings (F4.6/F4.7), loaded once per profile and debounced like the fit
+ * request. They are the primary Find result: no toggle. A listing's numbers in the list are the
+ * values of its 100 m cell; the detail routes the point (F4.5).
  */
 export function ListingsProvider({ children }: { children: ReactNode }) {
   const refs = useRefs()
   const { state } = useStore()
-  const [enabled, setEnabled] = useState(false)
   const [data, setData] = useState<{ items: Listing[]; key: string } | null>(null)
   const [updating, setUpdating] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -54,7 +50,7 @@ export function ListingsProvider({ children }: { children: ReactNode }) {
   const key = types ? profileKey(state.profile, types) : null
 
   useEffect(() => {
-    if (!enabled || !types || !key) return
+    if (!types || !key) return
     const hit = cache.current.get(key)
     if (hit) {
       setData({ items: hit, key })
@@ -88,20 +84,13 @@ export function ListingsProvider({ children }: { children: ReactNode }) {
     }
     // state.profile is covered by key; attempt re-runs after an error
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [enabled, key, types, attempt])
+  }, [key, types, attempt])
 
   const select = useCallback((id: string | null) => {
     setSelectedId(id)
     setRoutesState([])
   }, [])
   const setRoutes = useCallback((lines: RouteLine[]) => setRoutesState(lines), [])
-  const toggle = useCallback((on: boolean) => {
-    setEnabled(on)
-    if (!on) {
-      setSelectedId(null)
-      setRoutesState([])
-    }
-  }, [])
   const retry = useCallback(() => setAttempt((n) => n + 1), [])
 
   // do not show a listing from a previous answer after the profile changed
@@ -109,11 +98,9 @@ export function ListingsProvider({ children }: { children: ReactNode }) {
   const selected = items?.find((l) => l.listing_id === selectedId) ?? null
 
   const value: ListingsState = {
-    enabled,
-    setEnabled: toggle,
     data: items,
-    updating: updating && enabled,
-    error: enabled ? error : null,
+    updating,
+    error,
     selected,
     select,
     retry,

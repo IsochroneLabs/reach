@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 import { getApi } from '../api/client'
 import type { CellDetail, Listing, Trip } from '../api/types'
@@ -44,30 +44,34 @@ function rent(listing: Listing): number | null {
 
 function Card({ listing }: { listing: Listing }) {
   const { t, duration } = useI18n()
-  const { select } = useListings()
+  const { select, selected } = useListings()
   const eur = rent(listing)
+  const open = selected?.listing_id === listing.listing_id
   return (
-    <li className="listing">
-      <button type="button" className="listing-card" onClick={() => select(listing.listing_id)}>
-        <Photo listing={listing} />
-        <span className="listing-body">
-          <span className="listing-kind">
-            <Kind kind={listing.kind} />
-            {listing.district ? <> · {listing.district}</> : null}
-          </span>
-          <span className="listing-title">{listing.title ?? t('listings.untitled')}</span>
-          <span className="listing-meta">
-            <span className="num">{eur != null ? t('listings.eur', { eur }) : t('listings.noRent')}</span>
-            {listing.size_m2 != null && <> · <span className="num">{t('listings.sizeValue', { size: listing.size_m2 })}</span></>}
-            {listing.rooms != null && <> · {t('listings.roomsValue', { n: listing.rooms })}</>}
-          </span>
-          <span className="listing-foot">
-            <FitBadge fit={listing.fit ?? null} size="s" />
-            {listing.weekly_min != null && <span className="muted small">{t('weekly.short', { time: duration(listing.weekly_min) })}</span>}
-          </span>
+    <button
+      type="button"
+      className="listing-card"
+      aria-expanded={open}
+      onClick={() => select(open ? null : listing.listing_id)}
+    >
+      <Photo listing={listing} />
+      <span className="listing-body">
+        <span className="listing-kind">
+          <Kind kind={listing.kind} />
+          {listing.district ? <> · {listing.district}</> : null}
         </span>
-      </button>
-    </li>
+        <span className="listing-title">{listing.title ?? t('listings.untitled')}</span>
+        <span className="listing-meta">
+          <span className="num">{eur != null ? t('listings.eur', { eur }) : t('listings.noRent')}</span>
+          {listing.size_m2 != null && <> · <span className="num">{t('listings.sizeValue', { size: listing.size_m2 })}</span></>}
+          {listing.rooms != null && <> · {t('listings.roomsValue', { n: listing.rooms })}</>}
+        </span>
+        <span className="listing-foot">
+          <FitBadge fit={listing.fit ?? null} size="s" />
+          {listing.weekly_min != null && <span className="muted small">{t('weekly.short', { time: duration(listing.weekly_min) })}</span>}
+        </span>
+      </span>
+    </button>
   )
 }
 
@@ -273,11 +277,19 @@ function Detail({ listing }: { listing: Listing }) {
   )
 }
 
-/** Find → listings: current ads, best fit first, or one detail. */
+/** Find: the best current WGs immediately, best fit first; the first one is opened on load. */
 export function Listings() {
   const { t } = useI18n()
-  const { data, updating, error, selected, retry } = useListings()
-  if (selected) return <Detail listing={selected} />
+  const { data, updating, error, selected, select, retry } = useListings()
+  const [all, setAll] = useState(false)
+  const auto = useRef(false)
+
+  useEffect(() => {
+    if (auto.current || !data?.length) return
+    auto.current = true
+    if (!selected) select(data[0].listing_id)
+  }, [data, select, selected])
+
   if (error) {
     return (
       <p className="note" role="alert">
@@ -299,11 +311,27 @@ export function Listings() {
     )
   }
   if (!data.length) return <p className="note">{t('listings.none')}</p>
+  const shown = all
+    ? data
+    : data.filter((l, i) => i < 6 || l.listing_id === selected?.listing_id)
   return (
-    <ul className={`plain listings${updating ? ' dim' : ''}`}>
-      {data.map((l) => (
-        <Card key={l.listing_id} listing={l} />
-      ))}
-    </ul>
+    <>
+      <ul className={`plain listings${updating ? ' dim' : ''}`}>
+        {shown.map((l) => (
+          <li
+            key={l.listing_id}
+            className={`listing${selected?.listing_id === l.listing_id ? ' open' : ''}`}
+          >
+            <Card listing={l} />
+          </li>
+        ))}
+      </ul>
+      {data.length > 6 && (
+        <button type="button" className="btn-link small listings-more" onClick={() => setAll(!all)}>
+          {all ? t('listings.showLess') : t('listings.showAll', { n: data.length })}
+        </button>
+      )}
+      {selected && <Detail listing={selected} />}
+    </>
   )
 }

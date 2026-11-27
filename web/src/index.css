@@ -268,7 +268,7 @@ dialog.about::backdrop { background: rgb(17 17 17 / 40%); }
   :root { --header-h: 48px; --t-fit: 6rem; }
   .app-header { gap: var(--s-2); padding: 0 var(--s-1) 0 var(--s-4); }
   .logo { font-size: 1.25rem; }
-  .badge-sample { position: fixed; top: calc(var(--header-h) + 0.5rem); left: 0.5rem; z-index: 6; }
+  .badge-sample { position: fixed; top: calc(var(--header-h) + 0.5rem); left: 50%; transform: translateX(-50%); z-index: 6; }
   .header-tools .btn-quiet { padding: 0.3rem 0.55rem; min-height: 36px; }
   .header-tools .btn-icon { width: 36px; height: 36px; }
   .mode-tab { padding: 0 var(--s-2); }
@@ -408,6 +408,15 @@ dialog.about::backdrop { background: rgb(17 17 17 / 40%); }
 .listing-trips th, .listing-trips td { text-align: left; padding: 3px 0; border-top: 1px solid var(--rule); font-weight: 400; }
 .listing-trips th { font-weight: 600; }
 .listing-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-3); margin: var(--s-3) 0; }
+.listing.open { border-top-width: 2px; }
+.listing-detail { padding: var(--s-2) 0 var(--s-5); border-top: 1px solid var(--rule); }
+.listings-more { margin: var(--s-3) 0 var(--s-4); }
+.areas-secondary { margin-top: var(--s-5); border-top: 1px solid var(--ink); padding-top: var(--s-3); }
+.areas-secondary > summary {
+  cursor: pointer; font-weight: 600; font-size: var(--t-body); min-height: 40px;
+  display: flex; align-items: center;
+}
+.areas-secondary[open] > summary { margin-bottom: var(--s-2); }
 .listing-marker {
   width: 26px; height: 26px; padding: 0; border: 2px solid var(--paper); outline: 1px solid var(--ink);
   background: var(--paper); color: var(--ink); font-family: var(--f-mono); font-weight: 600;

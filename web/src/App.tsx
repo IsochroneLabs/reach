@@ -68,11 +68,12 @@ function Shell() {
     }
   }
 
-  // phones: the WGs toggle opens the results sheet so the list is visible, not only the markers
-  const [seenListings, setSeenListings] = useState(listings.enabled)
-  if (seenListings !== listings.enabled) {
-    setSeenListings(listings.enabled)
-    if (bp === 'S' && listings.enabled) {
+  // phones: opening a WG (the best one on load) shows the results sheet with its detail
+  const selectedId = listings.selected?.listing_id ?? null
+  const [seenSelected, setSeenSelected] = useState<string | null>(selectedId)
+  if (seenSelected !== selectedId) {
+    setSeenSelected(selectedId)
+    if (bp === 'S' && selectedId) {
       setTab('results')
       if (snap === 'peek') setSnap('half')
     }

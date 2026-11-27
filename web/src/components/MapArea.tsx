@@ -45,13 +45,7 @@ export function MapArea() {
   const { state, dispatch } = useStore()
   const toast = useToast()
   const listings = useListings()
-  const {
-    enabled: listingsOn,
-    data: listingsData,
-    select: selectListing,
-    selected: selectedListing,
-    routes,
-  } = listings
+  const { data: listingsData, select: selectListing, selected: selectedListing, routes } = listings
   const [popupCell, setPopupCell] = useState<string | null>(null)
   const [failed, setFailed] = useState(false)
   const [loaded, setLoaded] = useState(false)
@@ -61,6 +55,23 @@ export function MapArea() {
     const next = !showCells
     setShowCells(next)
     storage.set(CELLS_KEY, next ? '1' : '0')
+  }
+
+  // opening a WG hides the fit cells so the streets, outlines and routes are readable; closing
+  // restores the student's grid preference. Turning the grid back on while the WG is open sticks
+  // (state adjusted during render, https://react.dev/learn/you-might-not-need-an-effect).
+  const selectedId = listings.selected?.listing_id ?? null
+  const [gridSeenFor, setGridSeenFor] = useState<string | null>(selectedId)
+  const [gridBefore, setGridBefore] = useState<boolean | null>(null)
+  if (gridSeenFor !== selectedId) {
+    setGridSeenFor(selectedId)
+    if (selectedId && showCells) {
+      setGridBefore(true)
+      setShowCells(false)
+    } else if (!selectedId && gridBefore) {
+      setShowCells(gridBefore)
+      setGridBefore(null)
+    }
   }
 
   const extra = useExtraCells()
@@ -108,9 +119,10 @@ export function MapArea() {
 
   // open WG-Gesucht ads in Find (F4.7): one square per listing with a point
   const listingPins: MapMarker[] = useMemo(() => {
-    if (!listingsOn || !listingsData) return []
-    return listingsData
-      .filter((l) => l.point && (!selectedListing || l.listing_id === selectedListing.listing_id))
+    if (!listingsData) return []
+    const chosen = selectedListing ? [selectedListing] : listingsData.slice(0, 10)
+    return chosen
+      .filter((l) => l.point)
       .map((l) => {
         const eur = l.rent_total_eur ?? l.rent_cold_eur
         return {
@@ -124,7 +136,7 @@ export function MapArea() {
           onClick: () => selectListing(l.listing_id),
         }
       })
-  }, [listingsOn, listingsData, selectListing, selectedListing, t])
+  }, [listingsData, selectListing, selectedListing, t])
 
   const markers: MapMarker[] = useMemo(() => {
     const pins: MapMarker[] = state.places
@@ -136,34 +148,19 @@ export function MapArea() {
         kind: 'pin' as const,
         title: `${t('check.place', { id: p.id })}: ${p.label ?? t('check.pin')}`,
       }))
-    if (listingsOn && state.mode === 'find') return pois.concat(listingPins, pins)
-    if (state.mode === 'check') {
-      return pois.concat(state.places.map((p) => ({
-        key: p.id,
-        point: p.point,
-        text: p.id,
-        kind: 'pin' as const,
-        title: `${t('check.place', { id: p.id })}: ${p.label ?? t('check.pin')}`,
-      })))
-    }
     const labels: MapMarker[] = (fit.data?.areas ?? []).flatMap((a) => {
       const c = cellCentre(a.best_cell_id)
       return c ? [{ key: `label-${a.area_id}`, point: c, text: a.name, kind: 'label' as const, title: a.name }] : []
     })
-    return pois.concat(labels, pins, (fit.data?.areas ?? []).slice(0, 3).flatMap((a, i) => {
-      const c = cellCentre(a.best_cell_id)
-      return c
-        ? [{
-            key: a.area_id,
-            point: c,
-            text: String(i + 1),
-            kind: 'rank' as const,
-            title: `${i + 1}. ${a.name}`,
-            onClick: () => setPopupCell(a.best_cell_id),
-          }]
-        : []
-    }))
-  }, [state.mode, state.places, state.nearbyOf, fit.data, t, pois, listingsOn, listingPins])
+    if (state.mode === 'find') return pois.concat(listingPins, labels, pins)
+    return pois.concat(state.places.map((p) => ({
+      key: p.id,
+      point: p.point,
+      text: p.id,
+      kind: 'pin' as const,
+      title: `${t('check.place', { id: p.id })}: ${p.label ?? t('check.pin')}`,
+    })))
+  }, [state.mode, state.places, state.nearbyOf, fit.data, t, pois, listingPins])
 
   const popupData = popupCell && fit.data?.cells[popupCell]
   const popup =
@@ -241,19 +238,6 @@ export function MapArea() {
           onClick={toggleCells}
         >
           {t('map.toggle.cells')}
-        </button>
-        <button
-          type="button"
-          className="map-toggle"
-          aria-pressed={listings.enabled}
-          title={t('map.toggle.listings.title')}
-          onClick={() => {
-            const on = !listings.enabled
-            listings.setEnabled(on)
-            if (on && state.mode === 'check') dispatch({ type: 'mode', mode: 'find' })
-          }}
-        >
-          {t('map.toggle.listings')}
         </button>
       </div>
       {showCells && <FitLegend />}
