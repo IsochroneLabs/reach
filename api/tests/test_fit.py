@@ -24,11 +24,11 @@ def _model() -> Model:
     )
     types = pd.DataFrame(
         [
-            ("campus_site", "Campus", "Campus", "campus", "morning_lecture", 20, 5, None),
-            ("mensa", "Mensa", "Mensa", "campus", "midday", 15, 3, 3),
-            ("grocery", "Supermarket", "Supermarkt", "osm", "evening", 10, 2, 3),
-            ("sport", "Sport", "Sport", "labels", "evening", 20, 0, None),
-            ("nightlife", "Going out", "Ausgehen", "osm", "night_return", 20, 1, 3),
+            ("campus_site", "Campus", "Campus", "campus", "morning_lecture", 20, None),
+            ("mensa", "Mensa", "Mensa", "campus", "midday", 15, 3),
+            ("grocery", "Supermarket", "Supermarkt", "osm", "evening", 10, 3),
+            ("sport", "Sport", "Sport", "labels", "evening", 20, None),
+            ("nightlife", "Going out", "Ausgehen", "osm", "night_return", 20, 3),
         ],
         columns=[
             "destination_type",
@@ -37,7 +37,6 @@ def _model() -> Model:
             "source",
             "trip_window",
             "fine_time_min",
-            "trips_per_week",
             "nearest_k",
         ],
     )
@@ -130,11 +129,10 @@ PROFILE = {
 
 def test_worked_example_of_the_methodology() -> None:
     out = fit_response(_model(), PROFILE, A, P)
-    fit_a, weekly_a, pop_a = out["cells"]["A"]
-    fit_b, weekly_b, _ = out["cells"]["B"]
+    fit_a, pop_a = out["cells"]["A"]
+    fit_b, _ = out["cells"]["B"]
     assert (fit_a, fit_b) == (90, 51)  # methodology §6
-    assert (weekly_a, weekly_b) == (242, 518)  # tennis never counts
-    assert pop_a == 1 and out["cells"]["E"][2] == 0
+    assert pop_a == 1 and out["cells"]["E"][1] == 0
     (area,) = out["areas"]  # E is not populated: d2 has no area
     assert area["name"] == "West" and area["best_cell_id"] == "A" and area["fit"] == 71
 
