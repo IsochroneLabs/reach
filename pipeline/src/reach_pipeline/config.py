@@ -277,6 +277,7 @@ class DestinationLabels(_Model):
     """Brands, groups and categories below destination types (meth. §3.1, arch. O22)."""
 
     min_destinations: int = Field(ge=1)
+    nearest_k_label: int = Field(default=2, ge=1)
     cluster_radius_m: float = Field(gt=0)
     exclude_access: list[str] = Field(default_factory=list)
     grocery: GroceryLabels
@@ -357,6 +358,7 @@ class TravelTimes(_Model):
 
     block_size_m: float = Field(gt=0)
     search_radius_m: float = Field(gt=0)
+    transit_candidate_factor: int = Field(default=2, ge=1)
 
 
 class ShareLimits(_Model):

@@ -236,6 +236,10 @@ destination_labels:
   # A label is offered in the profile panel when it has at least `min_destinations` destinations
   # after clustering.
   min_destinations: 1
+  # Travel times are stored for the nearest k_label destinations of every offered label, next to
+  # the nearest_k of the type (arch. §6.3, O22); 2 keeps a second choice when the straight-line
+  # nearest is not the nearest on the network.
+  nearest_k_label: 2
   # Features of the same label closer than this, or inside the same leisure=sports_centre, form
   # one destination (a tennis club with ten courts is one place, meth. §3.1).
   cluster_radius_m: 75
@@ -402,6 +406,9 @@ travel_times:
   # Straight-line prefilter cap for nearest-k searches (m); destinations beyond are only used if
   # fewer than nearest_k lie within it.
   search_radius_m: 6000
+  # Transit candidates per group = this × nearest_k (or nearest_k_label): the nearest by straight
+  # line is often not the nearest by bus (arch. §6.3, "the 2k nearest per type").
+  transit_candidate_factor: 2
 
 # Validation limits (arch. §7, meth. §10). DRAFT for the new checks.
 validation:
