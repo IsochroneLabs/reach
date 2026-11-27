@@ -368,7 +368,10 @@ limit label destinations to the routing area minus a margin in `validate`.
 
 A real crawl of the Tübingen WG-Gesucht search pages (one page per kind, 20 s between requests,
 60 ads) ran on 27 Nov 2026: snapshot `data/listings/20261127T090214Z` (60 listings, 386 image links),
-published as `lst_20261127t090214z`. *Find* shows them behind the toggle with the fit and weekly
+published as `lst_20261127t090214z`. A second attempt the same morning stopped after 18 minutes on
+a captcha page of a detail ad and wrote no snapshot (the crawler stops on a block page, as
+designed); the 09:02 UTC snapshot stays current. *Find* shows the listings behind the toggle with
+the fit and weekly
 time of the listing's **cell**, not of its point; F4.5 point routing is not built yet. 45 of the
 60 fall into a populated cell, and `street`/`marker` geocodes are labelled "address approximate".
 Images stay links to the source; some WG-Gesucht images answer 403 and the card then shows the
