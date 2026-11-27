@@ -16,6 +16,7 @@ import {
   type FitPart,
   type FitRequest,
   type FitResponse,
+  type Listing,
   type LonLat,
   type Mode,
   type Reason,
@@ -320,6 +321,59 @@ function search(q: string): AddressHit[] {
   return D.addresses.filter((a) => words.every((w) => norm(a.label).includes(w))).slice(0, 10)
 }
 
+/** Four synthetic listings on fixture cells; images stay empty so tests never load a third party. */
+const FIXTURE_LISTINGS: Listing[] = (() => {
+  const seen = new Set<string>()
+  const picked: { id: string; area: string }[] = []
+  for (const [id, area, pop] of D.cells) {
+    if (pop !== 1 || seen.has(area)) continue
+    seen.add(area)
+    picked.push({ id, area })
+    if (picked.length === 4) break
+  }
+  const rents = [890, 650, 1200, 470]
+  const sizes = [24, 18, 38, 14]
+  const kinds: Listing['kind'][] = ['wg_room', 'wg_room', 'studio', 'wg_room']
+  const titles = ['Bright room in a shared flat', 'Quiet room near the old town', 'Small studio with a balcony', 'Room in a lively flat']
+  return picked.map((c, i) => ({
+    listing_id: `fixture-${i + 1}`,
+    source_url: 'https://www.wg-gesucht.de/',
+    kind: kinds[i],
+    title: titles[i],
+    rent_total_eur: rents[i],
+    rent_cold_eur: rents[i] - 120,
+    deposit_eur: rents[i] * 2,
+    size_m2: sizes[i],
+    flat_size_m2: i === 2 ? sizes[i] : 80 + i * 10,
+    rooms: i === 2 ? 1 : 3,
+    household_size: i === 2 ? null : 2 + i,
+    available_from: '2026-12-01',
+    available_to: null,
+    furnished: i === 2 ? 'furnished' : null,
+    features: i === 2 ? ['balcony', 'fitted kitchen'] : ['internet', 'washing machine'],
+    district: c.area,
+    postcode: '72070',
+    address_text: null,
+    geocode_precision: null,
+    cell_id: c.id,
+    image_urls: [],
+    description_excerpt: 'Sample data for the interface, not a real ad.',
+    first_seen: '2026-11-27T08:00:00+00:00',
+    last_seen: '2026-11-27T08:00:00+00:00',
+    point: cellCentre(c.id)!,
+    approximate: true,
+  }))
+})()
+
+/** POST /api/listings/fit: the fit and weekly time of each listing's cell, best first. */
+function listingsFit(p: FitRequest): Listing[] {
+  const cells = fit(p).cells
+  return FIXTURE_LISTINGS.map((l) => {
+    const [f, w] = cells[l.cell_id!] ?? [null, null, 0]
+    return { ...l, fit: f, weekly_min: w }
+  }).sort((a, b) => (b.fit ?? -1) - (a.fit ?? -1) || (a.rent_total_eur ?? 0) - (b.rent_total_eur ?? 0))
+}
+
 /** Latency of the sample API, so loading states are visible as with a real server. */
 const DELAY_MS = 120
 
@@ -342,6 +396,7 @@ export function handle(method: string, path: string, body?: unknown): unknown {
   }
   if (method === 'POST') {
     if (path === '/fit') return fit(p)
+    if (path === '/listings/fit') return listingsFit(p)
     if (path === '/addresses/search') return search((body as { q: string }).q)
     const m = /^\/cell\/([^/]+)$/.exec(path)
     if (m) return cell(decodeURIComponent(m[1]), p)

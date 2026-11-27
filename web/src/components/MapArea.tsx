@@ -5,6 +5,7 @@ import { nearbyCells } from '../logic/nearby'
 import { cellCentre, cellIdAt } from '../geo/laea'
 import { useI18n } from '../i18n/i18n'
 import { useFit } from '../remote/fit'
+import { useListings } from '../remote/listings'
 import { useRefs } from '../remote/refs'
 import { MAX_PLACES } from '../settings'
 import { useStore } from '../state/store'
@@ -41,6 +42,8 @@ export function MapArea() {
   const fit = useFit()
   const { state, dispatch } = useStore()
   const toast = useToast()
+  const listings = useListings()
+  const { enabled: listingsOn, data: listingsData, select: selectListing } = listings
   const [popupCell, setPopupCell] = useState<string | null>(null)
   const [failed, setFailed] = useState(false)
   const [loaded, setLoaded] = useState(false)
@@ -79,6 +82,26 @@ export function MapArea() {
       }))
   }, [refs, state.profile, t])
 
+  // open WG-Gesucht ads in Find (F4.7): one square per listing with a point
+  const listingPins: MapMarker[] = useMemo(() => {
+    if (!listingsOn || !listingsData) return []
+    return listingsData
+      .filter((l) => l.point)
+      .map((l) => {
+        const eur = l.rent_total_eur ?? l.rent_cold_eur
+        return {
+          key: `listing-${l.listing_id}`,
+          point: l.point!,
+          text: t('listings.marker'),
+          kind: 'listing' as const,
+          title: [l.title ?? t('listings.untitled'), eur != null ? t('listings.eur', { eur }) : null]
+            .filter(Boolean)
+            .join(' · '),
+          onClick: () => selectListing(l.listing_id),
+        }
+      })
+  }, [listingsOn, listingsData, selectListing, t])
+
   const markers: MapMarker[] = useMemo(() => {
     const pins: MapMarker[] = state.places
       .filter((p) => state.mode === 'check' || p.id === state.nearbyOf)
@@ -89,6 +112,7 @@ export function MapArea() {
         kind: 'pin' as const,
         title: `${t('check.place', { id: p.id })}: ${p.label ?? t('check.pin')}`,
       }))
+    if (listingsOn && state.mode === 'find') return pois.concat(listingPins, pins)
     if (state.mode === 'check') {
       return pois.concat(state.places.map((p) => ({
         key: p.id,
@@ -115,7 +139,7 @@ export function MapArea() {
           }]
         : []
     }))
-  }, [state.mode, state.places, state.nearbyOf, fit.data, t, pois])
+  }, [state.mode, state.places, state.nearbyOf, fit.data, t, pois, listingsOn, listingPins])
 
   const popupData = popupCell && fit.data?.cells[popupCell]
   const popup =

@@ -2,17 +2,17 @@ import type { Area } from '../api/types'
 import { cellCentre } from '../geo/laea'
 import { useI18n } from '../i18n/i18n'
 import { useFit } from '../remote/fit'
+import { useListings } from '../remote/listings'
 import { MAX_PLACES, NEARBY_RADIUS_M } from '../settings'
 import { nearbyCells } from '../logic/nearby'
 import { useStore } from '../state/store'
 import { DataNote } from './DataNote'
+import { FitBadge } from './FitBadge'
+import { Listings } from './Listings'
 import { Reasons } from './Reasons'
 import { useToast } from './Toast'
 
-/** The fit as a number in mono, tabular (docs/design.md §6 "big number"); never a coloured badge. */
-export function FitBadge({ fit, size = 'm' }: { fit: number | null; size?: 's' | 'm' | 'l' }) {
-  return <span className={`fit-num fit-${size}`}>{fit ?? '–'}</span>
-}
+export { FitBadge } from './FitBadge'
 
 function AreaCard({ area, rank }: { area: Area; rank: number }) {
   const { t, duration } = useI18n()
@@ -74,25 +74,43 @@ function NearbyNote() {
 export function FindResults() {
   const { t } = useI18n()
   const fit = useFit()
+  const listings = useListings()
+  const on = listings.enabled
   return (
-    <section className="results" aria-labelledby="find-title" aria-busy={fit.updating}>
-      <h2 id="find-title">{t('find.results')}</h2>
-      <NearbyNote />
-      {fit.noWeight && <p className="note note-sample">{t('find.noneImportant')}</p>}
-      {!fit.noWeight && !fit.data && !fit.error && (
-        <ol className="plain">
-          {[1, 2, 3].map((i) => (
-            <li key={i} className="card skeleton" aria-hidden="true" />
-          ))}
-          <li className="visually-hidden">{t('status.loading')}</li>
-        </ol>
-      )}
-      {!fit.noWeight && fit.data && (
-        <ol className={`plain areas${fit.updating ? ' dim' : ''}`}>
-          {fit.data.areas.slice(0, 3).map((a, i) => (
-            <AreaCard key={a.area_id} area={a} rank={i + 1} />
-          ))}
-        </ol>
+    <section className="results" aria-labelledby="find-title" aria-busy={on ? listings.updating : fit.updating}>
+      <div className="results-head">
+        <h2 id="find-title">{on ? t('listings.title') : t('find.results')}</h2>
+        <button
+          type="button"
+          className="toggle-link"
+          aria-pressed={on}
+          onClick={() => listings.setEnabled(!on)}
+        >
+          {on ? t('listings.showAreas') : t('listings.show')}
+        </button>
+      </div>
+      {on ? (
+        <Listings />
+      ) : (
+        <>
+          <NearbyNote />
+          {fit.noWeight && <p className="note note-sample">{t('find.noneImportant')}</p>}
+          {!fit.noWeight && !fit.data && !fit.error && (
+            <ol className="plain">
+              {[1, 2, 3].map((i) => (
+                <li key={i} className="card skeleton" aria-hidden="true" />
+              ))}
+              <li className="visually-hidden">{t('status.loading')}</li>
+            </ol>
+          )}
+          {!fit.noWeight && fit.data && (
+            <ol className={`plain areas${fit.updating ? ' dim' : ''}`}>
+              {fit.data.areas.slice(0, 3).map((a, i) => (
+                <AreaCard key={a.area_id} area={a} rank={i + 1} />
+              ))}
+            </ol>
+          )}
+        </>
       )}
       <DataNote />
     </section>

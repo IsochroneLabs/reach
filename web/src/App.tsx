@@ -9,6 +9,7 @@ import { ProfilePanel, ProgrammeHint } from './components/ProfilePanel'
 import { StatusBanner } from './components/StatusBanner'
 import { ToastProvider, useToast } from './components/Toast'
 import { FitProvider } from './remote/fit'
+import { ListingsProvider } from './remote/listings'
 import { RefsProvider, useRefs } from './remote/refs'
 import { useBreakpoint } from './hooks'
 import { I18nProvider, useI18n } from './i18n/i18n'
@@ -116,7 +117,9 @@ export default function App() {
         <RefsProvider>
           <StoreProvider>
             <FitProvider>
-              <Shell />
+              <ListingsProvider>
+                <Shell />
+              </ListingsProvider>
             </FitProvider>
           </StoreProvider>
         </RefsProvider>

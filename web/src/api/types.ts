@@ -156,6 +156,40 @@ export interface CellDetail {
   populated?: boolean
 }
 
+/** PROPOSED (F4.6): one current WG-Gesucht listing with the fit of its Zensus cell. */
+export interface Listing {
+  listing_id: string
+  source_url: string
+  kind: 'wg_room' | 'studio' | 'flat'
+  title: string | null
+  rent_total_eur: number | null
+  rent_cold_eur: number | null
+  deposit_eur: number | null
+  size_m2: number | null
+  flat_size_m2: number | null
+  rooms: number | null
+  household_size: number | null
+  available_from: string | null
+  available_to: string | null
+  furnished: string | null
+  features: string[] | null
+  district: string | null
+  postcode: string | null
+  address_text: string | null
+  geocode_precision: 'house' | 'street' | 'marker' | null
+  cell_id: string | null
+  image_urls: string[] | null
+  description_excerpt: string | null
+  first_seen: string
+  last_seen: string
+  point: LonLat | null
+  /** F4.5 point routing is not built yet; the address is the cell or the ad's own marker. */
+  approximate: boolean
+  /** from POST /api/listings/fit */
+  fit?: number | null
+  weekly_min?: number | null
+}
+
 export interface AddressHit {
   label: string
   cell_id: string

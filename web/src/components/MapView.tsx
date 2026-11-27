@@ -19,7 +19,7 @@ export interface MapMarker {
   key: string
   point: LonLat
   text: string
-  kind: 'rank' | 'pin' | 'label' | 'poi'
+  kind: 'rank' | 'pin' | 'label' | 'poi' | 'listing'
   title: string
   onClick?: () => void
 }
@@ -206,8 +206,21 @@ export function MapView({
     if (!ready || !map.current || !lib) return
     markerObjs.current.forEach((m) => m.remove())
     markerObjs.current = markers.map((mk) => {
+      if (mk.kind === 'listing') {
+        // a current WG-Gesucht ad: square marker, click opens the detail in Find
+        const el = document.createElement('button')
+        el.type = 'button'
+        el.className = 'listing-marker'
+        el.title = mk.title
+        el.setAttribute('aria-label', mk.title)
+        el.textContent = mk.text
+        el.addEventListener('click', (ev) => {
+          ev.stopPropagation()
+          mk.onClick?.()
+        })
+        return new lib.Marker({ element: el, anchor: 'center' }).setLngLat(mk.point).addTo(map.current!)
+      }
       if (mk.kind === 'poi') {
-        // a chosen destination (favourite supermarket, sport or hobby place): dot + short name
         const el = document.createElement('span')
         el.className = 'poi'
         el.title = mk.title

@@ -30,3 +30,17 @@ test('switching the language to German', async ({ page }) => {
   await expect(page.getByRole('button', { name: 'Finden', pressed: true })).toBeVisible()
   await expect(page.locator('html')).toHaveAttribute('lang', 'de')
 })
+
+test('WG-Gesucht listings: toggle, cards and detail', async ({ page, isMobile }) => {
+  // On phones the list sits in the bottom sheet below the peek, so this flow is desktop-only.
+  test.skip(!!isMobile, 'bottom sheet peek hides the listing list')
+  await page.goto('/')
+  await page.getByRole('button', { name: 'Show WG-Gesucht listings' }).click()
+  await expect(page.locator('.listing-card').first()).toBeVisible()
+  await page.locator('.listing-card').first().click()
+  await expect(page.getByTestId('listing-detail')).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Open the ad on WG-Gesucht' })).toHaveAttribute(
+    'href',
+    /wg-gesucht\.de/,
+  )
+})
