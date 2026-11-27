@@ -68,7 +68,11 @@ def campus_weights(model: Model, profile: dict[str, Any]) -> list[tuple[str, flo
         return list(days.items())
     prog = profile.get("programme")
     if prog:
-        return [(s, 1.0) for s in model.programmes.at[prog, "sites"]]
+        sites = list(model.programmes.at[prog, "sites"])
+        shares = model.programmes["shares"].get(prog) if "shares" in model.programmes else None
+        if shares is None or len(shares) != len(sites):
+            shares = [1.0] * len(sites)
+        return [(s, float(w)) for s, w in zip(sites, shares, strict=True)]
     share = model.sites["default_share"]
     return [(s, float(w)) for s, w in share[share > 0].items()]
 

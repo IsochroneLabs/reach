@@ -91,6 +91,7 @@ CONTRACT = {
         ("label_en", "text"),
         ("label_de", "text"),
         ("sites", "text[]"),
+        ("shares", "double precision[]"),
     ],
     "addresses": [
         ("address_id", "integer"),
@@ -256,7 +257,13 @@ def run_tables(population_a: int = 10) -> dict[str, pd.DataFrame]:
             }
         ),
         "programmes": pd.DataFrame(
-            {"programme": ["law"], "label_en": ["Law"], "label_de": ["Jura"], "sites": ["{tal}"]}
+            {
+                "programme": ["law"],
+                "label_en": ["Law"],
+                "label_de": ["Jura"],
+                "sites": ["{tal}"],
+                "shares": ["{1.0}"],
+            }
         ),
         "addresses": pd.DataFrame(
             {

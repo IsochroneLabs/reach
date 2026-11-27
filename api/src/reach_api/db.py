@@ -50,7 +50,7 @@ SELECT site_id, name, default_share,
        ST_X(ST_Transform(geom, 4326)) AS lon, ST_Y(ST_Transform(geom, 4326)) AS lat
 FROM current.campus_sites ORDER BY site_id
 """
-Q_PROGRAMMES = "SELECT programme, label_en, label_de, sites FROM current.programmes"
+Q_PROGRAMMES = "SELECT programme, label_en, label_de, sites, shares FROM current.programmes"
 Q_DESTINATIONS = """
 SELECT destination_id, destination_type, name FROM current.destinations
 UNION ALL

@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from reach_api.fit import ProfileError, cell_summary, fit_response, score
+from reach_api.fit import ProfileError, cell_summary, fit_response, score, term_results
 from reach_api.model import Model
 
 A, P = 1.25, 4
@@ -167,3 +167,19 @@ def test_profile_errors_and_score() -> None:
             fit_response(m, bad, A, P)
     s = score(np.array([15.0, np.nan]), 15, A, P)
     assert s[0] == pytest.approx(0.709, abs=1e-3) and s[1] == 0
+
+
+def test_programme_shares_weight_the_campus_sites() -> None:
+    m = _model()
+    m.programmes = pd.DataFrame(
+        {
+            "programme": ["cs"],
+            "label_en": ["CS"],
+            "label_de": ["Inf"],
+            "sites": [["morgenstelle", "tal"]],
+            "shares": [[0.75, 0.25]],
+        }
+    ).set_index("programme")
+    t = {r.key: r for r in term_results(m, dict(PROFILE, programme="cs"))}
+    # cell A: 12 min to Morgenstelle, 30 min to Tal → 0.75·12 + 0.25·30 = 16.5
+    assert t["campus_site"].minutes[m.cell_index["A"]] == pytest.approx(16.5)

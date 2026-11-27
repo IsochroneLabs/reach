@@ -1,6 +1,6 @@
 # Data contract — reach
 
-> **Status:** v1.1.0 draft (27 Nov 2026). Binding for the tables, files and API responses exchanged
+> **Status:** v1.2.0 draft (27 Nov 2026). Binding for the tables, files and API responses exchanged
 > between pipeline and API once a step implements them; every change needs confirmation
 > (AGENTS.md) and a data-contract test. Parts carried over from the archive are marked *(ported,
 > S0.4)*; result tables and API responses are fixed in S1.4 (pre-approved by Juju on 27 Nov 2026, review
@@ -77,7 +77,7 @@ of them in one transaction. Raw values only: the fit, rankings and reasons are d
 | `destinations` | `destination_id` PK `text` (`<type>:<osm_id>`, campus `<type>:<key>`), `destination_type` `text`, `name` `text` (`''` if unnamed), `osm_id` `text`, `geom` `Point` (first routing point; parks are routed from all their access points and keep the shortest time) |
 | `destination_labels` | as `validate/destination_labels.parquet` below; `destination_id` PK, `osm_ids` `text`, `n_features` `integer`, `offered` `boolean`, `geom` `Point` |
 | `campus_sites` | `site_id` PK `text` (key in `config/campus.yaml`), `name` `text`, `default_share` `real` (0 if not in `default_mix`), `geom` `Point`; destination id `campus_site:<site_id>` |
-| `programmes` | `programme` PK `text`, `label_en`, `label_de` `text`, `sites` `text[]` |
+| `programmes` | `programme` PK `text`, `label_en`, `label_de` `text`, `sites` `text[]`, `shares` `double precision[]` NULL (per site, from Alma, N24; NULL = equal weights) |
 | `addresses` | `address_id` PK `integer`, `label` `text` (`Street 5, 72074 Tübingen`), `street`, `housenumber`, `postcode`, `city` `text`, `residential` `boolean`, `cell_id` `text` (origin cell containing the point, null outside), `geom` `Point` |
 | `stops` | `stop_id` PK `text`, `name` `text`, `geom` `Point` |
 | `stop_departures` | `stop_id` `text`, `trip_window` `text`, `departures` `integer` (boardable departures in the `reliability_window_min` after the window time, before it for arrive-by; night trips of the previous service day count); PK (`stop_id`, `trip_window`) |
@@ -118,7 +118,7 @@ Errors: `{"detail": …}` with 404, 422, 429 (`Retry-After`), 502/503/504. Coord
 | `GET /api/destination-types` | `[{destination_type, label: {en, de}, trip_window, fine_time_min, trips_per_week, labels?: [{label, kind, name: {en, de}, destinations}]}]`; `labels` lists offered labels (grocery brands and groups, sport and hobby categories) |
 | `GET /api/label-destinations` | `[{destination_id, destination_type, labels: [label], name, point}]` |
 | `GET /api/campus-sites` | `[{site_id, name, programmes: [programme], point, default_share}]` |
-| `GET /api/programmes` | `[{programme, label: {en, de}, sites}]` |
+| `GET /api/programmes` | `[{programme, label: {en, de}, sites, shares?}]` (`shares` per site when Alma gave them) |
 | `GET /api/personas` | `[{persona, label: {en, de}, profile: FitRequest}]` from `config/personas.yaml` |
 | `POST /api/addresses/search` `{q}` | `[{label, cell_id, point}]`, at most `api.address_search.limit`, origin cells only |
 | `POST /api/fit` `FitRequest` | `{run_id, areas: [Area], cells: {cell_id: [fit, weekly_min, populated]}}` |
@@ -225,6 +225,7 @@ share, runtime and peak memory per mode).
 | Version | Date | Change | Why |
 |---|---|---|---|
 | v1.1.0 draft | 2026-11-27 | S1.4: all run-schema tables (`cells.populated`, destinations, labels, campus sites, programmes, addresses, stop departures, trip windows, travel times with transit legs) and all API responses after `web/src/api/types.ts`; `validate/` files of S1.6, `transit/`, `travel_times/`, `validate_results/` | Phase 1 core built by Juju's session (decision of 27 Nov 2026: "nothing depends on Rico"); the web client already uses these shapes on fixtures |
+| v1.2.0 draft | 2026-11-27 | `programmes.shares` (site shares from the Alma reference week) and `shares?` in `GET /api/programmes` | F3.3/F3.4: the campus time of a programme is weighted by its session hours per site (notes N24) |
 | v1.0.2 draft | 2026-11-27 | `validate/destination_labels.parquet` and check `destination_labels` (V10) | F2.2 (extension plan) |
 | v1.0.1 draft | 2026-11-21 | S0.4: run-schema subset (`cells`, `districts`, `stops`, `validation_report`) and the `validate/` and `tiles/` files documented as ported; `meta.runs.reference_weekday` holds the earliest trip-window date until S1.4 | Port of the foundation (plan S0.4) |
 | v1.0 draft | 2026-11-21 | New contract for the rebuild: conventions, roles, `meta` and manifest carried over from the archive (v0.17); result tables and API responses planned for S1.4 | Rebuild brief of 21 Nov 2026 |

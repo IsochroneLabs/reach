@@ -160,8 +160,13 @@ async def programmes(d: D) -> list[dict[str, Any]]:
     m = await _model(d)
     return [
         {"programme": p, "label": _label(row), "sites": list(row["sites"])}
+        | ({"shares": list(row["shares"])} if _has(row.get("shares")) else {})
         for p, row in m.programmes.sort_index().iterrows()
     ]
+
+
+def _has(value: Any) -> bool:
+    return isinstance(value, (list, tuple)) and len(value) > 0
 
 
 def persona_profile(raw: dict[str, Any]) -> dict[str, Any]:

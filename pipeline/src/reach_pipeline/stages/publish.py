@@ -132,6 +132,9 @@ def _reference_tables(ctx: RunContext, part1: dict[str, Any]) -> dict[str, pd.Da
                 "label_en": p.label.get("en", k),
                 "label_de": p.label.get("de", p.label.get("en", k)),
                 "sites": "{" + ",".join(p.sites) + "}",
+                "shares": None
+                if p.shares is None
+                else "{" + ",".join(f"{x:.4f}" for x in p.shares) + "}",
             }
             for k, p in campus.programmes.items()
         ]

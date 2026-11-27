@@ -41,6 +41,17 @@ class Place(_Model):
 class Programme(_Model):
     label: dict[str, str]
     sites: list[str] = Field(min_length=1)
+    # Optional share of each site in the campus time (Alma session hours, notes N24); None = equal.
+    shares: list[float] | None = None
+
+    @model_validator(mode="after")
+    def _shares(self):
+        bad = self.shares is not None and (
+            len(self.shares) != len(self.sites) or abs(sum(self.shares) - 1) > 0.01
+        )
+        if bad:
+            raise ValueError("shares: one per site, adding up to 1")
+        return self
 
 
 class AlmaMatch(_Model):

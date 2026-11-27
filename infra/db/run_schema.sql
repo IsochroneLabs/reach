@@ -62,7 +62,8 @@ CREATE TABLE programmes (
     programme text PRIMARY KEY,
     label_en  text NOT NULL,
     label_de  text NOT NULL,
-    sites     text[] NOT NULL
+    sites     text[] NOT NULL,
+    shares    double precision[]  -- per site (Alma, notes N24); NULL = equal weights
 );
 
 CREATE TABLE addresses (
