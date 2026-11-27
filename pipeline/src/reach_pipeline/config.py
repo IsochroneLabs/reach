@@ -477,6 +477,31 @@ class Cleanup(_Model):
     keep_published_runs: int = Field(ge=1)
 
 
+class Listings(_Model):
+    """Daily listings job (arch. O24); off until the permission of the source is recorded."""
+
+    enabled: bool
+    source: Literal["wg_gesucht"]
+    base_url: str = Field(pattern=r"^https://")
+    search_paths: dict[Literal["wg_room", "studio", "flat"], str] = Field(min_length=1)
+    max_search_pages: int = Field(ge=1)
+    request_interval_s: float = Field(ge=10)
+    timeout_s: float = Field(gt=0)
+    user_agent: str = Field(min_length=1)
+    retention_days: int = Field(ge=0)
+    keep_snapshots: int = Field(ge=1)
+    description_max_chars: int = Field(ge=0)
+    title_max_chars: int = Field(ge=1)
+
+    @field_validator("search_paths")
+    @classmethod
+    def _paged(cls, v: dict[str, str]):
+        bad = sorted(k for k, path in v.items() if "{page}" not in path or not path.startswith("/"))
+        if bad:
+            raise ValueError(f"search paths need a leading / and a {{page}} placeholder: {bad}")
+        return v
+
+
 class Config(_Model):
     data_dir: Path
     # Time zone of the trip windows (meth. §5).
@@ -504,6 +529,7 @@ class Config(_Model):
     validation: Validation
     database: Database
     cleanup: Cleanup
+    listings: Listings | None = None
     # Read and validated by reach_api.settings; kept as is here.
     api: dict[str, Any] = Field(default_factory=dict)
 

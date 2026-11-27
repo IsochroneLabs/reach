@@ -220,10 +220,115 @@ share, runtime and peak memory per mode).
 
 `report_results.json` + `.md` (report part 2, V2/V3 checks).
 
+## Listings *(PROPOSED, F4.1: not binding until the team confirms it)*
+
+Daily listings job (architecture O24, §6.5, §7). Source: WG-Gesucht, public offers for Tübingen.
+The job writes snapshot schemas `lst_<snapshot_id>` (`snapshot_id` = `YYYYMMDDTHHMMSSZ`);
+`publish_listings` replaces the views `listings.*` on the latest snapshot in one transaction and
+keeps the last `listings.keep_snapshots` snapshots. Roles: `pipeline_write` owns `lst_<id>` and
+the `listings` views; `app_read` gets `SELECT` on `listings.*`. With `listings.enabled: false`
+(config) the job does not run and the API answers listing requests with an empty list.
+
+**Personal data** (column *PD*): listings are written by private people. Never stored: names or
+initials of the author or flatmates, profile pictures, "member since", phone numbers, e-mail
+addresses, messenger handles, links to social profiles, required documents. Reduced as marked
+below. Raw HTML pages are parsed in memory during the run and deleted with the run directory;
+they are not kept on the server.
+
+### `lst_<id>.listings` (one row per listing in the snapshot)
+
+| Column | Type | PD | Description and reduction |
+|---|---|---|---|
+| `listing_id` PK | `text` | | `wg_gesucht:<ad number>` |
+| `source` | `text` | | `wg_gesucht` |
+| `source_url` | `text` | | Canonical ad URL; the app links to it |
+| `kind` | `text` | | `wg_room`, `studio` (1-room flat), `flat` |
+| `title` | `text` | may | As published, contact data stripped (same rules as the excerpt), at most 120 characters |
+| `rent_total_eur` | `integer` | | "Gesamtmiete" (warm, incl. utilities and other costs) |
+| `rent_cold_eur` | `integer` | | "Miete" (cold) |
+| `utilities_eur` | `integer` | | "Nebenkosten" |
+| `other_costs_eur` | `integer` | | "Sonstige Kosten" |
+| `deposit_eur` | `integer` | | "Kaution" |
+| `transfer_fee_eur` | `integer` | | "Ablösevereinbarung" |
+| `size_m2` | `real` | | Room size (`wg_room`) or flat size |
+| `flat_size_m2` | `real` | | "Wohnungsgröße" of a WG |
+| `rooms` | `real` | | Rooms of a `studio` (1) or `flat` |
+| `household_size` | `smallint` | | "3er WG" = 3, incl. the free room |
+| `flatmates_women`, `flatmates_men`, `flatmates_diverse` | `smallint` | yes | Counts only, as published |
+| `flatmates_age_min`, `flatmates_age_max` | `smallint` | yes | Range as published ("Bewohneralter"); never per person |
+| `looking_for_gender` | `text` | | `any`, `woman`, `man`, `diverse` |
+| `looking_for_age_min`, `looking_for_age_max` | `smallint` | | As published |
+| `wg_types` | `text[]` | | As published ("Studenten-WG", "Zweck-WG", …) |
+| `languages` | `text[]` | | As published |
+| `smoking` | `text` | | As published ("Rauchen nicht erwünscht", …) |
+| `available_from` | `date` | | "frei ab"; "ab sofort" → `fetched_at` date |
+| `available_to` | `date` | | "frei bis"; null = unlimited |
+| `furnished` | `text` | | `none`, `partly`, `full`; null = not stated |
+| `features` | `text[]` | | Normalised keys (see *Parser output*) |
+| `district` | `text` | | District as published ("Tübingen Innenstadt" → `Innenstadt`) |
+| `postcode` | `text` | | As published |
+| `address_text` | `text` | yes | Street and house number as published; only used for geocoding and shown with the listing |
+| `geocode_precision` | `text` | | `house`, `street`, `district` (methodology §8.1) |
+| `geom` | `geometry(Point, 25832)` | | Geocoded point (`current.addresses`, step F4.5); for `district` the district's representative point |
+| `source_point` | `geometry(Point, 25832)` | | Map marker of the ad page, informative only (V12 compares it with `geom`) |
+| `image_urls` | `text[]` | yes | Links to the source images, never copied or proxied; loaded only when the student opens the listing |
+| `description_excerpt` | `text` | may | First `listings.description_max_chars` characters of the free text, phone numbers, e-mail addresses, URLs and messenger handles replaced by `[…]` |
+| `online_since` | `timestamptz` | | From "Online: 10 Stunden" or a date relative to `fetched_at`; hour or day precision |
+| `first_seen`, `last_seen` | `timestamptz` | | First and last snapshot that contained the listing |
+| `fetched_at` | `timestamptz` | | Time the detail page was fetched |
+| `parse_warnings` | `text[]` | | Fields that could not be read (`unknown:<field>`) |
+
+**Retention:** a listing missing from the search pages is kept with its `last_seen` for
+`listings.retention_days` days and then left out of the next snapshot; older snapshots are
+dropped by `publish_listings`. Nothing about a removed listing survives the last kept snapshot.
+
+### `lst_<id>.listing_travel_times`
+
+One row per listing × destination × mode × trip window, raw seconds (O4); same columns and rules
+as `travel_times` (S1.4) with `listing_id` instead of `cell_id`, plus `approximate` `boolean`
+(true for `street` precision). Destinations: the nearest k per destination type and per offered
+label and all campus sites (architecture §6.5). Listings with `district` precision have no rows;
+the API uses the district's cell values and says so.
+
+### `lst_<id>.listing_report`
+
+V12 checks, same columns as `validation_report` (`stage` = `listings_validate`): parse share,
+geocode precision shares, distance `geom` ↔ `source_point`, freshness.
+
+### Parser output *(F4.2)*
+
+One field spec for both parsers (Python `reach_pipeline.listings.parse` for the job,
+TypeScript `web/src/listings/extract.ts` for the import in the browser, F4.3). JSON object with
+the columns of `listings` except `geom`, `geocode_precision`, `first_seen`, `last_seen`, plus:
+
+| Field | Type | Description |
+|---|---|---|
+| `source_lat`, `source_lon` | number \| null | Map marker of the page (EPSG:4326) |
+| `online_text` | string \| null | Raw "Online:" value; `online_since` needs `fetched_at` |
+| `warnings` | string[] | `unknown:<field>` for every field that is missing or unreadable |
+| `errors` | string[] | `no_address` (no street and no district), `not_an_ad` (page structure not recognised) |
+
+A page with errors yields a partial result, never an exception. Feature keys: `washing_machine`,
+`dishwasher`, `balcony`, `terrace`, `garden`, `cellar`, `bike_cellar`, `lift`, `internet`,
+`own_kitchen`, `own_bathroom`, `parking`, `pets_allowed`, `barrier_free`; unknown entries are
+kept as `other:<text>`.
+
+**Variant C (import in the browser, F4.3):** the same object stays in the URL hash and
+`localStorage`; only the address text reaches the server (POST address search) and, after
+geocoding, the point (`POST /api/place`). Nothing of it is stored on the server.
+
+### Files (`data/listings/<snapshot_id>/<stage>/`)
+
+`listings_acquire/`: `pages.parquet` (`listing_id`, `kind`, `url`, `search_hash`, `status`,
+`fetched_at`; the HTML stays in memory, see above) and a manifest. `listings_validate/`:
+`listings.parquet` (GeoParquet, EPSG:25832, columns of `listings`) and `report.json` + `.md`.
+`listings_travel_times/`: `listing_travel_times.parquet`. All with `manifest.json` as above.
+
 ## Change log
 
 | Version | Date | Change | Why |
 |---|---|---|---|
+| proposed (F4.1) | 2026-11-27 | Listings: schema `lst_<id>` (`listings`, `listing_travel_times`, `listing_report`), views `listings.*`, retention, personal-data reductions, parser output, variant C, files | Extension plan F4.1, architecture O24/O25; version bump once the team confirms |
 | v1.1.0 draft | 2026-11-27 | S1.4: all run-schema tables (`cells.populated`, destinations, labels, campus sites, programmes, addresses, stop departures, trip windows, travel times with transit legs) and all API responses after `web/src/api/types.ts`; `validate/` files of S1.6, `transit/`, `travel_times/`, `validate_results/` | Phase 1 core built by Juju's session (decision of 27 Nov 2026: "nothing depends on Rico"); the web client already uses these shapes on fixtures |
 | v1.2.0 draft | 2026-11-27 | `programmes.shares` (site shares from the Alma reference week) and `shares?` in `GET /api/programmes` | F3.3/F3.4: the campus time of a programme is weighted by its session hours per site (notes N24) |
 | v1.0.2 draft | 2026-11-27 | `validate/destination_labels.parquet` and check `destination_labels` (V10) | F2.2 (extension plan) |

@@ -281,6 +281,13 @@ app works without listings; if SMP refuses, switch the crawl off and fall back t
 the student's browser (extension plan F4.3). `product.md` v1.2 (26 Nov 2026) replaced the non-goal
 "no scraping of listing sites" by data limits (no contact data, no photo copies, WG-Gesucht only).
 
+**Requests so far (27 Nov 2026, Juju's go "scrape it with a low rate"):** for the parser fixtures
+(F4.2) 9 pages were fetched by hand: 3 search pages (WG rooms, 1-room flats, flats) and 6 ads, at
+least 20 s apart, with a generic user agent, no login, `robots.txt` read first (listing pages not
+disallowed). Raw pages stay in `data/listings_raw/` on Juju's machine (git-ignored); the committed
+fixtures are reduced and anonymised (`pipeline/tests/fixtures/listings/README.md`). No crawl runs
+until the permission is recorded here.
+
 ## N21. Alma was not reachable from outside the university network
 
 **Status:** open · **Related:** architecture O23, §4, extension plan F3.1

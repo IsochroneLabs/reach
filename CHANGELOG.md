@@ -4,6 +4,7 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+- Listings (F4.2): parser for WG-Gesucht ad and search pages with the field spec of the data contract (contact data stripped, partial results with warnings instead of errors) and five anonymised fixtures
 - Alma programme sites (F3.2–F3.4): polite crawl of the public Alma day view for one reference teaching week (`python -m reach_pipeline.alma crawl|shares`, 20 s between requests, no names stored), building → campus site and module number → programme patterns in `config/campus.yaml`, site shares per programme in `programmes.shares` and in the fit's campus time (data contract v1.2.0 draft, notes N24)
 - Fit API (S1.10): `GET /api/meta`, `/destination-types` (with labels), `/label-destinations`, `/campus-sites`, `/programmes`, `/personas`; `POST /api/addresses/search`, `/api/fit` (whole city from an in-memory model of `current.travel_times`, areas with reasons, cached on run + profile), `/api/cell/{id}` (trips with bus legs and the last departure home)
 - Travel times and result checks (S1.8, S1.9): stage `travel_times` (Valhalla `costmatrix` for walk and bike, OpenTripPlanner per pair for transit and bike + transit, per trip window; transit capped by walking), stage `validate_results` (V2–V8 checks, report), `publish` loads all tables of data contract v1.1.0

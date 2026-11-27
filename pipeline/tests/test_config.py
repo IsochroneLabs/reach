@@ -188,3 +188,12 @@ def test_holiday_lookup() -> None:
     assert cal.is_holiday(date(2026, 12, 25))  # public holiday
     assert cal.is_holiday(date(2026, 10, 27))  # Herbstferien
     assert not cal.is_holiday(date(2026, 11, 3))
+
+
+def test_listings_section_is_off_and_paged():
+    """The listings job stays off until the permission is recorded (notes N20)."""
+    cfg = load_config(CONFIG)
+    assert cfg.listings is not None
+    assert cfg.listings.enabled is False
+    assert all("{page}" in p for p in cfg.listings.search_paths.values())
+    assert cfg.listings.request_interval_s >= 10
