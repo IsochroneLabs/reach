@@ -140,11 +140,15 @@ def ewkb(geoms: gpd.GeoSeries) -> pd.Series:
 def copy_frame(
     conn: psycopg.Connection, table: str, frame: pd.DataFrame, schema: str | None = None
 ) -> int:
-    """COPY a frame (columns = table columns, geometries as hex EWKB) into `[schema.]table`."""
+    """COPY a frame (columns = table columns, geometries as hex EWKB) into `[schema.]table`.
+
+    NULL is written as `\\N` and declared to COPY: an empty string stays an empty string (a
+    NOT NULL text column may be empty, e.g. a missing postcode) and only NaN/None become NULL.
+    """
     buf = io.StringIO()
-    frame.to_csv(buf, index=False, header=False, na_rep="")
+    frame.to_csv(buf, index=False, header=False, na_rep="\\N")
     cols = sql.SQL(", ").join(sql.Identifier(c) for c in frame.columns)
-    stmt = sql.SQL("COPY {} ({}) FROM STDIN (FORMAT csv)").format(
+    stmt = sql.SQL("COPY {} ({}) FROM STDIN (FORMAT csv, NULL '\\N')").format(
         sql.Identifier(schema, table) if schema else sql.Identifier(table), cols
     )
     with conn.cursor() as cur, cur.copy(stmt) as copy:
@@ -211,8 +215,16 @@ def switch_current(conn: psycopg.Connection, schema: str, run_id: str) -> list[s
                 )
             )
         for name in names:
+            # DROP + CREATE, not CREATE OR REPLACE: a schema change (new column, new order) cannot
+            # be applied with CREATE OR REPLACE VIEW. Inside the transaction readers see the old
+            # views until the commit. Default privileges grant SELECT to app_read on the new view.
             conn.execute(
-                sql.SQL("CREATE OR REPLACE VIEW {}.{} AS SELECT * FROM {}.{}").format(
+                sql.SQL("DROP VIEW IF EXISTS {}.{}").format(
+                    sql.Identifier(CURRENT), sql.Identifier(name)
+                )
+            )
+            conn.execute(
+                sql.SQL("CREATE VIEW {}.{} AS SELECT * FROM {}.{}").format(
                     sql.Identifier(CURRENT),
                     sql.Identifier(name),
                     sql.Identifier(schema),

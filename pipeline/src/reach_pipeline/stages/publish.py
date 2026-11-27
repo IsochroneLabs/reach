@@ -95,6 +95,15 @@ def report_frame(*reports: dict[str, Any]) -> pd.DataFrame:
     return pd.DataFrame(rows, columns=["check", "stage", "status", "value", "message"])
 
 
+def with_names(dest: gpd.GeoDataFrame, types: pd.DataFrame) -> gpd.GeoDataFrame:
+    """The contract has `destinations.name` NOT NULL; unnamed OSM places get their type label."""
+    out = dest.copy()
+    blank = out["name"].fillna("").astype(str).str.strip() == ""
+    labels = types.set_index("destination_type")["label_en"]
+    out.loc[blank, "name"] = out.loc[blank, "destination_type"].map(labels).fillna("Destination")
+    return out
+
+
 def _reference_tables(ctx: RunContext, part1: dict[str, Any]) -> dict[str, pd.DataFrame]:
     """Tables from the config and `campus.yaml`: types, campus sites, programmes, windows."""
     cfg = ctx.config
@@ -169,6 +178,7 @@ def tables(ctx: RunContext) -> dict[str, pd.DataFrame]:
     part2 = json.loads(p["report_results"].read_text(encoding="utf-8"))
     ref = _reference_tables(ctx, part1)
     dest = gpd.read_parquet(p["destinations"]).drop_duplicates("destination_id")
+    dest = with_names(dest, ref["destination_types"])
     addr = gpd.read_parquet(p["addresses"])
     in_cell = gpd.sjoin(addr[["address_id", "geometry"]], cells[["cell_id", "geometry"]], "left")
     addr["cell_id"] = (
