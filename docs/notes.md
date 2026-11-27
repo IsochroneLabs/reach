@@ -422,3 +422,34 @@ operator Universität Tübingen/Universitätsklinikum, or a campus name within 2
 primary list (best fit first, top six, the best one opened below the list); the grid hides while a
 WG is open, the routes and university outlines are visible, and the areas are a secondary,
 collapsible section.
+
+## N29. Wrong campus, unlabelled destinations and opening hours
+
+**Status:** fixed 27 Nov 2026 (Juju: "es wird sehr oft zum falschen Campus geroutet, die Wege sind
+unklar, da die POIs nicht angezeigt werden") · **Related:** F4.5, F4.7, F3.4, data contract v1.3.0
+
+**Causes.** (1) The listing detail drew one route per destination type to the *fastest* trip; for
+the campus that was the nearest of all four sites, so a biology student was routed to Sand or the
+Tal. (2) `POST /api/place` routed to all campus sites, not only the student's. (3) The site points
+were rough coordinates from S0.3: Tal, Sand and Schnarrenberg lay 250–300 m from the lecture
+buildings (Morgenstelle 14 m). (4) The map showed lines but not where they end or what is there.
+Also, label keys (`sport:tennis`) never showed a row in the listing trips (looked up by type).
+
+**Fixes.** The API routes only the student's campus sites (`campus_weights`: campus days, else
+programme with Alma shares, else default mix) and each trip carries `point` and, for campus sites,
+`share`; the app shows every campus site of the student with its share and draws a route to each
+of them; the trips' destinations are labelled markers on the map (name, minutes, mode; campus as
+a square). Site points in `config/campus.yaml` now sit at the main lecture buildings (checked
+against OSM); they take effect with the next full refresh, because `publish` now takes the campus
+geometry from the run's `validate` output instead of re-reading `campus.yaml` (no half update).
+
+**Opening hours.** `publish` writes `destination_details` from the OSM tags that `validate`
+already exports (`opening_hours`, `website`/`contact:website`, `wheelchair`): 689 destinations of
+run 20261127T080940Z, 429 with opening hours. `open_in_window` says whether the place is open at
+the time of its type's trip window (e.g. supermarket on Tuesday 18:00); `opening_hours.py` reads
+the common subset (91 % of the tagged values; PH/SH rules are ignored because reference dates are
+never holidays) and leaves the rest unknown. **Google Maps was not scraped**: its terms forbid
+extracting content, the data would be Google's, not ours to publish, and AGENTS.md rule 8 keeps
+the app on OSM. If the team needs more (popular times, ratings), the paid Places API would be the
+legal route (ask first: paid product, new service).
+
