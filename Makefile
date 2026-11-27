@@ -12,9 +12,8 @@ export REACH_CONFIG
 # .env (connection strings, passwords, webhook) is passed to the pipeline when it exists;
 # variables already set in the shell or on the make command line win.
 PIPELINE = uv run $(if $(wildcard .env),--env-file .env) python -m reach_pipeline
-# Stages after `transit verify` in `make refresh` (arch. §7); travel_times (S1.8) and
-# validate_results (S1.9) are added before publish when they exist.
-REFRESH_STAGES = publish cleanup
+# Stages after `transit verify` in `make refresh` (arch. §7).
+REFRESH_STAGES = travel_times validate_results publish cleanup
 # data_dir of the selected config; Valhalla tiles live in <data_dir>/valhalla (host bind mount).
 DATA_DIR = $(shell uv run --quiet python -c "from reach_pipeline.config import load_config; print(load_config('$(REACH_CONFIG)').data_dir)")
 VALHALLA_DIR = $(abspath $(DATA_DIR)/valhalla)

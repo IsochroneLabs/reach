@@ -422,6 +422,13 @@ travel_times:
   # Transit candidates per group = this × nearest_k (or nearest_k_label): the nearest by straight
   # line is often not the nearest by bus (arch. §6.3, "the 2k nearest per type").
   transit_candidate_factor: 2
+  # The same for label groups (k_label per label is already small; 25 sport categories × 2 × 2
+  # would double the OTP queries: 432k instead of 269k pairs for the city, S1.8).
+  transit_candidate_factor_label: 1
+  # Modes routed by the stage (routing_profiles keys); bike_transit is the first cut (M5).
+  modes: [walk, bike, transit, bike_transit]
+  # OTP pairs per batch: progress log and memory bound.
+  otp_batch: 5000
   # Reliability (meth. §4): departures per stop counted from the window time over this many minutes
   # (before it for arrive-by windows).
   reliability_window_min: 60
@@ -437,6 +444,12 @@ validation:
   min_destinations_per_type: 1
   # V2 plausibility: share of cell × destination pairs where bike ≤ walk; warn/fail below.
   bike_not_slower_than_walk: {warn_below: 0.95, fail_below: 0.90}
+  # Report part 2 (validate_results, S1.9): share of travel-time rows without a time per mode,
+  # and the straight-line speed no transit trip may exceed (regional trains reach ~60 km/h).
+  results:
+    unreachable_warn_above: 0.02
+    unreachable_fail_above: 0.10
+    max_transit_kmh: 70
 
 # PostGIS (archive). Connection strings and passwords come from .env.
 database:

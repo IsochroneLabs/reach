@@ -24,7 +24,16 @@ from reach_pipeline.manifest import (
     write_manifest,
 )
 from reach_pipeline.metrics import measure
-from reach_pipeline.stages import acquire, cleanup, publish, tiles, transit, validate
+from reach_pipeline.stages import (
+    acquire,
+    cleanup,
+    publish,
+    tiles,
+    transit,
+    travel_times,
+    validate,
+    validate_results,
+)
 
 REPO = Path(__file__).resolve().parents[2]
 PIPELINE_ORDER = [
@@ -38,7 +47,16 @@ PIPELINE_ORDER = [
     "cleanup",
 ]
 # Modules of the implemented stages (grows as stages are ported).
-STAGE_MODULES: tuple = (acquire, validate, tiles, transit, publish, cleanup)
+STAGE_MODULES: tuple = (
+    acquire,
+    validate,
+    tiles,
+    transit,
+    travel_times,
+    validate_results,
+    publish,
+    cleanup,
+)
 
 
 @pytest.fixture

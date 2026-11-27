@@ -405,6 +405,9 @@ class TravelTimes(_Model):
     block_size_m: float = Field(gt=0)
     search_radius_m: float = Field(gt=0)
     transit_candidate_factor: int = Field(default=2, ge=1)
+    transit_candidate_factor_label: int = Field(default=1, ge=1)
+    modes: list[str] = Field(default_factory=lambda: ["walk", "bike", "transit"], min_length=1)
+    otp_batch: int = Field(default=5000, ge=1)
     reliability_window_min: int = Field(default=60, ge=1, le=240)
 
 
@@ -421,12 +424,19 @@ class ShareLimits(_Model):
         return self
 
 
+class ResultLimits(_Model):
+    unreachable_warn_above: float = Field(ge=0, le=1)
+    unreachable_fail_above: float = Field(ge=0, le=1)
+    max_transit_kmh: float = Field(gt=0)
+
+
 class Validation(_Model):
     population_tolerance_pct: float = Field(ge=0)
     official_population: int | None = Field(default=None, gt=0)
     min_scored_share: float = Field(ge=0, le=1)
     min_destinations_per_type: int = Field(ge=0)
     bike_not_slower_than_walk: ShareLimits
+    results: ResultLimits
 
 
 class Database(_Model):
@@ -475,6 +485,13 @@ class Config(_Model):
         if bad:
             raise ValueError(f"ids must be lower snake_case, got {bad}")
         return v
+
+    @model_validator(mode="after")
+    def _modes_exist(self):
+        unknown = sorted(set(self.travel_times.modes) - set(self.routing_profiles))
+        if unknown:
+            raise ValueError(f"travel_times.modes: unknown routing profiles {unknown}")
+        return self
 
     @model_validator(mode="after")
     def _trip_windows_exist(self):

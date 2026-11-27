@@ -17,7 +17,16 @@ from reach_pipeline.context import RunContext, is_run_id, latest_run_id, new_run
 from reach_pipeline.errors import ConfigError, PipelineError
 from reach_pipeline.manifest import Manifest, write_manifest
 from reach_pipeline.metrics import Measurement, measure
-from reach_pipeline.stages import acquire, cleanup, publish, tiles, transit, validate
+from reach_pipeline.stages import (
+    acquire,
+    cleanup,
+    publish,
+    tiles,
+    transit,
+    travel_times,
+    validate,
+    validate_results,
+)
 
 DEFAULT_CONFIG = "config/config.yaml"
 # Subcommands of the stages whose build runs on the host (make refresh); "verify" = the stage.
@@ -32,15 +41,14 @@ STAGES: dict[str, Callable[[RunContext], Manifest]] = {
     validate.STAGE: validate.run,
     tiles.STAGE: tiles.run,  # `tiles verify`; `tiles check` is called on its own (make refresh)
     transit.STAGE: transit.run,  # `transit verify`; `transit prepare` as above
+    travel_times.STAGE: travel_times.run,
+    validate_results.STAGE: validate_results.run,
     publish.STAGE: publish.run,
     cleanup.STAGE: cleanup.run,
 }
 # Stages that follow, with the plan step that implements them: a single one fails with a clear
 # message, `run` logs each as skipped. Move a stage to STAGES when it is implemented.
-PLANNED: dict[str, str] = {
-    "travel_times": "S1.8",
-    "validate_results": "S1.9",
-}
+PLANNED: dict[str, str] = {}
 # Commands that are not stages: no run id, no manifest.
 MIGRATE = "migrate"
 
