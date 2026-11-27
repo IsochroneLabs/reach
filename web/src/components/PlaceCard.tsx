@@ -4,7 +4,7 @@ import type { CellDetail, Mode, Trip } from '../api/types'
 import { useI18n } from '../i18n/i18n'
 import { placeName, useRank } from './places'
 import type { CellState } from '../remote/cells'
-import { useRefs } from '../remote/refs'
+import { useDestName, useRefs } from '../remote/refs'
 import type { Place } from '../state/profile'
 import { useStore } from '../state/store'
 import { DataNote } from './DataNote'
@@ -85,14 +85,10 @@ function rowsOf(detail: CellDetail, typeLabel: (k: string) => string): Row[] {
 }
 
 function TripsTable({ detail, modes }: { detail: CellDetail; modes: Mode[] }) {
-  const { t, label, duration } = useI18n()
-  const refs = useRefs()
+  const { t, duration } = useI18n()
   const { state } = useStore()
   const [openLegs, setOpenLegs] = useState<string | null>(null)
-  const typeLabel = (k: string) => {
-    const x = refs.kind === 'ok' ? refs.refs.types.find((d) => d.destination_type === k) : null
-    return x ? label(x.label) : k
-  }
+  const typeLabel = useDestName()
   const chosen = state.profile.modes
   const rows = rowsOf(detail, typeLabel)
   const campusRows = rows.filter((r) => r.type === 'campus_site')

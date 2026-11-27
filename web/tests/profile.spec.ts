@@ -40,9 +40,9 @@ test('an example profile replaces the profile and can be undone', async ({ page 
   await openProfile(page)
   await page.getByText('Example profiles').click()
   await page.getByRole('button', { name: 'Lena, first semester biology' }).click()
-  await expect(page.getByTestId('dest-climbing')).toBeVisible()
+  await expect(page.getByTestId('dest-sport:climbing')).toBeVisible()
   await page.getByRole('button', { name: 'Undo' }).click()
-  await expect(page.getByTestId('dest-climbing')).toHaveCount(0)
+  await expect(page.getByTestId('dest-sport:climbing')).toHaveCount(0)
 })
 
 test('the last mode cannot be switched off', async ({ page }) => {
@@ -64,4 +64,36 @@ test('all destinations "not important" asks for one', async ({ page }) => {
   const tab = page.getByRole('tab', { name: 'Results' })
   if (await tab.isVisible()) await tab.click()
   await expect(page.getByText('Mark at least one destination as important to see where you fit')).toBeVisible()
+})
+
+test('favourite supermarkets and a sport category: reasons, map and link', async ({ page }) => {
+  await openProfile(page)
+  // only the supermarket and tennis count
+  for (const name of ['Campus', 'Mensa', 'Main station']) {
+    await page.getByRole('radiogroup', { name: `How important is ${name}?` }).getByTitle('Not important').click()
+  }
+  await page.getByRole('button', { name: 'Details for Supermarket' }).click()
+  const favourites = page.getByTestId('favourite-supermarkets')
+  await favourites.getByRole('button', { name: 'Lidl', exact: true }).click()
+  await expect(favourites.getByRole('button', { name: 'Lidl', exact: true })).toHaveAttribute('aria-pressed', 'true')
+  await expect(page.getByTestId('dest-grocery').getByText('Lidl', { exact: true }).first()).toBeVisible()
+
+  await page.getByLabel('Add destination').selectOption('sport:tennis')
+  const tennis = page.getByTestId('dest-sport:tennis')
+  await expect(tennis).toBeVisible()
+  await page.getByRole('button', { name: 'Details for Tennis' }).click()
+  await expect(tennis.getByText('Trips per week')).toHaveCount(0)
+  await expect(page).toHaveURL(/d:[^;&]*sport:tennis\.2[^;&]*;g:lidl/)
+
+  const tab = page.getByRole('tab', { name: 'Results' })
+  if (await tab.isVisible()) await tab.click()
+  const first = page.getByTestId('area').first()
+  await expect(first.getByText(/Lidl/)).toBeVisible()
+  await expect(first.getByText(/Tennis club/)).toBeVisible()
+  await expect(page.locator('.poi', { hasText: 'Lidl Südstadt' })).toHaveCount(1)
+
+  await page.reload()
+  await openProfile(page)
+  await expect(page.getByTestId('dest-sport:tennis')).toBeVisible()
+  await expect(page.getByTestId('dest-grocery').getByText('Lidl', { exact: true }).first()).toBeVisible()
 })

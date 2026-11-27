@@ -6,7 +6,7 @@ import { compareTwo, type Fact, type PlaceFacts } from '../logic/compare'
 import { cityRank } from '../logic/rank'
 import type { CellState } from '../remote/cells'
 import { useFit } from '../remote/fit'
-import { useRefs } from '../remote/refs'
+import { useDestName } from '../remote/refs'
 import { FIT_EQUAL_DELTA } from '../settings'
 import type { Place } from '../state/profile'
 import { useStore } from '../state/store'
@@ -34,8 +34,7 @@ function factText(f: Fact, t: ReturnType<typeof useI18n>['t'], duration: (m: num
 
 /** Two or three places side by side, the differences in plain language, a shareable link (§1.4). */
 export function CompareView({ places, cells }: { places: Place[]; cells: Record<string, CellState> }) {
-  const { t, label, duration } = useI18n()
-  const refs = useRefs()
+  const { t, duration } = useI18n()
   const fit = useFit()
   const { state, dispatch } = useStore()
   const toast = useToast()
@@ -44,10 +43,7 @@ export function CompareView({ places, cells }: { places: Place[]; cells: Record<
     const c = cells[p.id]
     return c?.kind === 'ok' ? c.detail : null
   }
-  const typeLabel = (k: string) => {
-    const x = refs.kind === 'ok' ? refs.refs.types.find((d) => d.destination_type === k) : null
-    return x ? label(x.label) : k
-  }
+  const typeLabel = useDestName()
   const short = (p: Place) => `${p.id} · ${placeName(p, t).replace(/, Tübingen$/, '')}`
 
   const facts: PlaceFacts[] = places.map((p) => {

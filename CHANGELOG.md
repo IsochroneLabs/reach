@@ -4,6 +4,7 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+- Profile panel (F2.5): favourite supermarkets (brands and kinds of shop, nearest of them counts) and sport/hobby categories as destinations of their own (importance and fine time, no trips per week); choice in the link (`g:` part, `sport:tennis` keys), chosen places on the map; sample data with labels
 - *Check* compare (S2.6): two or three places side by side with the differences in plain language (fit, weekly travel time against rent, largest per-destination gaps), shareable link with rents only on request
 - *Check* for one place (S2.5): address search or pin, fit, rank in the city, weekly travel time, trips by mode and trip window with bus details, optional listing rent kept in the browser, "better places nearby" in *Find*
 - *Find* (S2.4): MapLibre map with the cell fits, legend, rank markers and a cell popup; the three best areas with reasons, weekly travel time and data date; "Check here" opens *Check*

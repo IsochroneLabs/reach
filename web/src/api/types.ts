@@ -16,6 +16,29 @@ export interface DestinationType {
   trip_window: string
   fine_time_min: number
   trips_per_week: number
+  /**
+   * PROPOSED (F2.4, methodology §3.1): the offered labels of this type. Grocery: brands and groups
+   * (narrow the grocery term, QF3). Sport and hobby: categories, each a term of its own (QF4), sent
+   * as `destinations["sport:tennis"]`; such container types are never a term themselves.
+   */
+  labels?: DestinationLabel[]
+}
+
+/** PROPOSED (F2.4): one label of a destination type with the number of destinations. */
+export interface DestinationLabel {
+  label: string
+  kind: 'brand' | 'group' | 'category'
+  name: Label
+  destinations: number
+}
+
+/** PROPOSED (F2.4): GET /api/label-destinations, labelled destinations for the map. */
+export interface LabelDestination {
+  destination_id: string
+  destination_type: string
+  labels: string[]
+  name: string | null
+  point: LonLat
 }
 
 export interface CampusSite {
@@ -40,10 +63,16 @@ export interface FitRequest {
   programme?: string | null
   campus_days?: Record<string, number>
   modes: Mode[]
+  /**
+   * Keys: a destination type, or `<type>:<category>` for a sport or hobby category (PROPOSED,
+   * F2.4). Categories take importance and fine time only; they never count in the weekly time.
+   */
   destinations: Record<
     string,
     { importance: Importance; fine_time_min?: number; trips_per_week?: number }
   >
+  /** PROPOSED (F2.4): favourite supermarkets, brands and groups; empty or absent = any. */
+  labels?: { grocery?: string[] }
   area_level?: 'district' | 'teilort'
 }
 

@@ -153,6 +153,9 @@ button, input, select { font: inherit; color: inherit; }
   font-size: 0.72rem; font-weight: 700; color: #1b1f1d; text-shadow: 0 0 3px #fff, 0 0 3px #fff, 0 0 3px #fff;
   pointer-events: none; white-space: nowrap;
 }
+.poi { display: inline-flex; align-items: center; gap: 0.25rem; pointer-events: none; white-space: nowrap; }
+.poi-dot { width: 8px; height: 8px; border-radius: 50%; background: #1b1f1d; border: 1.5px solid #fff; flex: none; }
+.poi-text { font-size: 0.68rem; font-weight: 600; color: #1b1f1d; text-shadow: 0 0 3px #fff, 0 0 3px #fff, 0 0 3px #fff; }
 .pin {
   display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50% 50% 50% 0; transform: rotate(-45deg);
   background: var(--accent); border: 2px solid #fff; box-shadow: var(--shadow); cursor: pointer;
@@ -250,6 +253,11 @@ dialog.about::backdrop { background: rgb(0 0 0 / 35%); }
 .chip[aria-pressed='true'] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
 .chip[aria-pressed='true'] .mode-icon { color: var(--accent); }
 .chip[aria-disabled='true'] { cursor: not-allowed; }
+.chip-text { min-height: 32px; padding: 0.2rem 0.65rem; font-size: 0.85rem; }
+.favourites { border: 0; padding: 0.4rem 0 0.2rem; margin: 0; }
+.favourites legend { font-weight: 700; padding: 0; }
+.field-sub { margin: 0.5rem 0 0.25rem; font-weight: 600; }
+.dest-sub { margin: -0.3rem 0 0.3rem 1.1rem; }
 .dests { margin: 0 0 0.5rem; }
 .dest { border-bottom: 1px solid var(--line); padding: 0.25rem 0; }
 .dest-main { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }

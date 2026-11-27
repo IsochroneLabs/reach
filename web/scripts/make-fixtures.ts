@@ -9,7 +9,10 @@
  * "Sample data". Deterministic: the same script always writes the same file.
  *
  * Destination types, trip windows, campus sites, programmes and personas mirror config/*.yaml
- * (24 Nov 2026); keep them in step by hand when those files change.
+ * (24 Nov 2026); keep them in step by hand when those files change. Destination labels (F2.5)
+ * mirror `destination_labels` in config/config.yaml (27 Nov 2026): a subset of the brands, groups
+ * and categories; sport and hobby replace gym, climbing, swimming, sports_club and music
+ * (methodology v1.3-draft §3).
  */
 import { writeFileSync } from 'node:fs'
 
@@ -38,14 +41,38 @@ const TYPES: [string, string, string, string, number, number][] = [
   ['doctor', 'Doctor', 'Arztpraxis', 'midday', 15, 0.1],
   ['main_station', 'Main station', 'Hauptbahnhof', 'weekend_station', 25, 0.5],
   ['park', 'Park', 'Park', 'evening', 10, 1],
-  ['gym', 'Gym', 'Fitnessstudio', 'evening', 20, 2],
-  ['climbing', 'Climbing', 'Klettern', 'evening', 20, 2],
-  ['swimming', 'Swimming', 'Schwimmen', 'evening', 20, 1],
-  ['sports_club', 'Sports club', 'Sportverein', 'evening', 20, 2],
-  ['music', 'Music', 'Musik', 'evening', 20, 1],
+  // sport and hobby: containers of categories, every category is its own term without trips
+  ['sport', 'Sport', 'Sport', 'evening', 20, 0],
+  ['hobby', 'Hobby', 'Hobby', 'evening', 20, 0],
   ['nightlife', 'Going out', 'Ausgehen', 'night_return', 20, 1],
   ['cinema_theatre', 'Cinema and theatre', 'Kino und Theater', 'evening', 25, 0.5],
   ['place_of_worship', 'Place of worship', 'Gotteshaus', 'weekend_station', 20, 1],
+]
+
+// Destination labels: [type, kind, key, en, de]. Grocery brands and groups narrow the grocery term
+// (QF3); sport and hobby categories are terms of their own (QF4).
+const LABELS: [string, 'brand' | 'group' | 'category', string, string, string][] = [
+  ['grocery', 'brand', 'rewe', 'REWE', 'REWE'],
+  ['grocery', 'brand', 'edeka', 'EDEKA', 'EDEKA'],
+  ['grocery', 'brand', 'lidl', 'Lidl', 'Lidl'],
+  ['grocery', 'brand', 'aldi_sued', 'ALDI SÜD', 'ALDI SÜD'],
+  ['grocery', 'brand', 'alnatura', 'Alnatura', 'Alnatura'],
+  ['grocery', 'group', 'organic', 'Organic', 'Bio'],
+  ['grocery', 'group', 'international', 'International', 'International'],
+  ['grocery', 'group', 'discount', 'Discounter', 'Discounter'],
+  ['grocery', 'group', 'full_range', 'Full-range supermarket', 'Vollsortimenter'],
+  ['sport', 'category', 'football', 'Football', 'Fußball'],
+  ['sport', 'category', 'tennis', 'Tennis', 'Tennis'],
+  ['sport', 'category', 'basketball', 'Basketball', 'Basketball'],
+  ['sport', 'category', 'climbing', 'Climbing and bouldering', 'Klettern und Bouldern'],
+  ['sport', 'category', 'swimming', 'Swimming', 'Schwimmen'],
+  ['sport', 'category', 'fitness', 'Fitness', 'Fitness'],
+  ['sport', 'category', 'yoga', 'Yoga and pilates', 'Yoga und Pilates'],
+  ['sport', 'category', 'dance', 'Dance', 'Tanzen'],
+  ['hobby', 'category', 'music', 'Music', 'Musik'],
+  ['hobby', 'category', 'arts', 'Arts and culture centres', 'Kunst und Kultur'],
+  ['hobby', 'category', 'makerspace', 'Makerspace', 'Makerspace'],
+  ['hobby', 'category', 'chess', 'Chess', 'Schach'],
 ]
 
 const SITES: [string, string, LonLat][] = [
@@ -75,15 +102,16 @@ const PROGRAMMES: [string, string, string, string[]][] = [
 ]
 
 type PersonaDest = Record<string, number | { importance: number; trips_per_week?: number; fine_time_min?: number }>
-const PERSONAS: [string, string, string, string, string[], PersonaDest][] = [
+// last element: chosen grocery labels (favourite supermarkets)
+const PERSONAS: [string, string, string, string, string[], PersonaDest, string[]][] = [
   ['lena', 'Lena, first semester biology', 'Lena, Biologie im ersten Semester', 'biology', ['walk', 'transit'],
-    { campus_site: 3, mensa: 2, grocery: 2, climbing: { importance: 2, trips_per_week: 2 }, main_station: 1 }],
+    { campus_site: 3, mensa: 2, grocery: 2, 'sport:climbing': 2, main_station: 1 }, ['alnatura', 'organic']],
   ['arjun', "Arjun, exchange master's in computer science", 'Arjun, Austausch-Master Informatik', 'computer_science', ['walk', 'bike', 'transit'],
-    { campus_site: 3, gym: { importance: 2, trips_per_week: 3 }, nightlife: { importance: 2, trips_per_week: 1 }, grocery: 2, library: 1 }],
+    { campus_site: 3, 'sport:fitness': 2, nightlife: { importance: 2, trips_per_week: 1 }, grocery: 2, library: 1 }, ['international']],
   ['marie', 'Marie, medicine with early hospital days', 'Marie, Medizin mit frühen Klinikdiensten', 'medicine', ['bike', 'transit'],
-    { campus_site: { importance: 3, fine_time_min: 15 }, swimming: { importance: 2, trips_per_week: 2 }, grocery: 1, main_station: 2 }],
+    { campus_site: { importance: 3, fine_time_min: 15 }, 'sport:swimming': 2, grocery: 1, main_station: 2 }, []],
   ['tom', 'Tom, economics, goes out a lot', 'Tom, Wirtschaft, oft unterwegs', 'economics', ['walk', 'bike'],
-    { campus_site: 2, nightlife: { importance: 3, trips_per_week: 2 }, sports_club: 1, mensa: 2 }],
+    { campus_site: 2, nightlife: { importance: 3, trips_per_week: 2 }, 'sport:football': 1, mensa: 2 }, ['discount']],
 ]
 
 // --- places (approximate; names of real places, but sample data) -----------------------------
@@ -107,20 +135,24 @@ const ADDRESS_CELL_SPOTS: LonLat[] = [
   [9.0412, 48.5322], [9.0555, 48.5160], [9.0548, 48.5152],
 ]
 
-const DESTS: [string, string, LonLat][] = [
+// [type, name, point, labels]; grocery: brand (if any) and exactly one group
+const DESTS: [string, string, LonLat, string[]?][] = [
   ['mensa', 'Mensa Wilhelmstraße', [9.0616, 48.5262]],
   ['mensa', 'Mensa Morgenstelle', [9.0353, 48.5375]],
   ['mensa', 'Mensa Prinz Karl', [9.056, 48.5205]],
   ['university_sports', 'University sports grounds (Wilhelmstraße)', [9.07, 48.53]],
   ['library', 'University library', [9.0603, 48.5247]],
   ['library', 'City library', [9.0545, 48.5195]],
-  ['grocery', 'Supermarket Altstadt', [9.052, 48.519]],
-  ['grocery', 'Supermarket Südstadt', [9.06, 48.5115]],
-  ['grocery', 'Supermarket Derendingen', [9.044, 48.5]],
-  ['grocery', 'Supermarket Weststadt', [9.0365, 48.5165]],
-  ['grocery', 'Supermarket Lustnau', [9.079, 48.525]],
-  ['grocery', 'Supermarket Waldhäuser-Ost', [9.0475, 48.5405]],
-  ['grocery', 'Supermarket Wilhelmstraße', [9.064, 48.5275]],
+  ['grocery', 'REWE Altstadt', [9.052, 48.519], ['rewe', 'full_range']],
+  ['grocery', 'Lidl Südstadt', [9.06, 48.5115], ['lidl', 'discount']],
+  ['grocery', 'ALDI SÜD Derendingen', [9.044, 48.5], ['aldi_sued', 'discount']],
+  ['grocery', 'EDEKA Weststadt', [9.0365, 48.5165], ['edeka', 'full_range']],
+  ['grocery', 'REWE Lustnau', [9.079, 48.525], ['rewe', 'full_range']],
+  ['grocery', 'EDEKA Waldhäuser-Ost', [9.0475, 48.5405], ['edeka', 'full_range']],
+  ['grocery', 'Alnatura Wilhelmstraße', [9.064, 48.5275], ['alnatura', 'organic']],
+  ['grocery', 'Bioladen Altstadt', [9.0555, 48.5225], ['organic']],
+  ['grocery', 'Asia Markt Weststadt', [9.041, 48.519], ['international']],
+  ['grocery', 'Lidl Lustnau', [9.0835, 48.5235], ['lidl', 'discount']],
   ['pharmacy', 'Pharmacy Marktplatz', [9.056, 48.5205]],
   ['pharmacy', 'Pharmacy Lustnau', [9.0795, 48.5262]],
   ['pharmacy', 'Pharmacy Südstadt', [9.059, 48.5108]],
@@ -132,18 +164,28 @@ const DESTS: [string, string, LonLat][] = [
   ['park', 'Alter Botanischer Garten', [9.057, 48.5235]],
   ['park', 'Anlagenpark', [9.056, 48.517]],
   ['park', 'Park Französisches Viertel', [9.058, 48.5095]],
-  ['gym', 'Gym Südstadt', [9.06, 48.513]],
-  ['gym', 'Gym Lustnau', [9.079, 48.5245]],
-  ['gym', 'Gym Weststadt', [9.045, 48.52]],
-  ['climbing', 'Climbing centre Weststadt', [9.033, 48.514]],
-  ['climbing', 'University climbing wall', [9.07, 48.5302]],
-  ['swimming', 'Indoor pool Nord', [9.049, 48.533]],
-  ['swimming', 'Outdoor pool', [9.039, 48.514]],
-  ['swimming', 'Uhlandbad', [9.0585, 48.518]],
-  ['sports_club', 'Sports club Lustnau', [9.073, 48.529]],
-  ['sports_club', 'Sports club Derendingen', [9.046, 48.505]],
-  ['sports_club', 'Sports club Weststadt', [9.038, 48.523]],
-  ['music', 'Music school', [9.053, 48.517]],
+  ['sport', 'Fitness studio Südstadt', [9.06, 48.513], ['fitness']],
+  ['sport', 'Fitness studio Lustnau', [9.079, 48.5245], ['fitness']],
+  ['sport', 'Fitness studio Weststadt', [9.045, 48.52], ['fitness']],
+  ['sport', 'Climbing centre Weststadt', [9.033, 48.514], ['climbing']],
+  ['sport', 'University climbing wall', [9.07, 48.5302], ['climbing']],
+  ['sport', 'Indoor pool Nord', [9.049, 48.533], ['swimming']],
+  ['sport', 'Outdoor pool', [9.039, 48.514], ['swimming']],
+  ['sport', 'Uhlandbad', [9.0585, 48.518], ['swimming']],
+  ['sport', 'Football ground Lustnau', [9.073, 48.529], ['football']],
+  ['sport', 'Football ground Derendingen', [9.046, 48.505], ['football']],
+  ['sport', 'Football ground Weststadt', [9.038, 48.523], ['football']],
+  ['sport', 'Tennis club Neckarinsel', [9.051, 48.5165], ['tennis']],
+  ['sport', 'Tennis club Waldhäuser-Ost', [9.044, 48.5425], ['tennis']],
+  ['sport', 'Basketball court Französisches Viertel', [9.0575, 48.5098], ['basketball']],
+  ['sport', 'Basketball court Wanne', [9.0555, 48.5355], ['basketball']],
+  ['sport', 'Yoga studio Altstadt', [9.0535, 48.5212], ['yoga']],
+  ['sport', 'Dance school Südstadt', [9.0615, 48.5125], ['dance']],
+  ['hobby', 'Music school', [9.053, 48.517], ['music']],
+  ['hobby', 'Choir rooms Lustnau', [9.0775, 48.5275], ['music']],
+  ['hobby', 'Culture centre Altstadt', [9.0525, 48.5215], ['arts']],
+  ['hobby', 'Makerspace Wanne', [9.0575, 48.5335], ['makerspace']],
+  ['hobby', 'Chess club Südstadt', [9.0605, 48.5118], ['chess']],
   ['nightlife', 'Bars Altstadt', [9.0545, 48.521]],
   ['nightlife', 'Club near the station', [9.054, 48.515]],
   ['nightlife', 'Pub Lustnau', [9.08, 48.5255]],
@@ -297,12 +339,19 @@ for (const p of [...ADDRESS_CELL_SPOTS, ...ADDRESSES.map((a) => a[2])]) {
 
 const cellIds = [...cells.keys()].sort()
 const destinations = [
-  ...SITES.map(([id, name, point]) => ({ id: `campus_site/${id}`, type: 'campus_site', name, point })),
-  ...DESTS.map(([type, name, point], i) => ({ id: `${type}/s${i + 1}`, type, name, point })),
+  ...SITES.map(([id, name, point]) => ({ id: `campus_site/${id}`, type: 'campus_site', name, point, labels: [] as string[] })),
+  ...DESTS.map(([type, name, point, labels], i) => ({ id: `${type}/s${i + 1}`, type, name, point, labels: labels ?? [] })),
 ]
-// Targets: every campus site on its own (M7 mean per programme), every other type by nearest.
-const targets = [...SITES.map(([id]) => `campus_site/${id}`), ...TYPES.filter((t) => t[0] !== 'campus_site').map((t) => t[0])]
-const windowOf = (target: string) => TYPES.find((t) => t[0] === (target.startsWith('campus_site/') ? 'campus_site' : target))![3]
+const CONTAINERS = new Set(['sport', 'hobby'])
+// Targets: every campus site on its own (M7 mean per programme), every other type by nearest, and
+// the nearest destination of every label (`<type>:<label>`, arch. §6.3 nearest k per label).
+const targets = [
+  ...SITES.map(([id]) => `campus_site/${id}`),
+  ...TYPES.filter((t) => t[0] !== 'campus_site' && !CONTAINERS.has(t[0])).map((t) => t[0]),
+  ...LABELS.map(([type, , key]) => `${type}:${key}`),
+]
+const typeOf = (target: string) => (target.startsWith('campus_site/') ? 'campus_site' : target.split(':')[0])
+const windowOf = (target: string) => TYPES.find((t) => t[0] === typeOf(target))![3]
 const stopKeys = Object.keys(STOPS)
 const routeKeys = Object.keys(LINES)
 
@@ -310,9 +359,10 @@ const round = (s: number) => Math.round(s)
 const times = cellIds.map((cellId) => {
   const c = cellCentre(cellId)!
   return targets.map((target) => {
+    const [type, labelKey] = target.split(':')
     const candidates = target.startsWith('campus_site/')
       ? destinations.filter((d) => d.id === target)
-      : destinations.filter((d) => d.type === target)
+      : destinations.filter((d) => d.type === type && (!labelKey || d.labels.includes(labelKey)))
     const w = windowOf(target)
     const back = w === 'night_return'
     // nearest by walking time (the API takes the minimum over the k nearest per mode)
@@ -353,22 +403,28 @@ const data = {
     bounds: [[r5(Math.min(...lons) - 0.01), r5(Math.min(...lats) - 0.006)], [r5(Math.max(...lons) + 0.01), r5(Math.max(...lats) + 0.006)]],
     modes: ['walk', 'bike', 'transit'],
   },
-  destination_types: TYPES.map(([k, e, de, w, fine, trips]) => ({ destination_type: k, label: { en: e, de }, trip_window: w, fine_time_min: fine, trips_per_week: trips })),
+  destination_types: TYPES.map(([k, e, de, w, fine, trips]) => {
+    const labels = LABELS.filter((l) => l[0] === k).map(([, kind, key, le, ld]) => ({
+      label: key, kind, name: { en: le, de: ld }, destinations: destinations.filter((d) => d.type === k && d.labels.includes(key)).length,
+    }))
+    return { destination_type: k, label: { en: e, de }, trip_window: w, fine_time_min: fine, trips_per_week: trips, ...(labels.length ? { labels } : {}) }
+  }),
   campus_sites: SITES.map(([id, name, point]) => ({
     site_id: id, name, point,
     programmes: PROGRAMMES.filter((p) => p[3].includes(id)).map((p) => p[0]),
     default_share: DEFAULT_MIX[id] ?? 0,
   })),
   programmes: PROGRAMMES.map(([k, e, de, sites]) => ({ programme: k, label: { en: e, de }, sites })),
-  personas: PERSONAS.map(([k, e, de, programme, modes, dests]) => ({
+  personas: PERSONAS.map(([k, e, de, programme, modes, dests, grocery]) => ({
     persona: k, label: { en: e, de },
     profile: {
       programme, modes,
       destinations: Object.fromEntries(Object.entries(dests).map(([t, v]) => [t, typeof v === 'number' ? { importance: v } : v])),
+      ...(grocery.length ? { labels: { grocery } } : {}),
     },
   })),
   areas: AREAS.map(([id, name, centre]) => ({ area_id: id, name, centre })),
-  destinations: destinations.map((d) => ({ id: d.id, type: d.type, name: d.name, point: [r5(d.point[0]), r5(d.point[1])] })),
+  destinations: destinations.map((d) => ({ id: d.id, type: d.type, name: d.name, point: [r5(d.point[0]), r5(d.point[1])], labels: d.labels })),
   stops: stopKeys.map((k) => STOPS[k][0]),
   routes: routeKeys,
   last_night: routeKeys.map((r) => LAST_NIGHT[r] ?? null),

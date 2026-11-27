@@ -55,6 +55,26 @@ export function MapArea() {
     dispatch({ type: 'addPlace', place: { point, cellId, label } })
   }
 
+  // chosen destinations: favourite supermarkets and sport/hobby categories (F2.5)
+  const pois: MapMarker[] = useMemo(() => {
+    if (refs.kind !== 'ok') return []
+    const keys = Object.entries(state.profile.destinations).filter(([, v]) => v.importance > 0).map(([k]) => k)
+    const favourites = 'grocery' in state.profile.destinations ? (state.profile.labels?.grocery ?? []) : []
+    return refs.refs.labelDestinations
+      .filter((d) =>
+        d.destination_type === 'grocery'
+          ? d.labels.some((l) => favourites.includes(l))
+          : d.labels.some((l) => keys.includes(`${d.destination_type}:${l}`)),
+      )
+      .map((d) => ({
+        key: `poi-${d.destination_id}`,
+        point: d.point,
+        text: d.name ?? '',
+        kind: 'poi' as const,
+        title: `${t('map.chosenPlaces')}: ${d.name ?? ''}`,
+      }))
+  }, [refs, state.profile, t])
+
   const markers: MapMarker[] = useMemo(() => {
     const pins: MapMarker[] = state.places
       .filter((p) => state.mode === 'check' || p.id === state.nearbyOf)
@@ -66,19 +86,19 @@ export function MapArea() {
         title: `${t('check.place', { id: p.id })}: ${p.label ?? t('check.pin')}`,
       }))
     if (state.mode === 'check') {
-      return state.places.map((p) => ({
+      return pois.concat(state.places.map((p) => ({
         key: p.id,
         point: p.point,
         text: p.id,
         kind: 'pin' as const,
         title: `${t('check.place', { id: p.id })}: ${p.label ?? t('check.pin')}`,
-      }))
+      })))
     }
     const labels: MapMarker[] = (fit.data?.areas ?? []).flatMap((a) => {
       const c = cellCentre(a.best_cell_id)
       return c ? [{ key: `label-${a.area_id}`, point: c, text: a.name, kind: 'label' as const, title: a.name }] : []
     })
-    return labels.concat(pins, (fit.data?.areas ?? []).slice(0, 3).flatMap((a, i) => {
+    return pois.concat(labels, pins, (fit.data?.areas ?? []).slice(0, 3).flatMap((a, i) => {
       const c = cellCentre(a.best_cell_id)
       return c
         ? [{
@@ -91,7 +111,7 @@ export function MapArea() {
           }]
         : []
     }))
-  }, [state.mode, state.places, state.nearbyOf, fit.data, t])
+  }, [state.mode, state.places, state.nearbyOf, fit.data, t, pois])
 
   const popupData = popupCell && fit.data?.cells[popupCell]
   const popup =

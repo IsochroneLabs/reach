@@ -3,7 +3,7 @@ import { expect, test, type Page } from '@playwright/test'
 // Check with two or three places (S2.6): comparison in plain language, shareable link.
 
 const LINK =
-  '/check#v=1&p=prog:biology;m:wt;d:campus_site.3,climbing.2..2,grocery.2,main_station.1,mensa.2' +
+  '/check#v=1&p=prog:biology;m:wt;d:campus_site.3,sport:climbing.2,grocery.2,main_station.1,mensa.2' +
   '&pl=9.05650,48.51080,Hechinger%2520Stra%25C3%259Fe%252012|9.05750,48.53180,Mohlstra%25C3%259Fe%25208&r=370,450'
 
 test.beforeEach(async ({ page }) => {

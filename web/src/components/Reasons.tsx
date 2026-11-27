@@ -1,16 +1,12 @@
 import type { Reason } from '../api/types'
 import { useI18n } from '../i18n/i18n'
-import { useRefs } from '../remote/refs'
+import { useDestName } from '../remote/refs'
 import { Minutes } from './Minutes'
 
 /** Structured reasons from the API, worded in the browser (data contract: wording never in the API). */
 export function Reasons({ reasons }: { reasons: Reason[] }) {
-  const { t, label } = useI18n()
-  const refs = useRefs()
-  const typeLabel = (k: string) => {
-    const x = refs.kind === 'ok' ? refs.refs.types.find((d) => d.destination_type === k) : null
-    return x ? label(x.label) : k
-  }
+  const { t } = useI18n()
+  const typeLabel = useDestName()
   return (
     <ul className="reasons">
       {reasons.map((r, i) => {
