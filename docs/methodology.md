@@ -1,6 +1,6 @@
 # Methodology — reach
 
-> **Status:** v1.3-draft (26 Nov 2026). Binding definition of **what** is computed: origins,
+> **Status:** v1.4-draft (27 Nov 2026). Binding definition of **what** is computed: origins,
 > destinations, modes, trip windows, travel times, the fit, explanations and validation.
 > [`architecture.md`](architecture.md) describes **how**. Every change bumps the version and adds
 > a line to the [Change log](#change-log). **[OPEN]** items are decided before the related code;
@@ -145,9 +145,10 @@ GTFS validity that is no public or school holiday in Baden-Württemberg and has 
 service-day times beyond 24:00 belong to the previous day. If the feed does not cover a window,
 the run fails (V3).
 
-## 6. Fit **[OPEN]**
+## 6. Fit
 
-Proposal for discussion in S1.3; nothing is implemented before it is confirmed.
+Confirmed by Juju on 27 Nov 2026 (S1.3, M1). The parameters *a* = 1.25 and *p* = 4 of step 2
+live in `config/config.yaml` (`api.fit`), so V4 can vary them without a code change.
 
 For a student profile with allowed modes *M*, destination types *D* (from programme and hobbies),
 importance *w_d* ∈ {0, 1, 2, 3}, fine time *t_d* (minutes) and trips per week *f_d*:
@@ -166,10 +167,11 @@ importance *w_d* ∈ {0, 1, 2, 3}, fine time *t_d* (minutes) and trips per week 
    - **`place_of_worship`:** the nearest destination of the chosen religion.
 2. **Smooth decay around the fine time** (no cut-off):
 
-   *s_d(i) = 1 / (1 + (T_d(i) / (1.25 · t_d))^4)*
+   *s_d(i) = 1 / (1 + (T_d(i) / (a · t_d))^p)* with *a* = 1.25, *p* = 4
 
-   With *t_d* = 15 min: 10 min → 0.93, 15 min → 0.71, 20 min → 0.44, 30 min → 0.13.
-   Alternatives for S1.3: exponential decay beyond *t_d*; logistic in minutes.
+   With *t_d* = 15 min: 10 min → 0.93, 15 min → 0.71, 20 min → 0.44, 30 min → 0.13. A trip of
+   exactly the fine time scores 0.71: "fine" is the time from which it starts to hurt.
+   An unreachable destination scores 0.
 3. **Fit:** *fit(i) = 100 · Σ_d w_d · s_d(i) / Σ_d w_d* (0–100).
 4. **Weekly travel time:** *W(i) = Σ_d f_d · (T_d,to(i) + T_d,back(i))* in minutes per week over
    the types that have trips per week (campus, Mensa, grocery, …; **not** the sport and hobby
@@ -177,8 +179,20 @@ importance *w_d* ∈ {0, 1, 2, 3}, fine time *t_d* (minutes) and trips per week 
    window. Shown next to the fit as the intuitive measure ("about 3 h 40 min per week on the
    way"), labelled as excluding sport and hobbies.
 
-Worked examples with personas follow in S1.3. Sensitivity of the ranking to ±25 % of *t_d*, the
-exponent and the weights is V4.
+**Worked example** (persona: Biology, walk + bike + bus; tennis chosen; times are the best mode
+in each type's window):
+
+| Term | *T_d* | *t_d* | *w_d* | *s_d* (cell A) | *T_d* | *s_d* (cell B) |
+|---|---|---|---|---|---|---|
+| campus (Morgenstelle) | 12 | 20 | 3 | 0.95 | 28 | 0.39 |
+| Mensa | 8 | 15 | 2 | 0.97 | 22 | 0.35 |
+| supermarket | 6 | 10 | 2 | 0.95 | 9 | 0.79 |
+| tennis (category) | 14 | 20 | 1 | 0.91 | 8 | 0.99 |
+| going out | 25 | 20 | 1 | 0.50 | 35 | 0.21 |
+| **fit** | | | | **90** | | **51** |
+| **weekly time** (5·campus, 3·Mensa, 2·supermarket, 1·going out, there and back; tennis not counted) | | | | **4 h 02 min** | | **8 h 38 min** |
+
+Sensitivity of the ranking to ±25 % of *t_d*, the exponent and the weights is V4.
 
 ## 7. Explanations
 
@@ -262,7 +276,6 @@ Validation is graded. Results per release in `docs/validation.md` (*planned, S1.
 
 | ID | Question | Proposal |
 |---|---|---|
-| M1 | Fit formula (decay shape, parameters, weights) | §6 proposal; decide in S1.3 with persona examples. Calibrate so that *s(t_d)* ≈ 0.9 (a trip of exactly the fine time should feel good; the §6 draft gives 0.71) |
 | M2 | Default fine times, trips per week and trip window per destination type | §3 drafts; check in user-test round 1 (S2.0) |
 | M3 | Area value from cell fits | median fit of the populated cells plus the best cell, with the share of cells above the city median |
 | M4 | Rent in the fit or as a filter | filter/label only |
@@ -273,6 +286,7 @@ Settled:
 
 | ID | Question | Decision |
 |---|---|---|
+| M1 | Fit formula | §6 as proposed: logistic decay with *a* = 1.25, *p* = 4 (0.71 at the fine time, not the 0.9 calibration discussed earlier), importance-weighted mean, weekly time without categories; parameters in config (Juju, 27 Nov 2026) |
 | M5 | Bike + transit | OTP `BICYCLE_PARKING` (bike to a stop, park, ride); still the first cut if time runs short (§4, 23 Nov 2026) |
 | M6 | Transit time inside a window | the wait at home counts: arrival − window time for depart-at, required arrival − latest departure for arrive-by (§4, 23 Nov 2026) |
 | M7 | Several campus sites per programme | weighted by the weekly hours of compulsory sessions per site from Alma, for the programme, degree and semester the student picks (§3.2, §6 step 1; 26 Nov 2026) |
@@ -281,6 +295,7 @@ Settled:
 
 | Version | Date | Change | Why |
 |---|---|---|---|
+| v1.4-draft | 2026-11-27 | §6 settled (M1): formula as proposed with *a* = 1.25, *p* = 4 from config, unreachable = 0, worked example with two cells | Juju confirmed the proposal on 27 Nov 2026 so that the fit API (S1.10) can be built |
 | v1.3-draft | 2026-11-26 | §3.1: supermarkets get a group next to the brand (organic, package-free, international, discounter, full-range, village and farm shop, other); all 25 sport categories offered; clustering of same-label features within 75 m or one sports centre; offer rule (≥ 1 destination, no remark on the count) | F2.1 taxonomy measured on the extract; Juju's decisions of 26 Nov 2026 (groups clustered in the pipeline, "everything in") |
 | v1.2-draft | 2026-11-26 | §3.1 destination labels (favourite supermarkets by brand, sport and hobby categories replacing `gym`, `climbing`, `swimming`, `sports_club`, `music`; religion); §3.2 programmes and campus sites from Alma with degree and semester; §6: grocery uses the chosen brands, each sport/hobby category is its own term with the time to the amenity only (no trips per week, not in the weekly travel time), campus weighted by site shares (M7 settled); §8.1 listings, §8.2 application text; V9–V12; M8, M9; "onboarding" → "profile panel", "U2" → *Check* where touched | Team decisions QF1–QF6 after the interim presentation (Juju, `docs/extension_plan.md`) |
 | v1.1-draft | 2026-11-23 | §4: transit and bike + transit with OpenTripPlanner (O17); M6 decided (the wait at home counts: arrival − window time, or required arrival − latest departure); M5 decided (bike parked, `BICYCLE_PARKING`, still first cut) | T1 decided 23 Nov 2026 (spike PR #79); M6 so that rare buses show in the time students feel |
