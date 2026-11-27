@@ -57,7 +57,9 @@ class Programme(_Model):
 class AlmaMatch(_Model):
     """Patterns that turn Alma sessions into programme × site hours (F3.3)."""
 
-    building_sites: dict[str, list[str]] = Field(min_length=1)  # site → building regexes
+    # official building (title in config/university_buildings.csv) → regexes on Alma's building
+    # name; the building's site comes from that table (notes N30)
+    building_addresses: dict[str, list[str]] = Field(min_length=1)
     programme_numbers: dict[str, list[str]] = Field(min_length=1)  # programme → number regexes
     max_session_h: float = Field(gt=0)
 
@@ -70,6 +72,8 @@ class Campus(_Model):
     default_mix: dict[str, float] = Field(min_length=1)
     programmes: dict[str, Programme] = Field(min_length=1)
     alma: AlmaMatch | None = None
+    # official building title → [lon, lat] where the OSM address index has no such address (N30)
+    building_points: dict[str, tuple[float, float]] = Field(default_factory=dict)
 
     @model_validator(mode="after")
     def _known_sites(self):

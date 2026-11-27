@@ -63,7 +63,7 @@ def test_types_access_points_and_merging(cfg) -> None:
     assert set(park["destination_id"]) == {"park:w5"}
     assert len(park) == 2 and park["point_id"].is_unique
     assert "pharmacy" not in per_type  # outside the routing area
-    assert per_type["campus_site"] == 4 and per_type["mensa"] >= 1
+    assert per_type["campus_site"] == 6 and per_type["mensa"] >= 1
     assert destinations.counts(dest, cfg)["library"] == 0
     assert "sport" not in destinations.counts(dest, cfg)  # containers have no own destinations
 

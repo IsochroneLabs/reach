@@ -1,7 +1,7 @@
 # Personas: predefined student profiles for demos, tests (deploy smoke test, Playwright fixtures)
 # and the "example profiles" in the profile panel (docs/product.md). DRAFT (S0.3); the schema follows the student
 # profile of the API (S1.4). Keys: programme (config/campus.yaml), modes (routing_profiles),
-# destinations: destination type → importance (0–3), optional fine_time_min and trips_per_week
+# destinations: destination type → importance (0–3), optional fine_time_min
 # (defaults from config/config.yaml), optional religion for place_of_worship; sport and hobby
 # categories as `sport:<category>` / `hobby:<category>` (importance and fine time only, meth. §6). Rent is not part of
 # a profile (entered per listing in Check, product v1.1). Names are invented.
@@ -24,7 +24,7 @@ arjun:
   destinations:
     campus_site: 3
     sport:fitness: 2
-    nightlife: {importance: 2, trips_per_week: 1}
+    nightlife: {importance: 2}
     grocery: 2
     library: 1
 
@@ -44,6 +44,6 @@ tom:
   modes: [walk, bike]
   destinations:
     campus_site: 2
-    nightlife: {importance: 3, trips_per_week: 2}
+    nightlife: {importance: 3}
     sport:football: 1
     mensa: 2

@@ -27,7 +27,6 @@ CREATE TABLE destination_types (
     source           text NOT NULL CHECK (source IN ('osm', 'campus', 'labels')),
     trip_window      text NOT NULL,
     fine_time_min    real NOT NULL CHECK (fine_time_min > 0),
-    trips_per_week   real NOT NULL CHECK (trips_per_week >= 0),
     nearest_k        smallint
 );
 

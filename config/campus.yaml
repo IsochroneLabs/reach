@@ -15,11 +15,19 @@ sites:
     name: Morgenstelle
     point: [9.0352, 48.5371]   # Hörsaalzentrum Morgenstelle (OSM)
   sand:
-    name: Sand (Computer science)
+    name: Sand (Computer science, sports science)
     point: [9.0712, 48.5348]   # Sand 1–14 (OSM addresses)
   schnarrenberg:
     name: Schnarrenberg (University Hospital)
     point: [9.0381, 48.5302]   # CRONA-Kliniken (OSM)
+  # Added 27 Nov 2026 (notes N30): the official address list puts Altstadt (Karte D) and the
+  # Cyber Valley campus (Karte C) 750–1 270 m from every other site; both teach many hours.
+  altstadt:
+    name: Altstadt (Alte Aula, Burse, Schloss)
+    point: [9.0557, 48.5198]   # Alte Aula, Münzgasse 30 (OSM building=university)
+  cyber_valley:
+    name: Cyber Valley (Maria-von-Linden-Straße)
+    point: [9.0561, 48.5389]   # Tübingen AI Research Building, Maria-von-Linden-Straße 6 (OSM)
 
 mensas:
   mensa_wilhelmstrasse:
@@ -47,24 +55,28 @@ default_mix:
 # Programme → sites the student travels to for lectures (several = mean time, meth. §6).
 # shares: weight of each site in the campus time, from the session hours of the Alma reference
 # week WS 2026/27 (`python -m reach_pipeline.alma shares`, notes N24; sites below 10 % dropped,
-# rest rounded). Programmes without shares keep the hand-made sites with equal weights; biology,
+# rest rounded). Since 27 Nov 2026 (N30) each Alma building is mapped to the university's official
+# address list and from there to its nearest site (config/university_buildings.csv). Programmes without shares keep the hand-made sites with equal weights; biology,
 # chemistry, mathematics, pharmacy, physics (Morgenstelle) and psychology (Tal) were confirmed.
 programmes:
-  computer_science: {label: {en: Computer science, de: Informatik}, sites: [morgenstelle, sand, tal], shares: [0.65, 0.20, 0.15]}
-  # [VERIFY] site(s) of the Data Science / Machine Learning programmes.
-  data_science_ml: {label: {en: Data science / machine learning, de: Data Science / Machine Learning}, sites: [tal, morgenstelle], shares: [0.78, 0.22]}
+  computer_science: {label: {en: Computer science, de: Informatik}, sites: [morgenstelle, sand, cyber_valley, tal], shares: [0.56, 0.18, 0.13, 0.13]}
+  data_science_ml: {label: {en: Data science / machine learning, de: Data Science / Machine Learning}, sites: [cyber_valley, morgenstelle, tal], shares: [0.68, 0.18, 0.14]}
   mathematics: {label: {en: Mathematics, de: Mathematik}, sites: [morgenstelle]}
   physics: {label: {en: Physics, de: Physik}, sites: [morgenstelle]}
   chemistry: {label: {en: Chemistry, de: Chemie}, sites: [morgenstelle]}
   biology: {label: {en: Biology, de: Biologie}, sites: [morgenstelle]}
   pharmacy: {label: {en: Pharmacy, de: Pharmazie}, sites: [morgenstelle]}
-  medicine: {label: {en: Medicine, de: Medizin}, sites: [tal, morgenstelle], shares: [0.9, 0.1]}
-  economics: {label: {en: Economics and business, de: Wirtschaftswissenschaft}, sites: [tal]}
+  # Medicine is not in Alma's day view (its S-numbers were economics, N30): the faculty's teaching
+  # buildings from the address list (Elfriede-Aulhorn-Straße 8/10) and the Hörsaalzentrum.
+  medicine: {label: {en: Medicine, de: Medizin}, sites: [schnarrenberg, morgenstelle]}
+  economics: {label: {en: Economics and business, de: Wirtschaftswissenschaft}, sites: [tal, morgenstelle], shares: [0.9, 0.1]}
   law: {label: {en: Law, de: Rechtswissenschaft}, sites: [tal]}
-  humanities: {label: {en: Humanities, de: Geisteswissenschaften}, sites: [tal]}
-  social_sciences: {label: {en: Social sciences, de: Sozialwissenschaften}, sites: [tal]}
+  # Faculty estimate (N30): hours of sessions without a programme in the buildings of the faculty.
+  humanities: {label: {en: Humanities, de: Geisteswissenschaften}, sites: [tal, altstadt], shares: [0.85, 0.15]}
+  social_sciences: {label: {en: Social sciences, de: Sozialwissenschaften}, sites: [tal, altstadt], shares: [0.7, 0.3]}
   psychology: {label: {en: Psychology, de: Psychologie}, sites: [tal]}
-  sports_science: {label: {en: Sports science, de: Sportwissenschaft}, sites: [tal]}
+  # Institut für Sportwissenschaft, Wilhelmstraße 124: nearest site Sand (650 m, N30).
+  sports_science: {label: {en: Sports science, de: Sportwissenschaft}, sites: [sand]}
 
 # Alma sessions → programme × site hours (F3.3, `python -m reach_pipeline.alma shares`).
 # building_sites: site → case-insensitive regexes on the building name Alma prints in brackets
@@ -72,21 +84,75 @@ programmes:
 # module number; sessions without a number or with an unknown one do not count.
 alma:
   max_session_h: 6             # longer entries are all-day blocks or placeholders
-  building_sites:
-    morgenstelle: [Morgenstelle, "\\bAdM\\b", "^[A-E]-Bau", "^N-Bau", Geo- und Umweltforschungszentrum, "^H-Bau", "Maria-von-Linden", "Cyber Valley", Kristallographie, "Mineralogie", "Hörsaalzentrum"]
-    sand: ["^Sand\\b", "Informatik", "Terrassenbau", "Wilhelm-Schickard"]
-    schnarrenberg: ["^(?!Alte).*Klinik", "CRONA", "Hoppe-Seyler", "Otfried-Müller", "Schnarrenberg", "Elfriede-Aulhorn", "Röntgenweg"]
-    tal: [Neuphilologicum, "Neue Aula", Kupferbau, Hegelbau, Brechtbau, "Alte Frauenklinik", Theologicum, Schloss, "Hölderlin", "Sigwart", "WiWi", "Mohl", "Kepler", "Alte Archäologie", "\\bIfE\\b", "Clubhaus", "Wilhelmstr", "Nauklerstr", "Keltern", "Doblerstr", "Gmelinstr", "Münzgasse", "Bursagasse", "Holzmarkt", "Pfleghof", "Alte Physiologie", "Alte Botanik", "Liebermeister", "Psychologisches Institut", "Schleichstr", "Melanchthonstr", "Corrensstr", "Ammerbau", "Prinz Karl", "Sportinstitut", "Mensa Wilhelm", "Geographie", "Haus der Sprachen", "Burse", "Sportwissenschaft", "Sinologie", "Lothar-Meyer", "Alte Aula", "Politikwissenschaft", "Alte Physik", "Universitätskasse", "Wächterstr", "Bildungsforschung", "Orient", "Rümelin", "Österberg", "Fischersteig"]
+  # official building (title in config/university_buildings.csv, from the university's address
+  # list) → case-insensitive regexes on the building Alma prints after the room; first match wins.
+  # The site of a building is its nearest campus site (`uni_buildings build`, notes N30).
+  building_addresses:
+    "Brechtbau – Neuphilologikum – Wilhelmstraße 50": [Neuphilologicum, Brechtbau]
+    "Auf der Morgenstelle 16": [Hörsaalzentrum, "Verfügungsgeb\\. Morgenstelle"]
+    "Auf der Morgenstelle 10": ["^C-Bau"]
+    "Auf der Morgenstelle 14": ["^D-Bau"]
+    "Auf der Morgenstelle 18": ["^A-Bau"]
+    "Auf der Morgenstelle 8": ["^B-Bau"]
+    "Auf der Morgenstelle 6": ["^H-Bau"]
+    "Auf der Morgenstelle 24": ["^F-Bau", "\\bAdM 24\\b"]
+    "Auf der Morgenstelle 28": ["^E-Bau", "\\bAdM 28\\b"]
+    "Auf der Morgenstelle 3": ["\\bAdM 3\\b"]
+    "Auf der Morgenstelle 32-34": [IFIB, ZMBP, "\\bAdM 3[24]\\b"]
+    "Schnarrenbergstraße 94-96": [Geo- und Umweltforschungszentrum, "\\bGUZ\\b"]
+    "Maria-von-Linden-Straße 1": ["MVL ?1\\b"]
+    "Maria-von-Linden-Straße 6": ["MVL ?6\\b", Cyber Valley]
+    "Sand 1": ["Informatik/Astronomie"]
+    "Sand 13 und 14": ["Informatik Sand 1[34]"]
+    "Sand 6/7": ["Informatik/Kriminologie", Kriminologie]
+    "Hegelbau – Wilhelmstraße 36": [Hegelbau]
+    "Geschwister-Scholl-Platz": ["Neue Aula"]
+    "Hölderlinstraße 5 – Kupferbau": [Kupferbau]
+    "Schleichstraße 4": ["Alte Frauenklinik", "Psychologisches Institut"]   # psychology
+    "Keplerstraße 2": ["OSA-Keplerstr", Oberschulamt]
+    "Mohlstraße 36": ["WiWi Sem Mohl", Mohlstr]
+    "Nauklerstraße 47": ["WiWi Naukler"]
+    "Nauklerstraße 35": ["Nauklerstr\\. 35"]
+    "Liebermeisterstraße 12 bis 16": [Theologicum]
+    "Liebermeisterstraße 18": ["Liebermeisterstr\\. 18"]
+    "Hölderlinstraße 12 (Eckgebäude mit Sigwartstraße 10)": ["Hölderlinstraße/Sigwartstraße"]
+    "Wilhelmstraße 22": ["Haus der Sprachen"]
+    "Rümelinstraße 19-23": [Geographie]
+    "Lothar-Meyer-Bau – Wilhelmstraße 56": [Lothar-Meyer]
+    "Melanchthonstraße 36": [Politikwissenschaft]
+    "Alte Physik – Gmelinstraße 6": ["Alte Physik"]
+    "Wilhelmstraße 26": [Universitätskasse]
+    "Wilhelmstraße 19": ["VG Wilhelmstraße", "\\bSSC\\b"]
+    "Nauklerstraße 2 und 2/1 (mit Wilhelmstraße 9)": ["Alte Archäologie", "\\bESSC\\b"]
+    "Wilhelmstraße 124": [Sportwissenschaft, SPORTHALLE, "\\bIfS\\b", "Wächterstr\\. 67"]   # Institut für Sportwissenschaft
+    "Wilhelmstraße 133": [Sinologie, Koreanistik]
+    "Wilhelmstraße 113": ["\\bAOI\\b", Orient]
+    "Wilhelmstraße 90": [Japanologie]
+    "Wächterstraße 76": ["\\bZDV\\b"]
+    "Europastraße 6": ["Empirische Bildungsforschung"]
+    "Alte Aula – Münzgasse 30": ["ALTE AULA"]
+    "Bursagasse 1": [BURSE]
+    "Münzgasse 11": ["\\bIfE\\b"]   # Institut für Erziehungswissenschaft
+    "Burgsteige 11 – Schloss Hohentübingen": [Schloss, HASPELTURM, "KALTE HERBERGE"]
+    "Schulberg 2": [PFLEGHOF, Musikwiss]
+    "Hintere Grabenstr. 26": [Weltethos, "Hintere Grabenstraße"]
+    "Doblerstraße 33": ["Forum Scientiarum"]
   programme_numbers:
     computer_science: ["INF(?!O)", "INFM", "MDZINF", "MEINF", "BIOINF", "KOG"]
-    data_science_ml: ["ML", "DS\\d", "DS-", "QDS"]
+    data_science_ml: ["ML", "DS\\d", "DS-"]   # not QDS: the psychology master (N30)
     mathematics: ["MAT"]
     physics: ["PHY", "NANO"]
     chemistry: ["CHE"]
     biology: ["Bio(?!INF)", "BIO(?!INF)", "BCH", "GTCNEURO"]
     pharmacy: ["PHA"]
-    medicine: ["S\\d", "MEDZ"]
-    psychology: ["PSY"]
-    economics: ["WiWi", "WIWI", "WW", "ECO", "BWL", "VWL"]
+    psychology: ["PSY", "QDS"]
+    economics: ["WiWi", "WIWI", "WW", "ECO", "BWL", "VWL", "S\\d"]   # S100… are WiWi modules (N30)
     law: ["JUR", "RW", "Jura"]
     sports_science: ["SPO", "Spo"]
+
+# Official buildings missing from the OSM address index (no house number in OSM): [lon, lat] of the
+# OSM building (notes N30).
+building_points:
+  "Geschwister-Scholl-Platz": [9.05885, 48.52476]     # Neue Aula (OSM: Wilhelmstraße 7)
+  "Schnarrenbergstraße 94-96": [9.03748, 48.53516]    # GUZ
+  "Schulberg 2": [9.0568, 48.5203]                    # Pfleghof

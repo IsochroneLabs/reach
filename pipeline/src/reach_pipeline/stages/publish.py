@@ -116,7 +116,6 @@ def _reference_tables(ctx: RunContext, part1: dict[str, Any]) -> dict[str, pd.Da
                 "source": t.source,
                 "trip_window": t.trip_window,
                 "fine_time_min": t.fine_time_min,
-                "trips_per_week": t.trips_per_week,
                 "nearest_k": t.nearest_k,
             }
             for k, t in cfg.destination_types.items()
@@ -128,6 +127,13 @@ def _reference_tables(ctx: RunContext, part1: dict[str, Any]) -> dict[str, pd.Da
     routed = gpd.read_parquet(_paths(ctx)["destinations"])
     sites = routed[routed["destination_type"] == "campus_site"].drop_duplicates("destination_id")
     site_ids = sites["destination_id"].str.removeprefix("campus_site:")
+    named = {x for prog in campus.programmes.values() for x in prog.sites} | set(campus.default_mix)
+    missing = sorted(named - set(site_ids))
+    if missing:
+        raise StageValidationError(
+            f"publish: campus.yaml names sites the run did not route: {missing}; "
+            "run a full refresh (validate and travel_times) after adding a campus site"
+        )
     campus_sites = pd.DataFrame(
         {
             "site_id": site_ids.to_numpy(),

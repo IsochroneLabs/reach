@@ -28,6 +28,7 @@ from pathlib import Path
 import httpx
 import pandas as pd
 
+from reach_pipeline import uni_buildings
 from reach_pipeline.campus import Campus, load_campus
 from reach_pipeline.config import Alma, load_config
 from reach_pipeline.errors import ExternalError, StageValidationError
@@ -97,9 +98,21 @@ def day_request(page: str, day: date, rows: int) -> tuple[str, dict[str, str]]:
 
 
 def building_of(room: str) -> str:
-    """`Hörsaal N01 (Hörsaalzentrum Morgenstelle (0))` → `Hörsaalzentrum Morgenstelle`."""
-    m = re.search(r"\((.*)\)\s*$", room)
-    inner = m.group(1) if m else room
+    """The last top-level bracket of the room, without its floor: `Hörsaal N01 (Hörsaalzentrum
+    Morgenstelle (0))` → `Hörsaalzentrum Morgenstelle`; `Hörsaal A1 (A-206) (Cyber Valley Campus,
+    MVL1 (EG))` → `Cyber Valley Campus, MVL1`."""
+    room = room.rstrip()
+    if not room.endswith(")"):
+        return room.strip()
+    depth, start = 0, None
+    for i in range(len(room) - 1, -1, -1):
+        depth += {")": 1, "(": -1}.get(room[i], 0)
+        if depth == 0:
+            start = i
+            break
+    if start is None:
+        return room.strip()
+    inner = room[start + 1 : -1]
     return re.sub(r"\s*\([^()]*\)\s*$", "", inner).strip()
 
 
@@ -136,13 +149,20 @@ def _hours(start: pd.Series, end: pd.Series) -> pd.Series:
     return (minutes(end) - minutes(start)).clip(lower=0) / 60
 
 
-def site_of(buildings: pd.Series, campus: Campus) -> pd.Series:
-    """Campus site per building name from `alma.building_sites` (first matching pattern)."""
+def address_of(buildings: pd.Series, campus: Campus) -> pd.Series:
+    """Official building per Alma building name from `alma.building_addresses` (first match)."""
     out = pd.Series(pd.NA, index=buildings.index, dtype="object")
-    for site, patterns in campus.alma.building_sites.items():
+    for title, patterns in campus.alma.building_addresses.items():
         hit = out.isna() & buildings.str.contains("|".join(patterns), case=False, regex=True)
-        out[hit] = site
+        out[hit] = title
     return out
+
+
+def site_of(buildings: pd.Series, campus: Campus, table: pd.DataFrame) -> pd.Series:
+    """Campus site per Alma building name: its official building, then that building's nearest
+    site in `config/university_buildings.csv` (notes N30)."""
+    sites = table.set_index("title")["site"]
+    return address_of(buildings, campus).map(sites)
 
 
 def programme_of(numbers: pd.Series, campus: Campus) -> pd.Series:
@@ -154,13 +174,15 @@ def programme_of(numbers: pd.Series, campus: Campus) -> pd.Series:
     return out
 
 
-def shares(sessions: pd.DataFrame, campus: Campus, semester: str) -> pd.DataFrame:
+def shares(
+    sessions: pd.DataFrame, campus: Campus, semester: str, table: pd.DataFrame
+) -> pd.DataFrame:
     """Weekly session hours and share per programme × site (sessions of `semester` only, at most
     `max_session_h` long, with a room, a known programme and a known site)."""
     s = sessions[(sessions["semester"] == semester) & (sessions["room"] != "")].copy()
     s["hours"] = _hours(s["start"], s["end"])
     s = s[(s["hours"] > 0) & (s["hours"] <= campus.alma.max_session_h)]
-    s["site"] = site_of(s["building"], campus)
+    s["site"] = site_of(s["building"], campus, table)
     s["programme"] = programme_of(s["number"], campus)
     s = s.dropna(subset=["site", "programme"])
     hours = s.groupby(["programme", "site"], as_index=False)["hours"].sum()
@@ -168,9 +190,11 @@ def shares(sessions: pd.DataFrame, campus: Campus, semester: str) -> pd.DataFram
     return hours.sort_values(["programme", "share"], ascending=[True, False], ignore_index=True)
 
 
-def coverage(sessions: pd.DataFrame, campus: Campus, semester: str) -> dict[str, float | int]:
+def coverage(
+    sessions: pd.DataFrame, campus: Campus, semester: str, table: pd.DataFrame
+) -> dict[str, float | int]:
     s = sessions[(sessions["semester"] == semester) & (sessions["room"] != "")]
-    site = site_of(s["building"], campus)
+    site = site_of(s["building"], campus, table)
     prog = programme_of(s["number"], campus)
     return {
         "sessions": int(len(sessions)),
@@ -253,10 +277,11 @@ def main(argv: list[str] | None = None) -> int:
             raise StageValidationError(f"alma: no pages under {out_dir}; run crawl first")
         sessions = sessions_of(paths)
         sessions.to_parquet(out_dir / "sessions.parquet", index=False)
-        table = shares(sessions, campus, cfg.alma.semester)
+        buildings = uni_buildings.load(Path(args.config).parent / uni_buildings.OUT_NAME)
+        table = shares(sessions, campus, cfg.alma.semester, buildings)
         table.to_csv(out_dir / "programme_sites.csv", index=False)
-        log.info("alma coverage: %s", coverage(sessions, campus, cfg.alma.semester))
-        unknown = sessions.loc[site_of(sessions["building"], campus).isna(), "building"]
+        log.info("alma coverage: %s", coverage(sessions, campus, cfg.alma.semester, buildings))
+        unknown = sessions.loc[site_of(sessions["building"], campus, buildings).isna(), "building"]
         top = unknown[unknown != ""].value_counts().head(15)
         log.info("alma buildings without site (top): %s", top.to_dict())
         print(table.to_string(index=False))
