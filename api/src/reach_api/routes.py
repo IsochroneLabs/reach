@@ -11,12 +11,15 @@ import re
 from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from reach_api import db as q
 from reach_api.deps import Deps, deps, rate_limited
 from reach_api.fit import ProfileError, cell_summary, fit_response
 from reach_api.model import MODES, Model
+from reach_api.otp import OtpError
+from reach_api.place import place_detail
+from reach_api.valhalla import NoRouteError, ValhallaError
 
 router = APIRouter(prefix="/api")
 D = Annotated[Deps, Depends(deps)]
@@ -46,6 +49,21 @@ class FitRequest(_Body):
 
 class SearchRequest(_Body):
     q: str = Field(max_length=200)
+
+
+class PlaceRequest(_Body):
+    """F4.5: a point in EPSG:4326 and the student profile; no cache (O25)."""
+
+    point: tuple[float, float]
+    profile: FitRequest
+
+    @field_validator("point")
+    @classmethod
+    def _point(cls, value: tuple[float, float]) -> tuple[float, float]:
+        lon, lat = value
+        if not (-180 <= lon <= 180 and -90 <= lat <= 90):
+            raise ValueError("point must be [lon, lat] in EPSG:4326")
+        return value
 
 
 async def _model(d: Deps) -> Model:
@@ -297,3 +315,20 @@ async def cell(cell_id: str, body: FitRequest, d: D) -> dict[str, Any]:
         "reasons": summary["reasons"],
         "fit_parts": summary["fit_parts"],
     }
+
+
+@router.post("/place", dependencies=[Depends(rate_limited)])
+async def place(body: PlaceRequest, d: D) -> dict[str, Any]:
+    """F4.5: exact times from one point (listing address or dropped pin), no cache."""
+    model = await _model(d)
+    f = d.config.api.fit
+    try:
+        return await place_detail(d, model, body.profile.profile(), body.point, f.a, f.p)
+    except ProfileError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    except LookupError as exc:
+        raise HTTPException(404, str(exc)) from exc
+    except NoRouteError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    except (ValhallaError, OtpError) as exc:
+        raise HTTPException(503, str(exc)) from exc

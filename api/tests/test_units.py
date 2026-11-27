@@ -7,6 +7,7 @@ import json
 from pathlib import Path
 
 import httpx
+import numpy as np
 import pytest
 import respx
 
@@ -159,3 +160,19 @@ async def test_route_errors() -> None:
             await client.route((0, 0), (0, 0), "pedestrian", {})
         await client.aclose()
     assert route.call_count == 3  # the 400 once (no retry), then 2 attempts
+
+
+async def test_matrix_compact_answer() -> None:
+    with respx.mock(base_url=URL) as router:
+        sent = router.post("/sources_to_targets").respond(
+            json={"sources_to_targets": {"durations": [[60.0, None]]}}
+        )
+        client = ValhallaClient(URL, CFG)
+        times = await client.matrix(
+            [(9.05, 48.52)], [(9.06, 48.52), (9.07, 48.52)], "pedestrian", {"walking_speed": 5}
+        )
+        await client.aclose()
+    payload = json.loads(sent.calls.last.request.content)
+    assert times[0, 0] == 60 and np.isnan(times[0, 1])
+    assert payload["verbose"] is False
+    assert payload["costing_options"]["pedestrian"]["walking_speed"] == 5

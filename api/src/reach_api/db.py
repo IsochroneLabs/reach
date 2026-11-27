@@ -76,6 +76,33 @@ FROM current.travel_times t
 WHERE t.cell_id = %s AND t.destination_id = ANY(%s)
 ORDER BY t.destination_id, t.mode
 """
+# F4.5 point routing: nearest k in EPSG:25832 (GiST <->), never distances in degrees.
+Q_NEAREST_TYPE = """
+WITH p AS (SELECT ST_Transform(ST_SetSRID(ST_MakePoint(%s, %s), 4326), 25832) AS g)
+SELECT d.destination_id, d.destination_type,
+       ST_X(ST_Transform(d.geom, 4326)) AS lon, ST_Y(ST_Transform(d.geom, 4326)) AS lat,
+       ST_Distance(d.geom, p.g) AS distance_m
+FROM current.destinations d, p
+WHERE d.destination_type = %s
+ORDER BY d.geom <-> p.g
+LIMIT %s
+"""
+Q_NEAREST_LABEL = """
+WITH p AS (SELECT ST_Transform(ST_SetSRID(ST_MakePoint(%s, %s), 4326), 25832) AS g)
+SELECT d.destination_id, d.destination_type, d.label,
+       ST_X(ST_Transform(d.geom, 4326)) AS lon, ST_Y(ST_Transform(d.geom, 4326)) AS lat,
+       ST_Distance(d.geom, p.g) AS distance_m
+FROM current.destination_labels d, p
+WHERE d.offered AND d.destination_type = %s AND d.label = %s
+ORDER BY d.geom <-> p.g
+LIMIT %s
+"""
+Q_CELL_AT = """
+SELECT cell_id, district_id, populated
+FROM current.cells
+WHERE ST_Contains(geom, ST_Transform(ST_SetSRID(ST_MakePoint(%s, %s), 4326), 25832))
+LIMIT 1
+"""
 # Words of the query must all occur in the label; `straße`, `strasse`, `str.` count as `str`.
 _NORM = (
     "regexp_replace(replace(replace(replace(lower(label), 'straße', 'str'), 'strasse', 'str'),"

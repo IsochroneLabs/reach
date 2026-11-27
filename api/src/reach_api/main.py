@@ -22,6 +22,7 @@ from reach_api import __version__
 from reach_api.db import PostgresDatabase
 from reach_api.deps import Deps
 from reach_api.listings import router as listings_router
+from reach_api.otp import OtpClient
 from reach_api.routes import router
 from reach_api.settings import Config, Env, label_names, load_config, personas
 from reach_api.store import NotPublished
@@ -55,11 +56,13 @@ def create_app(deps: Deps | None = None) -> FastAPI:
         valhalla_url = _require("VALHALLA_URL", env.valhalla_url)
         db = PostgresDatabase(dsn, config.api.db_pool)
         valhalla = ValhallaClient(valhalla_url, config.api.valhalla)
+        otp = OtpClient(config.otp, env.otp_url) if config.otp and env.otp_url else None
         await db.open()
         app.state.deps = Deps(
             config=config,
             db=db,
             valhalla=valhalla,
+            otp=otp,
             build_sha=build_sha,
             label_names=label_names(env.reach_config),
             personas=personas(env.reach_config),
@@ -69,6 +72,8 @@ def create_app(deps: Deps | None = None) -> FastAPI:
             yield
         finally:
             await valhalla.aclose()
+            if otp is not None:
+                await otp.aclose()
             await db.close()
 
     app = FastAPI(title="reach API", version=__version__, lifespan=lifespan)
