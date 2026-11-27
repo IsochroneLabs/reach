@@ -586,12 +586,12 @@ never proxied. Response-time test with 500 synthetic listings; extend the deploy
 one listings request when listings are enabled.
 ```
 
-#### F4.7 Listings in *Find* and *Check* — target 12 Jan · *Find* done on cell values (27 Nov 2026)
+#### F4.7 Listings in *Find* and *Check* — target 12 Jan · *Find* integrated (27 Nov 2026)
 
-- **State:** *Find* has a text toggle, photo-first cards sorted by the cell fit, square map markers
-  and a detail with parameters, the cell's trips, the ad link and "check this address" (which
-  opens Check through the existing place flow). Open: filters, gallery, listing places in *Check*
-  side by side and the plain-language comparison incl. rent.
+- **State:** *Find* opens on the best WGs for the profile (best fit first, the top six, the best
+  one expanded below the list, no toggle); the map hides the grid while a WG is open and draws its
+  fastest walk/bike routes (F4.5). The areas are a secondary, collapsible section. Open: filters,
+  gallery, listing places in *Check* side by side and the plain-language comparison incl. rent.
 
 - **Branch:** `feature/juju-listing-views`.
 - **Touches:** listings layer and list in *Find* (sorted by fit, filters), listing detail

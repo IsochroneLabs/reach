@@ -417,3 +417,8 @@ the selected programme's campus sites (default mix Tal + Morgenstelle) get the i
 stronger fill, the other sites a grey hairline. It is OSM data, not Alma: the Alma pipeline only
 has site shares, no building geometry. The filter is `amenity=university`, `building=university`,
 operator Universität Tübingen/Universitätsklinikum, or a campus name within 2.5 km of a site.
+
+**Integration (27 Nov 2026):** *Find* no longer toggles between areas and WGs. The WGs are the
+primary list (best fit first, top six, the best one opened below the list); the grid hides while a
+WG is open, the routes and university outlines are visible, and the areas are a secondary,
+collapsible section.
