@@ -1,14 +1,17 @@
 """Build the anonymised listing fixtures from raw WG-Gesucht pages (F4.2; run by hand, not by CI).
 
-    uv run python pipeline/tests/fixtures/listings/make_fixtures.py data/listings_raw
+    uv run python pipeline/tests/fixtures/listings/make_fixtures.py \
+        wg_minimal=<page.html> wg_rich=<page.html> wg_medium=<page.html> studio=<page.html> \
+        flat=<page.html>
 
 Keeps only the panels the parser reads (title, key facts, costs, address and availability,
 WG details, object details) in their original markup and replaces everything that could point
-to a person or a real ad: the ad number (fake 9000000x), image URLs (fake), house numbers,
-the free text (synthetic German text), single-person ages, and the map marker (rounded to
-3 decimals, ~100 m). Contact boxes, profile pictures, initials, "member since", ads and
-scripts are dropped. The script fails if anything of the original identifiers survives.
-Raw pages stay in `data/` (git-ignored) and are never committed.
+to a person or a real ad: the ad number (fake 9000000x), image URLs (fake), any house number
+(→ 1), the free text (synthetic German text), an age range of one person (→ 26 bis 26), and the
+map marker (rounded to 3 decimals, ~100 m). Nothing of the original ads is written in this file;
+the raw pages are named on the command line. Contact boxes, profile pictures, initials,
+"member since", ads and scripts are dropped. The script fails if an original identifier
+survives. Raw pages stay in `data/` (git-ignored) and are never committed.
 """
 
 from __future__ import annotations
@@ -20,10 +23,9 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 
-# raw ad number → fixture name, fake number and replacements
+# fixture name → fake ad number and synthetic free text per tab
 FIXTURES = {
-    "14421533": {
-        "name": "wg_minimal",
+    "wg_minimal": {
         "fake": "90000001",
         "texts": {
             "Zimmer": (
@@ -32,10 +34,8 @@ FIXTURES = {
             )
         },
     },
-    "4053055": {
-        "name": "wg_rich",
+    "wg_rich": {
         "fake": "90000002",
-        "house_number": ("Auf dem Kreuz 26", "Auf dem Kreuz 1"),
         "texts": {
             "Zimmer": "Das Zimmer ist ca. 18 m² groß, teilmöbliert, mit Blick über die Stadt.",
             "Lage": "Ruhige Lage am Hang, Bus drei Minuten zu Fuß, Supermarkt nah.",
@@ -47,26 +47,22 @@ FIXTURES = {
             "Sonstiges": "Besichtigungen sind abends und am Wochenende möglich.",
         },
     },
-    "6669142": {
-        "name": "wg_medium",
+    "wg_medium": {
         "fake": "90000003",
-        "ages": ("Bewohneralter:\n28\nbis\n28", "Bewohneralter:\n26\nbis\n26"),
         "texts": {
             "Zimmer": "Teilmöbliertes Zimmer in einer 2er-WG, hell und ruhig, mit großem Fenster.",
             "Lage": "Bäcker und Bus sind um die Ecke, mit dem Rad ist man schnell in der Stadt.",
             "WG-Leben": "Gemeinsames Wohnzimmer und Küche, entspanntes Zusammenleben.",
         },
     },
-    "14219426": {
-        "name": "studio",
+    "studio": {
         "fake": "90000004",
         "texts": {
             "Wohnung": "Gemütliche 1-Zimmer-Wohnung mit Terrasse und eigener Küche.",
             "Lage": "Ruhige Wohnstraße, Bus in zwei Minuten zu Fuß.",
         },
     },
-    "14337244": {
-        "name": "flat",
+    "flat": {
         "fake": "90000005",
         "texts": {
             "Wohnung": "Große 3-Zimmer-Wohnung im Erdgeschoss mit Garten, befristet.",
@@ -74,6 +70,8 @@ FIXTURES = {
     },
 }
 MAX_IMAGES = 3
+FAKE_HOUSE_NUMBER = "1"
+FAKE_SINGLE_AGE = 26
 
 
 def _clean(page: str) -> str:
@@ -137,8 +135,33 @@ def _free_text(texts: dict[str, str]) -> str:
     )
 
 
-def build(raw: str, ad: str, spec: dict) -> str:
+def _anonymise_address(body: str) -> str:
+    """Replace a house number on the street line of the address panel."""
+    m = re.search(
+        r'(?s)(Adresse\s*</h2>.*?<span class="section_panel_detail">\s*)(.*?)(\s*<br)', body
+    )
+    if not m:
+        return body
+    street = re.sub(
+        r"\s+\d+\s*[a-zA-Z]?(?:\s*[-/]\s*\d+\s*[a-zA-Z]?)?$", f" {FAKE_HOUSE_NUMBER}", m.group(2)
+    )
+    return body[: m.start(2)] + street + body[m.end(2) :]
+
+
+def _anonymise_ages(body: str) -> str:
+    """An age range of one person ("30 bis 30") is that person's age: replace it."""
+
+    def fake(m: re.Match) -> str:
+        if m.group(1) != m.group(2):
+            return m.group(0)
+        return f"Bewohneralter: {FAKE_SINGLE_AGE} bis {FAKE_SINGLE_AGE}"
+
+    return re.sub(r"Bewohneralter:\s*(\d+)\s*bis\s*(\d+)", fake, body)
+
+
+def build(raw: str, name: str, spec: dict) -> str:
     page = _clean(raw)
+    ad = re.search(r"Anzeigennummer:\s*</b>\s*(\d+)", page).group(1)
     fake = spec["fake"]
     canonical = re.search(r'<link rel="canonical" href="([^"]+)"', raw).group(1)
     marker = json.loads(re.search(r"markers:\s*(\[\{.*?\}\])", raw).group(1))[0]
@@ -163,13 +186,7 @@ def build(raw: str, ad: str, spec: dict) -> str:
     split = body.find('<div class="panel section_panel">', addr_end)
     free = _free_text(spec["texts"])
     body = body + "\n" + free if split < 0 else body[:split] + free + body[split:]
-    for pair in (spec.get("house_number"), spec.get("ages")):
-        if pair is None:
-            continue
-        old, new = pair
-        pattern = r"\s+".join(re.escape(part) for part in old.split("\n"))
-        body, n = re.subn(pattern, new.replace("\n", " "), body)
-        assert n, f"{spec['name']}: {old!r} not found"
+    body = _anonymise_ages(_anonymise_address(body))
     body = body.replace(ad, fake)
     lat, lon = round(marker["lat"], 3), round(marker["lng"], 3)
     script = (
@@ -180,10 +197,10 @@ def build(raw: str, ad: str, spec: dict) -> str:
     url = canonical.replace(ad, fake)
     doc = (
         '<!doctype html>\n<html lang="de">\n<head>\n<meta charset="utf-8">\n'
-        f"<title>fixture {spec['name']}</title>\n"
+        f"<title>fixture {name}</title>\n"
         f'<link rel="canonical" href="{url}">\n</head>\n<body>\n'
         "<!-- Anonymised fixture built by make_fixtures.py from a WG-Gesucht ad (27 Nov 2026): "
-        "ids, images, house numbers, free text and single ages replaced. -->\n"
+        "ids, images, house number, free text and single ages replaced. -->\n"
         f'<div id="main_column">\n{body}\n</div>\n{script}</body>\n</html>\n'
     )
     doc = re.sub(r"\n\s*\n+", "\n", re.sub(r"[ \t]+", " ", doc))
@@ -203,14 +220,18 @@ def _check(doc: str, raw: str, ad: str) -> None:
         raise SystemExit(f"anonymisation failed: {problems[:5]}")
 
 
-def main(raw_dir: str) -> None:
-    for ad, spec in FIXTURES.items():
-        raw = (Path(raw_dir) / f"ad_{ad}.html").read_text(encoding="utf-8")
-        doc = build(raw, ad, spec)
-        path = HERE / f"{spec['name']}.html"
+def main(args: list[str]) -> None:
+    pages = dict(a.split("=", 1) for a in args)
+    missing = sorted(set(FIXTURES) - set(pages))
+    if missing:
+        raise SystemExit(f"raw page missing for {missing}")
+    for name, spec in FIXTURES.items():
+        raw = Path(pages[name]).read_text(encoding="utf-8")
+        doc = build(raw, name, spec)
+        path = HERE / f"{name}.html"
         path.write_text(doc, encoding="utf-8")
         print(f"{path.name}: {len(doc.encode()) / 1024:.1f} KB")
 
 
 if __name__ == "__main__":
-    main(sys.argv[1])
+    main(sys.argv[1:])
