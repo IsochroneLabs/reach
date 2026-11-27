@@ -295,6 +295,14 @@ the API uses the district's cell values and says so.
 V12 checks, same columns as `validation_report` (`stage` = `listings_validate`): parse share,
 geocode precision shares, distance `geom` ↔ `source_point`, freshness.
 
+### API *(F4.6)*
+
+`GET /api/listings` → array of the current snapshot: the contract columns except the internal ones,
+plus `point` (EPSG:4326) and `approximate` (true until F4.5 point routing). `POST /api/listings/fit`
+takes the profile body of `/api/fit` and returns the same array plus `fit` and `weekly_min` of the
+listing's cell, best fit first. Both read `listings.listings` only; image URLs are returned as
+links, never proxied.
+
 ### Parser output *(F4.2)*
 
 One field spec for both parsers (Python `reach_pipeline.listings.parse` for the job,
@@ -328,6 +336,7 @@ geocoding, the point (`POST /api/place`). Nothing of it is stored on the server.
 
 | Version | Date | Change | Why |
 |---|---|---|---|
+| proposed (F4.6) | 2026-11-27 | API of the current listings (`GET /api/listings`, `POST /api/listings/fit`, fit from the cell until F4.5) | F4.6 built on the F4.1 proposal |
 | proposed (F4.1) | 2026-11-27 | Listings: schema `lst_<id>` (`listings`, `listing_travel_times`, `listing_report`), views `listings.*`, retention, personal-data reductions, parser output, variant C, files | Extension plan F4.1, architecture O24/O25; version bump once the team confirms |
 | v1.1.0 draft | 2026-11-27 | S1.4: all run-schema tables (`cells.populated`, destinations, labels, campus sites, programmes, addresses, stop departures, trip windows, travel times with transit legs) and all API responses after `web/src/api/types.ts`; `validate/` files of S1.6, `transit/`, `travel_times/`, `validate_results/` | Phase 1 core built by Juju's session (decision of 27 Nov 2026: "nothing depends on Rico"); the web client already uses these shapes on fixtures |
 | v1.2.0 draft | 2026-11-27 | `programmes.shares` (site shares from the Alma reference week) and `shares?` in `GET /api/programmes` | F3.3/F3.4: the campus time of a programme is weighted by its session hours per site (notes N24) |

@@ -361,3 +361,16 @@ and each failed query takes about 1 s instead of 20 ms, so the transit step drop
 ≈ 60 queries/s for a while. **To do:** in `travel_times`, query each destination point once
 first and skip the points OTP cannot link (time = unreachable, counted in the result report); or
 limit label destinations to the routing area minus a margin in `validate`.
+
+## N26. Listings in the demo: cell fit, hotlinked photos, permission still open
+
+**Status:** building block 27 Nov 2026 · **Related:** F4.4, F4.6, F4.7, architecture O24, notes N20, data contract *Listings*
+
+A real crawl of the Tübingen WG-Gesucht search pages (one page per kind, 20 s between requests,
+60 ads) ran on 27 Nov 2026: snapshot `data/listings/20261127T090214Z` (60 listings, 386 image links),
+published as `lst_20261127t090214z`. *Find* shows them behind the toggle with the fit and weekly
+time of the listing's **cell**, not of its point; F4.5 point routing is not built yet. 45 of the
+60 fall into a populated cell, and `street`/`marker` geocodes are labelled "address approximate".
+Images stay links to the source; some WG-Gesucht images answer 403 and the card then shows the
+hatched placeholder. The SMP permission request (extension plan appendix A) is still not sent
+(N20); the crawl stays local to the demo until it is.

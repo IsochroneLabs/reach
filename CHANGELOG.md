@@ -4,6 +4,8 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+- WG-Gesucht listings in *Find* (F4.7 building block): a text toggle loads the published snapshot, photo-first cards sorted by the fit of the listing's cell, square map markers, a detail with rent, size, rooms, availability, features, the cell's trips, a link to the ad and "check this address"; `GET /api/listings` and `POST /api/listings/fit` read only `listings.listings`; 60 real Tübingen ads crawled on 27 Nov 2026 and published (notes N20, N26; F4.5 point routing still open)
+- Publish robustness: empty text values (e.g. a missing postcode) stay empty strings instead of NULL, unnamed destinations get their type label, and `current` views are dropped and recreated when a run adds or reorders a column
 - Listings (F4.2): parser for WG-Gesucht ad and search pages with the field spec of the data contract (contact data stripped, partial results with warnings instead of errors) and five anonymised fixtures
 - Alma programme sites (F3.2–F3.4): polite crawl of the public Alma day view for one reference teaching week (`python -m reach_pipeline.alma crawl|shares`, 20 s between requests, no names stored), building → campus site and module number → programme patterns in `config/campus.yaml`, site shares per programme in `programmes.shares` and in the fit's campus time (data contract v1.2.0 draft, notes N24)
 - Fit API (S1.10): `GET /api/meta`, `/destination-types` (with labels), `/label-destinations`, `/campus-sites`, `/programmes`, `/personas`; `POST /api/addresses/search`, `/api/fit` (whole city from an in-memory model of `current.travel_times`, areas with reasons, cached on run + profile), `/api/cell/{id}` (trips with bus legs and the last departure home)

@@ -517,7 +517,13 @@ POST address search. Document in the about page what happens to the data. Playwr
 fixture page.
 ```
 
-#### F4.4 Variant A: daily crawl job — target 12 Jan
+#### F4.4 Variant A: daily crawl job — target 12 Jan · building block done (27 Nov 2026)
+
+- **State:** `reach_pipeline.listings.crawl` fetches the search pages and detail pages politely
+  (20 s interval, contact data stripped), geocodes against `validate/addresses.parquet` and writes
+  `data/listings/<snapshot_id>/listings.parquet`; `publish_listings` switches `listings.*`. The
+  real crawl of 27 Nov 2026 published 60 ads (notes N26). Open: `make listings`, the lock with the
+  refresh, V12, notifications and the daily schedule (F4.9).
 
 - **Branch:** `feature/juju-listing-crawl`.
 - **Touches:** `pipeline/src/reach_pipeline/listings/crawl.py`, `stages/publish_listings.py`,
@@ -554,7 +560,11 @@ trip window. Expose it as POST /api/place (body not logged, no cache). Test: rec
 responses; latency on the test clip; compare with the cell values of the same point.
 ```
 
-#### F4.6 Listing API — target 8 Jan
+#### F4.6 Listing API — target 8 Jan · done for the cell fit (27 Nov 2026)
+
+- **State:** `GET /api/listings` and `POST /api/listings/fit` read only `listings.listings`; the
+  fit and weekly time are those of the listing's cell (F4.5 point routing is open). Images are
+  links. Tests in `api/tests/test_listings.py`.
 
 - **Branch:** `feature/juju-listing-api`.
 - **Touches:** `GET /api/listings` (filters: kind, max rent, min size, available from, bbox),
@@ -569,7 +579,12 @@ never proxied. Response-time test with 500 synthetic listings; extend the deploy
 one listings request when listings are enabled.
 ```
 
-#### F4.7 Listings in *Find* and *Check* — target 12 Jan
+#### F4.7 Listings in *Find* and *Check* — target 12 Jan · *Find* done on cell values (27 Nov 2026)
+
+- **State:** *Find* has a text toggle, photo-first cards sorted by the cell fit, square map markers
+  and a detail with parameters, the cell's trips, the ad link and "check this address" (which
+  opens Check through the existing place flow). Open: filters, gallery, listing places in *Check*
+  side by side and the plain-language comparison incl. rent.
 
 - **Branch:** `feature/juju-listing-views`.
 - **Touches:** listings layer and list in *Find* (sorted by fit, filters), listing detail
